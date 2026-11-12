@@ -745,6 +745,32 @@ describe("SearchComponent", () => {
     expect(seoService.updateForSearch).toHaveBeenCalled()
   })
 
+  // Analytics sends the page's title with every event: what the reader
+  // searches must never be in it.
+  it("keeps the query out of the page's title", async () => {
+    referenceService.extract.mockReturnValue([])
+    apiService.search.mockReturnValue(
+      of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
+    )
+    fixture.detectChanges()
+
+    await component.onSearchSubmit("palavrasecreta")
+
+    for (const args of seoService.updateForSearch.mock.calls) {
+      expect(args).toEqual([])
+    }
+    expect(document.title).not.toContain("palavrasecreta")
+  })
+
+  // The results were in no landmark: one main, the page's.
+  it("holds the results in the page's one main landmark", () => {
+    fixture.detectChanges()
+    const main = (fixture.nativeElement as HTMLElement).querySelectorAll("main")
+
+    expect(main.length).toBe(1)
+    expect(main[0].classList).toContain("search-container")
+  })
+
   it("should navigate to a direct reference using verseStart", async () => {
     const verse = {
       bookId: "jhn",

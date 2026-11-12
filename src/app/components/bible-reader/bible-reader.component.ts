@@ -982,6 +982,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
     const sheet = this.bottomSheet.open(FootnotesBottomSheetComponent, {
       data: { footnotes, verse },
+      ariaLabel: `Notas de ${this.nativeFootnotes.title(verse)}`,
+      ariaModal: true,
       restoreFocus: false,
     })
     this.backButton.closeOnBack(sheet)

@@ -118,7 +118,7 @@ h3:not(:first-child) {
    whatever the marker: browsers break around the iOS app's <svg> icon even
    between word joiners. A word joiner after the pair forbids a break before
    the word; it is generated, so it isn't copied with the text, and it is the
-   pair's ::after, since the marker's own is the apps' touch target. */
+   pair's ::after, since the marker's own is its target. */
 .verseMarker {
   white-space: nowrap;
 }
@@ -199,37 +199,34 @@ h3:not(:first-child) {
   stroke-linejoin: round;
 }
 
-/* The iOS app: only the marker opens the notes (a tap on the text shows or
-   hides the bars), so it gets a finger-sized target, Apple's 44 pt minimum.
-   Touch screens on the web get it too; a mouse keeps the small marker. */
-:host-context(.native-chrome) .footnoteIndicator {
+/* A target larger than the 13 px marker, without moving the text: WCAG's
+   24 px minimum for a mouse. In the iOS app only the marker opens the notes
+   (a tap on the text shows or hides the bars), so it gets a finger-sized
+   one, Apple's 44 pt minimum, as touch screens on the web do. */
+.footnoteIndicator {
   position: relative;
 }
 
-@media (pointer: coarse) {
-  .footnoteIndicator {
-    position: relative;
-  }
-
-  .footnoteIndicator::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 44px;
-    height: 44px;
-    transform: translate(-50%, -50%);
-  }
-}
-
-:host-context(.native-chrome) .footnoteIndicator::after {
+.footnoteIndicator::after {
   content: "";
   position: absolute;
   left: 50%;
   top: 50%;
+  width: 24px;
+  height: 24px;
+  transform: translate(-50%, -50%);
+}
+
+@media (pointer: coarse) {
+  .footnoteIndicator::after {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+:host-context(.native-chrome) .footnoteIndicator::after {
   width: 44px;
   height: 44px;
-  transform: translate(-50%, -50%);
 }
 
 /* Android's minimum touch target, as the floating buttons have. */

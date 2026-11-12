@@ -111,6 +111,13 @@ describe("SearchBarComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // A screen reader said "back", in English.
+  it("names its back button in Portuguese", () => {
+    const back = fixture.nativeElement.querySelector(".backButton")
+
+    expect(back.getAttribute("aria-label")).toBe("Voltar")
+  })
+
   // Android capitalised the first letter: "amor" showed as "Amor".
   it("leaves typed words as typed", () => {
     const input = fixture.nativeElement.querySelector(

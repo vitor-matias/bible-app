@@ -10,7 +10,9 @@
     (previous)="stepBackward()" (next)="stepForward()" (selectPassage)="goToPassage($event)"></header>
   <mat-drawer-container class="bookSelectorContainer" #container>
     @if (books.length) {
-    <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed>
+    <!-- Modal while open: it holds the focus over the text. -->
+    <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed role="dialog"
+      aria-modal="true" [attr.aria-label]="showBooks ? 'Livros' : 'Capítulos'">
       <button type="button" matIconButton (click)="dismissBookDrawer()" class="dismiss-button" aria-label="Fechar" #bookDrawerCloseButton>
         <mat-icon>menu_open</mat-icon>
       </button>
@@ -35,7 +37,7 @@
         </button>
       </div>
       }
-      <div #bookContainer [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
+      <div #bookContainer role="main" [class.paged-view-container]="effectiveViewMode === 'paged'" [appPagedNavigation]="bookBlock"
         [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
         (pageStateChange)="onPageStateChange($event)">
         @if (showChapterCards && introCard) {

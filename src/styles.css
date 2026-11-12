@@ -768,8 +768,9 @@ html.ragged-text .footnotes-container {
 }
 
 /* Verse numbers are small text: the dark theme's crimson on #121212 is 3.8:1,
-   under the 4.5:1 small text needs. iOS's own dark red is 5.5:1. */
-.dark-theme .native-chrome verse .verseNumber {
+   under the 4.5:1 small text needs. iOS's own dark red is 5.5:1, in the
+   apps and on the website. */
+.dark-theme verse .verseNumber {
   color: #ff453a;
 }
 

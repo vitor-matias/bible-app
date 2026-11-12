@@ -79,7 +79,10 @@ import { buildPassagePicker } from "../../utils/passage-picker"
 import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
-import { ReaderMenuComponent } from "../reader-menu/reader-menu.component"
+import {
+  MENU_BUTTON,
+  ReaderMenuComponent,
+} from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.component"
@@ -290,6 +293,9 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     this.backButton.closeOnBack(
       this.bottomSheet.open(BookmarkSelectorComponent, {
         data: { bookId, chapter: INDEX_BOOKMARK_CHAPTER },
+        ariaLabel: "Marcadores",
+        ariaModal: true,
+        restoreFocus: MENU_BUTTON,
       }),
     )
   }
@@ -348,6 +354,8 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     }
     this.dialog.open(ReportProblemComponent, {
       data: { book, chapter: INDEX_BOOKMARK_CHAPTER },
+      ariaModal: true,
+      restoreFocus: MENU_BUTTON,
       width: "90%",
       maxWidth: "500px",
     })
@@ -457,6 +465,9 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       })
     }
 
+    // The page's title names the theme its address does.
+    effect(() => this.seoService.updateForPastoralIndex(this.entry()?.title))
+
     // Rotating a phone crosses the breakpoint, and every theme opens or folds
     // above the one being read. Back to it once they have.
     let first = true
@@ -477,7 +488,6 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.seoService.updateForPastoralIndex()
     this.route.paramMap
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((params) => {

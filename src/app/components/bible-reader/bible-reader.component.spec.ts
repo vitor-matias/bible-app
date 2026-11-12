@@ -398,6 +398,18 @@ describe("BibleReaderComponent", () => {
         expect(data.footnotes.map((note) => note.text)).toEqual(["Nota do 2"])
       })
 
+      // The sheet was an unnamed dialog, and not marked modal.
+      it("names the notes sheet after the verse, as a modal dialog", () => {
+        const { sheet } = follow("2")
+
+        expect(sheet.mock.lastCall?.[1]).toEqual(
+          expect.objectContaining({
+            ariaLabel: expect.stringMatching(/^Notas de .* 1,2$/),
+            ariaModal: true,
+          }),
+        )
+      })
+
       it("takes the first verse with notes in a range", () => {
         const { sheet } = follow("3-4")
 
@@ -1598,6 +1610,35 @@ describe("BibleReaderComponent", () => {
         0,
       )
     })
+  })
+
+  // The drawer was an unnamed region: a screen reader heard neither what it
+  // lists nor that it holds the focus.
+  it("names the drawer after what it lists, as a modal dialog", () => {
+    fixture.detectChanges()
+    const drawer = () =>
+      (fixture.nativeElement as HTMLElement).querySelector(
+        "mat-drawer",
+      ) as HTMLElement
+
+    expect(drawer().getAttribute("role")).toBe("dialog")
+    expect(drawer().getAttribute("aria-modal")).toBe("true")
+    expect(drawer().getAttribute("aria-label")).toBe("Livros")
+
+    component.showBooks = false
+    ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+    fixture.detectChanges()
+    expect(drawer().getAttribute("aria-label")).toBe("Capítulos")
+  })
+
+  // The text, the About page and the introductions were in no landmark.
+  it("holds the text in the page's one main landmark", () => {
+    fixture.detectChanges()
+    const host = fixture.nativeElement as HTMLElement
+    const main = host.querySelectorAll('main, [role="main"]')
+
+    expect(main.length).toBe(1)
+    expect(main[0].querySelector(".bookBlock")).not.toBeNull()
   })
 
   describe("Drawer Actions", () => {

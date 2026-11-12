@@ -1,5 +1,9 @@
 import { Injectable, inject } from "@angular/core"
-import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
+import {
+  MatDialog,
+  type MatDialogConfig,
+  type MatDialogRef,
+} from "@angular/material/dialog"
 import { Capacitor } from "@capacitor/core"
 import {
   OnboardingComponent,
@@ -49,9 +53,13 @@ export class OnboardingService {
     return true
   }
 
-  /** The wizard's dialog; null in the native apps, which show their own. */
+  /**
+   * The wizard's dialog; null in the native apps, which show their own.
+   * restoreFocus: where the focus goes on closing (MatDialogConfig's).
+   */
   open(
     source: OnboardingSource = "menu",
+    restoreFocus: MatDialogConfig["restoreFocus"] = true,
   ): MatDialogRef<OnboardingComponent, OnboardingResult> | null {
     if (this.nativeChrome.enabled) {
       this.openNative(source)
@@ -72,6 +80,8 @@ export class OnboardingService {
       maxHeight: "90vh",
       autoFocus: "dialog",
       ariaLabelledBy: "onboarding-title",
+      ariaModal: true,
+      restoreFocus,
     })
     this.dialogRef = ref
 

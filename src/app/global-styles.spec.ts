@@ -425,8 +425,8 @@ describe("global styles", () => {
   })
 
   // In the dark theme the crimson verse numbers were 3.8:1 on the background,
-  // under the 4.5:1 that small text needs.
-  describe("verse numbers in the iOS app's dark theme", () => {
+  // under the 4.5:1 that small text needs; on the website too.
+  describe("verse numbers in the dark theme", () => {
     let verse: HTMLElement
 
     beforeEach(() => {
@@ -445,13 +445,16 @@ describe("global styles", () => {
     const color = () =>
       getComputedStyle(verse.querySelector(".verseNumber") as HTMLElement).color
 
-    it("are iOS's dark red", () => {
+    it("are iOS's dark red in the apps", () => {
       document.body.classList.add("native-chrome")
       expect(color()).toBe("rgb(255, 69, 58)")
     })
 
-    it("are left to the web theme elsewhere", () => {
-      expect(color()).not.toBe("rgb(255, 69, 58)")
+    it("are iOS's dark red on the website, readable as small text", () => {
+      expect(color()).toBe("rgb(255, 69, 58)")
+      expect(contrastRatio(color(), "rgb(18, 18, 18)")).toBeGreaterThanOrEqual(
+        4.5,
+      )
     })
   })
 

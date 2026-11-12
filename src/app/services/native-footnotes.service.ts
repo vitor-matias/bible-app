@@ -125,9 +125,9 @@ export class NativeFootnotesService {
 
   /**
    * "Mateus 11,3", "Salmo 23 (22),1", or the chapter alone for notes before
-   * the first verse.
+   * the first verse. The website's notes sheet is named after it too.
    */
-  private title(verse: Verse): string {
+  title(verse: Verse): string {
     const book = this.bookService.findBookById(verse.bookId) ?? {
       id: verse.bookId,
       shortName: verse.bookId,

@@ -7,6 +7,7 @@ import { MatListModule } from "@angular/material/list"
 import { MatDrawer, MatSidenavModule } from "@angular/material/sidenav"
 import { of } from "rxjs"
 import { BookmarkService } from "../../services/bookmark.service"
+import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { ChapterSelectorComponent } from "./chapter-selector.component"
 
@@ -145,6 +146,38 @@ describe("ChapterSelectorComponent", () => {
     fixture.componentRef.setInput("selectedChapter", 1)
     fixture.detectChanges()
     expect(highlighted()).toEqual([true, false])
+  })
+
+  // Material's focus cue, a 12% state layer, didn't show on the drawer.
+  it("rings the chapter focused from the keyboard", () => {
+    const button = fixture.nativeElement.querySelector(
+      ".chapterSelectorButton",
+    ) as HTMLElement
+    button.focus()
+
+    expect(button.matches(":focus-visible")).toBe(true)
+    expect(getComputedStyle(button).outlineStyle).toBe("solid")
+    expect(getComputedStyle(button).outlineWidth).toBe("2px")
+  })
+
+  // Windows' contrast themes dropped the highlight's background, and with it
+  // any sign of the chapter being read.
+  it("rings the chapter being read in a forced-colours mode", async () => {
+    fixture.componentRef.setInput("selectedChapter", 1)
+    fixture.detectChanges()
+    const [current, other] = Array.from<HTMLElement>(
+      fixture.nativeElement.querySelectorAll(".chapterSelectorButton"),
+    ).map((button) => getComputedStyle(button))
+
+    await forceColors(true)
+    try {
+      expect(current.outlineStyle).toBe("solid")
+      expect(current.outlineColor).toBe(systemColor("Highlight"))
+      // Material outlines every button there, thinly, in the text colour.
+      expect(other.outlineColor).not.toBe(systemColor("Highlight"))
+    } finally {
+      await forceColors(false)
+    }
   })
 
   it("should render bookmark icon for bookmarked chapters", () => {

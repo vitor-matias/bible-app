@@ -4,7 +4,7 @@
   @if (!native) {
   <search-bar [value]="fieldValue" [focusOnOpen]="!hasSearched" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
   }
-  <div unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion || themes.length > 0" #container>
+  <main unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="!!passageSuggestion || themes.length > 0" #container>
 
   <!-- A typed reference, offered at once: no wait for the search. -->
   @if (passageSuggestion) {
@@ -115,4 +115,4 @@
     </div>
   }
 
-</div>
+</main>

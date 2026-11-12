@@ -34,8 +34,10 @@ import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { PastoralIndexComponent } from "./pastoral-index.component"
 import entries from "./pastoral-index.data.json"
@@ -363,11 +365,18 @@ describe("PastoralIndexComponent", () => {
     expect(text).not.toMatch(/\s[;.]/)
   })
 
-  it("keeps the page's name at a theme's own address too", async () => {
+  // Every theme's page had the index's title, the same in each tab.
+  it("titles a theme's own address with the theme", async () => {
     await open("amor")
 
     expect(seo.updateForPastoralIndex).toHaveBeenCalledOnce()
-    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith()
+    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith("Amor")
+  })
+
+  it("keeps the index's title at its own address", async () => {
+    await open()
+
+    expect(seo.updateForPastoralIndex).toHaveBeenCalledWith(undefined)
   })
 
   it("follows the address to another theme in the same view", async () => {
@@ -509,6 +518,7 @@ describe("PastoralIndexComponent", () => {
             }),
             chapter: 1,
           },
+          ariaModal: true,
         }),
       )
     })
@@ -527,14 +537,24 @@ describe("PastoralIndexComponent", () => {
       item("Marcadores")?.click()
       expect(bottomSheet.open).toHaveBeenLastCalledWith(
         BookmarkSelectorComponent,
-        { data: { bookId: "indice/amor", chapter: 1 } },
+        expect.objectContaining({
+          data: { bookId: "indice/amor", chapter: 1 },
+          ariaLabel: "Marcadores",
+          ariaModal: true,
+          // The menu entry is gone when it closes: back to the menu button.
+          restoreFocus: MENU_BUTTON,
+        }),
       )
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(MENU_BUTTON)
+          ?.ariaLabel,
+      ).toBe("Menu")
 
       params.next(convertToParamMap({}))
       fixture.componentInstance.openBookmarks()
       expect(bottomSheet.open).toHaveBeenLastCalledWith(
         BookmarkSelectorComponent,
-        { data: { bookId: "indice", chapter: 1 } },
+        expect.objectContaining({ data: { bookId: "indice", chapter: 1 } }),
       )
     })
 
@@ -561,7 +581,7 @@ describe("PastoralIndexComponent", () => {
       const item = await openMenu(fixture)
 
       item("Como usar a app")?.click()
-      expect(onboarding.open).toHaveBeenCalledWith("menu")
+      expect(onboarding.open).toHaveBeenCalledWith("menu", MENU_BUTTON)
 
       fixture.componentInstance.openAbout()
       expect(navigate).toHaveBeenCalledWith(["/", "sobre", 1])
@@ -886,6 +906,19 @@ describe("PastoralIndexComponent", () => {
         getComputedStyle(current.querySelector(".mdc-button__label") as Element)
           .color,
       ).toBe("rgb(84, 61, 39)")
+      // Windows' contrast themes drop that background: a ring marks it.
+      await forceColors(true)
+      try {
+        expect(getComputedStyle(current).outlineColor).toBe(
+          systemColor("Highlight"),
+        )
+        const other = el.querySelector(".letters button:not(.current)")
+        expect(getComputedStyle(other as Element).outlineColor).not.toBe(
+          systemColor("Highlight"),
+        )
+      } finally {
+        await forceColors(false)
+      }
       window.scrollTo(0, 0)
     })
 
@@ -1050,8 +1083,8 @@ describe("PastoralIndexComponent", () => {
     )
     // So that Back from a citation finds it open.
     expect(replaceState.mock.lastCall?.[0]).toBe("/indice/amor")
-    // The page keeps its one name, whichever theme is open.
-    expect(seo.updateForPastoralIndex).toHaveBeenCalledTimes(1)
+    // The heading stays the page's; the title follows the address.
+    expect(seo.updateForPastoralIndex).toHaveBeenLastCalledWith("Amor")
     expect(el.querySelector("h1")?.textContent).toBe("Índice Bíblico-Pastoral")
   })
 

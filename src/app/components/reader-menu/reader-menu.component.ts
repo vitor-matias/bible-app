@@ -26,6 +26,12 @@ import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 
 /**
+ * The pages' menu button. What an entry opens gives the focus back to it on
+ * closing: the entry itself is gone by then, and the focus fell to the page.
+ */
+export const MENU_BUTTON = ".menuButton"
+
+/**
  * The menu of the reader's header, which the pastoral index shares: the page
  * opens it with `[matMenuTriggerFor]="menu.menu"` and answers what is its own.
  */
@@ -153,7 +159,7 @@ export class ReaderMenuComponent {
   }
 
   openHelp(): void {
-    this.onboardingService.open("menu")
+    this.onboardingService.open("menu", MENU_BUTTON)
   }
 
   async install(): Promise<void> {
