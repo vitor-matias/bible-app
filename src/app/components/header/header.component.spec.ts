@@ -238,6 +238,44 @@ describe("HeaderComponent", () => {
     expect(none.search - inset.search).toBeCloseTo(40, 0)
   })
 
+  // Moving the menu into reader-menu (#274) deleted these rules: tabbing to
+  // Menu, the book chip or Pesquisar showed no ring.
+  it("rings the focused toolbar control, in both themes, on 44 px targets", () => {
+    const host = fixture.nativeElement as HTMLElement
+    const controls = [
+      host.querySelector<HTMLElement>(".menuButton"),
+      host.querySelector<HTMLElement>(
+        ".bookSelectorButton .mat-button-toggle-button",
+      ),
+      host.querySelector<HTMLElement>(".searchButton"),
+    ]
+    const html = document.documentElement
+    const wasDark = html.classList.contains("dark-theme")
+    try {
+      for (const dark of [false, true]) {
+        html.classList.toggle("dark-theme", dark)
+        for (const control of controls) {
+          control?.focus()
+          expect(control?.matches(":focus-visible")).toBe(true)
+          const style = getComputedStyle(control as HTMLElement)
+          expect(style.outlineStyle).toBe("solid")
+          expect(style.outlineWidth).toBe("2px")
+          expect(style.outlineColor).toBe("rgb(84, 61, 39)")
+        }
+      }
+    } finally {
+      html.classList.toggle("dark-theme", wasDark)
+    }
+
+    for (const toggle of host.querySelectorAll(
+      ".bookSelectorButton .mat-button-toggle-button",
+    )) {
+      const { width, height } = toggle.getBoundingClientRect()
+      expect(width).toBeGreaterThanOrEqual(44)
+      expect(height).toBeGreaterThanOrEqual(44)
+    }
+  })
+
   // References open from the stored Bible offline, and words are searched in it.
   it("hides the search icon from screen readers; the button names it", () => {
     const button = fixture.nativeElement.querySelector(".searchButton")
@@ -633,7 +671,7 @@ describe("HeaderComponent", () => {
       fixture.detectChanges()
       await openMenu()
 
-      expect(text()).toBe("Bundle 20261016-120000Z")
+      expect(text()).toBe("Versão 20261016-120000Z")
     })
 
     it("is left out until the version is known", async () => {

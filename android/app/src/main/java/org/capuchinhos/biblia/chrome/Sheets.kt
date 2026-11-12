@@ -738,11 +738,10 @@ private fun FootnotesSheet(chrome: ChromeController, sheet: Sheet.Footnotes) {
         fontSize = size.sp,
         lineHeight = 1.4.em,
         color = MaterialTheme.colorScheme.onSurface,
-        // As the reader: past 180% a line holds a handful of words, and
-        // justified it spreads them.
-        textAlign = if (state.fontScale > 1.8f) TextAlign.Start else TextAlign.Justify,
-        // Portuguese hyphenation, whatever the phone's language.
-        hyphens = Hyphens.Auto,
+        textAlign = if (state.ragged) TextAlign.Start else TextAlign.Justify,
+        // Portuguese hyphenation, whatever the phone's language; none when the
+        // reader chose ragged-right, as the reader's.
+        hyphens = if (state.hyphenate ?: true) Hyphens.Auto else Hyphens.None,
         localeList = LocaleList("pt-PT"),
         lineBreak = LineBreak.Paragraph,
     )

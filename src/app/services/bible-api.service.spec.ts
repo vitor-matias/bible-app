@@ -194,12 +194,30 @@ describe("BibleApiService", () => {
 
     it("lets go of the app when the chapter fails", async () => {
       offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
+
+      const chapter = firstValueFrom(service.getChapter(book, chapterNum))
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock
+        .expectOne(`v1/${book}/${chapterNum}`)
+        .error(new ProgressEvent("error"))
+
+      await expect(chapter).rejects.toThrow()
+      await TestBed.inject(ApplicationRef).whenStable()
+    })
+
+    // In a browser tab IndexedDB is empty, but the service worker may have
+    // the chapter: only the request can tell.
+    it("asks the network for an uncached chapter while offline", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
       networkServiceStub.isOffline = true
 
-      await expect(
-        firstValueFrom(service.getChapter(book, chapterNum)),
-      ).rejects.toThrow()
-      await TestBed.inject(ApplicationRef).whenStable()
+      const chapter = firstValueFrom(service.getChapter(book, chapterNum))
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne(`v1/${book}/${chapterNum}`).flush(mockChapter)
+
+      expect(await chapter).toEqual(mockChapter)
     })
 
     it("should fetch from server when cache returns undefined", async () => {
@@ -219,6 +237,20 @@ describe("BibleApiService", () => {
 
       const result = await chapterPromise
       expect(result).toEqual(mockChapter)
+    })
+
+    // An empty 200 parses as null, which the reader showed as a blank page.
+    it("fails on a response that is not a chapter", async () => {
+      offlineDataServiceSpy.getCachedChapterAsync.mockResolvedValue(undefined)
+
+      const chapterPromise = firstValueFrom(
+        service.getChapter(book, chapterNum),
+      )
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne(`v1/${book}/${chapterNum}`).flush(null)
+
+      await expect(chapterPromise).rejects.toThrow()
     })
 
     it("should fetch from server when cached chapter has no verses array", async () => {
@@ -341,14 +373,19 @@ describe("BibleApiService", () => {
       httpMock.expectNone("v1/books")
     })
 
-    it("should throw when offline and no cached books exist", async () => {
+    // A browser tab never preloads IndexedDB; its service worker may still
+    // have the list.
+    it("asks the network for the books while offline with none cached", async () => {
       offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([])
       networkServiceStub.isOffline = true
+      const remoteBooks = [{ id: "gen", chapterCount: 50 }] as Book[]
 
-      await expect(
-        firstValueFrom(service.getAvailableBooks()),
-      ).rejects.toThrowError("Offline and no cached books available")
-      httpMock.expectNone("v1/books")
+      const books = firstValueFrom(service.getAvailableBooks())
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne("v1/books").flush(remoteBooks)
+
+      expect(await books).toEqual(remoteBooks)
     })
 
     it("should exclude cached group-intro pseudo-books from the available books", async () => {
@@ -382,7 +419,7 @@ describe("BibleApiService", () => {
       httpMock.expectNone("v1/books")
     })
 
-    it("should throw when offline and only group-intro pseudo-books are cached", async () => {
+    it("asks the network while offline when only group-intro pseudo-books are cached", async () => {
       const introBook = {
         id: "pentateuco",
         name: "Pentateuco",
@@ -395,10 +432,12 @@ describe("BibleApiService", () => {
       offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([introBook])
       networkServiceStub.isOffline = true
 
-      await expect(
-        firstValueFrom(service.getAvailableBooks()),
-      ).rejects.toThrowError("Offline and no cached books available")
-      httpMock.expectNone("v1/books")
+      const books = firstValueFrom(service.getAvailableBooks())
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne("v1/books").error(new ProgressEvent("error"))
+
+      await expect(books).rejects.toThrow()
     })
 
     it("should fetch books from the server and cache them in memory", async () => {
@@ -583,14 +622,16 @@ describe("BibleApiService", () => {
       httpMock.expectNone("v1/gen/1/1")
     })
 
-    it("should throw when offline and the verse is not cached", async () => {
+    it("asks the network for an uncached verse while offline", async () => {
       offlineDataServiceSpy.getCachedVerseAsync.mockResolvedValue(undefined)
       networkServiceStub.isOffline = true
 
-      await expect(
-        firstValueFrom(service.getVerse("gen", 1, 1)),
-      ).rejects.toThrowError("Offline - verse not cached")
-      httpMock.expectNone("v1/gen/1/1")
+      const verse = firstValueFrom(service.getVerse("gen", 1, 1))
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne("v1/gen/1/1").error(new ProgressEvent("error"))
+
+      await expect(verse).rejects.toThrow()
     })
   })
 
@@ -687,13 +728,15 @@ describe("BibleApiService", () => {
       expect(stalled.cancelled).toBe(true)
     })
 
-    it("throws when offline and the listing is not cached", async () => {
+    it("asks the network for an uncached listing while offline", async () => {
       networkServiceStub.isOffline = true
 
-      await expect(firstValueFrom(service.getIntros())).rejects.toThrowError(
-        "Offline and no cached introductions available",
-      )
-      httpMock.expectNone("v1/intros")
+      const intros = firstValueFrom(service.getIntros())
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock.expectOne("v1/intros").error(new ProgressEvent("error"))
+
+      await expect(intros).rejects.toThrow()
     })
 
     it("returns the cached body without hitting the network", async () => {
@@ -712,13 +755,17 @@ describe("BibleApiService", () => {
       httpMock.expectNone("v1/intros/pentateuco")
     })
 
-    it("throws when offline and the body is not cached", async () => {
+    it("asks the network for an uncached body while offline", async () => {
       networkServiceStub.isOffline = true
 
-      await expect(
-        firstValueFrom(service.getIntro("pentateuco")),
-      ).rejects.toThrowError("Offline - introduction not cached")
-      httpMock.expectNone("v1/intros/pentateuco")
+      const intro = firstValueFrom(service.getIntro("pentateuco"))
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock
+        .expectOne("v1/intros/pentateuco")
+        .error(new ProgressEvent("error"))
+
+      await expect(intro).rejects.toThrow()
     })
 
     // As for chapters: the prerender must not serialize the page during the
@@ -744,11 +791,15 @@ describe("BibleApiService", () => {
       offlineDataServiceSpy.getCachedGroupIntroAsync.mockResolvedValue(
         undefined,
       )
-      networkServiceStub.isOffline = true
 
-      await expect(
-        firstValueFrom(service.getIntro("pentateuco")),
-      ).rejects.toThrow()
+      const intro = firstValueFrom(service.getIntro("pentateuco"))
+      await Promise.resolve()
+      await Promise.resolve()
+      httpMock
+        .expectOne("v1/intros/pentateuco")
+        .error(new ProgressEvent("error"))
+
+      await expect(intro).rejects.toThrow()
       await TestBed.inject(ApplicationRef).whenStable()
     })
   })

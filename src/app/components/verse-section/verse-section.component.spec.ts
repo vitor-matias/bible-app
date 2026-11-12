@@ -262,6 +262,156 @@ describe("VerseSectionComponent", () => {
       expect(getComputedStyle(heading).display).toBe("inline")
       expect(heading.previousElementSibling).toBeNull()
     })
+
+    // Justified, Mt 5's "As Bem-aventuranças", alone on its line beside the
+    // chapter number, was spread into "As          Bem-aventuranças".
+    it("keeps a run-in heading's words together in justified text", () => {
+      const host = fixture.nativeElement as HTMLElement
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            { type: "section", tag: "s2", text: "As Bem-aventuranças" },
+            { type: "references", text: "(Lc 6,20-26)" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const words = host.querySelector("[data-section-heading]") as HTMLElement
+      host.style.cssText = "display: block; white-space: nowrap"
+      const natural = words.getBoundingClientRect().width
+      // Room for the heading, not its reference: the line ends with it.
+      host.style.cssText = `display: block; width: ${natural + 40}px; text-align: justify`
+
+      // No space in it was stretched to fill the line.
+      expect(words.getBoundingClientRect().width).toBeCloseTo(natural, 0)
+    })
+
+    // An inline-block takes the column's width, not what the floated chapter
+    // number leaves: a long heading beside it dropped below the number.
+    it("lets a run-in heading beside the chapter number wrap beside it", () => {
+      const host = fixture.nativeElement as HTMLElement
+      host.style.cssText = "display: block; width: 260px"
+      const number = document.createElement("div")
+      number.style.cssText = "float: left; width: 60px; height: 40px"
+      host.before(number)
+      try {
+        fixture.componentRef.setInput("changeLine", false)
+        fixture.componentRef.setInput("besideChapterNumber", true)
+        setData(
+          fixture,
+          makeVerse({
+            text: [
+              {
+                type: "section",
+                tag: "s2",
+                text: "Parábola do semeador e explicação da parábola",
+              },
+            ],
+          }),
+        )
+        fixture.detectChanges()
+
+        const words = host.querySelector(
+          "[data-section-heading]",
+        ) as HTMLElement
+        expect(words.getClientRects()[0].top).toBeLessThan(
+          number.getBoundingClientRect().bottom,
+        )
+      } finally {
+        number.remove()
+      }
+    })
+
+    // In justified paged text the space inside a citation stretched:
+    // «O porquê das parábolas (Mc        4,10-12;».
+    it("keeps a citation's own space unstretched in justified text", () => {
+      const host = fixture.nativeElement as HTMLElement
+      mockBibleRef.extract.mockReturnValue([
+        {
+          match: "Mc 4,10-12",
+          index: 1,
+          book: "mrk",
+          chapter: 4,
+        } as BibleReference,
+      ])
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            { type: "section", tag: "s2", text: "O porquê das parábolas" },
+            { type: "references", text: "(Mc 4,10-12; Lc 8,9-10)" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const link = host.querySelector(".references a") as HTMLElement
+      expect(link).toBeTruthy()
+      host.style.cssText = "display: block; white-space: nowrap"
+      const natural = link.getBoundingClientRect().width
+      // A narrow justified column: the line holding the link is stretched.
+      const heading = host.querySelector(
+        "[data-section-heading]",
+      ) as HTMLElement
+      const headingWidth = heading.getBoundingClientRect().width
+      host.style.cssText = `display: block; width: ${headingWidth + natural + 60}px; text-align: justify`
+
+      expect(link.getBoundingClientRect().width).toBeCloseTo(natural, 0)
+    })
+
+    // Boxing the whole link let «Ez 34» end a line and its «)» begin the
+    // next: a break is allowed beside a box. Only the space inside is boxed.
+    it("keeps the punctuation after a citation on its line", () => {
+      const host = fixture.nativeElement as HTMLElement
+      mockBibleRef.extract.mockReturnValue([
+        {
+          match: "Ez 34",
+          index: 1,
+          book: "ezk",
+          chapter: 34,
+        } as BibleReference,
+      ])
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            {
+              type: "section",
+              tag: "s2",
+              text: "Alegorias da porta e do pastor",
+            },
+            { type: "references", text: "(Ez 34)" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+
+      const link = host.querySelector(".references a") as HTMLElement
+      const after = link.nextElementSibling as HTMLElement
+      expect(after.textContent).toBe(")")
+      for (let width = 120; width <= 420; width += 2) {
+        host.style.cssText = `display: block; width: ${width}px; text-align: justify`
+        const end = link.getClientRects()
+        const lastLine = end[end.length - 1].top
+        expect(after.getBoundingClientRect().top, `at ${width}px`).toBeCloseTo(
+          lastLine,
+          0,
+        )
+      }
+    })
+
+    it("leaves a centred heading's words as they were", () => {
+      render({ changeLine: true, beside: false })
+      const words = (fixture.nativeElement as HTMLElement).querySelector(
+        "[data-section-heading]",
+      ) as HTMLElement
+      expect(getComputedStyle(words).display).toBe("inline")
+    })
   })
 
   describe("showReturnSnackbar", () => {

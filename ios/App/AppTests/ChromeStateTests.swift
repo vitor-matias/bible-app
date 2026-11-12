@@ -287,6 +287,48 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertEqual(button.midX, 201, accuracy: 2)
     }
 
+    // On the iPhone Duo a turn left the ring round the whole bar, a capsule
+    // the screen's width: the bar (SwiftUI-hosted) lays its item out for the
+    // new width after the ring's own layout, with the item still at the old
+    // middle. A bar that does the same, a turn of the run loop late:
+    final class LateBar: UIView {
+        let item = UIView()
+        let itemWidth: CGFloat
+        init(itemWidth: CGFloat = 48) {
+            self.itemWidth = itemWidth
+            super.init(frame: .zero)
+            addSubview(item)
+        }
+        required init?(coder: NSCoder) { fatalError() }
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            let width = bounds.width
+            DispatchQueue.main.async { [self] in
+                item.frame = CGRect(x: (width - itemWidth) / 2, y: 0, width: itemWidth, height: 48)
+            }
+        }
+    }
+
+    func testRingsTheButtonOnceTheBarHasLaidItOutAfterATurn() {
+        let bar = LateBar()
+        let ringed = RingedBarButton(bar)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 678, height: 678))
+        window.addSubview(ringed)
+        window.isHidden = false
+        for width in [CGFloat(454), 530] {
+            ringed.frame = CGRect(x: 0, y: 0, width: width, height: 88)
+            ringed.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        }
+
+        let rings = ringed.subviews.filter { $0 !== bar }.map(\.frame)
+        XCTAssertFalse(rings.isEmpty)
+        for ring in rings {
+            XCTAssertEqual(ring.width, 60, accuracy: 1, "the ring went round the bar")
+            XCTAssertEqual(ring.midX, 265, accuracy: 1)
+        }
+    }
+
     // On iPad the passage's glass is wider than half the bar: still the glass,
     // not the label inside it.
     func testRingsAPassageWiderThanHalfTheBar() {
@@ -309,10 +351,168 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertGreaterThan(glass.width, text.width)
     }
 
+    // MARK: The passage picker
+
+    // The system's Back drew «Livros» a second time once the push had settled
+    // (iOS 27): the label blinked out and faded back in. The chapters have their
+    // own, drawn once, and the swipe back still works.
+    func testThePickersChaptersHaveTheirOwnBackToTheBooks() throws {
+        let data = PassagePickerData(call([
+            "currentBookId": "gn", "currentChapter": 1,
+            "sections": [["title": "Antigo Testamento", "groups": [["books": [[
+                "id": "gn", "label": "Génesis", "name": "Livro do Génesis", "abbreviation": "Gn",
+                "chapters": [["number": 1, "label": "1"], ["number": 2, "label": "2"]],
+            ]]]]]],
+        ]))
+        let picker = PassagePickerController(data: data, onSelect: { _, _ in })
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 874))
+        window.rootViewController = picker
+        window.isHidden = false
+        picker.loadViewIfNeeded()
+
+        let chapters = try XCTUnwrap(picker.topViewController)
+        chapters.loadViewIfNeeded()
+        XCTAssertEqual(picker.viewControllers.count, 2)
+        XCTAssertTrue(chapters.navigationItem.hidesBackButton)
+        let back = try XCTUnwrap(chapters.navigationItem.leftBarButtonItem?.customView as? UIButton)
+        XCTAssertEqual(back.configuration?.title, "Livros")
+        let swipe = try XCTUnwrap(picker.interactivePopGestureRecognizer)
+        XCTAssertTrue(swipe.delegate === picker)
+
+        back.sendActions(for: .primaryActionTriggered)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        XCTAssertEqual(picker.viewControllers.count, 1)
+        // Nothing to go back to from the books.
+        XCTAssertFalse(picker.gestureRecognizerShouldBegin(swipe))
+    }
+
+    // Nor while a book's chapters are still sliding in: a pop begun over the
+    // running push can break the stack.
+    func testThePickersSwipeBackWaitsForAPushToEnd() throws {
+        // On a book with no chapters, the picker opens on the books alone.
+        let data = PassagePickerData(call([
+            "currentBookId": "x", "currentChapter": 0,
+            "sections": [["title": "Antigo Testamento", "groups": [["books": [[
+                "id": "gn", "label": "Génesis", "name": "Livro do Génesis", "abbreviation": "Gn",
+                "chapters": [["number": 1, "label": "1"]],
+            ]]]]]],
+        ]))
+        let picker = PassagePickerController(data: data, onSelect: { _, _ in })
+        // In the host's scene, so the push really animates.
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = picker
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        let swipe = RightwardPan()
+
+        picker.pushViewController(UIViewController(), animated: true)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        XCTAssertEqual(picker.viewControllers.count, 2)
+        XCTAssertNotNil(picker.transitionCoordinator)
+        XCTAssertFalse(picker.gestureRecognizerShouldBegin(swipe))
+
+        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        XCTAssertNil(picker.transitionCoordinator)
+        XCTAssertTrue(picker.gestureRecognizerShouldBegin(swipe))
+    }
+
+    /// A drag to the right, as the swipe back would see it.
+    private final class RightwardPan: UIPanGestureRecognizer {
+        override func velocity(in view: UIView?) -> CGPoint { CGPoint(x: 500, y: 0) }
+    }
+
     // MARK: The sheets
 
     private func subviews<T: UIView>(of view: UIView, _ type: T.Type) -> [T] {
         ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { subviews(of: $0, type) }
+    }
+
+    // The notes stayed justified, with rivers on a phone, beside the reader's
+    // ragged-right verses: they are set as the reader's text is now.
+    func testSetsTheNotesAsTheReadersText() throws {
+        func style(_ options: [String: Any]) throws -> NSParagraphStyle {
+            var payload: [String: Any] = [
+                "title": "João 3,16",
+                "notes": [["reference": "16.", "parts": [["text": "Ver Gn 22,1-14."]]]],
+            ]
+            payload.merge(options) { $1 }
+            let sheet = FootnotesController(state: FootnotesSheetState(call(payload)), onLink: { _ in }, onClose: {})
+            sheet.loadViewIfNeeded()
+            let text = try XCTUnwrap(subviews(of: sheet.view, UITextView.self).first)
+            let style = text.attributedText.attribute(.paragraphStyle, at: 0, effectiveRange: nil) as? NSParagraphStyle
+            return try XCTUnwrap(style)
+        }
+        func alignment(_ options: [String: Any]) throws -> NSTextAlignment { try style(options).alignment }
+        XCTAssertEqual(try alignment(["raggedText": true]), .natural)
+        XCTAssertEqual(try alignment(["raggedText": false, "fontScale": 2.2]), .justified)
+        // A web app that doesn't say: by the size, as before.
+        XCTAssertEqual(try alignment([:]), .justified)
+        XCTAssertEqual(try alignment(["fontScale": 2.2]), .natural)
+        // Hyphenated as the reader's text: a ragged default still is, the
+        // reader's own ragged choice isn't, and so is a web app that doesn't say.
+        XCTAssertGreaterThan(try style(["raggedText": true, "hyphenate": true]).hyphenationFactor, 0)
+        XCTAssertEqual(try style(["raggedText": true, "hyphenate": false]).hyphenationFactor, 0)
+        XCTAssertGreaterThan(try style(["fontScale": 2.2]).hyphenationFactor, 0)
+    }
+
+    // A wide item («Génesis 1», 160 pt) still covered the new middle where
+    // the bar had left it: taken as laid out, the ring stayed 38 pt off.
+    func testRingsAWideButtonWhereTheBarMovesItAfterATurn() {
+        let bar = LateBar(itemWidth: 160)
+        let ringed = RingedBarButton(bar)
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 678, height: 678))
+        window.addSubview(ringed)
+        window.isHidden = false
+        for width in [CGFloat(454), 530] {
+            ringed.frame = CGRect(x: 0, y: 0, width: width, height: 88)
+            ringed.layoutIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+        }
+
+        let rings = ringed.subviews.filter { $0 !== bar }.map(\.frame)
+        XCTAssertFalse(rings.isEmpty)
+        for ring in rings {
+            XCTAssertEqual(ring.midX, 265, accuracy: 1, "the ring stayed where the item was")
+        }
+    }
+
+    // The folded iPhone Duo turned sideways puts Close down the left side,
+    // inside the sheet's safe area: it covered the note's «16.» and «Ver».
+    func testFootnotesStayClearOfASideSafeArea() throws {
+        let state = FootnotesSheetState(call([
+            "title": "João 3,16",
+            "notes": [["reference": "16.", "parts": [["text": "Ver Gn 22,1-14."]]]],
+        ]))
+        let sheet = FootnotesController(state: state, onLink: { _ in }, onClose: {})
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 678, height: 466))
+        window.rootViewController = sheet
+        window.isHidden = false
+        sheet.additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 84, bottom: 0, right: 0)
+        sheet.view.layoutIfNeeded()
+
+        let text = try XCTUnwrap(subviews(of: sheet.view, UITextView.self).first)
+        XCTAssertGreaterThanOrEqual(text.convert(text.bounds, to: sheet.view).minX, 84 - 0.5)
+    }
+
+    // On the folded iPhone Duo the status bar and Close run down the right
+    // side, inside the safe area: the ringed copy and the intro ran under them.
+    func testOnboardingPagesStayClearOfASideSafeArea() throws {
+        let steps = OnboardingStepData.parse(call(["steps": [
+            ["id": "welcome", "title": "Bem-vindo", "intro": "…", "symbol": "book",
+             "logo": false, "features": []],
+        ]]))
+        let sheet = OnboardingController(steps: steps, onFinish: { _, _ in })
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 466, height: 678))
+        window.rootViewController = sheet
+        window.isHidden = false
+        sheet.additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: 0, bottom: 0, right: 84)
+        sheet.view.layoutIfNeeded()
+
+        let pager = try XCTUnwrap(subviews(of: sheet.view, UIScrollView.self).first { $0.isPagingEnabled })
+        let frame = pager.convert(pager.bounds, to: sheet.view)
+        XCTAssertLessThanOrEqual(frame.maxX, 466 - 84 + 0.5)
     }
 
     @available(iOS 16.0, *)

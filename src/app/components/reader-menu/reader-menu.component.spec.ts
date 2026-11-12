@@ -3,6 +3,7 @@ import { TestBed } from "@angular/core/testing"
 import { MatDialog } from "@angular/material/dialog"
 import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
 import { By } from "@angular/platform-browser"
+import { ToastService } from "../../services/toast.service"
 import {
   PRIVACY_DIALOG_CONFIG,
   PrivacyPolicyDialogComponent,
@@ -13,7 +14,7 @@ import { ReaderMenuComponent } from "./reader-menu.component"
   imports: [MatMenuModule, ReaderMenuComponent],
   template: `
     <button type="button" [matMenuTriggerFor]="menu.menu">Menu</button>
-    <reader-menu #menu="readerMenu" [viewMode]="viewMode()"
+    <reader-menu #menu="readerMenu" [viewMode]="viewMode()" [canShare]="canShare()"
       [autoScrollControlsVisible]="autoScroll()" (resetFontSize)="resets.set(resets() + 1)"
       (toggleAutoScrollControls)="toggles.set(toggles() + 1)" />
   `,
@@ -22,6 +23,7 @@ import { ReaderMenuComponent } from "./reader-menu.component"
 class HostComponent {
   readonly viewMode = signal<"scrolling" | "paged" | null>(null)
   readonly autoScroll = signal<boolean | null>(null)
+  readonly canShare = signal(false)
   readonly resets = signal(0)
   readonly toggles = signal(0)
 }
@@ -30,8 +32,10 @@ describe("ReaderMenuComponent", () => {
   function open(
     viewMode: "scrolling" | "paged" | null,
     autoScroll: boolean | null,
+    canShare = false,
   ) {
     const fixture = TestBed.createComponent(HostComponent)
+    fixture.componentInstance.canShare.set(canShare)
     fixture.componentInstance.viewMode.set(viewMode)
     fixture.componentInstance.autoScroll.set(autoScroll)
     fixture.detectChanges()
@@ -134,5 +138,43 @@ describe("ReaderMenuComponent", () => {
       PrivacyPolicyDialogComponent,
       PRIVACY_DIALOG_CONFIG,
     )
+  })
+
+  // Desktop browsers have no share sheet; the link is what a share would send.
+  it("copies the page's link where the page can't share", async () => {
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined)
+    const show = vi
+      .spyOn(TestBed.inject(ToastService), "show")
+      .mockImplementation(() => {})
+    const items = open(null, null).join("|")
+
+    expect(items).not.toContain("Partilhar")
+    menuItem("Copiar ligação").click()
+    await writeText.mock.results[0]?.value
+
+    expect(writeText).toHaveBeenCalledWith(window.location.href)
+    expect(show).toHaveBeenCalledWith("Ligação copiada")
+  })
+
+  it("confirms nothing when the browser refuses the copy", async () => {
+    const refused = Promise.reject(new Error("NotAllowedError"))
+    refused.catch(() => {})
+    vi.spyOn(navigator.clipboard, "writeText").mockReturnValue(refused)
+    const show = vi.spyOn(TestBed.inject(ToastService), "show")
+    open(null, null)
+
+    menuItem("Copiar ligação").click()
+    await refused.catch(() => {})
+
+    expect(show).not.toHaveBeenCalled()
+  })
+
+  it("shares instead where the page can", () => {
+    const items = open(null, null, true).join("|")
+
+    expect(items).toContain("Partilhar")
+    expect(items).not.toContain("Copiar ligação")
   })
 })

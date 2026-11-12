@@ -40,12 +40,17 @@ export function getVerseQueryParams(
   }
 
   if (!verses?.length) return null
-  const first = verses[0]
-  if (first.type === "single") {
-    return { verseStart: first.verse }
-  }
-  if (first.type === "range") {
-    return { verseStart: first.start, verseEnd: first.end }
-  }
-  return null
+  // "18,21-25.32-35": the reader takes one range, so the citation spans all
+  // its verses rather than dropping the ones after the first.
+  const bounds = verses.flatMap((v) =>
+    v.type === "single"
+      ? [v.verse]
+      : v.type === "range"
+        ? [v.start, v.end]
+        : [],
+  )
+  if (!bounds.length) return null
+  const verseStart = Math.min(...bounds)
+  if (verses.length === 1 && verses[0].type === "single") return { verseStart }
+  return { verseStart, verseEnd: Math.max(...bounds) }
 }

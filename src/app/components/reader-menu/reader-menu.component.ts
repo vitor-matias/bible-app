@@ -13,6 +13,7 @@ import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenu, MatMenuModule } from "@angular/material/menu"
 import { MatTooltipModule } from "@angular/material/tooltip"
+import { shareableUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
   AppPromoService,
@@ -23,6 +24,7 @@ import { OnboardingService } from "../../services/onboarding.service"
 import { PwaInstallService } from "../../services/pwa-install.service"
 import { TextAlignService } from "../../services/text-align.service"
 import { ThemeService } from "../../services/theme.service"
+import { ToastService } from "../../services/toast.service"
 import {
   PRIVACY_DIALOG_CONFIG,
   PrivacyPolicyDialogComponent,
@@ -48,6 +50,7 @@ export class ReaderMenuComponent {
   private readonly textAlign = inject(TextAlignService)
   private readonly appPromo = inject(AppPromoService)
   private readonly dialog = inject(MatDialog)
+  private readonly toast = inject(ToastService)
   readonly analyticsService = inject(AnalyticsService)
 
   /** Static: the page's trigger reads it before this view's first check. */
@@ -71,6 +74,10 @@ export class ReaderMenuComponent {
   readonly about = output<void>()
   readonly reportProblem = output<void>()
 
+  /** Where the page can't share (desktop browsers), the link can be copied. */
+  readonly canCopyLink =
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.writeText === "function"
   /** Browsers that can't prompt (iOS, Firefox) get the tutorial's steps instead. */
   readonly canInstall = toSignal(this.pwaInstallService.canPromptInstall$, {
     requireSync: true,
@@ -143,6 +150,15 @@ export class ReaderMenuComponent {
 
   openPrivacyPolicy(): void {
     this.dialog.open(PrivacyPolicyDialogComponent, PRIVACY_DIALOG_CONFIG)
+  }
+
+  async copyLink(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(shareableUrl(window.location))
+      this.toast.show("Ligação copiada")
+    } catch {
+      // The browser refused; nothing was copied, so nothing to confirm.
+    }
   }
 
   openHelp(): void {
