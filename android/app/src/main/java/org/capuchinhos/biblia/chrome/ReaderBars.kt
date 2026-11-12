@@ -358,18 +358,25 @@ internal data class FittedPassage(val index: Int, val scale: Float, val caret: B
  * "Deuteronómio 3", or, where that doesn't fit, the longest of its shorter
  * forms that does ("Dt 3"). Without room even then (large system text), the
  * shortest shrinks, down to [minScale], keeping the ▾ that says it opens the
- * picker; then the ▾ makes way, and only after that is the label cut.
+ * picker; then the ▾ makes way for the longest label that fits whole, then
+ * for the shortest shrunk, and only after that is the label cut. At the
+ * default text size nothing shrinks ([minScale] 1), so that is the longest
+ * label with the ▾, else the longest without it, else cut.
  * [widths] at full size and the room [withCaret] and [bare], in px.
  */
 internal fun fitPassage(widths: List<Int>, withCaret: Int, bare: Int, minScale: Float): FittedPassage {
     val full = widths.indexOfFirst { it <= withCaret }
     if (full >= 0) return FittedPassage(full, scale = 1f, caret = true, fits = true)
     val shortest = widths.lastIndex
-    for ((room, caret) in listOf(withCaret to true, bare to false)) {
+    // In hundredths, rounded down, so that it surely fits; null below minScale.
+    fun shrunk(room: Int): Float? {
         val exact = room.toFloat() / widths[shortest]
-        // In hundredths, rounded down, so that it surely fits.
-        if (exact >= minScale) return FittedPassage(shortest, minOf(1f, maxOf(minScale, floor(exact * 100f) / 100f)), caret, fits = true)
+        return if (exact >= minScale) minOf(1f, maxOf(minScale, floor(exact * 100f) / 100f)) else null
     }
+    shrunk(withCaret)?.let { return FittedPassage(shortest, it, caret = true, fits = true) }
+    val whole = widths.indexOfFirst { it <= bare }
+    if (whole >= 0) return FittedPassage(whole, scale = 1f, caret = false, fits = true)
+    shrunk(bare)?.let { return FittedPassage(shortest, it, caret = false, fits = true) }
     return FittedPassage(shortest, minScale, caret = false, fits = false)
 }
 

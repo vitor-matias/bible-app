@@ -68,6 +68,14 @@ class LargeTextTest {
     }
 
     @Test
+    fun withoutTheCaretTheLongestLabelThatFitsWholeIsKept() {
+        // At the default size the full name fits without the ▾: not a shorter form than needed.
+        assertEquals(FittedPassage(0, 1f, caret = false, fits = true), fitPassage(listOf(255, 230), withCaret = 200, bare = 260, minScale = 1f))
+        // At large text, shrinking the shortest with its ▾ still comes first.
+        assertEquals(FittedPassage(1, 0.86f, caret = true, fits = true), fitPassage(listOf(255, 230), withCaret = 200, bare = 260, minScale = 0.5f))
+    }
+
+    @Test
     fun theViewButtonSaysItsNameFirst() {
         assertEquals("Vista: lista", bookViewButtonLabel(BookView.List))
         assertEquals("Vista: grelha com abreviaturas", bookViewButtonLabel(BookView.Abbreviations))
