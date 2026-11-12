@@ -13,7 +13,7 @@ import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenu, MatMenuModule } from "@angular/material/menu"
 import { MatTooltipModule } from "@angular/material/tooltip"
-import { PRIVACY_POLICY_URL } from "../../config"
+import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
@@ -25,6 +25,7 @@ import { OnboardingService } from "../../services/onboarding.service"
 import { PwaInstallService } from "../../services/pwa-install.service"
 import { TextAlignService } from "../../services/text-align.service"
 import { ThemeService } from "../../services/theme.service"
+import { ToastService } from "../../services/toast.service"
 
 /**
  * The menu of the reader's header, which the pastoral index shares: the page
@@ -45,6 +46,7 @@ export class ReaderMenuComponent {
   private readonly cdr = inject(ChangeDetectorRef)
   private readonly textAlign = inject(TextAlignService)
   private readonly appPromo = inject(AppPromoService)
+  private readonly toast = inject(ToastService)
   readonly analyticsService = inject(AnalyticsService)
 
   /** Static: the page's trigger reads it before this view's first check. */
@@ -79,6 +81,10 @@ export class ReaderMenuComponent {
   readonly reportProblem = output<void>()
 
   readonly privacyPolicyUrl = PRIVACY_POLICY_URL
+  /** Where the page can't share (desktop browsers), the link can be copied. */
+  readonly canCopyLink =
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.writeText === "function"
   /** Browsers that can't prompt (iOS, Firefox) get the tutorial's steps instead. */
   readonly canInstall = toSignal(this.pwaInstallService.canPromptInstall$, {
     requireSync: true,
@@ -147,6 +153,15 @@ export class ReaderMenuComponent {
     return this.viewMode() === "scrolling"
       ? "Texto contínuo (clique para mudar para página a página)"
       : "Página a página (clique para mudar para texto contínuo)"
+  }
+
+  async copyLink(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(shareableUrl(window.location))
+      this.toast.show("Ligação copiada")
+    } catch {
+      // The browser refused; nothing was copied, so nothing to confirm.
+    }
   }
 
   openHelp(): void {

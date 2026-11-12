@@ -89,7 +89,7 @@ struct PassagePickerData {
 
 /// A sheet with the books, then the chosen book's chapters. It opens on the
 /// current book's chapters, with Back leading to the books.
-final class PassagePickerController: UINavigationController {
+final class PassagePickerController: UINavigationController, UIGestureRecognizerDelegate {
     init(data: PassagePickerData, onSelect: @escaping (String, Int?) -> Void) {
         let books = BookListViewController(data: data)
         super.init(rootViewController: books)
@@ -114,6 +114,51 @@ final class PassagePickerController: UINavigationController {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // The chapters' own Back (booksBackButton) would turn the swipe back
+        // off: it stays, from the edge and, since iOS 26, from the content.
+        interactivePopGestureRecognizer?.delegate = self
+        if #available(iOS 26.0, *) {
+            interactiveContentPopGestureRecognizer?.delegate = self
+        }
+    }
+
+    /// Back to the books, on a drag that goes right more than up or down: a
+    /// long book's chapters still scroll.
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Not during a push or pop: the system's own delegate refuses then too,
+        // and a pop begun over a running push can leave the stack broken.
+        guard viewControllers.count > 1, transitionCoordinator == nil else { return false }
+        guard let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+        let velocity = pan.velocity(in: pan.view)
+        return velocity.x > abs(velocity.y)
+    }
+}
+
+/// «‹ Livros», back to the books. The system's Back draws its title a second
+/// time once a push has settled (iOS 27): «Livros» blinked out and faded back
+/// in after it was already shown. This one is drawn once.
+private func booksBackButton(for controller: UIViewController) -> UIBarButtonItem {
+    // As the system's Back draws it, which, like the bar's other items,
+    // doesn't grow with the text size.
+    var configuration = UIButton.Configuration.plain()
+    configuration.title = "Livros"
+    configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+        var attributes = attributes
+        attributes.font = .systemFont(ofSize: 17, weight: .medium)
+        return attributes
+    }
+    configuration.image = UIImage(systemName: "chevron.left",
+                                  withConfiguration: UIImage.SymbolConfiguration(pointSize: 19, weight: .semibold))
+    configuration.imagePadding = 6
+    configuration.baseForegroundColor = .label
+    let button = UIButton(configuration: configuration, primaryAction: UIAction { [weak controller] _ in
+        controller?.navigationController?.popViewController(animated: true)
+    })
+    button.accessibilityTraits.insert(.button)
+    return UIBarButtonItem(customView: button)
 }
 
 /// The books as tiles, a section per canon group. Shown by name, or by
@@ -310,6 +355,8 @@ private final class ChapterListViewController: UICollectionViewController {
         collectionView.backgroundColor = sheetBackground
         frostedBar(for: self)
         navigationItem.rightBarButtonItem = closeButton(for: self)
+        navigationItem.hidesBackButton = true
+        navigationItem.leftBarButtonItem = booksBackButton(for: self)
 
         let tile = UICollectionView.CellRegistration<TileCell, Chapter> { [current] cell, _, chapter in
             let isIntro = chapter.label.isEmpty

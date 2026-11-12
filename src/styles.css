@@ -410,6 +410,15 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
   color: inherit;
 }
 
+/* A chapter that failed to open cold: in the reader, under its header. */
+bible-reader .books-unavailable.chapter-unavailable {
+  min-height: calc(
+    100dvh - var(--app-header-height) - var(--app-chrome-top) -
+      var(--app-inset-bottom)
+  );
+  padding-top: 24px;
+}
+
 .mat-bottom-sheet-container,
 .mat-mdc-dialog-container .mdc-dialog__surface {
   background-color: var(--card-background) !important; /* Force apply */
@@ -583,6 +592,9 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
 .native-chrome bible-reader .mat-drawer-content {
   padding-top: var(--app-chrome-top);
   padding-bottom: var(--app-chrome-bottom);
+  /* A verse scrolled to (switching views) lands clear of the bars. */
+  scroll-padding-top: var(--app-chrome-top);
+  scroll-padding-bottom: var(--app-chrome-bottom);
 }
 
 /* The text starts one standard layout margin under the top bar, as in system
