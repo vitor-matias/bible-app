@@ -112,6 +112,18 @@ describe("PreferencesService", () => {
     expect(service.getNativeBarsOnboardingSeen()).toBe(true)
   })
 
+  // A withdrawal storage can't record must still hold for the rest of the
+  // visit: a later page would otherwise send search text to Voyage AI again.
+  it("keeps a search-by-meaning answer that storage can't hold", () => {
+    service.setMeaningSearchConsent(true)
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError")
+    })
+
+    service.setMeaningSearchConsent(false)
+    expect(service.getMeaningSearchConsent()).toBe(false)
+  })
+
   it("should remember that the app prompt was shown", () => {
     expect(service.getAppPromoSeen()).toBe(false)
 

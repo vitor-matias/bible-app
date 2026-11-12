@@ -839,7 +839,6 @@ export class SearchComponent {
 
   /** Records the answer, and gives a search on screen the chosen kind. */
   setMeaningSearch(allowed: boolean): void {
-    // Kept in memory too: storage that can't be written still has the answer.
     this.preferences.setMeaningSearchConsent(allowed)
     this.applyMeaningSearch(allowed)
     // The notice's buttons are gone with it: keep focus on the page.

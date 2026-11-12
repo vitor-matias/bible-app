@@ -31,13 +31,20 @@ export class PreferencesService {
     }
   }
 
-  private write(key: string, value: string): void {
+  /** Whether storage kept the value. */
+  private write(key: string, value: string): boolean {
     try {
-      this.storage?.setItem(key, value)
+      if (!this.storage) return false
+      this.storage.setItem(key, value)
+      return true
     } catch {
       // Not kept; the preference applies until the app closes.
+      return false
     }
   }
+
+  /** An answer storage couldn't keep, held for as long as the app runs. */
+  private unsavedMeaningSearchConsent: boolean | undefined
 
   private remove(key: string): void {
     try {
@@ -64,12 +71,16 @@ export class PreferencesService {
 
   /** The reader's answer about search by meaning; null until they give one. */
   getMeaningSearchConsent(): boolean | null {
+    if (this.unsavedMeaningSearchConsent !== undefined) {
+      return this.unsavedMeaningSearchConsent
+    }
     const stored = this.read(this.KEYS.MEANING_SEARCH_CONSENT)
     return stored === "true" ? true : stored === "false" ? false : null
   }
 
   setMeaningSearchConsent(allowed: boolean): void {
-    this.write(this.KEYS.MEANING_SEARCH_CONSENT, String(allowed))
+    const kept = this.write(this.KEYS.MEANING_SEARCH_CONSENT, String(allowed))
+    this.unsavedMeaningSearchConsent = kept ? undefined : allowed
   }
 
   /** The reader's choice of ragged-right (true) or justified (false) text; null until they make one. */
