@@ -142,7 +142,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return (
       this.chapterCards &&
       !!this.chapter &&
-      this.effectiveViewMode === "scrolling"
+      this.effectiveViewMode === "scrolling" &&
+      // The card view has stops of its own; these would be extra snap items.
+      !this.showCards
     )
   }
   private toast = inject(ToastService)
@@ -252,7 +254,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    */
   get nextChapterLabel(): string | undefined {
     return this.book && this.chapterNumber < this.book.chapterCount
-      ? `${this.book.shortName} ${this.chapterNumber + 1}`
+      ? passageLabel(this.book, this.chapterNumber + 1)
       : undefined
   }
 
@@ -263,7 +265,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    */
   get previousChapterLabel(): string | undefined {
     return this.book && this.chapterNumber > 1
-      ? `${this.book.shortName} ${this.chapterNumber - 1}`
+      ? passageLabel(this.book, this.chapterNumber - 1)
       : undefined
   }
 

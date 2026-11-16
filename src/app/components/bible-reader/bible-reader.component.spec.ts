@@ -1920,6 +1920,30 @@ describe("BibleReaderComponent", () => {
         ])
       })
 
+      // The stops name chapters the way the rest of the reader does, which
+      // for the Psalms carries the liturgical number.
+      it("labels the stops as the reader names chapters", () => {
+        bootOn("android", true)
+        component.book = { ...component.book, id: "psa", shortName: "Salmos" }
+        component.chapterNumber = 23
+        rerender()
+        const cards = fixture.nativeElement.querySelector("verse-cards")
+
+        expect(cards.nextChapterLabel).toBe("Salmo 24 (23)")
+        expect(cards.previousChapterLabel).toBe("Salmo 22 (21)")
+      })
+
+      it("hides the Android chapter cards, whose stops the cards have their own of", () => {
+        Object.assign(TestBed.inject(NativeChromeService), { android: true })
+        bootOn("android", true)
+
+        expect(component.showChapterCards).toBe(false)
+
+        component.onToggleCardsView()
+
+        expect(component.showChapterCards).toBe(true)
+      })
+
       it("offers nothing past the last chapter of the book", () => {
         bootOn("android", true)
         component.chapterNumber = component.book.chapterCount
