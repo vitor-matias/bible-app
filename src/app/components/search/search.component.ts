@@ -25,7 +25,10 @@ import { UnifiedGesturesDirective } from "../../directives/unified-gesture.direc
 import themeTitles from "../../pastoral-index-titles.json"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
-import { BibleReferenceService } from "../../services/bible-reference.service"
+import {
+  BibleReferenceService,
+  type VerseReference,
+} from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NetworkService } from "../../services/network.service"
@@ -121,6 +124,8 @@ interface PassageTarget {
   verseStart?: number
   /** The last verse of a range or list ("Lc 15,1-3.11-32"). */
   verseEnd?: number
+  /** One verse or range as cited, with its parts: "5-9a" ("Is 50,5-9a"). */
+  citedVerses?: string
   /** Cited with both numbers ("Sl 94 (95)"), so not to be asked which. */
   pairedPsalm: boolean
   /** Named by the book alone ("Lucas"), not a chapter. */
@@ -487,10 +492,12 @@ export class SearchComponent {
     ) {
       return { label: `Escolher o Salmo ${chapter}`, query }
     }
+    // The reader opens whole verses; the label keeps "9a" as typed.
     const verses =
-      verseEnd && verseEnd !== verseStart
+      target.citedVerses ??
+      (verseEnd && verseEnd !== verseStart
         ? `${verseStart}-${verseEnd}`
-        : verseStart
+        : verseStart)
     return { label: `Abrir ${passageLabel(book, chapter, verses)}`, query }
   }
 
@@ -529,6 +536,7 @@ export class SearchComponent {
           book,
           chapter: ref.chapter || 1,
           ...getVerseQueryParams(ref.verses),
+          citedVerses: citedVerses(ref.verses),
           pairedPsalm,
         }
       }
@@ -1048,6 +1056,18 @@ export class SearchComponent {
 }
 
 /** A chapter past the book's last ("Jo 99"); an introduction has none. */
+/** A lone verse or range with its parts ("16b", "5-9a", "16bc"); else none. */
+function citedVerses(verses?: VerseReference[]): string | undefined {
+  if (verses?.length !== 1) return undefined
+  const [verse] = verses
+  if (verse.type === "single") return `${verse.verse}${verse.part ?? ""}`
+  const start = `${verse.start}${verse.startPart ?? ""}`
+  const endPart = verse.endPart ?? ""
+  return verse.start === verse.end
+    ? `${start}${endPart}`
+    : `${start}-${verse.end}${endPart}`
+}
+
 function beyondBook({ book, chapter, bookOnly }: PassageTarget): boolean {
   return !book.introSlug && !bookOnly && chapter > book.chapterCount
 }
