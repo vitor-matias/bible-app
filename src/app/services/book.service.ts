@@ -203,7 +203,9 @@ export class BookService {
     bookAbrv: Book["abrv"],
     books = this.getBooks(),
   ): Book | undefined {
-    return books.find((book) => this.getUrlAbrv(book) === bookAbrv)
+    // As typed: "1Cor" and "2Rs" are 1cor and 2rs.
+    const urlAbrv = bookAbrv.replace(/\s/g, "").toLowerCase()
+    return books.find((book) => this.getUrlAbrv(book) === urlAbrv)
   }
 
   findBookByName(

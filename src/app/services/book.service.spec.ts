@@ -310,6 +310,8 @@ describe("BookService", () => {
 
       expect(service.findTypedBook("1 Sa")?.id).toBe("1sa")
       expect(service.findTypedBook("1 Sm")?.id).toBe("1sa")
+      // «1Cor13,4» and «2Rs 2,11» found no book.
+      expect(service.findTypedBook("1Sm")?.id).toBe("1sa")
       expect(service.findTypedBook("Genesis")?.id).toBe("gen")
     })
 
