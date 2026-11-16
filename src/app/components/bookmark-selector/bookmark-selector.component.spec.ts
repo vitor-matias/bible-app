@@ -129,6 +129,24 @@ describe("BookmarkSelectorComponent", () => {
     expect(ribbons).toHaveBeenCalledOnce()
   })
 
+  // Unknown until the books load, then proven not to exist.
+  it("frees a ribbon once its book loads without that chapter", () => {
+    _bookServiceSpy.findBookById.mockImplementation(() =>
+      booksSubject.value.length
+        ? ({ abrv: "Mc", shortName: "Marcos", chapterCount: 16 } as Book)
+        : undefined,
+    )
+    bookmarksSubject.next([
+      { bookId: "MRK", chapter: 99, color: "blue", timestamp: 1 },
+    ])
+    const blue = () => component.ribbons.find((r) => r.value === "blue")
+    expect(blue()?.bookmark).toBeTruthy()
+
+    booksSubject.next([{ id: "mrk" } as Book])
+
+    expect(blue()?.bookmark).toBeUndefined()
+  })
+
   it("should initialize ribbons based on current bookmarks", () => {
     expect(component.ribbons.length).toBe(component.colors.length)
     const blueRibbon = component.ribbons.find((r) => r.value === "blue")
