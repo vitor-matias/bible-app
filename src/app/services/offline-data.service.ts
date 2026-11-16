@@ -42,6 +42,8 @@ export class OfflineDataService implements OnDestroy {
   private preloadPromise: Promise<void> | null = null
   private retryTimer?: ReturnType<typeof setTimeout>
   private retryDelayMs = PRELOAD_RETRY_BASE_MS
+  /** IndexedDB refused a write: downloading again would only fail to store it. */
+  private storageFailed = false
 
   /**
    * Fetches all books and chapters into IndexedDB for offline usage.
@@ -63,7 +65,7 @@ export class OfflineDataService implements OnDestroy {
 
   /** A failed download is tried again while the app stays open, less and less often. */
   private scheduleRetry(failed: boolean): void {
-    if (!failed) {
+    if (!failed || this.storageFailed) {
       this.retryDelayMs = PRELOAD_RETRY_BASE_MS
       return
     }
@@ -94,7 +96,8 @@ export class OfflineDataService implements OnDestroy {
 
   /** Resolves to whether a download failed, and so is worth retrying. */
   private async runPreload(): Promise<boolean> {
-    if (typeof window === "undefined") return false
+    // Until the next launch: each try would download the Bible again.
+    if (typeof window === "undefined" || this.storageFailed) return false
 
     const migrated = await this.migrateCacheIfNeeded()
     const storage = safeLocalStorage()
@@ -139,7 +142,8 @@ export class OfflineDataService implements OnDestroy {
         failed = true
         console.error("Failed to preload books for offline use", error)
       }
-      // Not retried if storing fails: it would download the Bible again.
+      // Not retried if storing fails (setCachedBooks): it would download
+      // the Bible again.
       if (books) {
         try {
           await this.setCachedBooks(books)
@@ -247,6 +251,7 @@ export class OfflineDataService implements OnDestroy {
         storage?.setItem(this.cacheFlagKey, "true")
       }
     } catch (error) {
+      this.storageFailed = true
       console.error("Failed to persist cached books or metadata", error)
       throw error
     }

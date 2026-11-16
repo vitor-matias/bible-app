@@ -541,6 +541,34 @@ describe("OfflineDataService", () => {
       httpMock.expectNone("v1/books?withChapters=true")
     })
 
+    // IndexedDB full (QuotaExceededError): the intros' write failing too
+    // retried the preload, downloading the Bible again every few minutes.
+    it("never downloads the Bible again when storing it fails", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      databaseService.clearAndPutAll.mockRejectedValue(
+        new DOMException("full", "QuotaExceededError"),
+      )
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/intros")
+        .flush([{ slug: "pentateuco", name: "PENTATEUCO" }])
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/intros/pentateuco")
+        .flush({ slug: "pentateuco", name: "PENTATEUCO", introduction: [] })
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 200)
+      // Nor on a reconnect.
+      await service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectNone("v1/intros")
+    })
+
     it("leaves a failed download to the reconnect while offline", async () => {
       vi.useFakeTimers()
       vi.spyOn(console, "error").mockReturnValue(undefined)
