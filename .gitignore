@@ -2,6 +2,7 @@
 
 # Compiled output
 /dist
+/public/build-info.json
 /tmp
 /out-tsc
 /bazel-out

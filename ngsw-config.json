@@ -8,6 +8,7 @@
       "updateMode": "prefetch",
       "resources": {
         "files": [
+          "/build-info.json",
           "/favicon.ico",
           "/index.csr.html",
           "/manifest.webmanifest",
