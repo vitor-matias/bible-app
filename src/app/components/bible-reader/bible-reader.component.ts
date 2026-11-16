@@ -197,6 +197,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   nextChapterLink: (string | number)[] = []
   /** The chapter last asked for, which an async load must still match. */
   private pendingChapter?: Chapter["number"]
+  /** The verse a link led to in this chapter: the one being read while it shows. */
+  private linkedVerse?: Verse["number"]
   /** What is on screen, for a failed load to go back to. */
   private shown?: { book: Book; chapter: Chapter["number"] }
   isFirstPage = true
@@ -901,6 +903,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+    this.linkedVerse = undefined
     this.shown = { book: this.book, chapter }
     this.chapterUnavailable = false
     this.retryingChapter = false
@@ -997,6 +1000,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     verseEnd?: Verse["number"],
     highlight = true,
   ): void {
+    this.linkedVerse = verseStart
     const pagedNav = this.pagedNav
     this.animationService.scrollToVerseElement(
       this.bookBlock?.nativeElement,
@@ -1061,7 +1065,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   onToggleViewMode(): void {
-    const reading = this.verseInView()
+    const reading = this.verseBeingRead()
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
 
@@ -1091,8 +1095,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     )
   }
 
-  /** The first verse showing, on the page or in the scroller's view. */
-  private verseInView(): HTMLElement | undefined {
+  /**
+   * The verse being read: the one a link led to while its start shows, else
+   * the first verse starting in view (on the page, or below the top of the
+   * scroller's view), else the one filling it. Not the first with any line
+   * showing: the previous verse's last line at the top moved the reader back
+   * a page at every switch.
+   */
+  private verseBeingRead(): HTMLElement | undefined {
     const scroller =
       this.effectiveViewMode === "paged"
         ? this.bookContainer?.nativeElement
@@ -1108,15 +1118,30 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       left: box.left,
       right: box.right,
     }
-    return Array.from(block.querySelectorAll<HTMLElement>("verse")).find(
-      (verse) =>
-        Array.from(verse.getClientRects()).some(
-          (line) =>
-            line.bottom > view.top &&
-            line.top < view.bottom &&
-            line.right > view.left &&
-            line.left < view.right,
-        ),
+    const showing = (line: DOMRect) =>
+      line.bottom > view.top &&
+      line.top < view.bottom &&
+      line.right > view.left &&
+      line.left < view.right
+    // Its number, which switching back scrolls to the top; else its first line.
+    const startShowing = (verse: HTMLElement) => {
+      const start = (
+        verse.querySelector<HTMLElement>(".verseNumber") ?? verse
+      ).getClientRects()[0]
+      return (
+        !!start &&
+        start.top >= view.top - 1 &&
+        start.top < view.bottom &&
+        start.left >= view.left - 1 &&
+        start.left < view.right
+      )
+    }
+    const verses = Array.from(block.querySelectorAll<HTMLElement>("verse"))
+    const linked = verses.find((verse) => verse.id === `${this.linkedVerse}`)
+    if (linked && startShowing(linked)) return linked
+    return (
+      verses.find(startShowing) ??
+      verses.find((verse) => Array.from(verse.getClientRects()).some(showing))
     )
   }
 

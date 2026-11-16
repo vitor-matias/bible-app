@@ -1862,6 +1862,70 @@ describe("BibleReaderComponent", () => {
       expect(inView(first, drawer())).toBe(true)
     })
 
+    const verse = (id: number) =>
+      host.querySelector(`verse[id="${id}"]`) as HTMLElement
+
+    /** Scrolls the verse's first line to `offset` px below the view's top. */
+    function scrollVerseTo(id: number, offset: number): void {
+      drawer().scrollTop +=
+        verse(id).getClientRects()[0].top -
+        drawer().getBoundingClientRect().top -
+        offset
+    }
+
+    // The tail of verse 19 shares verse 20's first line: it went to 19's
+    // page, a page early, and walked back further at every switch.
+    it("goes to the verse starting in view, not the one ending there", async () => {
+      scrollVerseTo(20, 2)
+      const scrollToPage = vi.spyOn(
+        component.pagedNav as PagedNavigationDirective,
+        "scrollToPage",
+      )
+
+      await toggle()
+
+      expect(scrollToPage).toHaveBeenCalledWith(verse(20), "instant")
+    })
+
+    it("goes to the verse a link opened on while it shows", async () => {
+      ;(
+        routeMock as { queryParamMap: BehaviorSubject<unknown> }
+      ).queryParamMap.next(new Map([["verseStart", "22"]]))
+      scrollVerseTo(21, 2)
+      expect(inView(verse(22), drawer())).toBe(true)
+      const scrollToPage = vi.spyOn(
+        component.pagedNav as PagedNavigationDirective,
+        "scrollToPage",
+      )
+
+      await toggle()
+
+      expect(scrollToPage).toHaveBeenCalledWith(verse(22), "instant")
+    })
+
+    it("brings back to the top the first verse starting on the page", async () => {
+      await toggle()
+      const page = pages()
+      const box = page.getBoundingClientRect()
+      const onPage = (rect: DOMRect) =>
+        rect.left >= box.left - 1 && rect.left < box.right
+      // A page that opens with the end of a verse begun on the page before.
+      let starting: HTMLElement | undefined
+      for (let left = 0; !starting && left < page.scrollWidth; left += 50) {
+        page.scrollLeft = left
+        if (onPage(showing(page).getClientRects()[0])) continue
+        starting = Array.from(host.querySelectorAll<HTMLElement>("verse")).find(
+          (candidate) => onPage(candidate.getClientRects()[0]),
+        )
+      }
+      expect(starting).toBeDefined()
+
+      await toggle()
+
+      const top = drawer().getBoundingClientRect().top
+      expect(starting?.getClientRects()[0].top).toBeCloseTo(top, -1)
+    })
+
     // The apps' bars float over the text: a verse under the top bar is not
     // being read, and one scrolled to the top went under it.
     describe("under the native bars", () => {
@@ -1886,13 +1950,6 @@ describe("BibleReaderComponent", () => {
         scroller.scrollTop +=
           verse20.getClientRects()[0].top -
           (scroller.getBoundingClientRect().top + BAR)
-        const view = scroller.getBoundingClientRect()
-        const belowBar = Array.from(host.querySelectorAll("verse")).find(
-          (verse) =>
-            Array.from(verse.getClientRects()).some(
-              (line) => line.bottom > view.top + BAR,
-            ),
-        )
         const scrollToPage = vi.spyOn(
           component.pagedNav as PagedNavigationDirective,
           "scrollToPage",
@@ -1900,21 +1957,22 @@ describe("BibleReaderComponent", () => {
 
         await toggle()
 
-        expect(scrollToPage).toHaveBeenCalledWith(belowBar, "instant")
+        expect(scrollToPage).toHaveBeenCalledWith(verse20, "instant")
       })
 
       it("brings the verse back below the top bar", async () => {
         await toggle()
         ;(component.pagedNav as PagedNavigationDirective).scrollToPage(
-          host.querySelector('verse[id="20"]') as HTMLElement,
+          verse(20),
           "instant",
         )
-        const first = showing(pages())
 
         await toggle()
 
         const top = drawer().getBoundingClientRect().top + BAR
-        expect(first.getClientRects()[0].top).toBeGreaterThanOrEqual(top - 1)
+        expect(verse(20).getClientRects()[0].top).toBeGreaterThanOrEqual(
+          top - 1,
+        )
       })
     })
   })
