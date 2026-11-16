@@ -603,7 +603,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** The chapter the slide under way heads for. */
   private slideTo?: Chapter["number"]
-  /** The slide-out under way, which a later step's load waits on too. */
+  /**
+   * The slide-out under way or done, which a later step's load waits on too;
+   * until a chapter is shown, or the load fails.
+   */
   private slideOut?: Promise<void>
 
   goToNextChapter(): void {
@@ -667,6 +670,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private clearChapterSlide(): void {
     this.isNavigatingForwards = false
     this.isNavigatingBackwards = false
+    // They were built past the chapter that was on its way.
+    this.rebuildChapterLinks()
+    this.cdr.markForCheck()
   }
 
   goToChapter(newChapterNumber: Chapter["number"]): void {
@@ -831,8 +837,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck()
     // Or the URL coming back here would read as a chapter still to load.
     this.pendingChapter = this.chapterNumber
-    this.isNavigatingBackwards = false
-    this.isNavigatingForwards = false
+    this.clearChapterSlide()
+    // The chapter slid out for this one comes back.
+    const container = this.bookContainer?.nativeElement
+    if (this.slideOut && container) {
+      this.animationService.triggerSlideAnimation(undefined, container, false)
+    }
+    this.slideOut = undefined
     this.releasePrerender()
     // Opened cold, the address already names the chapter asked for: it keeps
     // its verse and notes, for a retry or a reload to open.
@@ -900,8 +911,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           this.isNavigatingBackwards,
         )
         this.slideOut = slideOut
+        // Out, it stays out until a chapter is shown: its class going would
+        // show it again while a later step's chapter is still loading, and
+        // that one would slide it out a second time.
         void slideOut.then(() => {
-          this.slideOut = undefined
+          if (this.slideOut === slideOut) this.resetContainerForRepaint()
         })
       }
       this.slideOut.then(work)
@@ -927,6 +941,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       !this.isNavigatingBackwards
 
     if (!alreadyShown) this.resetContainerForRepaint()
+    this.slideOut = undefined
 
     this.chapter = chapterData
     this.chapterNumber = chapter

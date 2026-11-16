@@ -2520,6 +2520,65 @@ describe("BibleReaderComponent", () => {
         ])
       })
 
+      // The slide-out ended before the later step's chapter came: its class
+      // went, chapter 1 showed again, and slid out a second time.
+      it("keeps the chapter slid out hidden until the last step's arrives", async () => {
+        const container = component.bookContainer.nativeElement as HTMLElement
+        component.goToNextChapter()
+        goTo(2)
+        load.next(chapter(2))
+        component.goToNextChapter()
+        const third = new Subject<Chapter>()
+        apiServiceSpy.getChapter.mockReturnValue(third)
+        goTo(3)
+
+        endSlide()
+        await new Promise((resolve) => setTimeout(resolve))
+        expect(container.style.opacity).toBe("0")
+        expect(component.chapterNumber).toBe(1)
+
+        third.next(chapter(3))
+        await new Promise((resolve) => setTimeout(resolve))
+
+        expect(
+          animationServiceSpy.triggerSlideOutAnimation,
+        ).toHaveBeenCalledTimes(1)
+        expect(component.chapterNumber).toBe(3)
+      })
+
+      // A step that failed left the arrows built past the chapter that never
+      // came: › skipped a chapter, ‹ pointed at the one on screen.
+      for (const forwards of [true, false]) {
+        it(`points the arrows around the chapter on screen after a failed step ${forwards ? "on" : "back"}`, async () => {
+          vi.spyOn(console, "error").mockReturnValue(undefined)
+          apiServiceSpy.getChapter.mockReturnValue(of(chapter(5)))
+          component.getChapter(5)
+          expect(component.chapterNumber).toBe(5)
+          // Rendering chapter 5 set the drawer query to the bare element.
+          component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+          apiServiceSpy.getChapter.mockReturnValue(load)
+
+          component.prepareChapterNavigation(forwards)
+          goTo(forwards ? 6 : 4)
+          load.error(new Error("Offline"))
+          endSlide()
+          await new Promise((resolve) => setTimeout(resolve))
+
+          expect(component.chapterNumber).toBe(5)
+          expect(component.previousChapterLink).toEqual(["/", "1-genesis", "4"])
+          expect(component.nextChapterLink).toEqual(["/", "1-genesis", "6"])
+        })
+      }
+
+      it("points the arrows around the chapter on screen after a step that went nowhere", async () => {
+        routerSpy.navigate.mockResolvedValue(false)
+
+        component.goToNextChapter()
+        await Promise.resolve()
+
+        expect(component.nextChapterLink).toEqual(["/", "1-genesis", "2"])
+      })
+
       // Stepping back opens a chapter at its end; not the one gone back to.
       it("opens the chapter gone back to at its start", () => {
         component.isNavigatingBackwards = true
@@ -2632,7 +2691,6 @@ describe("BibleReaderComponent", () => {
       bookServiceSpy.getUrlAbrv.mockImplementation((book: Book) => book.id)
       fixture.detectChanges()
       component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
-      const nextChapterLink = component.nextChapterLink
 
       bookServiceSpy.findBook.mockReturnValue({
         id: "jhn",
@@ -2660,7 +2718,8 @@ describe("BibleReaderComponent", () => {
       expect(component.chaptersWithIntro.some((c) => c.number === 0)).toBe(
         false,
       )
-      expect(component.nextChapterLink).toEqual(nextChapterLink)
+      // The shown book's, not John's.
+      expect(component.nextChapterLink).toEqual(["/", "gen", "2"])
     })
 
     // /ex/intro on a book without one sets chapter 1 before loading it: on a
