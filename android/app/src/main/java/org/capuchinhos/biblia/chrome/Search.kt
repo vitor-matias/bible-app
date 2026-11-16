@@ -38,8 +38,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -92,7 +94,12 @@ internal fun SearchView(chrome: ChromeController, state: ChromeState) {
             }
         }
     }
-    LaunchedEffect(Unit) { focus.requestFocus() }
+    // The page sends its query just after it shows: wait a frame for it.
+    val query by rememberUpdatedState(state.query)
+    LaunchedEffect(Unit) {
+        withFrameNanos {}
+        if (searchOpensKeyboard(query)) focus.requestFocus()
+    }
     val search: (String) -> Unit = { query ->
         sent = query
         field.setTextAndPlaceCursorAtEnd(query)
@@ -151,6 +158,12 @@ private const val SEARCH_TYPING_WINDOW_MS = 3000L
  */
 internal fun searchTakesQuery(query: String, sent: String, focused: Boolean, sinceTypedMs: Long): Boolean =
     query != sent && (!focused || sinceTypedMs >= SEARCH_TYPING_WINDOW_MS)
+
+/**
+ * Whether the search opens with the keyboard: not when it comes back with a
+ * [query] (Back from a result), where the keyboard would cover the results.
+ */
+internal fun searchOpensKeyboard(query: String): Boolean = query.isEmpty()
 
 /**
  * Whether the filter shows the page's [query]: not over what is being typed,
