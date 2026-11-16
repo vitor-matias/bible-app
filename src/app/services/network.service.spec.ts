@@ -2,9 +2,11 @@ import { Injector } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import type { PluginListenerHandle } from "@capacitor/core"
 import type { ConnectionStatus } from "@capacitor/network"
+import { Subject } from "rxjs"
 import type { Mock } from "vitest"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { NETWORK_PLUGIN } from "../tokens"
+import { BookService } from "./book.service"
 import { NetworkService } from "./network.service"
 import { OfflineDataService } from "./offline-data.service"
 
@@ -19,6 +21,7 @@ describe("NetworkService", () => {
   let capturedCallback: ((status: ConnectionStatus) => void) | undefined
   // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
   let mockNetworkPlugin: SpyObj<any>
+  let books$: Subject<Book[]>
 
   beforeEach(async () => {
     mockStatus = {
@@ -36,6 +39,7 @@ describe("NetworkService", () => {
         .mockResolvedValue(undefined),
     }
 
+    books$ = new Subject<Book[]>()
     mockNetworkPlugin = createSpyObj("Network", ["addListener", "getStatus"])
     mockNetworkPlugin.addListener.mockImplementation(
       (eventName: string, callback: (status: ConnectionStatus) => void) => {
@@ -56,6 +60,7 @@ describe("NetworkService", () => {
       providers: [
         { provide: NETWORK_PLUGIN, useValue: mockNetworkPlugin },
         { provide: OfflineDataService, useValue: offlineData },
+        { provide: BookService, useValue: { books$ } },
       ],
     })
     service = TestBed.inject(NetworkService)
@@ -136,6 +141,13 @@ describe("NetworkService", () => {
     expect(service.isOffline).toBe(true)
 
     capturedCallback?.({ connected: true, connectionType: "wifi" })
+
+    // Not before the book list, which it would share a slow link with.
+    await import("./offline-data.service")
+    await import("./book.service")
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(offlineData.preloadAllBooksAndChapters).not.toHaveBeenCalled()
+    books$.next([])
 
     // The reconnect hook lazy-imports OfflineDataService before resolving it,
     // so poll until the dynamic import settles.
