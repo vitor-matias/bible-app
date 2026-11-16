@@ -1,7 +1,11 @@
-import { Injectable, inject } from "@angular/core"
+import { DestroyRef, Injectable, inject } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { map } from "rxjs/operators"
+import { isBrowser } from "../utils/platform"
 import { DatabaseService } from "./database.service"
+
+/** Where tabs say they changed the stored ribbons. */
+export const BOOKMARKS_CHANNEL = "offline-bible-bookmarks"
 
 @Injectable({
   providedIn: "root",
@@ -13,10 +17,24 @@ export class BookmarkService {
   bookmarks$ = this.bookmarksSubject.asObservable()
   private updatePromise: Promise<unknown>
   initialized: Promise<void>
+  /** Not while prerendering: an open channel would keep Node running. */
+  private readonly channel =
+    isBrowser() && typeof BroadcastChannel !== "undefined"
+      ? new BroadcastChannel(BOOKMARKS_CHANNEL)
+      : null
 
   constructor() {
     this.initialized = this.init()
     this.updatePromise = this.initialized
+    const channel = this.channel
+    if (!channel) return
+    // Another tab changed the ribbons: show what is stored now.
+    channel.onmessage = () => {
+      this.updatePromise = this.updatePromise
+        .catch(() => {})
+        .then(() => this.loadBookmarks())
+    }
+    inject(DestroyRef).onDestroy(() => channel.close())
   }
 
   private async init() {
@@ -103,6 +121,7 @@ export class BookmarkService {
           this.bookmarksSubject.next(
             saved ?? change(this.bookmarksSubject.value),
           )
+          if (saved) this.channel?.postMessage("changed")
           return saved !== null
         } catch (error) {
           console.error("Failed to save bookmarks to database:", error)
