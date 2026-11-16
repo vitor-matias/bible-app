@@ -107,6 +107,16 @@ describe("LandingComponent", () => {
     })
   }
 
+  it("leaves a crawler on the page it is to index", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    )
+    const { el, navigate } = await setup("android")
+    await vi.advanceTimersByTimeAsync(AUTO_OPEN_MS * 2)
+    expect(el.querySelector(".auto, .status")).toBeNull()
+    expect(navigate).not.toHaveBeenCalled()
+  })
+
   it("Cancelar keeps the visitor on the page", async () => {
     const { el, fixture, navigate } = await setup("android")
     el.querySelector("button")?.click()

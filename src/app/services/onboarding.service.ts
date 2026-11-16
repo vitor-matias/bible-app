@@ -4,7 +4,9 @@ import {
   type MatDialogConfig,
   type MatDialogRef,
 } from "@angular/material/dialog"
+import { NavigationEnd, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
+import { first } from "rxjs"
 import {
   OnboardingComponent,
   type OnboardingResult,
@@ -21,6 +23,9 @@ import { PreferencesService } from "./preferences.service"
 /** Let the reader paint before the wizard slides over it on a first visit. */
 export const FIRST_LAUNCH_DELAY_MS = 800
 
+/** The /app landing page, with or without a trailing slash or query. */
+const isLanding = (url: string) => /^\/app\/?([?#]|$)/.test(url)
+
 @Injectable({
   providedIn: "root",
 })
@@ -35,11 +40,13 @@ export class OnboardingService {
   > | null = null
   private nativeOpen = false
   private readonly nativeChrome = inject(NativeChromeService)
+  private readonly router = inject(Router)
 
   /**
    * Schedules the wizard on a first visit (never on a share-target launch),
    * and once more in the Android app for those who saw it before its native
-   * bars replaced the web header (☰).
+   * bars replaced the web header (☰). On /app, whose countdown a wizard
+   * would cover, it waits for the visitor to move on into the site.
    */
   showOnFirstLaunch(
     search: string = defaultSearch(),
@@ -47,8 +54,19 @@ export class OnboardingService {
   ): boolean {
     if (this.seen()) return false
     if (this.isShareTargetLaunch(search)) return false
-    // The /app page sends its visitor on to a store; a wizard would cover it.
-    if (/^\/app\/?$/.test(path)) return false
+    if (isLanding(path)) {
+      // /app is where new visitors arrive, so postponed, never dropped. The
+      // store links cancel their navigation and so never end one.
+      this.router.events
+        .pipe(
+          first(
+            (e) =>
+              e instanceof NavigationEnd && !isLanding(e.urlAfterRedirects),
+          ),
+        )
+        .subscribe(() => this.showOnFirstLaunch(search, ""))
+      return false
+    }
 
     setTimeout(() => {
       // Re-check: the menu can open and close the wizard during the delay.

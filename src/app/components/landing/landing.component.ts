@@ -26,6 +26,9 @@ function chose(): boolean {
   }
 }
 
+/** Googlebot Smartphone says Android; a crawler must index this page, not leave it. */
+const isCrawler = () => /bot|crawler|spider/i.test(navigator.userAgent)
+
 function rememberChoice(): void {
   try {
     sessionStorage.setItem(CHOSE_KEY, "1")
@@ -66,7 +69,7 @@ export class LandingComponent {
       }
       const platform = this.platform
       // Back to this page must not send away someone who already chose.
-      if (platform === "desktop" || chose()) return
+      if (platform === "desktop" || chose() || isCrawler()) return
       this.auto.set(platform)
       // The /ios and /android routes do the leaving, as for their short links.
       this.timer = setTimeout(
