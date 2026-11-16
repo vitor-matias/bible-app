@@ -564,6 +564,34 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  // A first launch downloads the Bible, a blank screen until then.
+  describe("while the first book list loads", () => {
+    const notice = (): HTMLElement | null =>
+      fixture.nativeElement.querySelector(".books-loading")
+
+    beforeEach(() => {
+      bookServiceSpy.books$ = new Subject<Book[]>()
+    })
+
+    it("says the Bible is loading", () => {
+      fixture.detectChanges()
+
+      expect(notice()?.getAttribute("role")).toBe("status")
+      expect(notice()?.textContent).toContain("A carregar a Bíblia…")
+    })
+
+    it("leaves a prerendered page's text alone", () => {
+      vi.spyOn(TestBed.inject(PendingTasks), "add").mockReturnValue(() => {})
+      fixture.nativeElement.insertAdjacentHTML(
+        "beforeend",
+        '<div class="chapterBlock"><verse>No princípio</verse></div>',
+      )
+      fixture.detectChanges()
+
+      expect(notice()).toBeNull()
+    })
+  })
+
   describe("when the book list cannot be loaded", () => {
     let unavailable$: BehaviorSubject<boolean>
 

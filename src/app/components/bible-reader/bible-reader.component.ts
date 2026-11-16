@@ -178,6 +178,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   books: Book[] = []
   /** The book list could not be loaded and nothing is cached. */
   booksUnavailable = false
+  /** Whether to say the books are loading while there's nothing to show. */
+  showLoading = false
   retryingBooks = false
   /** The first chapter opened could not be loaded: there is none to stay on. */
   chapterUnavailable = false
@@ -270,9 +272,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Hydration deletes the server DOM it hasn't claimed once the app is stable,
     // and waiting on IndexedDB doesn't count as work: the text would blank out.
-    if (this.host.querySelector(".chapterBlock")) {
+    const prerendered = !!this.host.querySelector(".chapterBlock")
+    if (prerendered) {
       this.endPrerenderHold = this.pendingTasks.add()
     }
+    // Otherwise the page is blank until the books load, which on a first
+    // launch downloads the Bible.
+    this.showLoading = isPlatformBrowser(this.platformId) && !prerendered
 
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()
     if (storedSpeed) {

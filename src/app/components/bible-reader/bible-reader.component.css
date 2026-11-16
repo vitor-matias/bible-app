@@ -469,8 +469,8 @@ h6 {
   padding: 8px 0 8px 0;
   width: auto;
 }
-/* The Bible or a chapter that can't load; styles.css fits it under the
-   reader's header. */
+/* The Bible loading, on a screen of its own: clear the status bar / notch.
+   Under the reader's header, what can't load (styles.css). */
 .books-unavailable {
   display: flex;
   flex-direction: column;
