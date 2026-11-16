@@ -8,7 +8,7 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule } from "@angular/material/menu"
 import { Router } from "@angular/router"
-import { BehaviorSubject } from "rxjs"
+import { BehaviorSubject, filter } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -48,10 +48,11 @@ describe("BookmarkSelectorComponent", () => {
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
-    bookSpy.getBooks.mockReturnValue([])
     booksSubject = new BehaviorSubject<Book[]>([])
+    // As BookService: books$ waits for a non-empty list.
+    bookSpy.getBooks.mockImplementation(() => booksSubject.value)
     void Object.defineProperty(bookSpy, "books$", {
-      get: () => booksSubject.asObservable(),
+      get: () => booksSubject.pipe(filter((list) => list.length > 0)),
     })
     const sheetSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = createSpyObj("Router", ["navigate"])
@@ -66,7 +67,11 @@ describe("BookmarkSelectorComponent", () => {
     bookmarkSpy.addBookmark.mockResolvedValue(true)
     hapticsSpy = createSpyObj("HapticsService", ["light", "success"])
     bookmarkSpy.removeBookmark.mockResolvedValue(true)
-    bookSpy.findBookById.mockReturnValue({ abrv: "Mc", shortName: "Marcos" })
+    bookSpy.findBookById.mockReturnValue({
+      abrv: "Mc",
+      shortName: "Marcos",
+      chapterCount: 16,
+    })
     bookSpy.getUrlAbrv.mockReturnValue("mrk")
     bookSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),
@@ -107,6 +112,14 @@ describe("BookmarkSelectorComponent", () => {
 
   it("should create", () => {
     expect(component).toBeTruthy()
+  })
+
+  // A first launch offline, or /indice with the API down: no books at all.
+  it("shows the ribbons at once while the books are missing", () => {
+    expect(component.ribbons.length).toBe(8)
+    expect(
+      component.ribbons.find((r) => r.value === "blue")?.bookmark,
+    ).toBeTruthy()
   })
 
   // Opened before the books loaded, the sheet kept their provisional rows.

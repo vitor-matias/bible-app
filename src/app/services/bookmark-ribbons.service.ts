@@ -192,8 +192,10 @@ export class BookmarkRibbonsService {
 
   /**
    * Every colour, with the passage it marks if it is in use. A record for a
-   * book or chapter this Bible lacks (an old or edited one) leaves its colour
-   * free, and marking with it replaces the record.
+   * chapter its known book lacks (an old or edited one) leaves its colour
+   * free, and marking with it replaces the record. An unknown book keeps its
+   * colour: it may be an introduction or books not loaded on this visit, and
+   * marking with a free colour would delete it.
    */
   ribbons(bookmarks: Bookmark[]): RibbonState[] {
     return RIBBON_COLORS.map(({ name, value, spoken }) => {
@@ -206,16 +208,14 @@ export class BookmarkRibbonsService {
 
   private exists({ bookId, chapter }: Bookmark): boolean {
     if (isIndexBookmark(bookId)) return true
-    const books = this.bookService.getBooks()
-    // Not loaded yet: nothing to tell.
-    if (books.length === 0) return true
-    const book = this.bookService.findBookById(bookId, books)
-    // Chapter 0 is the book introduction.
+    const book = this.bookService.findBookById(bookId)
+    // Only a proven bad chapter frees the colour. Chapter 0 is the book
+    // introduction.
     return (
-      !!book &&
-      Number.isInteger(chapter) &&
-      chapter >= 0 &&
-      chapter <= book.chapterCount
+      typeof book?.chapterCount !== "number" ||
+      (Number.isInteger(chapter) &&
+        chapter >= 0 &&
+        chapter <= book.chapterCount)
     )
   }
 

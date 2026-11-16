@@ -1,5 +1,10 @@
 import { Injectable, inject } from "@angular/core"
-import { combineLatest, Subscription } from "rxjs"
+import {
+  combineLatest,
+  distinctUntilChanged,
+  Subscription,
+  startWith,
+} from "rxjs"
 import {
   indexBookmarkLabel,
   isIndexBookmark,
@@ -50,7 +55,11 @@ export class NativeBookmarksService {
       // provisional (BookmarkRibbonsService.ribbons).
       combineLatest([
         this.bookmarkService.bookmarks$,
-        this.bookService.books$,
+        // At once with the list as it is: books$ waits for a non-empty one.
+        this.bookService.books$.pipe(
+          startWith(this.bookService.getBooks()),
+          distinctUntilChanged(),
+        ),
       ]).subscribe(([bookmarks]) => {
         ribbons = this.ribbonsService.ribbons(bookmarks)
         const state = this.sheetState(ribbons, bookId, chapter, mover)

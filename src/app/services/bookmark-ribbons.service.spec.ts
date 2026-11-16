@@ -131,38 +131,43 @@ describe("BookmarkRibbonsService", () => {
     service = TestBed.inject(BookmarkRibbonsService)
   })
 
-  // Old or edited records showed as «zzz 5» or «Mt 999».
-  it("leaves free a ribbon on a book or chapter this Bible lacks", () => {
-    const mat = { id: "mat", abrv: "Mt", chapterCount: 28 } as Book
+  const mark = (color: string, bookId: string, chapter: number) => ({
+    color,
+    bookId,
+    chapter,
+    timestamp: 1,
+  })
+  const mat = { id: "mat", abrv: "Mt", chapterCount: 28 } as Book
+
+  // Old or edited records showed as «Mt 999» or «Mt 1.5».
+  it("leaves free a ribbon on a chapter its book lacks", () => {
     books.findBookById.mockImplementation((id: string) =>
       id === "mat" ? mat : undefined,
     )
-    const mark = (color: string, bookId: string, chapter: number) => ({
-      color,
-      bookId,
-      chapter,
-      timestamp: 1,
-    })
-    const stored = [
-      mark("red", "zzz", 5),
+    const [, orange, teal, green, blue] = service.ribbons([
       mark("orange", "mat", 999),
       mark("teal", "mat", 0),
       mark("green", "mat", 28),
       mark("blue", "mat", 1.5),
-    ]
-
-    // Before the books load there is nothing to tell.
-    expect(service.ribbons(stored)[0].bookmark).toBeDefined()
-
-    books.getBooks.mockReturnValue([mat])
-    const [red, orange, teal, green, blue] = service.ribbons(stored)
-    expect(red.bookmark).toBeUndefined()
-    expect(red.currentRef).toBeUndefined()
+    ])
     expect(orange.bookmark).toBeUndefined()
+    expect(orange.currentRef).toBeUndefined()
+    expect(blue.bookmark).toBeUndefined()
     expect(teal.currentRef).toBe("Mt Introdução")
     expect(green.currentRef).toBe("Mt 28")
-    // «Mt 1.5»
-    expect(blue.bookmark).toBeUndefined()
+  })
+
+  // A free colour is one a mark may take, which deletes its old record: an
+  // introduction whose list failed to load this visit was lost that way.
+  it("keeps taken a ribbon on a book it doesn't know", () => {
+    books.getBooks.mockReturnValue([mat])
+    books.findBookById.mockImplementation((id: string) =>
+      id === "mat" ? mat : undefined,
+    )
+    const [red] = service.ribbons([mark("red", "pentateuco", 0)])
+
+    // Taken: a tap opens it, as for any ribbon in use, never marks over it.
+    expect(red.bookmark).toEqual(mark("red", "pentateuco", 0))
   })
 
   it("moves a ribbon and says where it was", async () => {
