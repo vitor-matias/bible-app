@@ -295,7 +295,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((unavailable) => {
         this.booksUnavailable = unavailable
-        if (unavailable) this.releasePrerender()
+        if (unavailable) {
+          this.releasePrerender()
+          // Nothing to read, e.g. a first launch offline: the About page is
+          // in the app, and keeps the header and its menu in reach.
+          if (!this.book) {
+            this.book = this.bookService.getAboutBook()
+            this.getChapter(1)
+          }
+        }
         this.cdr.markForCheck()
       })
 
@@ -956,8 +964,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       )
     }
 
-    this.preferencesService.setLastBookId(this.book.id)
-    this.preferencesService.setLastChapterNumber(this.chapterNumber)
+    // Not the About page shown for want of the books: the passage saved is
+    // the one to open once they load.
+    if (!this.booksUnavailable) {
+      this.preferencesService.setLastBookId(this.book.id)
+      this.preferencesService.setLastChapterNumber(this.chapterNumber)
+    }
     this.releasePrerender()
     afterNextRender(() => this.openLinkedNotes(), { injector: this.injector })
   }
@@ -1032,6 +1044,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   openBookDrawer(event: { open: boolean }) {
+    // No books to list yet.
+    if (!this.bookDrawer) return
     if (this.showBooks) {
       this.bookDrawer.toggle().finally(() => {
         this.focusCloseButton()
@@ -1054,6 +1068,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   openChapterDrawer(event: { open: boolean }) {
+    if (!this.bookDrawer) return
     if (!this.showBooks) {
       this.bookDrawer.toggle().finally(() => {
         this.focusCloseButton()

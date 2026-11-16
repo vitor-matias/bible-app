@@ -410,7 +410,8 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
   color: inherit;
 }
 
-/* A chapter that failed to open cold: in the reader, under its header. */
+/* The Bible, or a chapter that failed to open cold: in the reader, under
+   its header. */
 bible-reader .books-unavailable.chapter-unavailable {
   min-height: calc(
     100dvh - var(--app-header-height) - var(--app-chrome-top) -

@@ -469,8 +469,8 @@ h6 {
   padding: 8px 0 8px 0;
   width: auto;
 }
-/* Shown instead of the reader when the book list cannot be loaded. There is
-   no header here, so clear the status bar / notch ourselves. */
+/* The Bible or a chapter that can't load; styles.css fits it under the
+   reader's header. */
 .books-unavailable {
   display: flex;
   flex-direction: column;

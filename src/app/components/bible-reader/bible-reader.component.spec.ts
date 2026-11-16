@@ -81,6 +81,7 @@ describe("BibleReaderComponent", () => {
       "parseChapterUrlSegment",
       "loadGroupIntroBody",
       "retryBooks",
+      "getAboutBook",
     ])
     // The real BibleReferenceService reads it, for NativeFootnotesService.
     bookServiceSpy.getBooks.mockReturnValue(mockBooks as unknown as Book[])
@@ -89,6 +90,7 @@ describe("BibleReaderComponent", () => {
     ) as unknown as BehaviorSubject<Book[]>
     bookServiceSpy.booksUnavailable$ = of(false)
     bookServiceSpy.retryBooks.mockResolvedValue(undefined)
+    bookServiceSpy.getAboutBook.mockReturnValue(mockBooks[1] as unknown as Book)
     preferencesServiceSpy = createSpyObj("PreferencesService", [
       "getAutoScrollSpeed",
       "getViewMode",
@@ -577,9 +579,25 @@ describe("BibleReaderComponent", () => {
       fixture.nativeElement.querySelector(".books-unavailable")
 
     it("shows an empty state with a retry instead of a blank page", () => {
-      expect(component.book).toBeFalsy()
       expect(emptyState()?.getAttribute("role")).toBe("alert")
       expect(emptyState()?.textContent).toContain("Tentar novamente")
+    })
+
+    // A first launch offline was a bare error page: no header, no menu.
+    it("keeps the header and its menu, over the About page", () => {
+      expect(component.book.id).toBe("about")
+      expect(fixture.nativeElement.querySelector("header")).not.toBeNull()
+      expect(fixture.nativeElement.querySelector("about")).not.toBeNull()
+    })
+
+    it("keeps the passage saved to open once the books load", () => {
+      expect(preferencesServiceSpy.setLastBookId).not.toHaveBeenCalled()
+      expect(preferencesServiceSpy.setLastChapterNumber).not.toHaveBeenCalled()
+    })
+
+    it("has no book list to open yet", () => {
+      expect(() => component.openBookDrawer({ open: true })).not.toThrow()
+      expect(() => component.openChapterDrawer({ open: true })).not.toThrow()
     })
 
     it("retries loading the books from the empty state", async () => {
