@@ -2,6 +2,10 @@ import { DOCUMENT } from "@angular/common"
 import { Directive, HostListener, inject, input } from "@angular/core"
 import { passageLabel } from "../utils/passage-label"
 
+/** What a verse's element shows besides the verse's own text. */
+const NOT_VERSE_TEXT =
+  "[data-section-heading], verse-section, .verseNumber, .footnoteIndicator, .chapterNumber, .references"
+
 /**
  * Verses copied from the block carry their reference after them:
  * «Bem-aventurados os pobres… — Mateus 5,3-4». Only the verses
@@ -44,15 +48,31 @@ export class CopyReferenceDirective {
     event.preventDefault()
   }
 
-  /** Whether the selection takes some of the verse's text, not just its edge. */
+  /**
+   * Whether the selection takes some of the verse's own text, not just its
+   * edge, nor only what the verse's element also holds: a heading after it
+   * (Ez 34,10 ends with «O Senhor é o Bom Pastor»), its number, its notes
+   * marker, the chapter number or the parallel references.
+   */
   private selectedText(range: Range, verse: Element): boolean {
     if (!range.intersectsNode(verse)) return false
-    const part = this.document.createRange()
-    part.selectNodeContents(verse)
-    if (range.compareBoundaryPoints(Range.START_TO_START, part) > 0)
-      part.setStart(range.startContainer, range.startOffset)
-    if (range.compareBoundaryPoints(Range.END_TO_END, part) < 0)
-      part.setEnd(range.endContainer, range.endOffset)
-    return part.toString().trim() !== ""
+    // Text by text node: a selection inside a heading clones none of the
+    // elements around it, so they could not be taken out of a copy.
+    const walker = this.document.createTreeWalker(verse, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!range.intersectsNode(node)) continue
+      if (node.parentElement?.closest(NOT_VERSE_TEXT)) continue
+      const text = node.textContent ?? ""
+      const from = node === range.startContainer ? range.startOffset : 0
+      const to = node === range.endContainer ? range.endOffset : text.length
+      if (
+        text
+          .slice(from, to)
+          .replace(/\u200b/g, "")
+          .trim()
+      )
+        return true
+    }
+    return false
   }
 }
