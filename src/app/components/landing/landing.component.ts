@@ -26,8 +26,13 @@ function chose(): boolean {
   }
 }
 
-/** Googlebot Smartphone says Android; a crawler must index this page, not leave it. */
-const isCrawler = () => /bot|crawler|spider/i.test(navigator.userAgent)
+/**
+ * Googlebot Smartphone says Android; a crawler must index this page, not
+ * leave it. Crawlers name themselves "…bot/1.0" or give a "+http…" address;
+ * a bare "bot" would also catch phones such as "CUBOT NOTE 20".
+ */
+const isCrawler = () =>
+  /bot\/|crawler|spider|\+https?:/i.test(navigator.userAgent)
 
 function rememberChoice(): void {
   try {

@@ -117,6 +117,15 @@ describe("LandingComponent", () => {
     expect(navigate).not.toHaveBeenCalled()
   })
 
+  it("does not take a phone with bot in its model name for a crawler", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Linux; Android 11; CUBOT NOTE 20 PRO; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.0.0 Mobile Safari/537.36",
+    )
+    const { navigate } = await setup("android")
+    await vi.advanceTimersByTimeAsync(AUTO_OPEN_MS)
+    expect(navigate).toHaveBeenCalledWith("/android")
+  })
+
   it("Cancelar keeps the visitor on the page", async () => {
     const { el, fixture, navigate } = await setup("android")
     el.querySelector("button")?.click()
