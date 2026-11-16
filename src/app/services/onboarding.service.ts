@@ -41,9 +41,14 @@ export class OnboardingService {
    * and once more in the Android app for those who saw it before its native
    * bars replaced the web header (☰).
    */
-  showOnFirstLaunch(search: string = defaultSearch()): boolean {
+  showOnFirstLaunch(
+    search: string = defaultSearch(),
+    path: string = defaultPath(),
+  ): boolean {
     if (this.seen()) return false
     if (this.isShareTargetLaunch(search)) return false
+    // The /app page sends its visitor on to a store; a wizard would cover it.
+    if (/^\/app\/?$/.test(path)) return false
 
     setTimeout(() => {
       // Re-check: the menu can open and close the wizard during the delay.
@@ -145,6 +150,10 @@ export class OnboardingService {
     const params = new URLSearchParams(search)
     return params.has("url") || params.has("text") || params.has("title")
   }
+}
+
+function defaultPath(): string {
+  return typeof window === "undefined" ? "" : window.location.pathname
 }
 
 function defaultSearch(): string {

@@ -108,6 +108,16 @@ describe("OnboardingService", () => {
 
       expect(dialogSpy.open).not.toHaveBeenCalled()
     })
+
+    it("does not cover the /app landing page", async () => {
+      vi.useFakeTimers()
+      expect(service.showOnFirstLaunch("", "/app")).toBe(false)
+      expect(service.showOnFirstLaunch("", "/app/")).toBe(false)
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+      expect(dialogSpy.open).not.toHaveBeenCalled()
+
+      expect(service.showOnFirstLaunch("", "/apocalipse/1")).toBe(true)
+    })
   })
 
   describe("open", () => {
