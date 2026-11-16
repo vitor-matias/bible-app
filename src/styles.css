@@ -437,6 +437,17 @@ bible-reader .books-unavailable.chapter-unavailable {
   margin-bottom: calc(8px + var(--app-inset-bottom));
 }
 
+/* On a phone the reader's ‹ › arrows sit 52px up, 48px tall
+   (bible-reader.component.css): a toast such as "Voltar para …" goes above
+   them, or it covers them. */
+@media (max-width: 768px) {
+  body:not(.native-chrome):has(.floating-nav-button)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(108px + var(--app-inset-bottom));
+  }
+}
+
 /* The snackbar's action ("OK", "Fechar"). Its label is a span, which the
    span rule above paints the text colour: black on the dark snackbar in the
    light theme. */
