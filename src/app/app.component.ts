@@ -127,6 +127,16 @@ export class AppComponent implements OnInit, OnDestroy {
       .then((handle) => {
         this.listenerHandles.push(handle)
       })
+    // Capacitor hands a held launch link to the listener as it registers, so
+    // before it answers this. No link came: an activity recreated from saved
+    // state still reports its launch URL, but MainActivity drops the replay.
+    // A later tap on that link is then a page of its own.
+    void this.appPlugin
+      .getLaunchUrl()
+      .catch(() => undefined)
+      .then(() => {
+        this.launchUrl = undefined
+      })
 
     this.appPlugin
       .addListener("backButton", (event) => {

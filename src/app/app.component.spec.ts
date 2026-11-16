@@ -287,34 +287,60 @@ describe("AppComponent", () => {
     )
   })
 
-  // A cold link pushed onto "/", so Back showed the last passage read
-  // before the exit toast.
-  it("opens the link that launched the app in place of the start page", async () => {
+  describe("the link that launched the app", () => {
     const link = "https://biblia.capuchinhos.org/indice/amor"
-    mockAppPlugin.getLaunchUrl.mockResolvedValue({ url: link })
-    let openUrl: (event: URLOpenListenerEvent) => void = () => {}
-    mockAppPlugin.addListener.mockImplementation(((
-      eventName: string,
-      callback: (event: URLOpenListenerEvent) => void,
-    ) => {
-      if (eventName === "appUrlOpen") openUrl = callback
-      return Promise.resolve({
-        remove: async () => {},
-      } as unknown as PluginListenerHandle)
-      // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
-    }) as any)
+    let openUrl: (event: URLOpenListenerEvent) => void
+    /** Answers the second getLaunchUrl, which comes after any held link. */
+    let answerAfterHeldLink: () => void
 
-    TestBed.createComponent(AppComponent).detectChanges()
-    await Promise.resolve()
-    ngZone.run(() => openUrl({ url: link }))
-    expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/indice/amor", {
-      replaceUrl: true,
+    beforeEach(() => {
+      openUrl = () => {}
+      mockAppPlugin.getLaunchUrl.mockResolvedValueOnce({ url: link })
+      mockAppPlugin.getLaunchUrl.mockReturnValueOnce(
+        new Promise((resolve) => {
+          answerAfterHeldLink = () => resolve({ url: link })
+        }),
+      )
+      mockAppPlugin.addListener.mockImplementation(((
+        eventName: string,
+        callback: (event: URLOpenListenerEvent) => void,
+      ) => {
+        if (eventName === "appUrlOpen") openUrl = callback
+        return Promise.resolve({
+          remove: async () => {},
+        } as unknown as PluginListenerHandle)
+        // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+      }) as any)
+      TestBed.createComponent(AppComponent).detectChanges()
     })
 
-    // The same link again, from a running app, is a page of its own.
-    ngZone.run(() => openUrl({ url: link }))
-    expect(routerSpy.navigateByUrl).toHaveBeenLastCalledWith("/indice/amor", {
-      replaceUrl: false,
+    // A cold link pushed onto "/", so Back showed the last passage read
+    // before the exit toast.
+    it("opens in place of the start page", async () => {
+      await Promise.resolve()
+      ngZone.run(() => openUrl({ url: link }))
+      answerAfterHeldLink()
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/indice/amor", {
+        replaceUrl: true,
+      })
+
+      // The same link again, from a running app, is a page of its own.
+      ngZone.run(() => openUrl({ url: link }))
+      expect(routerSpy.navigateByUrl).toHaveBeenLastCalledWith("/indice/amor", {
+        replaceUrl: false,
+      })
+    })
+
+    // An activity recreated from saved state still reports its launch URL,
+    // but MainActivity drops the replayed link: tapping it later replaced
+    // the passage being read.
+    it("is a page of its own once the start has passed without it", async () => {
+      answerAfterHeldLink()
+      await new Promise((resolve) => setTimeout(resolve))
+      ngZone.run(() => openUrl({ url: link }))
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/indice/amor", {
+        replaceUrl: false,
+      })
     })
   })
 
