@@ -25,6 +25,13 @@ export const routes: Routes = [
         (m) => m.BookIndexComponent,
       ),
   },
+  {
+    path: "app",
+    loadComponent: () =>
+      import("./components/landing/landing.component").then(
+        (m) => m.LandingComponent,
+      ),
+  },
   { path: "android", canActivate: [redirectTo(PLAY_STORE_URL)], children: [] },
   { path: "ios", canActivate: [redirectTo(APP_STORE_URL)], children: [] },
   {
