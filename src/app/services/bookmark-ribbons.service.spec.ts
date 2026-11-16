@@ -103,8 +103,8 @@ describe("BookmarkRibbonsService", () => {
       "addBookmark",
       "removeBookmark",
     ])
-    bookmarks.addBookmark.mockResolvedValue(undefined)
-    bookmarks.removeBookmark.mockResolvedValue(undefined)
+    bookmarks.addBookmark.mockResolvedValue(true)
+    bookmarks.removeBookmark.mockResolvedValue(true)
     analytics = createSpyObj("AnalyticsService", ["track"])
     analytics.track.mockResolvedValue(undefined)
     haptics = createSpyObj("HapticsService", ["success"])
@@ -176,6 +176,21 @@ describe("BookmarkRibbonsService", () => {
         expect.objectContaining({ chapter: 7, color: "red" }),
       )
       expect(toast.show).not.toHaveBeenCalled()
+    })
+
+    // Private modes have no IndexedDB: the ribbon lasts this visit only.
+    it("says once when a ribbon can't be kept in this browser", async () => {
+      bookmarks.addBookmark.mockResolvedValue(false)
+      service.assign("red", "mat", 7)
+      await settled()
+      service.assign("blue", "mat", 8)
+      await settled()
+
+      expect(toast.show).toHaveBeenCalledExactlyOnceWith(
+        "Não foi possível guardar o marcador neste navegador.",
+        { action: "OK" },
+      )
+      expect(haptics.success).toHaveBeenCalledTimes(2)
     })
 
     it("counts a removal after it saved", async () => {

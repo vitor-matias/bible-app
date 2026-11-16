@@ -182,6 +182,8 @@ export class BookmarkRibbonsService {
   private readonly analyticsService = inject(AnalyticsService)
   private readonly haptics = inject(HapticsService)
   private readonly toast = inject(ToastService)
+  /** Said once a visit: the ribbons won't outlive it in this browser. */
+  private toldNotStored = false
 
   /** A panel's move offer for the chapter it was opened on (RibbonMove). */
   moveTo(bookId: string, chapter: number): RibbonMove {
@@ -308,15 +310,30 @@ export class BookmarkRibbonsService {
   }
 
   private afterSave(
-    write: Promise<void>,
+    write: Promise<boolean>,
     onSaved?: () => void,
     onFailure?: () => void,
   ): void {
-    write.then(onSaved, () => {
-      this.toast.show("Não foi possível guardar o marcador. Tente novamente.", {
-        action: "OK",
-      })
-      onFailure?.()
-    })
+    write.then(
+      (stored) => {
+        if (!stored && !this.toldNotStored) {
+          this.toldNotStored = true
+          this.toast.show(
+            "Não foi possível guardar o marcador neste navegador.",
+            { action: "OK" },
+          )
+        }
+        onSaved?.()
+      },
+      () => {
+        this.toast.show(
+          "Não foi possível guardar o marcador. Tente novamente.",
+          {
+            action: "OK",
+          },
+        )
+        onFailure?.()
+      },
+    )
   }
 }

@@ -11,7 +11,7 @@ export class BookmarkService {
 
   private bookmarksSubject = new BehaviorSubject<Bookmark[]>([])
   bookmarks$ = this.bookmarksSubject.asObservable()
-  private updatePromise: Promise<void>
+  private updatePromise: Promise<unknown>
   initialized: Promise<void>
 
   constructor() {
@@ -46,7 +46,11 @@ export class BookmarkService {
     return found ? { ...found } : undefined
   }
 
-  addBookmark(bookId: string, chapter: number, color: string): Promise<void> {
+  addBookmark(
+    bookId: string,
+    chapter: number,
+    color: string,
+  ): Promise<boolean> {
     return this.save((currentBookmarks) => {
       // A colour marks one chapter, and a chapter carries one colour.
       const bookmarksWithoutConflict = currentBookmarks.filter(
@@ -70,7 +74,7 @@ export class BookmarkService {
     })
   }
 
-  removeBookmark(bookId: string, chapter: number): Promise<void> {
+  removeBookmark(bookId: string, chapter: number): Promise<boolean> {
     return this.save((currentBookmarks) =>
       currentBookmarks.filter(
         (b) => !(b.bookId === bookId && b.chapter === chapter),
@@ -81,25 +85,31 @@ export class BookmarkService {
   /**
    * Applies `change` to the ribbons as stored, not as this tab last saw them:
    * another tab, or a load that failed, would otherwise leave a stale list
-   * deciding which records go.
+   * deciding which records go. Resolves to false when the change is kept in
+   * memory only, for this visit: the browser has no IndexedDB (private modes).
    */
-  private save(change: (bookmarks: Bookmark[]) => Bookmark[]): Promise<void> {
-    this.updatePromise = this.updatePromise
+  private save(
+    change: (bookmarks: Bookmark[]) => Bookmark[],
+  ): Promise<boolean> {
+    const saving = this.updatePromise
       .catch(() => {})
       .then(async () => {
         try {
-          const saved =
-            (await this.databaseService.update<Bookmark>(
-              "bookmarks",
-              (b) => [b.bookId, b.chapter],
-              change,
-            )) ?? change(this.bookmarksSubject.value)
-          this.bookmarksSubject.next(saved)
+          const saved = await this.databaseService.update<Bookmark>(
+            "bookmarks",
+            (b) => [b.bookId, b.chapter],
+            change,
+          )
+          this.bookmarksSubject.next(
+            saved ?? change(this.bookmarksSubject.value),
+          )
+          return saved !== null
         } catch (error) {
           console.error("Failed to save bookmarks to database:", error)
           throw error
         }
       })
-    return this.updatePromise
+    this.updatePromise = saving
+    return saving
   }
 }

@@ -52,6 +52,16 @@ describe("BookmarkService", () => {
     expect(service).toBeTruthy()
   })
 
+  // Without IndexedDB (private modes) the change holds for this visit only.
+  it("says whether a change was stored on the device", async () => {
+    expect(await service.addBookmark("JHN", 3, "#4CAF50")).toBe(true)
+
+    databaseService.update.mockResolvedValue(null)
+    expect(await service.addBookmark("JHN", 4, "#9C27B0")).toBe(false)
+    expect(service.getBookmark("JHN", 4)?.color).toBe("#9C27B0")
+    expect(await service.removeBookmark("JHN", 4)).toBe(false)
+  })
+
   it("should load bookmarks on initialization", async () => {
     expect(await firstValueFrom(service.bookmarks$)).toEqual(mockBookmarks)
     expect(databaseService.getAll).toHaveBeenCalledWith("bookmarks")

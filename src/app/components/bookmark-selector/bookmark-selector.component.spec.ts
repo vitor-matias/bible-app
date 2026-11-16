@@ -53,9 +53,9 @@ describe("BookmarkSelectorComponent", () => {
       get: () => bookmarksSubject.asObservable(),
     })
 
-    bookmarkSpy.addBookmark.mockResolvedValue(undefined)
+    bookmarkSpy.addBookmark.mockResolvedValue(true)
     hapticsSpy = createSpyObj("HapticsService", ["light", "success"])
-    bookmarkSpy.removeBookmark.mockResolvedValue(undefined)
+    bookmarkSpy.removeBookmark.mockResolvedValue(true)
     bookSpy.findBookById.mockReturnValue({ abrv: "Mc", shortName: "Marcos" })
     bookSpy.getUrlAbrv.mockReturnValue("mrk")
     bookSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
