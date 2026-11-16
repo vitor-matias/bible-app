@@ -212,9 +212,9 @@ describe("AnalyticsService", () => {
 
   // The iOS shell is served from capacitor://localhost, whose origin is "null".
   it("keeps the iOS shell's address in a report's URL", () => {
-    expect(
-      reportUrl("capacitor://localhost/gn/1?verseStart=3&utm=x#v3"),
-    ).toBe("capacitor://localhost/gn/1?verseStart=3")
+    expect(reportUrl("capacitor://localhost/gn/1?verseStart=3&utm=x#v3")).toBe(
+      "capacitor://localhost/gn/1?verseStart=3",
+    )
     expect(reportUrl("https://localhost/gn/1?verseEnd=4")).toBe(
       "https://localhost/gn/1?verseEnd=4",
     )
