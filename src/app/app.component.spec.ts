@@ -7,11 +7,13 @@ import type {
   URLOpenListenerEvent,
 } from "@capacitor/app"
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core"
+import { Subject } from "rxjs"
 import type { Mock } from "vitest"
 import { AppComponent, EXIT_BACK_WINDOW_MS } from "./app.component"
 import { AnalyticsService } from "./services/analytics.service"
 import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
+import { BookService } from "./services/book.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -34,6 +36,7 @@ describe("AppComponent", () => {
   }
   let toastSpy: SpyObj<ToastService>
   let appPromoSpy: SpyObj<AppPromoService>
+  let books$: Subject<Book[]>
 
   beforeEach(async () => {
     pageHostname = "localhost"
@@ -46,6 +49,7 @@ describe("AppComponent", () => {
     const offlineDataSpy = createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
     ])
+    books$ = new Subject<Book[]>()
     const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue(undefined)
     onboardingSpy = createSpyObj("OnboardingService", ["showOnFirstLaunch"])
@@ -60,6 +64,7 @@ describe("AppComponent", () => {
       providers: [
         { provide: Router, useValue: routerSpy },
         { provide: OfflineDataService, useValue: offlineDataSpy },
+        { provide: BookService, useValue: { books$ } },
         { provide: AnalyticsService, useValue: analyticsSpy },
         { provide: APP_PLUGIN, useValue: mockAppPlugin },
         { provide: OnboardingService, useValue: onboardingSpy },
@@ -155,7 +160,9 @@ describe("AppComponent", () => {
     expect(analyticsService.track).toHaveBeenCalledWith("app_open")
   })
 
-  it("should preload books for offline use on init", async () => {
+  // On 2G the Bible's download, queued ahead of the book list, made it
+  // time out: «Não foi possível carregar a Bíblia» on a first launch.
+  it("preloads books for offline use once the book list is in", async () => {
     mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},
     } as unknown as PluginListenerHandle)
@@ -165,6 +172,8 @@ describe("AppComponent", () => {
     await fixture.whenStable()
 
     const offlineDataService = TestBed.inject(OfflineDataService)
+    expect(offlineDataService.preloadAllBooksAndChapters).not.toHaveBeenCalled()
+    books$.next([])
     expect(offlineDataService.preloadAllBooksAndChapters).toHaveBeenCalledWith()
   })
 

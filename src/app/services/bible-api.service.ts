@@ -1,11 +1,19 @@
-import { HttpClient, HttpErrorResponse } from "@angular/common/http"
+import {
+  HttpClient,
+  HttpErrorResponse,
+  type HttpEvent,
+  HttpEventType,
+  type HttpResponse,
+} from "@angular/common/http"
 import { Injectable, Injector, inject } from "@angular/core"
 import { pendingUntilEvent } from "@angular/core/rxjs-interop"
 import {
   catchError,
+  filter,
   finalize,
   from,
   type MonoTypeOperatorFunction,
+  map,
   type Observable,
   of,
   retry,
@@ -71,6 +79,24 @@ export const REQUEST_TIMEOUT_MS = 15_000
 function requestTimeout<T>(): MonoTypeOperatorFunction<T> {
   // The server already times out and retries (createApiResilience).
   return IS_SERVER ? (source) => source : timeout(REQUEST_TIMEOUT_MS)
+}
+
+/**
+ * A request's body, failing once nothing has arrived for REQUEST_TIMEOUT_MS
+ * rather than after it in all: on 2G the book list (~180 kB) takes longer.
+ */
+function bodyArrivingInTime<T>(
+  request: Observable<HttpEvent<T>>,
+): Observable<T> {
+  return request.pipe(
+    // Each progress event restarts the wait.
+    IS_SERVER ? (source) => source : timeout({ each: REQUEST_TIMEOUT_MS }),
+    filter(
+      (event): event is HttpResponse<T> =>
+        event.type === HttpEventType.Response,
+    ),
+    map((response) => response.body as T),
+  )
 }
 
 /** A books body that parsed but isn't the list. */
@@ -158,11 +184,13 @@ export class BibleApiService {
         // its cache, and without one the request fails as fast.
         if (!this.booksRequest$) {
           // shareReplay(1) deduplicates the initial books fetch during app bootstrap.
-          this.booksRequest$ = (
-            this.http.get(`${this.api}/books`) as Observable<Book[]>
+          this.booksRequest$ = bodyArrivingInTime(
+            this.http.get<Book[]>(`${this.api}/books`, {
+              observe: "events",
+              reportProgress: true,
+            }),
           ).pipe(
             serverRetry(),
-            requestTimeout(),
             tap((books) => {
               // A body that parses but isn't the list (a proxy's error page)
               // fails like any other, so a retry asks the server again.

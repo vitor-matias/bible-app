@@ -1,4 +1,8 @@
-import { HttpErrorResponse, HttpHeaders } from "@angular/common/http"
+import {
+  HttpErrorResponse,
+  HttpEventType,
+  HttpHeaders,
+} from "@angular/common/http"
 import {
   HttpClientTestingModule,
   HttpTestingController,
@@ -461,6 +465,32 @@ describe("BibleApiService", () => {
 
       beforeEach(() => {
         offlineDataServiceSpy.getCachedBooksAsync.mockResolvedValue([])
+      })
+
+      // On 2G the list (~180 kB) took longer than the timeout to arrive:
+      // «Não foi possível carregar a Bíblia» on every try.
+      it("waits for a slow list as long as it keeps arriving", async () => {
+        vi.useFakeTimers()
+        let books: Book[] | undefined
+        let failure: unknown
+        service.getAvailableBooks().subscribe({
+          next: (result) => {
+            books = result
+          },
+          error: (error) => {
+            failure = error
+          },
+        })
+        await vi.advanceTimersByTimeAsync(0)
+        const slow = httpMock.expectOne("v1/books")
+        for (let loaded = 1; loaded <= 4; loaded++) {
+          await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS - 1)
+          slow.event({ type: HttpEventType.DownloadProgress, loaded })
+        }
+        slow.flush(remoteBooks)
+
+        expect(failure).toBeUndefined()
+        expect(books).toEqual(remoteBooks)
       })
 
       // A connection that opened but never answered left the reader empty,
