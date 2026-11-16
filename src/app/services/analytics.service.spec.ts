@@ -50,12 +50,13 @@ describe("AnalyticsService", () => {
   describe("loadTracker", () => {
     let tracker: HTMLScriptElement
 
-    beforeEach(() => {
+    beforeEach(async () => {
       vi.spyOn(document.head, "append").mockImplementation((node) => {
         tracker = node as HTMLScriptElement
       })
       delete globalThis.umami
-      loadTracker()
+      loadTracker(Promise.resolve())
+      await Promise.resolve()
     })
 
     afterEach(() => {
@@ -69,6 +70,24 @@ describe("AnalyticsService", () => {
       expect(tracker.src).toBe("https://umami.dojo.pt/script.js")
       expect(tracker.getAttribute("data-website-id")).toBeTruthy()
       expect(tracker.getAttribute("data-before-send")).toBe("umamiBeforeSend")
+    })
+
+    // Its first page view would carry the page's title before the page
+    // has set it.
+    it("inserts the script only once the first page is ready", async () => {
+      const append = vi.mocked(document.head.append)
+      append.mockClear()
+      let ready: () => void = () => {}
+      loadTracker(new Promise<void>((resolve) => (ready = resolve)))
+      await Promise.resolve()
+      expect(append).not.toHaveBeenCalled()
+
+      ready()
+      await vi.waitFor(() => expect(append).toHaveBeenCalledOnce())
+      // A page that fails to load still counts.
+      append.mockClear()
+      loadTracker(Promise.reject(new Error("bootstrap failed")))
+      await vi.waitFor(() => expect(append).toHaveBeenCalledOnce())
     })
 
     it("keeps an event sent before the tracker has loaded", async () => {

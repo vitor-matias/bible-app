@@ -18,11 +18,13 @@ export const BUILD_DATA_WAIT_MS = 3_000
 let trackerSettled: Promise<unknown> = Promise.resolve()
 
 /**
- * Sets Umami's hook, then inserts its script. Not a tag in index.html: the
- * bundle would wait behind a deferred one, for minutes if the server never
- * replies, and an async one can send its first page view before the hook.
+ * Sets Umami's hook, then inserts its script once `pageReady` settles. Not a
+ * tag in index.html: the bundle would wait behind a deferred one, for minutes
+ * if the server never replies, and an async one can send its first page view
+ * before the hook. The first page view and app_open, held until then, carry
+ * document.title, which the first page sets only once it has loaded.
  */
-export function loadTracker(): void {
+export function loadTracker(pageReady: Promise<unknown>): void {
   window.umamiBeforeSend = prepareUmamiPayload
   const tracker = document.createElement("script")
   tracker.src = "https://umami.dojo.pt/script.js"
@@ -31,7 +33,8 @@ export function loadTracker(): void {
   trackerSettled = new Promise((settled) => {
     tracker.onload = tracker.onerror = settled
   })
-  document.head.append(tracker)
+  const insert = () => document.head.append(tracker)
+  pageReady.then(insert, insert)
 }
 
 @Injectable({
