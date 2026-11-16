@@ -117,7 +117,7 @@ export class AppComponent implements OnInit, OnDestroy {
           const url = new URL(event.url)
           if (
             url.pathname === "/" &&
-            this.routeSharedContent(url.searchParams)
+            this.routeSharedContent(url.searchParams, replaceUrl)
           ) {
             return
           }
@@ -197,9 +197,13 @@ export class AppComponent implements OnInit, OnDestroy {
    * Routes shared content, if `params` carries any:
    * - an internal link (the URL, or one inside the text) opens that page;
    * - otherwise the search screen opens with the text, URL or title.
-   * Returns whether there was anything to route.
+   * Returns whether there was anything to route. `replaceUrl` for the share
+   * that started the app, so Back from it leaves rather than shows the start.
    */
-  private routeSharedContent(params: URLSearchParams): boolean {
+  private routeSharedContent(
+    params: URLSearchParams,
+    replaceUrl = false,
+  ): boolean {
     const sharedUrl = params.get("url")
     const sharedText = params.get("text")
     const sharedTitle = params.get("title")
@@ -217,7 +221,7 @@ export class AppComponent implements OnInit, OnDestroy {
     for (const candidate of candidates) {
       const internalPath = candidate ? this.internalPath(candidate) : null
       if (internalPath) {
-        this.router.navigateByUrl(internalPath)
+        this.router.navigateByUrl(internalPath, { replaceUrl })
         return true
       }
     }
@@ -229,7 +233,10 @@ export class AppComponent implements OnInit, OnDestroy {
         (value) => !!value && value.trim().length > 0,
       ) ?? ""
     if (query) {
-      this.router.navigate(["/search"], { queryParams: { q: query } })
+      this.router.navigate(["/search"], {
+        queryParams: { q: query },
+        replaceUrl,
+      })
     }
     return true
   }

@@ -187,6 +187,7 @@ describe("AppComponent", () => {
 
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
         queryParams: { q: "Salmo 23" },
+        replaceUrl: false,
       })
     } finally {
       history.replaceState(null, "", originalUrl)
@@ -209,6 +210,7 @@ describe("AppComponent", () => {
 
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
         queryParams: { q: "Salmo 23" },
+        replaceUrl: false,
       })
     } finally {
       history.replaceState(null, "", originalUrl)
@@ -340,6 +342,50 @@ describe("AppComponent", () => {
       ngZone.run(() => openUrl({ url: link }))
       expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/indice/amor", {
         replaceUrl: false,
+      })
+    })
+  })
+
+  // MainActivity rewrites a share that starts the app into a share-target URL
+  // on the root; Back from what it opens showed the last passage read.
+  describe("the share that launched the app", () => {
+    let openUrl: (event: URLOpenListenerEvent) => void
+
+    const launchWith = async (link: string) => {
+      openUrl = () => {}
+      mockAppPlugin.getLaunchUrl.mockResolvedValueOnce({ url: link })
+      mockAppPlugin.getLaunchUrl.mockReturnValueOnce(new Promise(() => {}))
+      mockAppPlugin.addListener.mockImplementation(((
+        eventName: string,
+        callback: (event: URLOpenListenerEvent) => void,
+      ) => {
+        if (eventName === "appUrlOpen") openUrl = callback
+        return Promise.resolve({
+          remove: async () => {},
+        } as unknown as PluginListenerHandle)
+        // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+      }) as any)
+      TestBed.createComponent(AppComponent).detectChanges()
+      await Promise.resolve()
+      ngZone.run(() => openUrl({ url: link }))
+    }
+
+    it("opens its search in place of the start page", async () => {
+      await launchWith("https://biblia.capuchinhos.org/?text=amai-vos")
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
+        queryParams: { q: "amai-vos" },
+        replaceUrl: true,
+      })
+    })
+
+    it("opens its link in place of the start page", async () => {
+      await launchWith(
+        `https://biblia.capuchinhos.org/?text=${encodeURIComponent(
+          "Lê isto: https://biblia.capuchinhos.org/mc/7",
+        )}`,
+      )
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/mc/7", {
+        replaceUrl: true,
       })
     })
   })
@@ -543,6 +589,7 @@ describe("AppComponent", () => {
       )
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
         queryParams: { q: "amai-vos uns aos outros" },
+        replaceUrl: false,
       })
       expect(routerSpy.navigateByUrl).not.toHaveBeenCalled()
     })
@@ -554,7 +601,9 @@ describe("AppComponent", () => {
           "Lê isto: https://biblia.capuchinhos.org/mc/7.",
         )}`,
       )
-      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/mc/7")
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/mc/7", {
+        replaceUrl: false,
+      })
       expect(routerSpy.navigate).not.toHaveBeenCalled()
     })
 
