@@ -5,6 +5,7 @@ import { MatSnackBar } from "@angular/material/snack-bar"
 import { provideNoopAnimations } from "@angular/platform-browser/animations"
 import { RIBBON_COLORS } from "./services/bookmark-ribbons.service"
 import { contrastRatio } from "./testing/contrast"
+import { moreContrast } from "./testing/forced-colors"
 
 // Rules in src/styles.css that reach across components.
 describe("global styles", () => {
@@ -682,6 +683,54 @@ describe("global styles", () => {
           ribbon.value,
         ).toBeGreaterThanOrEqual(3)
       }
+    })
+  })
+
+  // iOS Increase Contrast left the drawer's tiles a tint on their surface, and
+  // captions and placeholders as faint as ever.
+  describe("when more contrast is asked for", () => {
+    let page: HTMLElement
+    let wasDark: boolean
+
+    beforeEach(() => {
+      wasDark = document.documentElement.classList.contains("dark-theme")
+      document.documentElement.classList.remove("dark-theme")
+      page = document.createElement("div")
+      page.innerHTML = `
+        <chapter-selector><button class="chapterSelectorButton">1</button></chapter-selector>
+        <app-search><p class="results-hint">Por exemplo</p></app-search>
+        <input placeholder="Procurar na Bíblia">
+        <span id="text" style="color: var(--text-color)"></span>`
+      document.body.appendChild(page)
+    })
+
+    afterEach(async () => {
+      page.remove()
+      document.documentElement.classList.toggle("dark-theme", wasDark)
+      await moreContrast(false)
+    })
+
+    const style = (selector: string, pseudo?: string) =>
+      getComputedStyle(page.querySelector(selector) as HTMLElement, pseudo)
+    // The body's colour eases in on a theme change; a probe's is at once.
+    const textColor = () => style("#text").color
+
+    for (const dark of [false, true]) {
+      it(`edges the tiles and strengthens faint text${dark ? " in the dark theme" : ""}`, async () => {
+        document.documentElement.classList.toggle("dark-theme", dark)
+        await moreContrast(true)
+
+        expect(style(".chapterSelectorButton").boxShadow).toBe(
+          `${textColor()} 0px 0px 0px 1px inset`,
+        )
+        expect(style(".results-hint").color).toBe(textColor())
+        expect(style("input", "::placeholder").color).toBe(textColor())
+      })
+    }
+
+    it("leaves the look as it was otherwise", () => {
+      expect(style(".chapterSelectorButton").boxShadow).toBe("none")
+      expect(style("input", "::placeholder").color).not.toBe(textColor())
     })
   })
 })
