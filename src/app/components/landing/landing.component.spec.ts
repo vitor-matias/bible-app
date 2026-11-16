@@ -6,10 +6,13 @@ import {
   PwaInstallService,
 } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
-import { AUTO_OPEN_MS, LandingComponent } from "./landing.component"
+import { AUTO_OPEN_MS, CHOSE_KEY, LandingComponent } from "./landing.component"
 
 describe("LandingComponent", () => {
   const seo = { updateForLanding: vi.fn() }
+
+  beforeEach(() => sessionStorage.removeItem(CHOSE_KEY))
+  afterAll(() => sessionStorage.removeItem(CHOSE_KEY))
 
   async function setup(platform: InstallPlatform) {
     vi.useFakeTimers()
@@ -84,6 +87,25 @@ describe("LandingComponent", () => {
     await vi.advanceTimersByTimeAsync(AUTO_OPEN_MS * 2)
     expect(navigate).not.toHaveBeenCalled()
   })
+
+  // Back from the reader recreates the page: it sent the visitor to the store
+  // they had just turned down.
+  for (const [what, selector] of [
+    ["Cancelar", "button"],
+    ["Abrir no navegador", 'a[href="/"]'],
+  ]) {
+    it(`does not count down again after ${what}, on coming back`, async () => {
+      const first = await setup("android")
+      first.el.querySelector<HTMLElement>(selector)?.click()
+      first.fixture.destroy()
+      TestBed.resetTestingModule()
+
+      const { el, navigate } = await setup("android")
+      await vi.advanceTimersByTimeAsync(AUTO_OPEN_MS * 2)
+      expect(el.querySelector(".auto, .status")).toBeNull()
+      expect(navigate).not.toHaveBeenCalled()
+    })
+  }
 
   it("Cancelar keeps the visitor on the page", async () => {
     const { el, fixture, navigate } = await setup("android")

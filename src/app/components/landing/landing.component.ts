@@ -14,6 +14,24 @@ import { SeoService } from "../../services/seo.service"
 /** How long a phone's visitor sees the page before its store opens. */
 export const AUTO_OPEN_MS = 2500
 
+/** Set once the visitor chose for themselves; lasts as long as the tab. */
+export const CHOSE_KEY = "landing-chose"
+
+// Storage throws where the browser blocks it; the countdown then just runs.
+function chose(): boolean {
+  try {
+    return sessionStorage.getItem(CHOSE_KEY) !== null
+  } catch {
+    return false
+  }
+}
+
+function rememberChoice(): void {
+  try {
+    sessionStorage.setItem(CHOSE_KEY, "1")
+  } catch {}
+}
+
 /**
  * One link to share everywhere: the website and both store listings. A phone
  * or tablet is sent on to its own store after a moment, unless told to stay.
@@ -27,7 +45,7 @@ export const AUTO_OPEN_MS = 2500
       <h1>Bíblia Sagrada</h1>
       <p>Leia no navegador ou instale a aplicação.</p>
       <nav aria-label="Onde ler">
-        <a routerLink="/">Abrir no navegador</a>
+        <a routerLink="/" (click)="stay()">Abrir no navegador</a>
         <a routerLink="/ios" [class.auto]="auto() === 'ios'" (click)="stay()">App Store</a>
         <a routerLink="/android" [class.auto]="auto() === 'android'" (click)="stay()">Google Play</a>
       </nav>
@@ -90,7 +108,8 @@ export class LandingComponent {
         return
       }
       const platform = this.platform
-      if (platform === "desktop") return
+      // Back to this page must not send away someone who already chose.
+      if (platform === "desktop" || chose()) return
       this.auto.set(platform)
       // The /ios and /android routes do the leaving, as for their short links.
       this.timer = setTimeout(
@@ -100,8 +119,9 @@ export class LandingComponent {
     })
   }
 
-  /** Also on a store link's tap: the visitor chose, the countdown must not. */
+  /** Also on a link's tap: the visitor chose, the countdown must not. */
   protected stay(): void {
+    rememberChoice()
     clearTimeout(this.timer)
     this.auto.set(null)
   }
