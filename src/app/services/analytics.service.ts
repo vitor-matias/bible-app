@@ -14,6 +14,9 @@ export const DELIVERY_TIMEOUT_MS = 15_000
  */
 export const BUILD_DATA_WAIT_MS = 3_000
 
+/** How long the tracker waits for the first page before it goes in anyway. */
+export const TRACKER_FALLBACK_MS = 5_000
+
 /** Settles once the script from loadTracker has loaded or failed. */
 let trackerSettled: Promise<unknown> = Promise.resolve()
 
@@ -22,7 +25,8 @@ let trackerSettled: Promise<unknown> = Promise.resolve()
  * tag in index.html: the bundle would wait behind a deferred one, for minutes
  * if the server never replies, and an async one can send its first page view
  * before the hook. The first page view and app_open, held until then, carry
- * document.title, which the first page sets only once it has loaded.
+ * document.title, which the first page sets only once it has loaded. A page
+ * that never settles still gets the script after TRACKER_FALLBACK_MS.
  */
 export function loadTracker(pageReady: Promise<unknown>): void {
   window.umamiBeforeSend = prepareUmamiPayload
@@ -33,7 +37,14 @@ export function loadTracker(pageReady: Promise<unknown>): void {
   trackerSettled = new Promise((settled) => {
     tracker.onload = tracker.onerror = settled
   })
-  const insert = () => document.head.append(tracker)
+  let inserted = false
+  const insert = () => {
+    if (inserted) return
+    inserted = true
+    clearTimeout(fallback)
+    document.head.append(tracker)
+  }
+  const fallback = setTimeout(insert, TRACKER_FALLBACK_MS)
   pageReady.then(insert, insert)
 }
 

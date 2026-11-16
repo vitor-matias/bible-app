@@ -8,6 +8,7 @@ import {
   DELIVERY_TIMEOUT_MS,
   loadTracker,
   prepareUmamiPayload,
+  TRACKER_FALLBACK_MS,
 } from "./analytics.service"
 import { BuildVersionService } from "./build-version.service"
 
@@ -88,6 +89,30 @@ describe("AnalyticsService", () => {
       append.mockClear()
       loadTracker(Promise.reject(new Error("bootstrap failed")))
       await vi.waitFor(() => expect(append).toHaveBeenCalledOnce())
+    })
+
+    // A pending task that never settles would otherwise keep analytics out
+    // of the whole visit, with nothing visible to flag it.
+    it("inserts the script after a while if the page never settles", async () => {
+      vi.useFakeTimers()
+      const append = vi.mocked(document.head.append)
+      append.mockClear()
+      loadTracker(new Promise(() => {}))
+
+      await vi.advanceTimersByTimeAsync(TRACKER_FALLBACK_MS - 1)
+      expect(append).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(append).toHaveBeenCalledOnce()
+    })
+
+    it("inserts the script once, when the page is ready first", async () => {
+      vi.useFakeTimers()
+      const append = vi.mocked(document.head.append)
+      append.mockClear()
+      loadTracker(Promise.resolve())
+
+      await vi.advanceTimersByTimeAsync(TRACKER_FALLBACK_MS * 2)
+      expect(append).toHaveBeenCalledOnce()
     })
 
     it("keeps an event sent before the tracker has loaded", async () => {
