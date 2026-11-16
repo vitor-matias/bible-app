@@ -6,10 +6,10 @@ import {
   inject,
   signal,
 } from "@angular/core"
-import { Title } from "@angular/platform-browser"
 import { Router, RouterLink } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { PwaInstallService } from "../../services/pwa-install.service"
+import { SeoService } from "../../services/seo.service"
 
 /** How long a phone's visitor sees the page before its store opens. */
 export const AUTO_OPEN_MS = 2500
@@ -28,8 +28,8 @@ export const AUTO_OPEN_MS = 2500
       <p>Leia no navegador ou instale a aplicação.</p>
       <nav aria-label="Onde ler">
         <a routerLink="/">Abrir no navegador</a>
-        <a routerLink="/ios" [class.auto]="auto() === 'ios'">App Store</a>
-        <a routerLink="/android" [class.auto]="auto() === 'android'">Google Play</a>
+        <a routerLink="/ios" [class.auto]="auto() === 'ios'" (click)="stay()">App Store</a>
+        <a routerLink="/android" [class.auto]="auto() === 'android'" (click)="stay()">Google Play</a>
       </nav>
       @if (auto(); as store) {
         <p class="status" role="status">
@@ -78,7 +78,7 @@ export class LandingComponent {
   protected readonly auto = signal<"ios" | "android" | null>(null)
 
   constructor() {
-    inject(Title).setTitle("Bíblia Sagrada — site e aplicações")
+    inject(SeoService).updateForLanding()
     inject(DestroyRef).onDestroy(() => clearTimeout(this.timer))
 
     // Browser only, as the prerender cannot know the device.
@@ -100,6 +100,7 @@ export class LandingComponent {
     })
   }
 
+  /** Also on a store link's tap: the visitor chose, the countdown must not. */
   protected stay(): void {
     clearTimeout(this.timer)
     this.auto.set(null)

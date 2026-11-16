@@ -5,14 +5,18 @@ import {
   type InstallPlatform,
   PwaInstallService,
 } from "../../services/pwa-install.service"
+import { SeoService } from "../../services/seo.service"
 import { AUTO_OPEN_MS, LandingComponent } from "./landing.component"
 
 describe("LandingComponent", () => {
+  const seo = { updateForLanding: vi.fn() }
+
   async function setup(platform: InstallPlatform) {
     vi.useFakeTimers()
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        { provide: SeoService, useValue: seo },
         {
           provide: PwaInstallService,
           useValue: { detectPlatform: () => platform },
@@ -63,6 +67,22 @@ describe("LandingComponent", () => {
     await vi.advanceTimersByTimeAsync(AUTO_OPEN_MS * 2)
     expect(navigate).toHaveBeenCalledTimes(1)
     expect(el.querySelector(".auto")).toBeNull()
+  })
+
+  it("sets its own head, for the link previews", async () => {
+    seo.updateForLanding.mockClear()
+    await setup("desktop")
+    expect(seo.updateForLanding).toHaveBeenCalledTimes(1)
+  })
+
+  // The store routes cancel their navigation, so the page stays alive: an
+  // iPhone visitor who tapped Google Play was still sent to the App Store.
+  it("stops the countdown once a store link is tapped", async () => {
+    const { el, navigate } = await setup("ios")
+    el.querySelector<HTMLElement>('a[href="/android"]')?.click()
+    navigate.mockClear()
+    await vi.advanceTimersByTimeAsync(AUTO_OPEN_MS * 2)
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   it("Cancelar keeps the visitor on the page", async () => {
