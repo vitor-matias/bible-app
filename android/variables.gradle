@@ -14,6 +14,9 @@ ext {
     // The native bars. Material 3's expressive components (the floating
     // toolbar, button groups) are only in 1.5, ahead of the BOM's 1.4.
     // 1.5 and Compose 1.12 need SDK 37 and AGP 9.1 or later.
+    // Newest stable is 1.4.0 (checked 2026-11-02): it lacks FloatingToolbarDefaults, IconButtonShapes and a public
+    // ExperimentalMaterial3ExpressiveApi, so chrome/ doesn't compile. Next time: is there a 1.5.0 stable?
+
     composeBomVersion = '2026.09.00'
     material3Version = '1.5.0-beta02'
     androidxActivityComposeVersion = '1.13.0'
