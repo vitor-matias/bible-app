@@ -869,6 +869,27 @@ describe("PastoralIndexComponent", () => {
       expect(size(235)).toBe("19px")
     })
 
+    // On the iPad the letters were ~15 pt apart in a 24 px strip.
+    it("take touches past the iOS bar's letters, where that covers no row", async () => {
+      const fixture = await open(undefined, true)
+      const bar = fixture.nativeElement.querySelector(
+        "alphabetical-scroll-bar",
+      ) as HTMLElement
+      const rect = bar.getBoundingClientRect()
+      const middle = rect.top + rect.height / 2
+
+      // Past the ends, and (the spec's 800 px are wider than the list) to
+      // 44 px wide, into the margin.
+      expect(document.elementFromPoint(rect.right - 4, rect.top - 8)).toBe(bar)
+      expect(document.elementFromPoint(rect.right - 4, rect.bottom + 8)).toBe(
+        bar,
+      )
+      expect(document.elementFromPoint(rect.left - 16, middle)).toBe(bar)
+      expect(document.elementFromPoint(rect.left - 24, middle)).not.toBe(bar)
+      // The letters themselves are where they were.
+      expect(rect.width).toBe(24)
+    })
+
     it("go to that letter's themes", async () => {
       const fixture = await open()
       const el: HTMLElement = fixture.nativeElement
