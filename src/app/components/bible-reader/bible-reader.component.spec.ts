@@ -36,7 +36,10 @@ import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
-import { BibleReaderComponent } from "./bible-reader.component"
+import {
+  BibleReaderComponent,
+  RETRY_FEEDBACK_MS,
+} from "./bible-reader.component"
 
 describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
@@ -580,11 +583,29 @@ describe("BibleReaderComponent", () => {
     })
 
     it("retries loading the books from the empty state", async () => {
+      vi.useFakeTimers()
       emptyState()?.querySelector("button")?.click()
-      await fixture.whenStable()
+      await vi.advanceTimersByTimeAsync(RETRY_FEEDBACK_MS)
 
       expect(bookServiceSpy.retryBooks).toHaveBeenCalled()
       expect(component.retryingBooks).toBe(false)
+    })
+
+    // Offline, the retry failed at once: the button never seemed to work.
+    it("shows the retry under way for a moment, though it fails at once", async () => {
+      vi.useFakeTimers()
+      const button = () =>
+        emptyState()?.querySelector("button") as HTMLButtonElement
+      button().click()
+      await vi.advanceTimersByTimeAsync(0)
+      fixture.detectChanges()
+
+      expect(button().textContent).toContain("A tentar…")
+      expect(button().disabled).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(RETRY_FEEDBACK_MS)
+      fixture.detectChanges()
+      expect(button().textContent).toContain("Tentar novamente")
     })
 
     it("hides the empty state once the books are available again", () => {
@@ -652,13 +673,20 @@ describe("BibleReaderComponent", () => {
     it("keeps the page up while a retry fails too", async () => {
       fixture.detectChanges()
       await fixture.whenStable()
+      vi.useFakeTimers()
 
       const retry = () =>
         failure()?.querySelector("button") as HTMLButtonElement
       retry().click()
-      await fixture.whenStable()
+      await vi.advanceTimersByTimeAsync(0)
+      fixture.detectChanges()
 
       expect(apiServiceSpy.getChapter).toHaveBeenCalledTimes(2)
+      // Failing at once, it still shows it was tried.
+      expect(retry().textContent).toContain("A tentar…")
+      expect(retry().disabled).toBe(true)
+      await vi.advanceTimersByTimeAsync(RETRY_FEEDBACK_MS)
+      fixture.detectChanges()
       expect(retry().disabled).toBe(false)
       expect(snackBarSpy.open).not.toHaveBeenCalled()
     })

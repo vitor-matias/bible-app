@@ -63,6 +63,9 @@ import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnot
 import { HeaderComponent } from "../header/header.component"
 import { VerseComponent } from "../verse/verse.component"
 
+/** How long «A tentar…» shows at least: offline, a retry fails at once, unseen. */
+export const RETRY_FEEDBACK_MS = 1000
+
 @Component({
   selector: "bible-reader",
   templateUrl: "./bible-reader.component.html",
@@ -181,6 +184,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   retryingChapter = false
   /** Loads that chapter again, as it was asked for. */
   private retryChapterLoad?: () => void
+  /** Until when a retry shows as under way, though it already failed. */
+  private retryFeedbackUntil = 0
+  private retryFeedbackTimer?: ReturnType<typeof setTimeout>
   chapterNumber = 1
   chapter!: Chapter
 
@@ -413,6 +419,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.dismissLinkedNotes?.()
     this.releasePrerender()
     this.unregisterBackCloser()
+    clearTimeout(this.retryFeedbackTimer)
     this.destroy$.next()
     this.destroy$.complete()
     this.chapterSubscription?.unsubscribe()
@@ -613,7 +620,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.retryingBooks = true
     this.cdr.markForCheck()
     try {
-      await this.bookService.retryBooks()
+      await Promise.all([
+        this.bookService.retryBooks(),
+        new Promise((resolve) => setTimeout(resolve, RETRY_FEEDBACK_MS)),
+      ])
     } finally {
       this.retryingBooks = false
       this.cdr.markForCheck()
@@ -691,6 +701,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     highlight = true,
   ) {
     this.pendingChapter = chapter
+    clearTimeout(this.retryFeedbackTimer)
     // The failure page's retry is for an older load: it would cancel this one.
     if (this.chapterUnavailable) {
       this.retryingChapter = true
@@ -796,7 +807,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     chapter: Chapter["number"],
     retry: () => void,
   ): void {
-    this.retryingChapter = false
+    const feedbackLeft = this.retryFeedbackUntil - Date.now()
+    if (feedbackLeft > 0) {
+      this.retryFeedbackTimer = setTimeout(() => {
+        this.retryingChapter = false
+        this.cdr.markForCheck()
+      }, feedbackLeft)
+    } else {
+      this.retryingChapter = false
+    }
     if (this.shown) {
       // The chapter too: /intro on a book without one already set it to 1.
       this.book = this.shown.book
@@ -839,6 +858,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   retryChapter(): void {
     if (this.retryingChapter) return
     this.retryingChapter = true
+    this.retryFeedbackUntil = Date.now() + RETRY_FEEDBACK_MS
     this.cdr.markForCheck()
     this.retryChapterLoad?.()
   }
