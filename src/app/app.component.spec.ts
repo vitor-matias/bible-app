@@ -38,7 +38,12 @@ describe("AppComponent", () => {
   beforeEach(async () => {
     pageHostname = "localhost"
     routerSpy = createSpyObj("Router", ["navigateByUrl", "navigate"])
-    mockAppPlugin = createSpyObj("App", ["addListener", "minimizeApp"])
+    mockAppPlugin = createSpyObj("App", [
+      "addListener",
+      "minimizeApp",
+      "getLaunchUrl",
+    ])
+    mockAppPlugin.getLaunchUrl.mockResolvedValue({})
     dialogStub = { openDialogs: [] }
     toastSpy = createSpyObj("ToastService", ["show"])
     appPromoSpy = createSpyObj("AppPromoService", ["scheduleOnce"])
@@ -278,7 +283,39 @@ describe("AppComponent", () => {
 
     expect(routerSpy.navigateByUrl).toHaveBeenCalledWith(
       "/book/gn/1?query=test#hash",
+      { replaceUrl: false },
     )
+  })
+
+  // A cold link pushed onto "/", so Back showed the last passage read
+  // before the exit toast.
+  it("opens the link that launched the app in place of the start page", async () => {
+    const link = "https://biblia.capuchinhos.org/indice/amor"
+    mockAppPlugin.getLaunchUrl.mockResolvedValue({ url: link })
+    let openUrl: (event: URLOpenListenerEvent) => void = () => {}
+    mockAppPlugin.addListener.mockImplementation(((
+      eventName: string,
+      callback: (event: URLOpenListenerEvent) => void,
+    ) => {
+      if (eventName === "appUrlOpen") openUrl = callback
+      return Promise.resolve({
+        remove: async () => {},
+      } as unknown as PluginListenerHandle)
+      // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+    }) as any)
+
+    TestBed.createComponent(AppComponent).detectChanges()
+    await Promise.resolve()
+    ngZone.run(() => openUrl({ url: link }))
+    expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/indice/amor", {
+      replaceUrl: true,
+    })
+
+    // The same link again, from a running app, is a page of its own.
+    ngZone.run(() => openUrl({ url: link }))
+    expect(routerSpy.navigateByUrl).toHaveBeenLastCalledWith("/indice/amor", {
+      replaceUrl: false,
+    })
   })
 
   it("should not route when invalid domain app link is opened", async () => {
@@ -497,7 +534,9 @@ describe("AppComponent", () => {
 
     it("still opens plain app links on the root", () => {
       openUrl("https://biblia.capuchinhos.org/?ref=x")
-      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/?ref=x")
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/?ref=x", {
+        replaceUrl: false,
+      })
     })
   })
 })

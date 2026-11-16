@@ -54,6 +54,8 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly listenerHandles: PluginListenerHandle[] = []
   /** Until when a back on the first screen leaves the app. */
   private exitBackDeadline = 0
+  /** The link the app was launched with, until it has been opened. */
+  private launchUrl?: string
 
   constructor() {
     // Injected early so they capture what fires once: the theme's media-query
@@ -90,8 +92,20 @@ export class AppComponent implements OnInit, OnDestroy {
   private setupNativeListeners(): void {
     if (!Capacitor.isNativePlatform()) return
 
+    // Asked first, so known before the launch link arrives (the bridge answers
+    // in order). Unknown, a link opens as from a running app.
+    void this.appPlugin.getLaunchUrl().then(
+      (launch) => {
+        this.launchUrl = launch?.url
+      },
+      () => {},
+    )
     this.appPlugin
       .addListener("appUrlOpen", (event) => {
+        // The link that started the app opens in place of the start page, so
+        // Back from it leaves the app rather than showing the last passage.
+        const replaceUrl = event.url === this.launchUrl
+        this.launchUrl = undefined
         this.ngZone.run(() => {
           const path = this.internalPath(event.url)
           if (!path) {
@@ -107,7 +121,7 @@ export class AppComponent implements OnInit, OnDestroy {
           ) {
             return
           }
-          this.router.navigateByUrl(path)
+          this.router.navigateByUrl(path, { replaceUrl })
         })
       })
       .then((handle) => {
