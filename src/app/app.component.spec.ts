@@ -17,6 +17,7 @@ import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PreferencesService } from "./services/preferences.service"
 import { ToastService } from "./services/toast.service"
+import { UpdatePromptService } from "./services/update-prompt.service"
 import { createSpyObj, type SpyObj } from "./testing/spy-obj"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 
@@ -67,6 +68,10 @@ describe("AppComponent", () => {
         { provide: NativeShellService, useValue: nativeShellSpy },
         { provide: ToastService, useValue: toastSpy },
         { provide: AppPromoService, useValue: appPromoSpy },
+        {
+          provide: UpdatePromptService,
+          useValue: createSpyObj("UpdatePromptService", ["init"]),
+        },
         { provide: PAGE_HOSTNAME, useFactory: () => pageHostname },
       ],
     }).compileComponents()

@@ -24,6 +24,7 @@ import { PwaInstallService } from "./services/pwa-install.service"
 import { TextAlignService } from "./services/text-align.service"
 import { ThemeService } from "./services/theme.service"
 import { ToastService } from "./services/toast.service"
+import { UpdatePromptService } from "./services/update-prompt.service"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 import { isStandaloneApp } from "./utils/platform"
 
@@ -50,6 +51,7 @@ export class AppComponent implements OnInit, OnDestroy {
   private backButton = inject(BackButtonService)
   private toast = inject(ToastService)
   private appPromo = inject(AppPromoService)
+  private updatePrompt = inject(UpdatePromptService)
 
   private readonly listenerHandles: PluginListenerHandle[] = []
   /** Until when a back on the first screen leaves the app. */
@@ -81,6 +83,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.nativeShell.init()
     this.onboardingService.showOnFirstLaunch()
     this.appPromo.scheduleOnce()
+    this.updatePrompt.init()
   }
 
   private trackAppOpenEvent(): void {
