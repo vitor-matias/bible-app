@@ -76,6 +76,7 @@ describe("BibleReaderComponent", () => {
     apiServiceSpy = createSpyObj("BibleApiService", ["getChapter"])
     bookServiceSpy = createSpyObj("BookService", [
       "findBook",
+      "findUrlBook",
       "findBookById",
       "getBooks",
       "getUrlAbrv",
@@ -170,6 +171,10 @@ describe("BibleReaderComponent", () => {
     platform = "desktop"
     preferencesServiceSpy.getAutoScrollControlsVisible.mockReturnValue(false)
     bookServiceSpy.findBook.mockReturnValue(mockBooks[0] as unknown as Book)
+    // The specs set findBook; links resolve through it here.
+    bookServiceSpy.findUrlBook.mockImplementation((segment: string) =>
+      bookServiceSpy.findBook(segment),
+    )
     bookServiceSpy.getUrlAbrv.mockReturnValue("1-genesis")
     bookServiceSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),
@@ -259,6 +264,8 @@ describe("BibleReaderComponent", () => {
     it("should set book and navigate to stored params when URL has no clear intent initially", () => {
       fixture.detectChanges()
       expect(bookServiceSpy.findBook).toHaveBeenCalledWith("gen")
+      // As the guard does: "/joao/3" is João, "/joao/intro" his letters'.
+      expect(bookServiceSpy.findUrlBook).toHaveBeenCalledWith("gen", 1)
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
       expect(routerSpy.navigate).toHaveBeenCalled()
     })
@@ -1942,6 +1949,18 @@ describe("BibleReaderComponent", () => {
         component.onToggleCardsView()
 
         expect(component.showChapterCards).toBe(true)
+      })
+
+      // Copied verses carry their reference in every view: the directive
+      // reads the verse ids, which the cards render too.
+      it("keeps the copy reference on the cards", () => {
+        bootOn("android", true)
+        component.chapterNumber = 7
+        rerender()
+
+        expect(
+          fixture.nativeElement.querySelector("verse-cards").appCopyReference,
+        ).toEqual({ book: component.book, chapter: 7 })
       })
 
       it("offers nothing past the last chapter of the book", () => {

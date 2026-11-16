@@ -431,6 +431,13 @@ class SearchEchoTest {
     }
 
     @Test
+    fun opensWithTheKeyboardOnlyToTypeIn() {
+        assertTrue(searchOpensKeyboard(""))
+        // Back from a result: the keyboard covered the results it came back to.
+        assertFalse(searchOpensKeyboard("amor"))
+    }
+
+    @Test
     fun leavesTheFieldAloneWhenItAlreadyHoldsTheQuery() {
         assertFalse(searchTakesQuery("amor", sent = "amor", focused = true, sinceTypedMs = 60_000))
         assertFalse(searchTakesQuery("amor", sent = "amor", focused = false, sinceTypedMs = 60_000))

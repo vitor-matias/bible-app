@@ -18,14 +18,11 @@ export const chapterExists: CanMatchFn = async (
     return true
   }
   const [bookSegment, chapterSegment] = segments.map((s) => s.path)
-  // "intro" or digits: parseChapterUrlSegment turns anything else into 1.
-  if (
-    chapterSegment !== BookService.INTRO_URL_SEGMENT &&
-    !/^\d+$/.test(chapterSegment)
-  )
-    return false
-  const book = books.findBook(bookSegment)
-  const chapter = books.parseChapterUrlSegment(chapterSegment)
+  // "intro" or digits within the safe integers; NaN for anything else, so
+  // "/jo/99999999999999999999" is past the last chapter, not chapter 1.
+  const chapter = books.parseChapterUrlSegment(chapterSegment, Number.NaN)
+  if (Number.isNaN(chapter)) return false
+  const book = books.findUrlBook(bookSegment, chapter)
   if (book.id === "about")
     return (
       ["about", books.getUrlAbrv(book)].includes(bookSegment) && chapter === 1

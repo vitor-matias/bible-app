@@ -8,6 +8,7 @@
       "updateMode": "prefetch",
       "resources": {
         "files": [
+          "/build-info.json",
           "/favicon.ico",
           "/index.csr.html",
           "/manifest.webmanifest",
@@ -28,17 +29,6 @@
     }
   ],
   "dataGroups": [
-    {
-      "name": "bible-search",
-      "urls": [
-        "/v1/search**"
-      ],
-      "cacheConfig": {
-        "strategy": "performance",
-        "maxSize": 20,
-        "maxAge": "7d"
-      }
-    },
     {
       "name": "bible-books",
       "version": 3,

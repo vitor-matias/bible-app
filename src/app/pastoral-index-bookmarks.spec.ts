@@ -1,6 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
-import { BehaviorSubject, Subject } from "rxjs"
+import { BehaviorSubject, NEVER, Subject } from "rxjs"
 import {
   indexBookmarkId,
   indexBookmarkLabel,
@@ -59,7 +59,10 @@ describe("ribbons on the Índice Bíblico-Pastoral", () => {
             provide: BookmarkService,
             useValue: { bookmarks$: new BehaviorSubject([]) },
           },
-          { provide: BookService, useValue: { findBookById: () => undefined } },
+          {
+            provide: BookService,
+            useValue: { findBookById: () => undefined, getBooks: () => [] },
+          },
           { provide: AnalyticsService, useValue: { track: vi.fn() } },
           { provide: HapticsService, useValue: { success: vi.fn() } },
         ],
@@ -106,7 +109,15 @@ describe("ribbons on the Índice Bíblico-Pastoral", () => {
           provide: BookmarkService,
           useValue: { bookmarks$: new BehaviorSubject([]) },
         },
-        { provide: BookService, useValue: { findBookById: () => undefined } },
+        {
+          provide: BookService,
+          useValue: {
+            findBookById: () => undefined,
+            // As BookService with no books: books$ waits for some.
+            getBooks: () => [],
+            books$: NEVER,
+          },
+        },
         { provide: AnalyticsService, useValue: { track: vi.fn() } },
         { provide: HapticsService, useValue: { success: vi.fn() } },
         {

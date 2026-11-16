@@ -22,6 +22,26 @@ export function passageLabel(
 }
 
 /**
+ * What a share sends before its link: the passage the link opens, its verses
+ * read from the link's query ("Mateus 5,3-12", "Mateus 5", "Mateus
+ * Introdução", or a standalone introduction's name).
+ */
+export function sharedPassage(
+  book: NamedBook & Pick<Book, "name" | "introSlug">,
+  chapter: number,
+  search: string,
+): string {
+  if (book.introSlug) return book.name
+  if (chapter === 0) return `${book.shortName} Introdução`
+  const params = new URLSearchParams(search)
+  const start = Number.parseInt(params.get("verseStart") ?? "", 10)
+  const end = Number.parseInt(params.get("verseEnd") ?? "", 10)
+  const verses =
+    start > 0 ? (end > start ? `${start}-${end}` : `${start}`) : undefined
+  return passageLabel(book, chapter, verses)
+}
+
+/**
  * Shorter forms of the same, longest first, for a toolbar too narrow for the
  * name: the book abbreviated as the text's own references are ("Dt 3",
  * "Gn Intro"), and a psalm, last, without its liturgical number ("Sl 23 (22)",

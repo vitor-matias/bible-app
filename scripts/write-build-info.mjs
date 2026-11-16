@@ -32,8 +32,10 @@ function resolveBuildEnvironment() {
 const buildVersion = utcTimestamp()
 const buildEnvironment = resolveBuildEnvironment()
 
-// Target the production build output directory
-const distPath = "dist/bible-app/browser"
+// Written before the build, as an asset: the service worker then caches it
+// with the code it describes, and the menu's «Versão» names the code a tab is
+// running rather than the latest deploy.
+const distPath = "public"
 const filePath = join(distPath, "build-info.json")
 
 try {

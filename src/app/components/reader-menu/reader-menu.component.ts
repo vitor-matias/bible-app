@@ -59,6 +59,8 @@ export class ReaderMenuComponent {
   @ViewChild(MatMenu, { static: true }) menu!: MatMenu
 
   readonly canShare = input(false)
+  /** The passage a copied link names before it, as a share does; none, the link alone. */
+  readonly shareText = input("")
   /** Small print under the last item; null until it is known. */
   readonly version = input<DisplayVersion | null>(null)
   /** A chapter's way of reading, or null where there is none to switch. */
@@ -168,7 +170,10 @@ export class ReaderMenuComponent {
 
   async copyLink(): Promise<void> {
     try {
-      await navigator.clipboard.writeText(shareableUrl(window.location))
+      const url = shareableUrl(window.location)
+      const text = this.shareText()
+      // On a line of its own, as Android's share sheet sends it.
+      await navigator.clipboard.writeText(text ? `${text}\n${url}` : url)
       this.toast.show("Ligação copiada")
     } catch {
       // The browser refused; nothing was copied, so nothing to confirm.

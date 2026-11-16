@@ -110,6 +110,19 @@ export class SeoService {
     ])
   }
 
+  /** Head for /app, the link shared in print: its own preview, not home's. */
+  updateForLanding(): void {
+    this.apply({
+      title: `Site e aplicações | ${SEO_SITE_NAME}`,
+      description:
+        `Leia a ${SEO_SITE_NAME} no navegador ou instale a aplicação ` +
+        "para iPhone, iPad e Android.",
+      canonicalUrl: `${SEO_BASE_URL}/app`,
+      indexable: true,
+    })
+    this.setBreadcrumbs(null)
+  }
+
   /** Head for the book index at /livros, a level between home and a book. */
   updateForBookIndex(): void {
     this.apply({

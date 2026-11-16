@@ -3,6 +3,7 @@ import type { Subscription } from "rxjs"
 import { reportSubject } from "../utils/passage-label"
 import { NativeChromeService } from "./native-chrome.service"
 import {
+  PERSONAL_DATA_NOTICE,
   PROBLEM_DETAILS_MAX_LENGTH,
   ProblemReportService,
 } from "./problem-report.service"
@@ -55,7 +56,7 @@ export class NativeReportService {
     // Over another sheet none comes up, and no report-closed would end this.
     void this.nativeChrome
       .showReport({
-        message: `Encontrou algum problema em «${reportSubject(book, chapter)}»? Ajude-nos a melhorar.`,
+        message: `Encontrou algum problema em «${reportSubject(book, chapter)}»? Ajude-nos a melhorar.\n${PERSONAL_DATA_NOTICE}`,
         topics: this.reports.topics,
         placeholder:
           "Descreva o problema (ex: falta uma vírgula após a palavra 'Deus')...",

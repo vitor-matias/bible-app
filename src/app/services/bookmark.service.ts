@@ -1,7 +1,11 @@
-import { Injectable, inject } from "@angular/core"
+import { DestroyRef, Injectable, inject } from "@angular/core"
 import { BehaviorSubject, type Observable } from "rxjs"
 import { map } from "rxjs/operators"
+import { isBrowser } from "../utils/platform"
 import { DatabaseService } from "./database.service"
+
+/** Where tabs say they changed the stored ribbons. */
+export const BOOKMARKS_CHANNEL = "offline-bible-bookmarks"
 
 @Injectable({
   providedIn: "root",
@@ -11,12 +15,26 @@ export class BookmarkService {
 
   private bookmarksSubject = new BehaviorSubject<Bookmark[]>([])
   bookmarks$ = this.bookmarksSubject.asObservable()
-  private updatePromise: Promise<void>
+  private updatePromise: Promise<unknown>
   initialized: Promise<void>
+  /** Not while prerendering: an open channel would keep Node running. */
+  private readonly channel =
+    isBrowser() && typeof BroadcastChannel !== "undefined"
+      ? new BroadcastChannel(BOOKMARKS_CHANNEL)
+      : null
 
   constructor() {
     this.initialized = this.init()
     this.updatePromise = this.initialized
+    const channel = this.channel
+    if (!channel) return
+    // Another tab changed the ribbons: show what is stored now.
+    channel.onmessage = () => {
+      this.updatePromise = this.updatePromise
+        .catch(() => {})
+        .then(() => this.loadBookmarks())
+    }
+    inject(DestroyRef).onDestroy(() => channel.close())
   }
 
   private async init() {
@@ -46,7 +64,11 @@ export class BookmarkService {
     return found ? { ...found } : undefined
   }
 
-  addBookmark(bookId: string, chapter: number, color: string): Promise<void> {
+  addBookmark(
+    bookId: string,
+    chapter: number,
+    color: string,
+  ): Promise<boolean> {
     return this.save((currentBookmarks) => {
       // A colour marks one chapter, and a chapter carries one colour.
       const bookmarksWithoutConflict = currentBookmarks.filter(
@@ -70,7 +92,7 @@ export class BookmarkService {
     })
   }
 
-  removeBookmark(bookId: string, chapter: number): Promise<void> {
+  removeBookmark(bookId: string, chapter: number): Promise<boolean> {
     return this.save((currentBookmarks) =>
       currentBookmarks.filter(
         (b) => !(b.bookId === bookId && b.chapter === chapter),
@@ -81,25 +103,32 @@ export class BookmarkService {
   /**
    * Applies `change` to the ribbons as stored, not as this tab last saw them:
    * another tab, or a load that failed, would otherwise leave a stale list
-   * deciding which records go.
+   * deciding which records go. Resolves to false when the change is kept in
+   * memory only, for this visit: the browser has no IndexedDB (private modes).
    */
-  private save(change: (bookmarks: Bookmark[]) => Bookmark[]): Promise<void> {
-    this.updatePromise = this.updatePromise
+  private save(
+    change: (bookmarks: Bookmark[]) => Bookmark[],
+  ): Promise<boolean> {
+    const saving = this.updatePromise
       .catch(() => {})
       .then(async () => {
         try {
-          const saved =
-            (await this.databaseService.update<Bookmark>(
-              "bookmarks",
-              (b) => [b.bookId, b.chapter],
-              change,
-            )) ?? change(this.bookmarksSubject.value)
-          this.bookmarksSubject.next(saved)
+          const saved = await this.databaseService.update<Bookmark>(
+            "bookmarks",
+            (b) => [b.bookId, b.chapter],
+            change,
+          )
+          this.bookmarksSubject.next(
+            saved ?? change(this.bookmarksSubject.value),
+          )
+          if (saved) this.channel?.postMessage("changed")
+          return saved !== null
         } catch (error) {
           console.error("Failed to save bookmarks to database:", error)
           throw error
         }
       })
-    return this.updatePromise
+    this.updatePromise = saving
+    return saving
   }
 }

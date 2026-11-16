@@ -10,7 +10,7 @@ import { ReaderMenuComponent } from "./reader-menu.component"
   imports: [MatMenuModule, ReaderMenuComponent],
   template: `
     <button type="button" [matMenuTriggerFor]="menu.menu">Menu</button>
-    <reader-menu #menu="readerMenu" [viewMode]="viewMode()" [canShare]="canShare()"
+    <reader-menu #menu="readerMenu" [viewMode]="viewMode()" [canShare]="canShare()" [shareText]="shareText()"
       [autoScrollControlsVisible]="autoScroll()" [textSize]="textSize()"
       (resetFontSize)="resets.set(resets() + 1)"
       (increaseFontSize)="increases.set(increases() + 1)"
@@ -26,6 +26,7 @@ class HostComponent {
   readonly autoScroll = signal<boolean | null>(null)
   readonly textSize = signal<TextSize | null>(null)
   readonly canShare = signal(false)
+  readonly shareText = signal("")
   readonly resets = signal(0)
   readonly increases = signal(0)
   readonly decreases = signal(0)
@@ -40,9 +41,11 @@ describe("ReaderMenuComponent", () => {
     viewMode: "scrolling" | "paged" | null,
     autoScroll: boolean | null,
     canShare = false,
+    shareText = "",
   ) {
     const fixture = TestBed.createComponent(HostComponent)
     fixture.componentInstance.canShare.set(canShare)
+    fixture.componentInstance.shareText.set(shareText)
     fixture.componentInstance.viewMode.set(viewMode)
     fixture.componentInstance.autoScroll.set(autoScroll)
     fixture.detectChanges()
@@ -186,6 +189,22 @@ describe("ReaderMenuComponent", () => {
 
     expect(writeText).toHaveBeenCalledWith(window.location.href)
     expect(show).toHaveBeenCalledWith("Ligação copiada")
+  })
+
+  // Owner's choice: a copied link names its passage first, as a share does.
+  it("puts the passage before the link it copies", async () => {
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined)
+    vi.spyOn(TestBed.inject(ToastService), "show").mockImplementation(() => {})
+    open(null, null, false, "Mateus 5,3-12")
+
+    menuItem("Copiar ligação").click()
+    await writeText.mock.results[0]?.value
+
+    expect(writeText).toHaveBeenCalledWith(
+      `Mateus 5,3-12\n${window.location.href}`,
+    )
   })
 
   it("confirms nothing when the browser refuses the copy", async () => {

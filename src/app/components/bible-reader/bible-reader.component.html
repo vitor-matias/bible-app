@@ -57,9 +57,10 @@
           @if (chapter && showCards) {
           <verse-cards [chapter]="chapter" [previousChapterLabel]="previousChapterLabel"
             [nextChapterLabel]="nextChapterLabel" [endOfBookLabel]="endOfBookLabel"
+            [appCopyReference]="{ book: book, chapter: chapterNumber }"
             (reachedStart)="goToPreviousChapter()" (reachedEnd)="goToNextChapter()"></verse-cards>
           } @else if (chapter) {
-          <div pinch-to-zoom class="chapterBlock">
+          <div pinch-to-zoom class="chapterBlock" [appCopyReference]="{ book: book, chapter: chapterNumber }">
             @if(book.id !== 'about'){
             @if (isIntroChapter) {
             <book-intro [introduction]="book.introduction || []"></book-intro>

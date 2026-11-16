@@ -962,6 +962,41 @@ describe("HeaderComponent", () => {
     )
   })
 
+  // It said «Ler Evangelho de São Mateus 5.» with a range open.
+  it("names the passage the shared link opens", async () => {
+    vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
+    if (!navigator.share) {
+      Object.defineProperty(navigator, "share", {
+        value: () => Promise.resolve(),
+        configurable: true,
+        writable: true,
+      })
+    }
+    const shareSpy = vi.spyOn(navigator, "share").mockResolvedValue(undefined)
+    const address = window.location.href
+    history.replaceState(history.state, "", "?verseStart=3&verseEnd=12")
+    try {
+      fixture.componentRef.setInput("book", {
+        id: "mat",
+        name: "Evangelho de São Mateus",
+        shortName: "Mateus",
+        abrv: "Mt",
+        chapterCount: 28,
+      })
+      fixture.componentRef.setInput("chapterNumber", 5)
+      component.ngOnInit()
+      await component.sharePassage()
+
+      expect(shareSpy).toHaveBeenCalledWith({
+        title: "Bíblia Sagrada",
+        text: "Mateus 5,3-12",
+        url: window.location.href,
+      })
+    } finally {
+      history.replaceState(history.state, "", address)
+    }
+  })
+
   it("should share using navigator.share on web platforms", async () => {
     vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(false)
 
@@ -1661,7 +1696,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     const { pathname, search, hash } = window.location
     expect(nativeChrome.share).toHaveBeenCalledWith({
       title: "Bíblia Sagrada",
-      text: "Ler Livro do Génesis 3.",
+      text: "Génesis 3",
       url: `https://biblia.capuchinhos.org${pathname}${search}${hash}`,
       linkTitle: "Livro do Génesis 3 | Bíblia Sagrada",
     })

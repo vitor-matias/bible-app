@@ -25,6 +25,13 @@ export const routes: Routes = [
         (m) => m.BookIndexComponent,
       ),
   },
+  {
+    path: "app",
+    loadComponent: () =>
+      import("./components/landing/landing.component").then(
+        (m) => m.LandingComponent,
+      ),
+  },
   { path: "android", canActivate: [redirectTo(PLAY_STORE_URL)], children: [] },
   { path: "ios", canActivate: [redirectTo(APP_STORE_URL)], children: [] },
   {
@@ -47,12 +54,13 @@ export const routes: Routes = [
     canMatch: [chapterExists],
   },
   {
-    // Two segments that failed the guard: a book or chapter that does not exist.
-    path: ":book/:chapter",
+    // Anything else: two segments that failed the guard (a book or chapter
+    // that does not exist), or a path no page has ("/xyz", "/jo/3/4"). The
+    // address stays as typed.
+    path: "**",
     loadComponent: () =>
       import("./components/not-found/not-found.component").then(
         (m) => m.NotFoundComponent,
       ),
   },
-  { path: "**", component: BibleReaderComponent },
 ]

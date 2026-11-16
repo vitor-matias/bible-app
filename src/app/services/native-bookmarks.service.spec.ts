@@ -1,5 +1,5 @@
 import { TestBed } from "@angular/core/testing"
-import { BehaviorSubject, Subject } from "rxjs"
+import { BehaviorSubject, filter, Subject } from "rxjs"
 import type { Mock } from "vitest"
 import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
@@ -19,6 +19,7 @@ import type {
 
 describe("NativeBookmarksService", () => {
   let bookmarks: BehaviorSubject<Bookmark[]>
+  let books: BehaviorSubject<Book[]>
   let actions: Subject<NativeChromeAction>
   let nativeChrome: {
     actions$: Subject<NativeChromeAction>
@@ -37,6 +38,7 @@ describe("NativeBookmarksService", () => {
 
   beforeEach(() => {
     bookmarks = new BehaviorSubject<Bookmark[]>([markedRed])
+    books = new BehaviorSubject<Book[]>([])
     actions = new Subject()
     nativeChrome = {
       actions$: actions,
@@ -80,7 +82,12 @@ describe("NativeBookmarksService", () => {
         },
         {
           provide: BookService,
-          useValue: { findBookById: () => ({ shortName: "Mateus" }) },
+          useValue: {
+            findBookById: () => ({ shortName: "Mateus" }),
+            // As BookService: books$ waits for a non-empty list.
+            getBooks: () => books.value,
+            books$: books.pipe(filter((list) => list.length > 0)),
+          },
         },
       ],
     })
@@ -110,6 +117,30 @@ describe("NativeBookmarksService", () => {
       label: null,
       current: false,
     })
+  })
+
+  // A first launch offline, or /indice with the API down: no books at all.
+  it("shows the sheet at once while the books are missing", () => {
+    service.open("mat", 11)
+    expect(nativeChrome.showBookmarks).toHaveBeenCalledOnce()
+    expect(shown().ribbons[0].label).toBe("Mt 5")
+  })
+
+  // Opened before the books loaded, the sheet kept their provisional rows.
+  it("redraws the ribbons once the books load", () => {
+    service.open("mat", 11)
+    expect(ribbons.ribbons).toHaveBeenCalledTimes(1)
+
+    books.next([{ id: "mat" } as Book])
+    expect(ribbons.ribbons).toHaveBeenCalledTimes(2)
+    expect(nativeChrome.updateBookmarks).toHaveBeenCalledOnce()
+  })
+
+  it("draws the ribbons once when the books are already loaded", () => {
+    books.next([{ id: "mat" } as Book])
+    service.open("mat", 11)
+    expect(ribbons.ribbons).toHaveBeenCalledOnce()
+    expect(nativeChrome.updateBookmarks).not.toHaveBeenCalled()
   })
 
   it("names a psalm as the passage button does", () => {

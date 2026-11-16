@@ -1,5 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
+import { type Event, NavigationEnd, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { Subject } from "rxjs"
 import type { Mock } from "vitest"
@@ -21,9 +22,11 @@ describe("OnboardingService", () => {
   let preferencesSpy: SpyObj<PreferencesService>
   let analyticsSpy: SpyObj<AnalyticsService>
   let afterClosed$: Subject<OnboardingResult | undefined>
+  let routerEvents$: Subject<Event>
 
   beforeEach(() => {
     afterClosed$ = new Subject()
+    routerEvents$ = new Subject()
     dialogRefSpy = createSpyObj("MatDialogRef", ["afterClosed"])
     dialogRefSpy.afterClosed.mockReturnValue(afterClosed$.asObservable())
     dialogSpy = createSpyObj("MatDialog", ["open"])
@@ -44,6 +47,7 @@ describe("OnboardingService", () => {
         { provide: MatDialog, useValue: dialogSpy },
         { provide: PreferencesService, useValue: preferencesSpy },
         { provide: AnalyticsService, useValue: analyticsSpy },
+        { provide: Router, useValue: { events: routerEvents$ } },
       ],
     })
     service = TestBed.inject(OnboardingService)
@@ -107,6 +111,35 @@ describe("OnboardingService", () => {
       await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
 
       expect(dialogSpy.open).not.toHaveBeenCalled()
+    })
+
+    it("does not cover the /app landing page", async () => {
+      vi.useFakeTimers()
+      expect(service.showOnFirstLaunch("", "/app")).toBe(false)
+      expect(service.showOnFirstLaunch("", "/app/")).toBe(false)
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+      expect(dialogSpy.open).not.toHaveBeenCalled()
+
+      expect(service.showOnFirstLaunch("", "/apocalipse/1")).toBe(true)
+    })
+
+    // /app is where new visitors arrive: skipping the wizard there left them
+    // without one for the whole visit.
+    it("opens once the visitor moves on from /app into the site", async () => {
+      vi.useFakeTimers()
+      service.showOnFirstLaunch("", "/app")
+
+      routerEvents$.next(new NavigationEnd(1, "/app?x=1", "/app?x=1"))
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+      expect(dialogSpy.open).not.toHaveBeenCalled()
+
+      routerEvents$.next(new NavigationEnd(2, "/", "/"))
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+      expect(dialogSpy.open).toHaveBeenCalledTimes(1)
+
+      routerEvents$.next(new NavigationEnd(3, "/livros", "/livros"))
+      await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+      expect(dialogSpy.open).toHaveBeenCalledTimes(1)
     })
   })
 
