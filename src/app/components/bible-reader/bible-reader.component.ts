@@ -32,6 +32,7 @@ import { Capacitor } from "@capacitor/core"
 import { combineLatest, of, Subject, Subscription } from "rxjs"
 import { first, switchMap, take, takeUntil } from "rxjs/operators"
 import { nextCanonBook, PASTORAL_INDEX_BOOK } from "../../bible-canon"
+import { CopyReferenceDirective } from "../../directives/copy-reference.directive"
 import {
   PagedNavigationDirective,
   PageState,
@@ -82,6 +83,7 @@ import { VerseComponent } from "../verse/verse.component"
     MatButtonModule,
     UnifiedGesturesDirective,
     PagedNavigationDirective,
+    CopyReferenceDirective,
     AutoScrollControlsComponent,
     BookIntroComponent,
     RouterLink,

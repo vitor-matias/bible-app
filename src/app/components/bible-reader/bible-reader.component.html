@@ -53,7 +53,7 @@
         <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}"
           [class.paged-view]="effectiveViewMode === 'paged'">
           @if (chapter) {
-          <div pinch-to-zoom class="chapterBlock">
+          <div pinch-to-zoom class="chapterBlock" [appCopyReference]="{ book: book, chapter: chapterNumber }">
             @if(book.id !== 'about'){
             @if (isIntroChapter) {
             <book-intro [introduction]="book.introduction || []"></book-intro>
