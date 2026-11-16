@@ -32,6 +32,7 @@ import { Capacitor } from "@capacitor/core"
 import { combineLatest, of, Subject, Subscription } from "rxjs"
 import { first, switchMap, take, takeUntil } from "rxjs/operators"
 import { nextCanonBook, PASTORAL_INDEX_BOOK } from "../../bible-canon"
+import { CopyReferenceDirective } from "../../directives/copy-reference.directive"
 import {
   PagedNavigationDirective,
   PageState,
@@ -82,6 +83,7 @@ import { VerseComponent } from "../verse/verse.component"
     MatButtonModule,
     UnifiedGesturesDirective,
     PagedNavigationDirective,
+    CopyReferenceDirective,
     AutoScrollControlsComponent,
     BookIntroComponent,
     RouterLink,
@@ -328,10 +330,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             "1"
 
           if (storedBook && storedChapter) {
-            this.book = this.bookService.findBook(storedBook)
-
             this.chapterNumber =
               this.bookService.parseChapterUrlSegment(storedChapter)
+            // The navigate below rewrites "/joao/3" or "/sal/23" to the
+            // book's own address.
+            this.book = this.bookService.findUrlBook(
+              storedBook,
+              this.chapterNumber,
+            )
 
             const parsedVerseStart = queryParams["verseStart"]
               ? Number.parseInt(queryParams["verseStart"], 10)
@@ -387,7 +393,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
         this.linkedNotes = queryParams.get("notes")
 
-        const tempBook = this.bookService.findBook(bookParam)
+        const tempBook = this.bookService.findUrlBook(bookParam, chapterParam)
 
         if (
           this.book.id === tempBook.id &&
