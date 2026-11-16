@@ -100,20 +100,23 @@ export class OfflineDataService implements OnDestroy {
     const storage = safeLocalStorage()
 
     // Flags are untrustworthy after a failed migration (reads fail closed).
-    // Without localStorage, infer readiness from the IndexedDB records.
-    const fallbackBooks = storage ? null : await this.getCachedBooksAsync()
+    // They also outlive records wiped from IndexedDB alone, so they count
+    // only while the records are there; a store that can't be read leaves
+    // them the last word, or every launch would download the Bible again.
+    await this.ensureCacheLoaded()
+    const records = this.cachedBooks
+    const holds = (intro: boolean) =>
+      records
+        ? records.some((book) => !!book.introSlug === intro)
+        : storage !== null
     // Gated independently so a failed /intros fetch never forces a redownload
     // of the multi-megabyte books payload.
     const booksAlreadyCached =
       migrated &&
-      (storage
-        ? storage.getItem(this.cacheFlagKey) === "true"
-        : (fallbackBooks ?? []).some((book) => !book.introSlug))
+      (!storage || storage.getItem(this.cacheFlagKey) === "true") &&
+      holds(false)
     const introsAlreadyCached =
-      migrated &&
-      (storage
-        ? this.areGroupIntrosCached()
-        : (fallbackBooks ?? []).some((book) => !!book.introSlug))
+      migrated && (!storage || this.areGroupIntrosCached()) && holds(true)
     const isExpired = this.isCacheExpired()
     if (booksAlreadyCached && introsAlreadyCached && !isExpired) {
       return false

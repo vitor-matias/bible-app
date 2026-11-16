@@ -73,10 +73,20 @@ describe("OfflineDataService", () => {
     },
   ]
 
+  const introRecord: Book = {
+    id: "pentateuco",
+    name: "Pentateuco",
+    shortName: "Pentateuco",
+    abrv: "pentateuco",
+    chapterCount: 0,
+    introSlug: "pentateuco",
+    introduction: [],
+  }
+
   let databaseService: SpyObj<DatabaseService>
 
   const flushMicrotasks = async () => {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       await Promise.resolve()
     }
   }
@@ -175,6 +185,33 @@ describe("OfflineDataService", () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+
+      await service.preloadAllBooksAndChapters()
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectNone("v1/intros")
+    })
+
+    // The flags live in localStorage, which can outlast the records.
+    it("downloads again when IndexedDB lost the records the flags vouch for", async () => {
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await flushIntros()
+      await promise
+    })
+
+    it("trusts the flags when IndexedDB can't be read", async () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      databaseService.getAll.mockRejectedValue(new Error("unavailable"))
 
       await service.preloadAllBooksAndChapters()
 
@@ -184,6 +221,7 @@ describe("OfflineDataService", () => {
 
     it("retries only the introductions, not the whole books payload, when books are cached but introductions never finished caching", async () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue(mockBooks)
       mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
       // groupIntrosCacheReady deliberately left unset, as if a previous
       // launch cached the books but /intros failed partway through.
@@ -361,7 +399,13 @@ describe("OfflineDataService", () => {
       httpMock
         .expectOne("v1/books?withChapters=true")
         .error(new ProgressEvent("error"))
-      await flushIntros()
+      await flushIntros([{ slug: "pentateuco", name: "PENTATEUCO" }])
+      await flushMacrotask()
+      httpMock.expectOne("v1/intros/pentateuco").flush({
+        slug: "pentateuco",
+        name: "PENTATEUCO",
+        introduction: [],
+      })
       await firstPromise
 
       // The intros-only write must not have claimed the books are cached —
@@ -417,7 +461,13 @@ describe("OfflineDataService", () => {
       httpMock.expectOne("v1/books?withChapters=true")
 
       await vi.advanceTimersByTimeAsync(PRELOAD_TIMEOUT_MS)
-      httpMock.expectOne("v1/intros").flush([])
+      httpMock
+        .expectOne("v1/intros")
+        .flush([{ slug: "pentateuco", name: "PENTATEUCO" }])
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/intros/pentateuco")
+        .flush({ slug: "pentateuco", name: "PENTATEUCO", introduction: [] })
       await vi.advanceTimersByTimeAsync(0)
       await stalled
 
@@ -1072,6 +1122,10 @@ describe("OfflineDataService", () => {
   })
 
   describe("cache expiry", () => {
+    beforeEach(() => {
+      databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+    })
+
     it("should consider cache expired after 40 days", async () => {
       // 41 days ago
       const oldTimestamp = Date.now() - FORTY_ONE_DAYS_MS
