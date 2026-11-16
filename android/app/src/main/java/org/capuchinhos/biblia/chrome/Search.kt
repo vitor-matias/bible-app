@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.text.input.clearText
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
@@ -25,6 +26,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SearchBarValue
@@ -56,6 +58,7 @@ import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import org.capuchinhos.biblia.R
 
 // MARK: - Search
@@ -123,7 +126,15 @@ internal fun SearchView(chrome: ChromeController, state: ChromeState) {
                             .focusRequester(focus)
                             .onFocusChanged { focused = it.isFocused },
                         enabled = !state.inert,
-                        placeholder = { Text("Procurar na Bíblia") },
+                        // One line, smaller at large text sizes: the field's
+                        // height showed only "Procurar na" of the two.
+                        placeholder = {
+                            Text(
+                                "Procurar na Bíblia",
+                                maxLines = 1,
+                                autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = LocalTextStyle.current.fontSize),
+                            )
+                        },
                         trailingIcon = if (field.text.isNotEmpty()) {
                             {
                                 BarButton(R.drawable.ic_close, "Limpar", !state.inert) {
