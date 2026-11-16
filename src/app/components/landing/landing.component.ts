@@ -39,24 +39,7 @@ function rememberChoice(): void {
 @Component({
   selector: "landing",
   imports: [RouterLink],
-  template: `
-    <main class="landing" [style.--auto-open]="autoOpenMs + 'ms'">
-      <img src="icons/512X512_REDONDO.png" alt="" width="96" height="96" />
-      <h1>Bíblia Sagrada</h1>
-      <p>Leia no navegador ou instale a aplicação.</p>
-      <nav aria-label="Onde ler">
-        <a routerLink="/" (click)="stay()">Abrir no navegador</a>
-        <a routerLink="/ios" [class.auto]="auto() === 'ios'" (click)="stay()">App Store</a>
-        <a routerLink="/android" [class.auto]="auto() === 'android'" (click)="stay()">Google Play</a>
-      </nav>
-      @if (auto(); as store) {
-        <p class="status" role="status">
-          A abrir {{ store === "ios" ? "a App Store" : "o Google Play" }}…
-          <button type="button" (click)="stay()">Cancelar</button>
-        </p>
-      }
-    </main>
-  `,
+  templateUrl: "./landing.component.html",
   styles: `
     .landing {
       max-width: 22em; margin: 0 auto; padding: 72px 16px; text-align: center;
