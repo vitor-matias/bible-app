@@ -131,6 +131,26 @@ contract is the `NativeChromePlugin` interface in that service file.
 - Platform guides: [ios.md](ios.md) and [android.md](android.md). iOS follows Apple's
   HIG (bars are monochrome; no glass in the content layer); Android follows Material 3.
 
+## Back closes panels first
+
+`BackButtonService` holds the open panels (book drawer, menus, bottom sheets via
+`closeOnBack`; dialogs through `MatDialog.openDialogs`). Android's back button closes the
+topmost one before it navigates (`AppComponent.handleBackButton`). On the website
+(`closeOnBrowserBack`, never in the apps) the browser's Back does the same:
+
+- While any panel is open, the history has one extra entry on top, at the same address,
+  with `appPanel: true` in its state. Back leaves it; the `popstate` closes the topmost
+  panel, and the router skips the same-address navigation.
+- When the last panel closes any other way (✕, Esc, backdrop), the service goes back
+  over that entry, so no stray entry is left. It waits for a navigation in progress:
+  `DepthLocationStrategy` makes a page opened from a panel *replace* the panel's entry,
+  and a `replaceState` keeps the flag. A reload with the entry on top leaves it at start.
+- A panel tells the service when it opens or closes (`changed()`, synced after the
+  current task so the drawer switching from books to chapters doesn't count) and passes
+  `isOpen` to `register`. A new panel needs both, or Back navigates past it.
+- Material's dialogs and sheets also close themselves on any `popstate`
+  (`closeOnNavigation`), so a Back with several open closes those together.
+
 ## Production versus the preview deployment
 
 `vercel.json` configures the preview (test) deployment only. It rewrites unknown paths to

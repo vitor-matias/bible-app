@@ -6,7 +6,6 @@ import {
   type OnDestroy,
   type OnInit,
 } from "@angular/core"
-import { MatDialog } from "@angular/material/dialog"
 import { Router, RouterOutlet } from "@angular/router"
 import type { BackButtonListenerEvent } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
@@ -45,7 +44,6 @@ export class AppComponent implements OnInit, OnDestroy {
   private analyticsService = inject(AnalyticsService)
   private onboardingService = inject(OnboardingService)
   private appPlugin = inject(APP_PLUGIN)
-  private dialog = inject(MatDialog)
   private nativeShell = inject(NativeShellService)
   private backButton = inject(BackButtonService)
   private toast = inject(ToastService)
@@ -78,6 +76,7 @@ export class AppComponent implements OnInit, OnDestroy {
     void this.trackAppOpenEvent()
     this.handleShareTarget()
     this.setupNativeListeners()
+    if (!Capacitor.isNativePlatform()) this.backButton.closeOnBrowserBack()
     this.nativeShell.init()
     this.onboardingService.showOnFirstLaunch()
     this.appPromo.scheduleOnce()
@@ -135,11 +134,6 @@ export class AppComponent implements OnInit, OnDestroy {
     // Any other back in between (a panel, a page) takes two again.
     const exitArmed = Date.now() < this.exitBackDeadline
     this.exitBackDeadline = 0
-    const dialogs = this.dialog.openDialogs
-    if (dialogs.length > 0) {
-      dialogs[dialogs.length - 1].close()
-      return
-    }
     if (this.backButton.closeTopmost()) return
     // The WebView's canGoBack misses pages opened from the native bars before
     // any tap on the page (DepthLocationStrategy); the app's own count doesn't.

@@ -74,6 +74,7 @@ describe("PastoralIndexComponent", () => {
   let analyticsOn: boolean
   let nativeReport: SpyObj<NativeReportService>
   let haptics: SpyObj<HapticsService>
+  let backButton: SpyObj<BackButtonService>
   let themes: {
     currentMode: string
     toggleTheme: ReturnType<typeof vi.fn>
@@ -116,6 +117,12 @@ describe("PastoralIndexComponent", () => {
     analyticsOn = true
     nativeReport = createSpyObj("NativeReportService", ["open"])
     haptics = createSpyObj("HapticsService", ["selection"])
+    backButton = createSpyObj("BackButtonService", [
+      "closeOnBack",
+      "register",
+      "changed",
+    ])
+    backButton.register.mockReturnValue(() => {})
     themes = { currentMode: "light", toggleTheme: vi.fn(), setTheme: vi.fn() }
     actions = new Subject()
     chrome = {
@@ -145,7 +152,7 @@ describe("PastoralIndexComponent", () => {
         { provide: NativeBookmarksService, useValue: nativeBookmarks },
         { provide: NativeReportService, useValue: nativeReport },
         { provide: HapticsService, useValue: haptics },
-        { provide: BackButtonService, useValue: { closeOnBack: vi.fn() } },
+        { provide: BackButtonService, useValue: backButton },
         {
           provide: AnalyticsService,
           useValue: {
@@ -439,6 +446,22 @@ describe("PastoralIndexComponent", () => {
         "menu",
       )
       expect(toolbar.querySelector('[aria-label="Pesquisar"]')).not.toBeNull()
+    })
+
+    // As the reader's: the back button closes it, the browser's on the website.
+    it("closes on the back button, which hears it open and close", async () => {
+      const fixture = await open()
+      const [closer, isOpen] = backButton.register.mock.lastCall ?? []
+      expect(isOpen?.()).toBe(false)
+      expect(closer?.()).toBe(false)
+
+      await openMenu(fixture)
+      expect(backButton.changed).toHaveBeenCalledTimes(1)
+      expect(isOpen?.()).toBe(true)
+
+      expect(closer?.()).toBe(true)
+      expect(isOpen?.()).toBe(false)
+      expect(backButton.changed).toHaveBeenCalledTimes(2)
     })
 
     it("is the reader's, less auto-scroll and the view mode", async () => {

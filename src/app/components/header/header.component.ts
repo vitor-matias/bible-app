@@ -198,12 +198,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly document = inject(DOCUMENT)
   @ViewChildren(MatMenuTrigger)
   private menuTriggers?: QueryList<MatMenuTrigger>
-  private readonly backButton = inject(BackButtonService)
-  private readonly unregisterBackCloser = this.backButton.register(() => {
-    const open = this.menuTriggers?.find((trigger) => trigger.menuOpen)
-    open?.closeMenu()
-    return !!open
-  })
+  protected readonly backButton = inject(BackButtonService)
+  private readonly unregisterBackCloser = this.backButton.register(
+    () => {
+      const open = this.menuTriggers?.find((trigger) => trigger.menuOpen)
+      open?.closeMenu()
+      return !!open
+    },
+    () => !!this.menuTriggers?.some((trigger) => trigger.menuOpen),
+  )
 
   /**
    * Initializes responsive and sharing state, follows bookmark changes, and

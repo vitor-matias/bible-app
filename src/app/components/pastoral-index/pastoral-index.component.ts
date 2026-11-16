@@ -28,7 +28,7 @@ import {
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
-import { MatMenuModule } from "@angular/material/menu"
+import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import {
   ActivatedRoute,
@@ -206,7 +206,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private nativeReport = inject(NativeReportService)
   private haptics = inject(HapticsService)
   private bottomSheet = inject(MatBottomSheet)
-  private backButton = inject(BackButtonService)
+  protected readonly backButton = inject(BackButtonService)
   private dialog = inject(MatDialog)
   private buildVersion = inject(BuildVersionService)
   readonly analytics = inject(AnalyticsService)
@@ -215,6 +215,17 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private location = inject(Location)
   private destroyRef = inject(DestroyRef)
   private injector = inject(Injector)
+  private menuTrigger = viewChild(MatMenuTrigger)
+  // The page's menu, as the reader's header does with its own.
+  private unregisterBackCloser = this.backButton.register(
+    () => {
+      const trigger = this.menuTrigger()
+      if (!trigger?.menuOpen) return false
+      trigger.closeMenu()
+      return true
+    },
+    () => !!this.menuTrigger()?.menuOpen,
+  )
   /** The native apps draw this page's toolbar. */
   readonly native = this.nativeChrome.enabled
   /** Material's list and fast scroller, where iOS has its section index. */
@@ -593,6 +604,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.unregisterBackCloser()
     if (this.native) this.nativeChrome.hide()
   }
 

@@ -10,6 +10,11 @@ export function historyDepth(state: unknown): number {
   return typeof depth === "number" && depth > 0 ? depth : 0
 }
 
+/** Whether a history entry is an open panel's own (BackButtonService). */
+export function isPanelEntry(state: unknown): boolean {
+  return (state as { appPanel?: unknown } | null)?.appPanel === true
+}
+
 /**
  * The router's location strategy, also keeping in each history entry how
  * many of the app's pages lie behind it.
@@ -29,8 +34,20 @@ export class DepthLocationStrategy extends PathLocationStrategy {
     url: string,
     queryParams: string,
   ): void {
+    const current = this.platform.getState()
+    // A page opened from a panel takes the panel's entry, already one deeper:
+    // Back from it returns to the page under the panel, not to the panel.
+    if (isPanelEntry(current)) {
+      super.replaceState(
+        withDepth(state, historyDepth(current)),
+        title,
+        url,
+        queryParams,
+      )
+      return
+    }
     super.pushState(
-      withDepth(state, historyDepth(this.platform.getState()) + 1),
+      withDepth(state, historyDepth(current) + 1),
       title,
       url,
       queryParams,
@@ -43,8 +60,11 @@ export class DepthLocationStrategy extends PathLocationStrategy {
     url: string,
     queryParams: string,
   ): void {
+    const current = this.platform.getState()
+    const next = withDepth(state, historyDepth(current))
+    // Still the open panel's entry, which Back leaves to close it.
     super.replaceState(
-      withDepth(state, historyDepth(this.platform.getState())),
+      isPanelEntry(current) ? { ...next, appPanel: true } : next,
       title,
       url,
       queryParams,
