@@ -58,6 +58,11 @@ describe("chapterExists", () => {
     expect(await run("jo", "99")).toBe(false)
   })
 
+  // Past the safe integers it read as chapter 1 and opened João 1.
+  it("rejects a chapter too large to be a number", async () => {
+    expect(await run("jo", "99999999999999999999")).toBe(false)
+  })
+
   it("lets the About page and an introduction through", async () => {
     expect(await run("sobre", "1")).toBe(true)
     expect(await run("about", "1")).toBe(true)
