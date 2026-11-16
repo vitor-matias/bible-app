@@ -8,6 +8,8 @@ import {
   DELIVERY_TIMEOUT_MS,
   loadTracker,
   prepareUmamiPayload,
+  reportUrl,
+  TRACKER_FALLBACK_MS,
 } from "./analytics.service"
 import { BuildVersionService } from "./build-version.service"
 
@@ -50,12 +52,13 @@ describe("AnalyticsService", () => {
   describe("loadTracker", () => {
     let tracker: HTMLScriptElement
 
-    beforeEach(() => {
+    beforeEach(async () => {
       vi.spyOn(document.head, "append").mockImplementation((node) => {
         tracker = node as HTMLScriptElement
       })
       delete globalThis.umami
-      loadTracker()
+      loadTracker(Promise.resolve())
+      await Promise.resolve()
     })
 
     afterEach(() => {
@@ -69,6 +72,48 @@ describe("AnalyticsService", () => {
       expect(tracker.src).toBe("https://umami.dojo.pt/script.js")
       expect(tracker.getAttribute("data-website-id")).toBeTruthy()
       expect(tracker.getAttribute("data-before-send")).toBe("umamiBeforeSend")
+    })
+
+    // Its first page view would carry the page's title before the page
+    // has set it.
+    it("inserts the script only once the first page is ready", async () => {
+      const append = vi.mocked(document.head.append)
+      append.mockClear()
+      let ready: () => void = () => {}
+      loadTracker(new Promise<void>((resolve) => (ready = resolve)))
+      await Promise.resolve()
+      expect(append).not.toHaveBeenCalled()
+
+      ready()
+      await vi.waitFor(() => expect(append).toHaveBeenCalledOnce())
+      // A page that fails to load still counts.
+      append.mockClear()
+      loadTracker(Promise.reject(new Error("bootstrap failed")))
+      await vi.waitFor(() => expect(append).toHaveBeenCalledOnce())
+    })
+
+    // A pending task that never settles would otherwise keep analytics out
+    // of the whole visit, with nothing visible to flag it.
+    it("inserts the script after a while if the page never settles", async () => {
+      vi.useFakeTimers()
+      const append = vi.mocked(document.head.append)
+      append.mockClear()
+      loadTracker(new Promise(() => {}))
+
+      await vi.advanceTimersByTimeAsync(TRACKER_FALLBACK_MS - 1)
+      expect(append).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(append).toHaveBeenCalledOnce()
+    })
+
+    it("inserts the script once, when the page is ready first", async () => {
+      vi.useFakeTimers()
+      const append = vi.mocked(document.head.append)
+      append.mockClear()
+      loadTracker(Promise.resolve())
+
+      await vi.advanceTimersByTimeAsync(TRACKER_FALLBACK_MS * 2)
+      expect(append).toHaveBeenCalledOnce()
     })
 
     it("keeps an event sent before the tracker has loaded", async () => {
@@ -165,6 +210,16 @@ describe("AnalyticsService", () => {
     expect(buildVersionServiceMock.getBuildInfo).not.toHaveBeenCalled()
   })
 
+  // The iOS shell is served from capacitor://localhost, whose origin is "null".
+  it("keeps the iOS shell's address in a report's URL", () => {
+    expect(reportUrl("capacitor://localhost/gn/1?verseStart=3&utm=x#v3")).toBe(
+      "capacitor://localhost/gn/1?verseStart=3",
+    )
+    expect(reportUrl("https://localhost/gn/1?verseEnd=4")).toBe(
+      "https://localhost/gn/1?verseEnd=4",
+    )
+  })
+
   // umami.track swallows network errors and resolves either way, so a report
   // could say "sent" when it wasn't.
   describe("trackDelivered", () => {
@@ -211,6 +266,27 @@ describe("AnalyticsService", () => {
             platform: "ios",
           }),
         }),
+      )
+    })
+
+    // Anything else in the query (campaign tags, shared links' extras) may
+    // say more about the reader than about the problem.
+    it("sends the page's URL with only the verses from its query", async () => {
+      const before = location.href
+      history.replaceState(
+        null,
+        "",
+        "/jo/3?verseStart=2&utm=x&verseEnd=4&ref=mail#v2",
+      )
+      try {
+        await service.trackDelivered("report_problem", { topic: "typo" })
+      } finally {
+        history.replaceState(null, "", before)
+      }
+
+      const body = JSON.parse(lastCall(vi.mocked(fetchSpy))[1].body)
+      expect(body.payload.url).toBe(
+        `${location.origin}/jo/3?verseStart=2&verseEnd=4`,
       )
     })
 

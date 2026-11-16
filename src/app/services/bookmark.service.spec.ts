@@ -1,7 +1,7 @@
 import { TestBed } from "@angular/core/testing"
 import { firstValueFrom } from "rxjs"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
-import { BookmarkService } from "./bookmark.service"
+import { BOOKMARKS_CHANNEL, BookmarkService } from "./bookmark.service"
 import { DatabaseService } from "./database.service"
 
 describe("BookmarkService", () => {
@@ -50,6 +50,45 @@ describe("BookmarkService", () => {
 
   it("should be created", () => {
     expect(service).toBeTruthy()
+  })
+
+  // Without IndexedDB (private modes) the change holds for this visit only.
+  it("says whether a change was stored on the device", async () => {
+    expect(await service.addBookmark("JHN", 3, "#4CAF50")).toBe(true)
+
+    databaseService.update.mockResolvedValue(null)
+    expect(await service.addBookmark("JHN", 4, "#9C27B0")).toBe(false)
+    expect(service.getBookmark("JHN", 4)?.color).toBe("#9C27B0")
+    expect(await service.removeBookmark("JHN", 4)).toBe(false)
+  })
+
+  // A second tab's Marcadores sheet kept the ribbons it had loaded.
+  describe("with another tab open", () => {
+    let otherTab: BroadcastChannel
+
+    beforeEach(() => {
+      otherTab = new BroadcastChannel(BOOKMARKS_CHANNEL)
+    })
+
+    afterEach(() => otherTab.close())
+
+    it("shows what the other tab stored", async () => {
+      stored = [{ bookId: "JHN", chapter: 3, color: "#4CAF50", timestamp: 9 }]
+      otherTab.postMessage("changed")
+
+      await vi.waitFor(() =>
+        expect(service.getBookmark("JHN", 3)?.color).toBe("#4CAF50"),
+      )
+      expect(service.getBookmark("GEN", 1)).toBeUndefined()
+    })
+
+    it("tells the other tab of a change it stored", async () => {
+      const heard = new Promise((resolve) => {
+        otherTab.onmessage = resolve
+      })
+      await service.addBookmark("JHN", 3, "#4CAF50")
+      await expect(heard).resolves.toBeDefined()
+    })
   })
 
   it("should load bookmarks on initialization", async () => {

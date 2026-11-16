@@ -182,19 +182,41 @@ export class BookmarkRibbonsService {
   private readonly analyticsService = inject(AnalyticsService)
   private readonly haptics = inject(HapticsService)
   private readonly toast = inject(ToastService)
+  /** Said once a visit: the ribbons won't outlive it in this browser. */
+  private toldNotStored = false
 
   /** A panel's move offer for the chapter it was opened on (RibbonMove). */
   moveTo(bookId: string, chapter: number): RibbonMove {
     return new RibbonMove(this, bookId, chapter)
   }
 
-  /** Every colour, with the passage it marks if it is in use. */
+  /**
+   * Every colour, with the passage it marks if it is in use. A record for a
+   * chapter its known book lacks (an old or edited one) leaves its colour
+   * free, and marking with it replaces the record. An unknown book keeps its
+   * colour: it may be an introduction or books not loaded on this visit, and
+   * marking with a free colour would delete it.
+   */
   ribbons(bookmarks: Bookmark[]): RibbonState[] {
     return RIBBON_COLORS.map(({ name, value, spoken }) => {
-      const bookmark = bookmarks.find((b) => b.color === value)
+      const found = bookmarks.find((b) => b.color === value)
+      const bookmark = found && this.exists(found) ? found : undefined
       const currentRef = bookmark && this.ref(bookmark.bookId, bookmark.chapter)
       return { name, value, spoken, bookmark, currentRef }
     })
+  }
+
+  private exists({ bookId, chapter }: Bookmark): boolean {
+    if (isIndexBookmark(bookId)) return true
+    const book = this.bookService.findBookById(bookId)
+    // Only a proven bad chapter frees the colour. Chapter 0 is the book
+    // introduction.
+    return (
+      typeof book?.chapterCount !== "number" ||
+      (Number.isInteger(chapter) &&
+        chapter >= 0 &&
+        chapter <= book.chapterCount)
+    )
   }
 
   /** A ribbon's short name for a chapter, e.g. "Mc 2". */
@@ -308,15 +330,30 @@ export class BookmarkRibbonsService {
   }
 
   private afterSave(
-    write: Promise<void>,
+    write: Promise<boolean>,
     onSaved?: () => void,
     onFailure?: () => void,
   ): void {
-    write.then(onSaved, () => {
-      this.toast.show("Não foi possível guardar o marcador. Tente novamente.", {
-        action: "OK",
-      })
-      onFailure?.()
-    })
+    write.then(
+      (stored) => {
+        if (!stored && !this.toldNotStored) {
+          this.toldNotStored = true
+          this.toast.show(
+            "Não foi possível guardar o marcador neste navegador.",
+            { action: "OK" },
+          )
+        }
+        onSaved?.()
+      },
+      () => {
+        this.toast.show(
+          "Não foi possível guardar o marcador. Tente novamente.",
+          {
+            action: "OK",
+          },
+        )
+        onFailure?.()
+      },
+    )
   }
 }

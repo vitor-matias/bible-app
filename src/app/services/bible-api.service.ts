@@ -7,6 +7,7 @@ import {
 } from "@angular/common/http"
 import { Injectable, Injector, inject } from "@angular/core"
 import { pendingUntilEvent } from "@angular/core/rxjs-interop"
+import { Capacitor } from "@capacitor/core"
 import {
   catchError,
   filter,
@@ -308,6 +309,13 @@ export class BibleApiService {
     return (
       this.http.get(
         `${this.api}/search?text=${encodeURIComponent(query)}&page=${page}&limit=${limit}&semantic=true`,
+        // The service worker would keep what was searched on disk. Native has
+        // no service worker, and a custom header forces a CORS preflight there.
+        {
+          headers: Capacitor.isNativePlatform()
+            ? {}
+            : { "ngsw-bypass": "true" },
+        },
       ) as Observable<VersePage>
     ).pipe(requestTimeout())
   }
