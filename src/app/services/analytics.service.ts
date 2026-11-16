@@ -101,7 +101,7 @@ export class AnalyticsService {
       language: navigator.language,
       title: document.title,
       hostname: location.hostname,
-      url: location.href,
+      url: reportUrl(location.href),
       referrer: "",
       name: eventName,
       data: {
@@ -197,6 +197,21 @@ export interface UmamiPayload {
   hostname?: string
   tag?: string
   [field: string]: unknown
+}
+
+/** Of a report's query, what helps find the problem: the verses read. */
+const REPORT_PARAMS = ["verseStart", "verseEnd"]
+
+/** The page a report was sent from, with no query beyond REPORT_PARAMS. */
+function reportUrl(href: string): string {
+  const url = new URL(href)
+  const kept = new URLSearchParams()
+  for (const param of REPORT_PARAMS) {
+    const value = url.searchParams.get(param)
+    if (value !== null) kept.set(param, value)
+  }
+  const query = kept.toString()
+  return `${url.origin}${url.pathname}${query ? `?${query}` : ""}`
 }
 
 /** What the reader searched or shared, in /search?q= and share-target URLs. */

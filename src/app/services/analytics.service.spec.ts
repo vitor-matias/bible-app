@@ -214,6 +214,27 @@ describe("AnalyticsService", () => {
       )
     })
 
+    // Anything else in the query (campaign tags, shared links' extras) may
+    // say more about the reader than about the problem.
+    it("sends the page's URL with only the verses from its query", async () => {
+      const before = location.href
+      history.replaceState(
+        null,
+        "",
+        "/jo/3?verseStart=2&utm=x&verseEnd=4&ref=mail#v2",
+      )
+      try {
+        await service.trackDelivered("report_problem", { topic: "typo" })
+      } finally {
+        history.replaceState(null, "", before)
+      }
+
+      const body = JSON.parse(lastCall(vi.mocked(fetchSpy))[1].body)
+      expect(body.payload.url).toBe(
+        `${location.origin}/jo/3?verseStart=2&verseEnd=4`,
+      )
+    })
+
     it("sends the native app's release with a problem report", async () => {
       buildVersionServiceMock.getRelease.mockResolvedValue("1.2.3")
 

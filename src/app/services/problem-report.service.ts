@@ -4,6 +4,10 @@ import { AnalyticsService } from "./analytics.service"
 /** The longest description a report takes. */
 export const PROBLEM_DETAILS_MAX_LENGTH = 500
 
+/** Reports reach the analytics server as typed: the forms say so. */
+export const PERSONAL_DATA_NOTICE =
+  "Não escreva dados pessoais (nome, email, telefone)."
+
 export interface ProblemReport {
   bookId: string
   chapter: number

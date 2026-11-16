@@ -89,6 +89,13 @@ describe("ReportProblemComponent", () => {
     expect(description.textContent).toContain("«Génesis 1»")
   })
 
+  // The details reach the analytics server as typed.
+  it("asks for no personal data", () => {
+    expect(fixture.nativeElement.textContent).toContain(
+      "Não escreva dados pessoais (nome, email, telefone).",
+    )
+  })
+
   it("should initialize form with empty values", () => {
     expect(component.reportForm.get("topic")?.value).toBe("")
     expect(component.reportForm.get("details")?.value).toBe("")
