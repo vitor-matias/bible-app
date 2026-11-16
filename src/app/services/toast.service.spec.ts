@@ -1,5 +1,8 @@
-import { Location } from "@angular/common"
-import { provideLocationMocks } from "@angular/common/testing"
+import { Location, LocationStrategy, PlatformLocation } from "@angular/common"
+import {
+  MockPlatformLocation,
+  provideLocationMocks,
+} from "@angular/common/testing"
 import { ApplicationRef, Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import {
@@ -13,6 +16,7 @@ import type { Mock } from "vitest"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
 import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
+import { DepthLocationStrategy } from "./depth-location-strategy"
 import { NativeChromeService } from "./native-chrome.service"
 import { ToastService } from "./toast.service"
 
@@ -30,7 +34,7 @@ describe("ToastService", () => {
   /** What takes the glass toast down (NativeChromeService.toast). */
   let hideToast: Mock
 
-  function create(native: boolean): ToastService {
+  function create(native: boolean, appHistory = false): ToastService {
     snackClosed = new Subject()
     snackRef = createSpyObj("MatSnackBarRef", ["dismiss", "afterDismissed"])
     snackRef.afterDismissed.mockReturnValue(snackClosed)
@@ -49,8 +53,14 @@ describe("ToastService", () => {
           { path: ":book/:chapter", component: PassagePage },
           { path: "**", component: PassagePage },
         ]),
-        // History to step back through.
-        provideLocationMocks(),
+        // History to step back through: the app's own, which counts the
+        // entries, over a browser's.
+        appHistory
+          ? [
+              { provide: PlatformLocation, useClass: MockPlatformLocation },
+              { provide: LocationStrategy, useClass: DepthLocationStrategy },
+            ]
+          : provideLocationMocks(),
         {
           provide: BookService,
           useValue: {
@@ -312,6 +322,52 @@ describe("ToastService", () => {
         await settle()
 
         expect(router.url).toBe("/gn/1?verseStart=1&highlight=false")
+      })
+
+      describe("in the app's history", () => {
+        let platform: MockPlatformLocation
+
+        async function followFrom(origin: string): Promise<void> {
+          toast = create(false, true)
+          router = TestBed.inject(Router)
+          platform = TestBed.inject(PlatformLocation) as MockPlatformLocation
+          router.initialNavigation()
+          await router.navigateByUrl("/gn/4")
+          await router.navigateByUrl(origin)
+          toast.showReturn({ bookId: "gen", chapterNumber: 5, number: 1 })
+          await router.navigateByUrl("/jo/1?verseStart=1&verseEnd=3")
+        }
+
+        const depth = () =>
+          (platform.getState() as { appDepth?: number }).appDepth
+
+        // It pushed /gn/5?verseStart=1…: Back afterwards returned to the
+        // reference rather than to the page before.
+        it("steps back to the entry the reference was followed from", async () => {
+          await followFrom("/gn/5")
+          const before = depth()
+
+          returnSnack().returnUrl()
+          await settle()
+
+          expect(router.url).toBe("/gn/5?verseStart=1&highlight=false")
+          expect(depth()).toBe((before ?? 0) - 1)
+          TestBed.inject(Location).back()
+          await settle()
+          expect(router.url).toBe("/gn/4")
+        })
+
+        it("goes there anew once the reader has read on", async () => {
+          await followFrom("/gn/5")
+          await router.navigateByUrl("/jo/2")
+          const before = depth()
+
+          returnSnack().returnUrl()
+          await settle()
+
+          expect(router.url).toBe("/gn/5?verseStart=1&highlight=false")
+          expect(depth()).toBe((before ?? 0) + 1)
+        })
       })
 
       it("stops watching once the snackbar has closed", async () => {
