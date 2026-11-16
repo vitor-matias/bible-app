@@ -47,6 +47,24 @@ describe("text search", () => {
     ).toBe("No princípio havia o Verbo")
   })
 
+  // Offline, Ez 34,10 read «…para eles.’»Senhor é o Bom Pastor».
+  it("leaves out the heading that ends a verse", () => {
+    expect(
+      verseText({
+        bookId: "ezk",
+        chapterNumber: 34,
+        number: 10,
+        text: [
+          { type: "text", text: "Uma presa para eles.’»" },
+          { type: "section", tag: "s2", text: "O " },
+          { type: "text", text: "Senhor", allCaps: true },
+          { type: "text", text: " é o Bom Pastor" },
+          { type: "paragraph", text: "\n" },
+        ],
+      } as Verse),
+    ).toBe("Uma presa para eles.’»")
+  })
+
   // The one splitting search's text and the psalms' first lines share.
   it("gives a verse's lines, marking where paragraphs start", () => {
     expect(
