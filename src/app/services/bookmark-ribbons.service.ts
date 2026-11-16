@@ -190,13 +190,28 @@ export class BookmarkRibbonsService {
     return new RibbonMove(this, bookId, chapter)
   }
 
-  /** Every colour, with the passage it marks if it is in use. */
+  /**
+   * Every colour, with the passage it marks if it is in use. A record for a
+   * book or chapter this Bible lacks (an old or edited one) leaves its colour
+   * free, and marking with it replaces the record.
+   */
   ribbons(bookmarks: Bookmark[]): RibbonState[] {
     return RIBBON_COLORS.map(({ name, value, spoken }) => {
-      const bookmark = bookmarks.find((b) => b.color === value)
+      const found = bookmarks.find((b) => b.color === value)
+      const bookmark = found && this.exists(found) ? found : undefined
       const currentRef = bookmark && this.ref(bookmark.bookId, bookmark.chapter)
       return { name, value, spoken, bookmark, currentRef }
     })
+  }
+
+  private exists({ bookId, chapter }: Bookmark): boolean {
+    if (isIndexBookmark(bookId)) return true
+    const books = this.bookService.getBooks()
+    // Not loaded yet: nothing to tell.
+    if (books.length === 0) return true
+    const book = this.bookService.findBookById(bookId, books)
+    // Chapter 0 is the book introduction.
+    return !!book && chapter >= 0 && chapter <= book.chapterCount
   }
 
   /** A ribbon's short name for a chapter, e.g. "Mc 2". */

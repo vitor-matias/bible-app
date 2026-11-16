@@ -111,9 +111,11 @@ describe("BookmarkRibbonsService", () => {
     toast = createSpyObj("ToastService", ["show"])
     books = createSpyObj("BookService", [
       "findBookById",
+      "getBooks",
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
+    books.getBooks.mockReturnValue([])
     router = createSpyObj("Router", ["navigate"])
     router.navigate.mockResolvedValue(true)
     TestBed.configureTestingModule({
@@ -127,6 +129,37 @@ describe("BookmarkRibbonsService", () => {
       ],
     })
     service = TestBed.inject(BookmarkRibbonsService)
+  })
+
+  // Old or edited records showed as «zzz 5» or «Mt 999».
+  it("leaves free a ribbon on a book or chapter this Bible lacks", () => {
+    const mat = { id: "mat", abrv: "Mt", chapterCount: 28 } as Book
+    books.findBookById.mockImplementation((id: string) =>
+      id === "mat" ? mat : undefined,
+    )
+    const mark = (color: string, bookId: string, chapter: number) => ({
+      color,
+      bookId,
+      chapter,
+      timestamp: 1,
+    })
+    const stored = [
+      mark("red", "zzz", 5),
+      mark("orange", "mat", 999),
+      mark("teal", "mat", 0),
+      mark("green", "mat", 28),
+    ]
+
+    // Before the books load there is nothing to tell.
+    expect(service.ribbons(stored)[0].bookmark).toBeDefined()
+
+    books.getBooks.mockReturnValue([mat])
+    const [red, orange, teal, green] = service.ribbons(stored)
+    expect(red.bookmark).toBeUndefined()
+    expect(red.currentRef).toBeUndefined()
+    expect(orange.bookmark).toBeUndefined()
+    expect(teal.currentRef).toBe("Mt Introdução")
+    expect(green.currentRef).toBe("Mt 28")
   })
 
   it("moves a ribbon and says where it was", async () => {

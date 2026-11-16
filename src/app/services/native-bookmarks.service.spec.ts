@@ -80,7 +80,10 @@ describe("NativeBookmarksService", () => {
         },
         {
           provide: BookService,
-          useValue: { findBookById: () => ({ shortName: "Mateus" }) },
+          useValue: {
+            findBookById: () => ({ shortName: "Mateus" }),
+            getBooks: () => [],
+          },
         },
       ],
     })

@@ -40,9 +40,11 @@ describe("BookmarkSelectorComponent", () => {
     ])
     const bookSpy = createSpyObj("BookService", [
       "findBookById",
+      "getBooks",
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
+    bookSpy.getBooks.mockReturnValue([])
     const sheetSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = createSpyObj("Router", ["navigate"])
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
