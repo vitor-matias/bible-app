@@ -105,6 +105,16 @@ describe("BibleApiService", () => {
       ).toBeInstanceOf(TimeoutError)
     })
 
+    // What was searched mustn't stay on disk in the worker's cache.
+    it("sends a search past the service worker", () => {
+      service.search("amor").subscribe()
+      const req = httpMock.expectOne(
+        "v1/search?text=amor&page=1&limit=50&semantic=true",
+      )
+      expect(req.request.headers.get("ngsw-bypass")).toBe("true")
+      req.flush({ verses: [], total: 0 })
+    })
+
     it("fails a verse that never answers", async () => {
       offlineDataServiceSpy.getCachedVerseAsync.mockResolvedValue(undefined)
 
