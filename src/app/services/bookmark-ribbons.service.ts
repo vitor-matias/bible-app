@@ -211,7 +211,12 @@ export class BookmarkRibbonsService {
     if (books.length === 0) return true
     const book = this.bookService.findBookById(bookId, books)
     // Chapter 0 is the book introduction.
-    return !!book && chapter >= 0 && chapter <= book.chapterCount
+    return (
+      !!book &&
+      Number.isInteger(chapter) &&
+      chapter >= 0 &&
+      chapter <= book.chapterCount
+    )
   }
 
   /** A ribbon's short name for a chapter, e.g. "Mc 2". */

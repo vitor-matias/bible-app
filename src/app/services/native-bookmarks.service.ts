@@ -1,5 +1,5 @@
 import { Injectable, inject } from "@angular/core"
-import { Subscription } from "rxjs"
+import { combineLatest, Subscription } from "rxjs"
 import {
   indexBookmarkLabel,
   isIndexBookmark,
@@ -46,7 +46,12 @@ export class NativeBookmarksService {
     let presented = false
 
     session.add(
-      this.bookmarkService.bookmarks$.subscribe((bookmarks) => {
+      // The books too: until they load, labels and missing passages are
+      // provisional (BookmarkRibbonsService.ribbons).
+      combineLatest([
+        this.bookmarkService.bookmarks$,
+        this.bookService.books$,
+      ]).subscribe(([bookmarks]) => {
         ribbons = this.ribbonsService.ribbons(bookmarks)
         const state = this.sheetState(ribbons, bookId, chapter, mover)
         if (shown) {

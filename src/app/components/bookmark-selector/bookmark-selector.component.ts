@@ -15,6 +15,8 @@ import {
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule } from "@angular/material/menu"
+import { combineLatest } from "rxjs"
+import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import {
   BookmarkRibbonsService,
@@ -80,6 +82,7 @@ export class BookmarkSelectorComponent implements OnInit {
     chapter: number
   }>(MAT_BOTTOM_SHEET_DATA)
   private bookmarkService = inject(BookmarkService)
+  private bookService = inject(BookService)
 
   colors = RIBBON_COLORS
   /** Each ribbon in the theme's tone for it. */
@@ -107,9 +110,11 @@ export class BookmarkSelectorComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.bookmarkService.bookmarks$
+    // The books too: until they load, labels and missing passages are
+    // provisional (BookmarkRibbonsService.ribbons).
+    combineLatest([this.bookmarkService.bookmarks$, this.bookService.books$])
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((bookmarks) => {
+      .subscribe(([bookmarks]) => {
         this.updateRibbons(bookmarks)
       })
   }

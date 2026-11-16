@@ -148,18 +148,21 @@ describe("BookmarkRibbonsService", () => {
       mark("orange", "mat", 999),
       mark("teal", "mat", 0),
       mark("green", "mat", 28),
+      mark("blue", "mat", 1.5),
     ]
 
     // Before the books load there is nothing to tell.
     expect(service.ribbons(stored)[0].bookmark).toBeDefined()
 
     books.getBooks.mockReturnValue([mat])
-    const [red, orange, teal, green] = service.ribbons(stored)
+    const [red, orange, teal, green, blue] = service.ribbons(stored)
     expect(red.bookmark).toBeUndefined()
     expect(red.currentRef).toBeUndefined()
     expect(orange.bookmark).toBeUndefined()
     expect(teal.currentRef).toBe("Mt Introdução")
     expect(green.currentRef).toBe("Mt 28")
+    // «Mt 1.5»
+    expect(blue.bookmark).toBeUndefined()
   })
 
   it("moves a ribbon and says where it was", async () => {

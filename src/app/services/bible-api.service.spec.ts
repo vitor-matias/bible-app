@@ -6,6 +6,7 @@ import {
 } from "@angular/common/http/testing"
 import { ApplicationRef } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { Capacitor } from "@capacitor/core"
 import { firstValueFrom, Observable, of, TimeoutError } from "rxjs"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
@@ -112,6 +113,17 @@ describe("BibleApiService", () => {
         "v1/search?text=amor&page=1&limit=50&semantic=true",
       )
       expect(req.request.headers.get("ngsw-bypass")).toBe("true")
+      req.flush({ verses: [], total: 0 })
+    })
+
+    // A custom header forces a CORS preflight there, and there's no worker.
+    it("sends a search with no custom header from the native apps", () => {
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
+      service.search("amor").subscribe()
+      const req = httpMock.expectOne(
+        "v1/search?text=amor&page=1&limit=50&semantic=true",
+      )
+      expect(req.request.headers.has("ngsw-bypass")).toBe(false)
       req.flush({ verses: [], total: 0 })
     })
 

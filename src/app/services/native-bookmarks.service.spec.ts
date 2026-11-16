@@ -19,6 +19,7 @@ import type {
 
 describe("NativeBookmarksService", () => {
   let bookmarks: BehaviorSubject<Bookmark[]>
+  let books: BehaviorSubject<Book[]>
   let actions: Subject<NativeChromeAction>
   let nativeChrome: {
     actions$: Subject<NativeChromeAction>
@@ -37,6 +38,7 @@ describe("NativeBookmarksService", () => {
 
   beforeEach(() => {
     bookmarks = new BehaviorSubject<Bookmark[]>([markedRed])
+    books = new BehaviorSubject<Book[]>([])
     actions = new Subject()
     nativeChrome = {
       actions$: actions,
@@ -83,6 +85,7 @@ describe("NativeBookmarksService", () => {
           useValue: {
             findBookById: () => ({ shortName: "Mateus" }),
             getBooks: () => [],
+            books$: books,
           },
         },
       ],
@@ -113,6 +116,16 @@ describe("NativeBookmarksService", () => {
       label: null,
       current: false,
     })
+  })
+
+  // Opened before the books loaded, the sheet kept their provisional rows.
+  it("redraws the ribbons once the books load", () => {
+    service.open("mat", 11)
+    expect(ribbons.ribbons).toHaveBeenCalledTimes(1)
+
+    books.next([{ id: "mat" } as Book])
+    expect(ribbons.ribbons).toHaveBeenCalledTimes(2)
+    expect(nativeChrome.updateBookmarks).toHaveBeenCalledOnce()
   })
 
   it("names a psalm as the passage button does", () => {

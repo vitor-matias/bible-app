@@ -12,7 +12,10 @@ import { BehaviorSubject } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
-import { ribbonColor } from "../../services/bookmark-ribbons.service"
+import {
+  BookmarkRibbonsService,
+  ribbonColor,
+} from "../../services/bookmark-ribbons.service"
 import { HapticsService } from "../../services/haptics.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookmarkSelectorComponent } from "./bookmark-selector.component"
@@ -27,6 +30,7 @@ describe("BookmarkSelectorComponent", () => {
   let routerSpy: SpyObj<Router>
   let analyticsServiceSpy: SpyObj<AnalyticsService>
   let bookmarksSubject: BehaviorSubject<Bookmark[]>
+  let booksSubject: BehaviorSubject<Book[]>
 
   const mockData = { bookId: "GEN", chapter: 1 }
   const mockBookmarks: Bookmark[] = [
@@ -45,6 +49,10 @@ describe("BookmarkSelectorComponent", () => {
       "getChapterUrlSegment",
     ])
     bookSpy.getBooks.mockReturnValue([])
+    booksSubject = new BehaviorSubject<Book[]>([])
+    void Object.defineProperty(bookSpy, "books$", {
+      get: () => booksSubject.asObservable(),
+    })
     const sheetSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = createSpyObj("Router", ["navigate"])
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
@@ -99,6 +107,13 @@ describe("BookmarkSelectorComponent", () => {
 
   it("should create", () => {
     expect(component).toBeTruthy()
+  })
+
+  // Opened before the books loaded, the sheet kept their provisional rows.
+  it("redraws the ribbons once the books load", () => {
+    const ribbons = vi.spyOn(TestBed.inject(BookmarkRibbonsService), "ribbons")
+    booksSubject.next([{ id: "mrk" } as Book])
+    expect(ribbons).toHaveBeenCalledOnce()
   })
 
   it("should initialize ribbons based on current bookmarks", () => {

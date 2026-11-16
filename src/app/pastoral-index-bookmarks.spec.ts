@@ -109,7 +109,14 @@ describe("ribbons on the Índice Bíblico-Pastoral", () => {
           provide: BookmarkService,
           useValue: { bookmarks$: new BehaviorSubject([]) },
         },
-        { provide: BookService, useValue: { findBookById: () => undefined } },
+        {
+          provide: BookService,
+          useValue: {
+            findBookById: () => undefined,
+            getBooks: () => [],
+            books$: new BehaviorSubject([]),
+          },
+        },
         { provide: AnalyticsService, useValue: { track: vi.fn() } },
         { provide: HapticsService, useValue: { success: vi.fn() } },
         {
