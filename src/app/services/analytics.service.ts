@@ -217,7 +217,7 @@ export interface UmamiPayload {
 const REPORT_PARAMS = ["verseStart", "verseEnd"]
 
 /** The page a report was sent from, with no query beyond REPORT_PARAMS. */
-function reportUrl(href: string): string {
+export function reportUrl(href: string): string {
   const url = new URL(href)
   const kept = new URLSearchParams()
   for (const param of REPORT_PARAMS) {
@@ -225,7 +225,8 @@ function reportUrl(href: string): string {
     if (value !== null) kept.set(param, value)
   }
   const query = kept.toString()
-  return `${url.origin}${url.pathname}${query ? `?${query}` : ""}`
+  // Not url.origin: it is "null" for the iOS shell's capacitor://localhost.
+  return `${url.protocol}//${url.host}${url.pathname}${query ? `?${query}` : ""}`
 }
 
 /** What the reader searched or shared, in /search?q= and share-target URLs. */

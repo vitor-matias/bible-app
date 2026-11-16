@@ -8,6 +8,7 @@ import {
   DELIVERY_TIMEOUT_MS,
   loadTracker,
   prepareUmamiPayload,
+  reportUrl,
   TRACKER_FALLBACK_MS,
 } from "./analytics.service"
 import { BuildVersionService } from "./build-version.service"
@@ -207,6 +208,16 @@ describe("AnalyticsService", () => {
     await service.track("test_event", { foo: "bar" })
 
     expect(buildVersionServiceMock.getBuildInfo).not.toHaveBeenCalled()
+  })
+
+  // The iOS shell is served from capacitor://localhost, whose origin is "null".
+  it("keeps the iOS shell's address in a report's URL", () => {
+    expect(
+      reportUrl("capacitor://localhost/gn/1?verseStart=3&utm=x#v3"),
+    ).toBe("capacitor://localhost/gn/1?verseStart=3")
+    expect(reportUrl("https://localhost/gn/1?verseEnd=4")).toBe(
+      "https://localhost/gn/1?verseEnd=4",
+    )
   })
 
   // umami.track swallows network errors and resolves either way, so a report
