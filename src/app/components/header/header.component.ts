@@ -52,6 +52,7 @@ import {
   passageLabel,
   passageShortLabels,
   passageSpokenLabel,
+  sharedPassage,
 } from "../../utils/passage-label"
 import { buildPassagePicker } from "../../utils/passage-picker"
 import { PSALMS_BOOK_ID } from "../../utils/psalms"
@@ -372,20 +373,25 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.decreaseFontSizeEvent.emit(undefined)
   }
 
+  /**
+   * What a share or a copied link sends before the link: the passage it
+   * opens, "Mateus 5,3-12" (the owner's choice, v1.1.2 playtest).
+   */
+  shareText(): string {
+    const book = this.book()
+    if (!book || book.id === "about") return "Leia a Bíblia nesta app."
+    const search = typeof window === "undefined" ? "" : window.location.search
+    return sharedPassage(book, this.chapterNumber(), search)
+  }
+
   async sharePassage(): Promise<void> {
     if (!this.canShare) {
       return
     }
 
     const book = this.book()
-    const isAbout = book?.id === "about"
     const title = "Bíblia Sagrada"
-    const chapterNumber = this.chapterNumber()
-    const text = isAbout
-      ? "Leia a Bíblia nesta app."
-      : chapterNumber === 0
-        ? `Ler a introdução de ${book?.name}.`
-        : `Ler ${book?.name} ${chapterNumber}.`
+    const text = this.shareText()
     const url =
       typeof window === "undefined" ? "" : shareableUrl(window.location)
 
