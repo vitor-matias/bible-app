@@ -22,7 +22,7 @@ export const chapterExists: CanMatchFn = async (
   // "/jo/99999999999999999999" is past the last chapter, not chapter 1.
   const chapter = books.parseChapterUrlSegment(chapterSegment, Number.NaN)
   if (Number.isNaN(chapter)) return false
-  const book = books.findBook(bookSegment)
+  const book = books.findUrlBook(bookSegment, chapter)
   if (book.id === "about")
     return (
       ["about", books.getUrlAbrv(book)].includes(bookSegment) && chapter === 1

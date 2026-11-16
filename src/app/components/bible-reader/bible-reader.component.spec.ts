@@ -71,6 +71,7 @@ describe("BibleReaderComponent", () => {
     apiServiceSpy = createSpyObj("BibleApiService", ["getChapter"])
     bookServiceSpy = createSpyObj("BookService", [
       "findBook",
+      "findUrlBook",
       "findBookById",
       "getBooks",
       "getUrlAbrv",
@@ -161,6 +162,10 @@ describe("BibleReaderComponent", () => {
     preferencesServiceSpy.getViewMode.mockReturnValue("scrolling")
     preferencesServiceSpy.getAutoScrollControlsVisible.mockReturnValue(false)
     bookServiceSpy.findBook.mockReturnValue(mockBooks[0] as unknown as Book)
+    // The specs set findBook; links resolve through it here.
+    bookServiceSpy.findUrlBook.mockImplementation((segment: string) =>
+      bookServiceSpy.findBook(segment),
+    )
     bookServiceSpy.getUrlAbrv.mockReturnValue("1-genesis")
     bookServiceSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),
@@ -246,6 +251,8 @@ describe("BibleReaderComponent", () => {
     it("should set book and navigate to stored params when URL has no clear intent initially", () => {
       fixture.detectChanges()
       expect(bookServiceSpy.findBook).toHaveBeenCalledWith("gen")
+      // As the guard does: "/joao/3" is João, "/joao/intro" his letters'.
+      expect(bookServiceSpy.findUrlBook).toHaveBeenCalledWith("gen", 1)
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
       expect(routerSpy.navigate).toHaveBeenCalled()
     })

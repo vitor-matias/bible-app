@@ -31,7 +31,7 @@ describe("chapterExists", () => {
   beforeEach(() => {
     service = TestBed.inject(BookService)
     vi.spyOn(service, "initializeBooks").mockResolvedValue()
-    vi.spyOn(service, "findBook").mockImplementation(
+    vi.spyOn(service, "findUrlBook").mockImplementation(
       (id) =>
         books.find((b) => b.id === id || b.abrv.toLowerCase() === id) ?? about,
     )
@@ -67,6 +67,7 @@ describe("chapterExists", () => {
     expect(await run("sobre", "1")).toBe(true)
     expect(await run("about", "1")).toBe(true)
     expect(await run("pentateuco", "intro")).toBe(true)
+    expect(await run("pentateuco", "INTRO")).toBe(true)
   })
 
   it("rejects a malformed chapter, and chapters on About and introductions", async () => {

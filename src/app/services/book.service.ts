@@ -262,6 +262,49 @@ export class BookService {
     )
   }
 
+  /**
+   * Other Portuguese Bibles' abbreviations, which links typed from them use:
+   * "/sal/23", "/hb/1". Links only: as a search, "sal" is a word.
+   */
+  private static readonly OTHER_ABBREVIATIONS: Readonly<
+    Record<string, Book["id"]>
+  > = {
+    sal: "psa",
+    hb: "heb",
+    jó: "job",
+    eclo: "sir",
+    jt: "jdt",
+    ab: "oba",
+    fm: "phm",
+    "1pd": "1pe",
+    "2pd": "2pe",
+    "1mc": "1ma",
+    "2mc": "2ma",
+  }
+
+  /**
+   * The book a link's first segment names, as people type it: "jo", "JO",
+   * "João", "joao", "gên", "sal". A numbered chapter is a book of the Bible's:
+   * "/joao/3" is João, not the introduction to his letters ("/joao/intro").
+   * Falls back to the About page, as findBook does.
+   */
+  findUrlBook(segment: string, chapter: Chapter["number"]): Book {
+    if (chapter === 0) return this.findBook(segment)
+    const other =
+      BookService.OTHER_ABBREVIATIONS[
+        segment.replace(/\s+/g, "").toLocaleLowerCase()
+      ]
+    return (
+      this.findTypedBook(segment) ??
+      (other ? this.findBookById(other) : undefined) ??
+      // After the other abbreviations: "jó" is Job, not "jo", João.
+      this.findTypedBook(
+        segment.normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+      ) ??
+      this.findBook(segment)
+    )
+  }
+
   getUrlAbrv(book: Book): string {
     return book.abrv.replace(/\s/g, "").toLowerCase()
   }
@@ -273,13 +316,13 @@ export class BookService {
     return chapter === 0 ? BookService.INTRO_URL_SEGMENT : chapter.toString()
   }
 
-  /** Accepts "intro" (and legacy "0") for the introduction. */
+  /** Accepts "intro", in any case (and legacy "0"), for the introduction. */
   parseChapterUrlSegment(
     segment: string | null | undefined,
     fallback = 1,
   ): number {
     if (segment == null || segment === "") return fallback
-    if (segment === BookService.INTRO_URL_SEGMENT) return 0
+    if (segment.toLowerCase() === BookService.INTRO_URL_SEGMENT) return 0
     // parseInt would accept partial parses like "2junk" or "1.5".
     if (!/^\d+$/.test(segment)) return fallback
     const parsed = Number.parseInt(segment, 10)
