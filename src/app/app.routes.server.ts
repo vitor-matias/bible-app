@@ -6,6 +6,7 @@ export const serverRoutes: ServerRoute[] = [
   // The book index links every book, so it must be in the crawlable HTML.
   { path: "livros", renderMode: RenderMode.Prerender },
   { path: "indice", renderMode: RenderMode.Prerender },
+  { path: "app", renderMode: RenderMode.Prerender },
   // One theme open in the list: 358 prerendered copies of it would take 150 MB.
   { path: "indice/:slug", renderMode: RenderMode.Client },
   // Search results are user-specific and noindexed.

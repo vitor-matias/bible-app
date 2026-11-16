@@ -17,6 +17,7 @@ import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PreferencesService } from "./services/preferences.service"
 import { ToastService } from "./services/toast.service"
+import { UpdatePromptService } from "./services/update-prompt.service"
 import { createSpyObj, type SpyObj } from "./testing/spy-obj"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 
@@ -34,6 +35,7 @@ describe("AppComponent", () => {
   }
   let toastSpy: SpyObj<ToastService>
   let appPromoSpy: SpyObj<AppPromoService>
+  let updatePromptSpy: SpyObj<UpdatePromptService>
 
   beforeEach(async () => {
     pageHostname = "localhost"
@@ -42,6 +44,7 @@ describe("AppComponent", () => {
     dialogStub = { openDialogs: [] }
     toastSpy = createSpyObj("ToastService", ["show"])
     appPromoSpy = createSpyObj("AppPromoService", ["scheduleOnce"])
+    updatePromptSpy = createSpyObj("UpdatePromptService", ["init"])
 
     const offlineDataSpy = createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
@@ -67,6 +70,7 @@ describe("AppComponent", () => {
         { provide: NativeShellService, useValue: nativeShellSpy },
         { provide: ToastService, useValue: toastSpy },
         { provide: AppPromoService, useValue: appPromoSpy },
+        { provide: UpdatePromptService, useValue: updatePromptSpy },
         { provide: PAGE_HOSTNAME, useFactory: () => pageHostname },
       ],
     }).compileComponents()
@@ -229,6 +233,16 @@ describe("AppComponent", () => {
     TestBed.createComponent(AppComponent).detectChanges()
 
     expect(appPromoSpy.scheduleOnce).toHaveBeenCalled()
+  })
+
+  it("should start watching for a new version on startup", () => {
+    mockAppPlugin.addListener.mockResolvedValue({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+
+    TestBed.createComponent(AppComponent).detectChanges()
+
+    expect(updatePromptSpy.init).toHaveBeenCalled()
   })
 
   it("should setup app links listener on native platform", () => {

@@ -15,6 +15,7 @@ import {
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule } from "@angular/material/menu"
+import { combineLatest, distinctUntilChanged, startWith } from "rxjs"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import {
@@ -208,9 +209,18 @@ export class BookmarkSelectorComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.bookmarkService.bookmarks$
+    // The books too: until they load, labels and missing passages are
+    // provisional (BookmarkRibbonsService.ribbons).
+    combineLatest([
+      this.bookmarkService.bookmarks$,
+      // At once with the list as it is: books$ waits for a non-empty one.
+      this.bookService.books$.pipe(
+        startWith(this.bookService.getBooks()),
+        distinctUntilChanged(),
+      ),
+    ])
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((bookmarks) => {
+      .subscribe(([bookmarks]) => {
         this.updateRibbons(bookmarks)
       })
   }

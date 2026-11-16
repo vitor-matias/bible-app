@@ -8,11 +8,12 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenuModule } from "@angular/material/menu"
 import { Router } from "@angular/router"
-import { BehaviorSubject } from "rxjs"
+import { BehaviorSubject, filter } from "rxjs"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
 import {
+  BookmarkRibbonsService,
   type RibbonState,
   ribbonColor,
 } from "../../services/bookmark-ribbons.service"
@@ -30,6 +31,7 @@ describe("BookmarkSelectorComponent", () => {
   let routerSpy: SpyObj<Router>
   let analyticsServiceSpy: SpyObj<AnalyticsService>
   let bookmarksSubject: BehaviorSubject<Bookmark[]>
+  let booksSubject: BehaviorSubject<Book[]>
 
   const mockData = { bookId: "GEN", chapter: 1 }
   const mockBookmarks: Bookmark[] = [
@@ -43,9 +45,16 @@ describe("BookmarkSelectorComponent", () => {
     ])
     const bookSpy = createSpyObj("BookService", [
       "findBookById",
+      "getBooks",
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
+    booksSubject = new BehaviorSubject<Book[]>([])
+    // As BookService: books$ waits for a non-empty list.
+    bookSpy.getBooks.mockImplementation(() => booksSubject.value)
+    void Object.defineProperty(bookSpy, "books$", {
+      get: () => booksSubject.pipe(filter((list) => list.length > 0)),
+    })
     const sheetSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
     const rSpy = createSpyObj("Router", ["navigate"])
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
@@ -56,10 +65,14 @@ describe("BookmarkSelectorComponent", () => {
       get: () => bookmarksSubject.asObservable(),
     })
 
-    bookmarkSpy.addBookmark.mockResolvedValue(undefined)
+    bookmarkSpy.addBookmark.mockResolvedValue(true)
     hapticsSpy = createSpyObj("HapticsService", ["light", "success"])
-    bookmarkSpy.removeBookmark.mockResolvedValue(undefined)
-    bookSpy.findBookById.mockReturnValue({ abrv: "Mc", shortName: "Marcos" })
+    bookmarkSpy.removeBookmark.mockResolvedValue(true)
+    bookSpy.findBookById.mockReturnValue({
+      abrv: "Mc",
+      shortName: "Marcos",
+      chapterCount: 16,
+    })
     bookSpy.getUrlAbrv.mockReturnValue("mrk")
     bookSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),
@@ -100,6 +113,39 @@ describe("BookmarkSelectorComponent", () => {
 
   it("should create", () => {
     expect(component).toBeTruthy()
+  })
+
+  // A first launch offline, or /indice with the API down: no books at all.
+  it("shows the ribbons at once while the books are missing", () => {
+    expect(component.ribbons.length).toBe(8)
+    expect(
+      component.ribbons.find((r) => r.value === "blue")?.bookmark,
+    ).toBeTruthy()
+  })
+
+  // Opened before the books loaded, the sheet kept their provisional rows.
+  it("redraws the ribbons once the books load", () => {
+    const ribbons = vi.spyOn(TestBed.inject(BookmarkRibbonsService), "ribbons")
+    booksSubject.next([{ id: "mrk" } as Book])
+    expect(ribbons).toHaveBeenCalledOnce()
+  })
+
+  // Unknown until the books load, then proven not to exist.
+  it("frees a ribbon once its book loads without that chapter", () => {
+    _bookServiceSpy.findBookById.mockImplementation(() =>
+      booksSubject.value.length
+        ? ({ abrv: "Mc", shortName: "Marcos", chapterCount: 16 } as Book)
+        : undefined,
+    )
+    bookmarksSubject.next([
+      { bookId: "MRK", chapter: 99, color: "blue", timestamp: 1 },
+    ])
+    const blue = () => component.ribbons.find((r) => r.value === "blue")
+    expect(blue()?.bookmark).toBeTruthy()
+
+    booksSubject.next([{ id: "mrk" } as Book])
+
+    expect(blue()?.bookmark).toBeUndefined()
   })
 
   it("should initialize ribbons based on current bookmarks", () => {

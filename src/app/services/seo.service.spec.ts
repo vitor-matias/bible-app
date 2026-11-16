@@ -353,6 +353,17 @@ describe("SeoService", () => {
     })
   })
 
+  describe("updateForLanding", () => {
+    it("gives /app its own canonical and link-preview address", () => {
+      service.updateForAbout()
+      service.updateForLanding()
+
+      expect(title.getTitle()).toBe(`Site e aplicações | ${SEO_SITE_NAME}`)
+      expect(getCanonicalHref()).toBe(`${SEO_BASE_URL}/app`)
+      expect(getMetaContent('property="og:url"')).toBe(`${SEO_BASE_URL}/app`)
+    })
+  })
+
   describe("updateForBookIndex", () => {
     it("sets an indexable head at the /livros canonical URL", () => {
       // Arrive from search so the noindex tag is actually there to be cleared,

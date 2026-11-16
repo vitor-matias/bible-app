@@ -109,17 +109,19 @@ describe("BookmarkRibbonsService", () => {
       "addBookmark",
       "removeBookmark",
     ])
-    bookmarks.addBookmark.mockResolvedValue(undefined)
-    bookmarks.removeBookmark.mockResolvedValue(undefined)
+    bookmarks.addBookmark.mockResolvedValue(true)
+    bookmarks.removeBookmark.mockResolvedValue(true)
     analytics = createSpyObj("AnalyticsService", ["track"])
     analytics.track.mockResolvedValue(undefined)
     haptics = createSpyObj("HapticsService", ["success"])
     toast = createSpyObj("ToastService", ["show"])
     books = createSpyObj("BookService", [
       "findBookById",
+      "getBooks",
       "getUrlAbrv",
       "getChapterUrlSegment",
     ])
+    books.getBooks.mockReturnValue([])
     router = createSpyObj("Router", ["navigate"])
     router.navigate.mockResolvedValue(true)
     TestBed.configureTestingModule({
@@ -133,6 +135,45 @@ describe("BookmarkRibbonsService", () => {
       ],
     })
     service = TestBed.inject(BookmarkRibbonsService)
+  })
+
+  const mark = (color: string, bookId: string, chapter: number) => ({
+    color,
+    bookId,
+    chapter,
+    timestamp: 1,
+  })
+  const mat = { id: "mat", abrv: "Mt", chapterCount: 28 } as Book
+
+  // Old or edited records showed as «Mt 999» or «Mt 1.5».
+  it("leaves free a ribbon on a chapter its book lacks", () => {
+    books.findBookById.mockImplementation((id: string) =>
+      id === "mat" ? mat : undefined,
+    )
+    const [, orange, teal, green, blue] = service.ribbons([
+      mark("orange", "mat", 999),
+      mark("teal", "mat", 0),
+      mark("green", "mat", 28),
+      mark("blue", "mat", 1.5),
+    ])
+    expect(orange.bookmark).toBeUndefined()
+    expect(orange.currentRef).toBeUndefined()
+    expect(blue.bookmark).toBeUndefined()
+    expect(teal.currentRef).toBe("Mt Introdução")
+    expect(green.currentRef).toBe("Mt 28")
+  })
+
+  // A free colour is one a mark may take, which deletes its old record: an
+  // introduction whose list failed to load this visit was lost that way.
+  it("keeps taken a ribbon on a book it doesn't know", () => {
+    books.getBooks.mockReturnValue([mat])
+    books.findBookById.mockImplementation((id: string) =>
+      id === "mat" ? mat : undefined,
+    )
+    const [red] = service.ribbons([mark("red", "pentateuco", 0)])
+
+    // Taken: a tap opens it, as for any ribbon in use, never marks over it.
+    expect(red.bookmark).toEqual(mark("red", "pentateuco", 0))
   })
 
   it("moves a ribbon and says where it was", async () => {
@@ -182,6 +223,21 @@ describe("BookmarkRibbonsService", () => {
         expect.objectContaining({ chapter: 7, color: "red" }),
       )
       expect(toast.show).not.toHaveBeenCalled()
+    })
+
+    // Private modes have no IndexedDB: the ribbon lasts this visit only.
+    it("says once when a ribbon can't be kept in this browser", async () => {
+      bookmarks.addBookmark.mockResolvedValue(false)
+      service.assign("red", "mat", 7)
+      await settled()
+      service.assign("blue", "mat", 8)
+      await settled()
+
+      expect(toast.show).toHaveBeenCalledExactlyOnceWith(
+        "Não foi possível guardar o marcador neste navegador.",
+        { action: "OK" },
+      )
+      expect(haptics.success).toHaveBeenCalledTimes(2)
     })
 
     it("counts a removal after it saved", async () => {
