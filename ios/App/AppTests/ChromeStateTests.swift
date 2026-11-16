@@ -327,6 +327,14 @@ final class ChromeStateTests: XCTestCase {
                        lineHeight, accuracy: 1)
     }
 
+    // An image item's title is what VoiceOver reads (and the bar's overflow
+    // menu shows): the index's filter is «Filtrar», not its symbol's name.
+    func testTheIndexFilterButtonIsLabelled() {
+        let item = ChromeViewController().filterItem
+        XCTAssertEqual(item.title, "Filtrar")
+        XCTAssertNotNil(item.image)
+    }
+
     // MARK: Onboarding
 
     // A page naming a bar button shows that button, ringed, instead of its symbol.
