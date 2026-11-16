@@ -215,6 +215,10 @@ describe("BookService", () => {
       expect(idOf("jó", 1)).toBe("job")
       // The introduction keeps its own page.
       expect(idOf("joao", 0)).toBe("joao")
+      // Introductions take the same typed forms as chapters.
+      expect(idOf("sal", 0)).toBe("psa")
+      expect(idOf("hb", 0)).toBe("heb")
+      expect(idOf("gên", 0)).toBe("gen")
       expect(idOf("sobre", 1)).toBe("about")
       expect(idOf("xyz", 1)).toBe("about")
     })

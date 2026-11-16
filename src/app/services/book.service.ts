@@ -291,7 +291,11 @@ export class BookService {
    * Falls back to the About page, as findBook does.
    */
   findUrlBook(segment: string, chapter: Chapter["number"]): Book {
-    if (chapter === 0) return this.findBook(segment)
+    // An introduction's own id first: "joao/intro" is «Cartas de João».
+    if (chapter === 0) {
+      const intro = this.findBook(segment)
+      if (intro.id !== "about") return intro
+    }
     const other =
       BookService.OTHER_ABBREVIATIONS[
         segment.replace(/\s+/g, "").toLocaleLowerCase()
