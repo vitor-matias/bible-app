@@ -1,12 +1,16 @@
 import { isPlatformBrowser } from "@angular/common"
 import { Injectable, inject, PLATFORM_ID } from "@angular/core"
 import { MatDialog } from "@angular/material/dialog"
-import { take } from "rxjs/operators"
+import { NavigationStart, Router } from "@angular/router"
+import { filter, take } from "rxjs/operators"
 
 /** Toggled on the <verse> host; the stroke is styled in verse.component.css. */
 export const HIGHLIGHT_CLASS = "verse-highlight"
 
-/** How long a deep-linked verse stays marked before the stroke fades out. */
+/**
+ * How long a deep-linked verse stays marked before the stroke fades out. A
+ * range stays marked: see keepMarked.
+ */
 export const HIGHLIGHT_DURATION_MS = 2500
 
 /**
@@ -46,9 +50,13 @@ const reducedMotion = (): boolean =>
 export class BibleReaderAnimationService {
   private readonly platformId = inject(PLATFORM_ID)
   private readonly dialog = inject(MatDialog)
+  private readonly router = inject(Router)
 
   /** Cancels each marked verse's pending fade. */
   private highlightFades = new Map<HTMLElement, () => void>()
+
+  /** Unmarks the linked range showing, if any. */
+  private unmarkRange?: () => void
 
   /** Cancels the pending realign pass; undefined when none is pending. */
   private cancelRealign?: () => void
@@ -205,11 +213,13 @@ export class BibleReaderAnimationService {
       this.pendingVerseScroll = undefined
       let scrolled = false
       if (!bookBlock) return
+      this.unmarkRange?.()
 
       const extraVerses = Math.min(
         (verseEnd || verseStart) - verseStart,
         MAX_VERSE_RANGE,
       )
+      const range: HTMLElement[] = []
       // Counted from the start: from 2^53 or Infinity, i++ would not advance.
       for (let offset = 0; offset <= extraVerses; offset++) {
         // Scope search to the book block
@@ -225,10 +235,12 @@ export class BibleReaderAnimationService {
           if (highlight) {
             element.classList.add(HIGHLIGHT_CLASS)
             this.highlightFades.get(element)?.()
-            this.fadeHighlight(element)
+            if (extraVerses > 0) range.push(element)
+            else this.fadeHighlight(element)
           }
         }
       }
+      if (range.length > 0) this.keepMarked(range)
 
       if (bookContainer) {
         // drawerContent is not available here; triggerSlideAnimation only uses it
@@ -236,6 +248,36 @@ export class BibleReaderAnimationService {
         this.triggerSlideAnimation(undefined, bookContainer, startAtBottom)
       }
     }, 100)
+  }
+
+  /**
+   * A linked or searched range is the reading: faded, a reader who looked a
+   * moment later couldn't tell which verses it was. It stays marked until a
+   * tap elsewhere (not on it, nor in a dialog, menu or sheet over it) or the
+   * next navigation.
+   */
+  private keepMarked(verses: HTMLElement[]): void {
+    const unmark = () => {
+      for (const verse of verses) verse.classList.remove(HIGHLIGHT_CLASS)
+      document.removeEventListener("click", onClick, true)
+      navigation.unsubscribe()
+      if (this.unmarkRange === unmark) this.unmarkRange = undefined
+    }
+    const onClick = ({ target }: MouseEvent) => {
+      if (
+        target instanceof Element &&
+        (target.closest(".cdk-overlay-container") ||
+          verses.some((verse) => verse.contains(target)))
+      ) {
+        return
+      }
+      unmark()
+    }
+    const navigation = this.router.events
+      .pipe(filter((event) => event instanceof NavigationStart))
+      .subscribe(unmark)
+    document.addEventListener("click", onClick, true)
+    this.unmarkRange = unmark
   }
 
   /**

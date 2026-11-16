@@ -1,6 +1,7 @@
 import { Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { MatDialog } from "@angular/material/dialog"
+import { Router } from "@angular/router"
 import { lastCall } from "../testing/spy-obj"
 import {
   BibleReaderAnimationService,
@@ -403,11 +404,72 @@ describe("BibleReaderAnimationService", () => {
       // Only the first verse of the range is scrolled into view.
       expect(verses[0].scrollIntoView).toHaveBeenCalled()
       expect(verses[1].scrollIntoView).not.toHaveBeenCalled()
+    })
 
-      await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS)
-      expect(verses.some((el) => el.classList.contains(HIGHLIGHT_CLASS))).toBe(
-        false,
-      )
+    describe("a range", () => {
+      let bookBlock: HTMLElement
+      let verses: HTMLElement[]
+      const marked = () =>
+        verses.filter((el) => el.classList.contains(HIGHLIGHT_CLASS)).length
+
+      beforeEach(async () => {
+        bookBlock = document.createElement("div")
+        verses = [1, 2, 3].map((n) => {
+          const el = document.createElement("div")
+          el.id = String(n)
+          bookBlock.appendChild(el)
+          vi.spyOn(el, "scrollIntoView").mockReturnValue(undefined)
+          return el
+        })
+        document.body.appendChild(bookBlock)
+        service.scrollToVerseElement(bookBlock, undefined, 1, 3, true, false)
+        await vi.advanceTimersByTimeAsync(100)
+      })
+
+      afterEach(() => {
+        bookBlock.remove()
+        document.body.click()
+      })
+
+      // It faded after 2.5 s: a reader who looked later couldn't see it.
+      it("stays marked until a tap elsewhere", async () => {
+        await vi.advanceTimersByTimeAsync(HIGHLIGHT_DURATION_MS * 4)
+        expect(marked()).toBe(3)
+
+        verses[1].click()
+        expect(marked()).toBe(3)
+
+        document.body.click()
+        expect(marked()).toBe(0)
+      })
+
+      it("stays marked through a tap in a dialog or menu over it", () => {
+        const overlay = document.createElement("div")
+        overlay.className = "cdk-overlay-container"
+        document.body.appendChild(overlay)
+
+        overlay.click()
+        overlay.remove()
+
+        expect(marked()).toBe(3)
+      })
+
+      it("is unmarked by the next navigation", async () => {
+        const router = TestBed.inject(Router)
+        router.resetConfig([{ path: "**", children: [] }])
+        await router.navigateByUrl("/elsewhere")
+
+        expect(marked()).toBe(0)
+      })
+
+      it("is unmarked by the next verse linked to", async () => {
+        service.scrollToVerseElement(bookBlock, undefined, 3, 3, true, false)
+        await vi.advanceTimersByTimeAsync(100)
+
+        expect(
+          verses.map((el) => el.classList.contains(HIGHLIGHT_CLASS)),
+        ).toEqual([false, false, true])
+      })
     })
 
     it("should do nothing if bookBlock is undefined", async () => {
