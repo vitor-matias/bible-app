@@ -148,6 +148,87 @@ describe("ChapterSelectorComponent", () => {
     expect(highlighted()).toEqual([true, false])
   })
 
+  // Every chapter was a Tab stop, some 150 for the Psalms, and the arrows
+  // did nothing.
+  describe("from the keyboard", () => {
+    const buttons = (): HTMLElement[] =>
+      Array.from(
+        fixture.nativeElement.querySelectorAll(".chapterSelectorButton"),
+      )
+    const tabStops = () => buttons().filter((button) => button.tabIndex === 0)
+    const press = (key: string) => {
+      const event = new KeyboardEvent("keydown", {
+        key,
+        bubbles: true,
+        cancelable: true,
+      })
+      document.activeElement?.dispatchEvent(event)
+      fixture.detectChanges()
+      return event
+    }
+
+    beforeEach(() => {
+      fixture.componentRef.setInput("chapters", [
+        { bookId: "GEN", number: 1, title: "" },
+        { bookId: "GEN", number: 2, title: "" },
+        { bookId: "GEN", number: 3, title: "" },
+        { bookId: "GEN", number: 4, title: "" },
+      ])
+      fixture.componentRef.setInput("selectedChapter", 2)
+      fixture.detectChanges()
+    })
+
+    it("is one Tab stop, the chapter being read", () => {
+      expect(tabStops()).toEqual([buttons()[1]])
+    })
+
+    it("falls back to the first chapter when the one being read is not listed", () => {
+      fixture.componentRef.setInput("selectedChapter", 9)
+      fixture.detectChanges()
+
+      expect(tabStops()).toEqual([buttons()[0]])
+    })
+
+    it("moves between the chapters with the arrows, Home and End", () => {
+      buttons()[1].focus()
+
+      expect(press("ArrowDown").defaultPrevented).toBe(true)
+      expect(document.activeElement).toBe(buttons()[2])
+      press("ArrowRight")
+      expect(document.activeElement).toBe(buttons()[3])
+      press("ArrowDown")
+      expect(document.activeElement).toBe(buttons()[3])
+      press("ArrowUp")
+      expect(document.activeElement).toBe(buttons()[2])
+      press("ArrowLeft")
+      expect(document.activeElement).toBe(buttons()[1])
+      press("Home")
+      expect(document.activeElement).toBe(buttons()[0])
+      press("End")
+      expect(document.activeElement).toBe(buttons()[3])
+      // Tab leaves from, and comes back to, the chapter last focused.
+      expect(tabStops()).toEqual([buttons()[3]])
+    })
+
+    // A Tab pressed before the next check left from the chapter before.
+    it("moves the Tab stop with the focus at once", () => {
+      buttons()[1].focus()
+      buttons()[1].dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }),
+      )
+
+      expect(tabStops()).toEqual([buttons()[2]])
+    })
+
+    it("leaves other keys to the button", () => {
+      buttons()[1].focus()
+
+      expect(press("Enter").defaultPrevented).toBe(false)
+      expect(press("Tab").defaultPrevented).toBe(false)
+      expect(document.activeElement).toBe(buttons()[1])
+    })
+  })
+
   // Material's focus cue, a 12% state layer, didn't show on the drawer.
   it("rings the chapter focused from the keyboard", () => {
     const button = fixture.nativeElement.querySelector(
