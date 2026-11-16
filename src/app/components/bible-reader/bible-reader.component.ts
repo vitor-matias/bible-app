@@ -190,7 +190,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private retryFeedbackUntil = 0
   private retryFeedbackTimer?: ReturnType<typeof setTimeout>
   chapterNumber = 1
-  chapter!: Chapter
+  chapter?: Chapter
 
   bookParam: string | null = null
   chapterParam: string | null = null
@@ -838,6 +838,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       // Opened cold, a toast would fade over a blank page: say it in the page.
       // The chapter asked for is the one the header, the URL and a retry show.
       this.chapterNumber = chapter
+      // Nor the About page shown while the books couldn't load.
+      this.chapter = undefined
       this.chapterUnavailable = true
       this.retryChapterLoad = retry
     }
@@ -935,7 +937,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
-    this.shown = { book: this.book, chapter }
+    // Not the About page shown for want of the books: the passage asked for
+    // (the address) is what a failed first load must keep.
+    this.shown = this.booksUnavailable
+      ? undefined
+      : { book: this.book, chapter }
     this.chapterUnavailable = false
     this.retryingChapter = false
     this.retryChapterLoad = undefined

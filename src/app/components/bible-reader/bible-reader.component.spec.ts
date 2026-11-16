@@ -623,6 +623,53 @@ describe("BibleReaderComponent", () => {
       expect(preferencesServiceSpy.setLastChapterNumber).not.toHaveBeenCalled()
     })
 
+    // Opened cold on /gn/5: once the books came, Génesis 5 failing took the
+    // reader back to the About page shown meanwhile, under /sobre/1.
+    it("keeps the passage asked for when it fails once the books come", async () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { params: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.params = {
+        book: "gen",
+        chapter: "5",
+      }
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "5"],
+        ]),
+      )
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("offline")),
+      )
+      routerSpy.navigate.mockClear()
+
+      unavailable$.next(false)
+      ;(bookServiceSpy.books$ as unknown as Subject<Book[]>).next(
+        mockBooks as unknown as Book[],
+      )
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(component.book.id).toBe("gen")
+      expect(component.chapterNumber).toBe(5)
+      expect(
+        fixture.nativeElement.querySelector(".chapter-unavailable")
+          ?.textContent,
+      ).toContain("Não foi possível carregar o capítulo")
+      expect(routerSpy.navigate).not.toHaveBeenCalledWith(
+        expect.arrayContaining(["/"]),
+        { replaceUrl: true },
+      )
+      expect(snackBarSpy.open).not.toHaveBeenCalled()
+    })
+
     it("has no book list to open yet", () => {
       expect(() => component.openBookDrawer({ open: true })).not.toThrow()
       expect(() => component.openChapterDrawer({ open: true })).not.toThrow()
@@ -2463,7 +2510,7 @@ describe("BibleReaderComponent", () => {
         ).not.toHaveBeenCalled()
 
         back.next(chapter(1))
-        expect(component.chapter.number).toBe(1)
+        expect(component.chapter?.number).toBe(1)
         expect(preferencesServiceSpy.setLastChapterNumber).toHaveBeenCalledWith(
           1,
         )
