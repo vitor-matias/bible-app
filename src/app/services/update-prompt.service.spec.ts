@@ -104,6 +104,18 @@ describe("UpdatePromptService", () => {
     expect(snackBar.open).toHaveBeenCalledOnce()
   })
 
+  it("waits for the tab to be shown", async () => {
+    doc.visibilityState = "hidden"
+    start()
+    versionUpdates.next(ready)
+    await vi.advanceTimersByTimeAsync(UPDATE_RETRY_MS)
+    expect(snackBar.open).not.toHaveBeenCalled()
+
+    doc.visibilityState = "visible"
+    await vi.advanceTimersByTimeAsync(UPDATE_RETRY_MS)
+    expect(snackBar.open).toHaveBeenCalledOnce()
+  })
+
   it("offers nothing without a service worker (the native apps)", async () => {
     swUpdate.isEnabled = false
     start()
