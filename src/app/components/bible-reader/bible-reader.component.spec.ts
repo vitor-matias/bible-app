@@ -898,15 +898,41 @@ describe("BibleReaderComponent", () => {
       expect(hapticsSpy.light).toHaveBeenCalledTimes(2)
     })
 
-    // A second swipe during the slide asked for the chapter already on its
-    // way: nothing happened, but it buzzed.
-    it("takes no second step, and gives no buzz, while a chapter is on its way", () => {
+    // Taps during the slide were dropped: five of six in a burst.
+    it("goes on from the chapter on its way for each step during the slide", () => {
       component.goToNextChapter()
       component.goToNextChapter()
       component.goToPreviousChapter()
 
-      expect(routerSpy.navigate).toHaveBeenCalledTimes(1)
-      expect(hapticsSpy.light).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(routerSpy.navigate).mock.calls).toEqual([
+        [["/", "1-genesis", "2"]],
+        [["/", "1-genesis", "3"]],
+        [["/", "1-genesis", "2"]],
+      ])
+      expect(hapticsSpy.light).toHaveBeenCalledTimes(3)
+      expect(component.nextChapterLink).toEqual(["/", "1-genesis", "3"])
+    })
+
+    it("points the arrows past the chapter on its way", () => {
+      component.prepareChapterNavigation(true)
+
+      expect(component.nextChapterLink).toEqual(["/", "1-genesis", "3"])
+      expect(component.previousChapterLink).toEqual(["/", "1-genesis", "1"])
+    })
+
+    it("keeps the slide for the step that superseded a navigation", async () => {
+      let firstEnds: (ok: boolean) => void = () => {}
+      routerSpy.navigate.mockReturnValueOnce(
+        new Promise<boolean>((resolve) => {
+          firstEnds = resolve
+        }),
+      )
+      component.goToNextChapter()
+      component.goToNextChapter()
+      firstEnds(false)
+      await Promise.resolve()
+
+      expect(component.isNavigatingForwards).toBe(true)
     })
 
     it("steps again when the navigation came to nothing", async () => {
@@ -2466,6 +2492,32 @@ describe("BibleReaderComponent", () => {
 
         expect(snackBarSpy.open).not.toHaveBeenCalled()
         expect(routerSpy.navigate).not.toHaveBeenCalled()
+      })
+
+      // A burst of taps: each step's chapter joins the slide-out under way,
+      // and only the last one opens, sliding in.
+      it("opens the last of the steps taken during the slide", async () => {
+        component.goToNextChapter()
+        goTo(2)
+        load.next(chapter(2))
+        component.goToNextChapter()
+        const third = new Subject<Chapter>()
+        apiServiceSpy.getChapter.mockReturnValue(third)
+        goTo(3)
+        third.next(chapter(3))
+
+        expect(component.isNavigatingForwards).toBe(true)
+        expect(component.chapterNumber).toBe(1)
+        endSlide()
+        await new Promise((resolve) => setTimeout(resolve))
+
+        expect(
+          animationServiceSpy.triggerSlideOutAnimation,
+        ).toHaveBeenCalledTimes(1)
+        expect(component.chapterNumber).toBe(3)
+        expect(preferencesServiceSpy.setLastChapterNumber.mock.calls).toEqual([
+          [3],
+        ])
       })
 
       // Stepping back opens a chapter at its end; not the one gone back to.

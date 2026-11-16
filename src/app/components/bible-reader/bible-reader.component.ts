@@ -403,8 +403,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           return
         }
 
-        // A load is dropped for this one: its direction isn't this one's.
-        if (this.pendingChapter !== this.chapterNumber) this.clearChapterSlide()
+        // A load is dropped for this one: its direction isn't this one's,
+        // unless it is the next step of the same slide.
+        if (
+          this.pendingChapter !== this.chapterNumber &&
+          chapterParam !== this.slideTo
+        ) {
+          this.clearChapterSlide()
+        }
         this.book = tempBook
         this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
         this.bookDrawer?.close()
@@ -452,13 +458,23 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   prepareChapterNavigation(forwards: boolean, event?: MouseEvent): void {
     if (event && !this.isPlainLeftClick(event)) return
 
-    const target = forwards ? this.chapterNumber + 1 : this.chapterNumber - 1
+    const target = forwards ? this.stepFrom + 1 : this.stepFrom - 1
     // The anchors bypass goToNextChapter/goToPreviousChapter's bounds check.
     if (target !== this.clampChapter(target)) return
 
     this.autoScrollService.stop()
     this.isNavigatingForwards = forwards
     this.isNavigatingBackwards = !forwards
+    this.slideTo = target
+    // A tap during the slide goes on from there.
+    this.rebuildChapterLinks()
+  }
+
+  /** Where a step goes on from: the chapter on its way, else the one shown. */
+  private get stepFrom(): Chapter["number"] {
+    return this.changingChapter && this.slideTo !== undefined
+      ? this.slideTo
+      : this.chapterNumber
   }
 
   private isPlainLeftClick(event: MouseEvent): boolean {
@@ -473,11 +489,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** Fields, not getters: RouterLink diffs its input by reference. */
   private rebuildChapterLinks(): void {
-    this.previousChapterLink = this.chapterCommands(
-      this.chapterNumber - 1,
-      true,
-    )
-    this.nextChapterLink = this.chapterCommands(this.chapterNumber + 1, true)
+    this.previousChapterLink = this.chapterCommands(this.stepFrom - 1, true)
+    this.nextChapterLink = this.chapterCommands(this.stepFrom + 1, true)
     const nextId =
       this.book && this.chapterNumber >= this.book.chapterCount
         ? nextCanonBook(this.book.id)
@@ -581,20 +594,24 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * A chapter is already on its way: a second step would ask for the same
-   * one again (chapterNumber changes only once it has loaded), doing nothing
-   * but buzz.
+   * A chapter is already on its way (slideTo): chapterNumber changes only
+   * once it has loaded, so a second step goes on from slideTo instead.
    */
   private get changingChapter(): boolean {
     return this.isNavigatingForwards || this.isNavigatingBackwards
   }
 
+  /** The chapter the slide under way heads for. */
+  private slideTo?: Chapter["number"]
+  /** The slide-out under way, which a later step's load waits on too. */
+  private slideOut?: Promise<void>
+
   goToNextChapter(): void {
-    if (this.changingChapter) return
-    if (this.book.chapterCount >= this.chapterNumber + 1) {
+    const target = this.stepFrom + 1
+    if (this.book.chapterCount >= target) {
       this.haptics.light()
       this.prepareChapterNavigation(true)
-      this.navigateToAdjacentChapter(this.chapterNumber + 1)
+      this.navigateToAdjacentChapter(target)
     }
   }
 
@@ -603,11 +620,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   goToPreviousChapter(): void {
-    if (this.changingChapter) return
-    if (this.chapterNumber > this.minChapter) {
+    const target = this.stepFrom - 1
+    if (target >= this.minChapter) {
       this.haptics.light()
       this.prepareChapterNavigation(false)
-      this.navigateToAdjacentChapter(this.chapterNumber - 1)
+      this.navigateToAdjacentChapter(target)
     }
   }
 
@@ -637,13 +654,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const navigated = this.replaceChapterHistory
       ? this.router.navigate(commands, { replaceUrl: true })
       : this.router.navigate(commands)
-    // No chapter will load to clear the slide: the next step mustn't wait on it.
-    void navigated.then(
-      (ok) => {
-        if (!ok) this.clearChapterSlide()
-      },
-      () => this.clearChapterSlide(),
-    )
+    // No chapter will load to clear the slide: the next step mustn't wait on
+    // it. Unless a later step superseded this navigation and owns the slide.
+    const clear = () => {
+      if (this.slideTo === chapter) this.clearChapterSlide()
+    }
+    void navigated.then((ok) => {
+      if (!ok) clear()
+    }, clear)
   }
 
   private clearChapterSlide(): void {
@@ -875,9 +893,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       container &&
       (this.isNavigatingBackwards || this.isNavigatingForwards)
     ) {
-      this.animationService
-        .triggerSlideOutAnimation(container, this.isNavigatingBackwards)
-        .then(work)
+      // A step taken during the slide joins it rather than starting it over.
+      if (!this.slideOut) {
+        const slideOut = this.animationService.triggerSlideOutAnimation(
+          container,
+          this.isNavigatingBackwards,
+        )
+        this.slideOut = slideOut
+        void slideOut.then(() => {
+          this.slideOut = undefined
+        })
+      }
+      this.slideOut.then(work)
     } else {
       work()
     }
