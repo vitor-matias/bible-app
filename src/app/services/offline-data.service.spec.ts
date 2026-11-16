@@ -4,16 +4,22 @@ import {
 } from "@angular/common/http/testing"
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
+import { BehaviorSubject } from "rxjs"
 import type { Mock } from "vitest"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
-import { OfflineDataService, PRELOAD_TIMEOUT_MS } from "./offline-data.service"
+import {
+  OfflineDataService,
+  PRELOAD_RETRY_BASE_MS,
+  PRELOAD_TIMEOUT_MS,
+} from "./offline-data.service"
 
 describe("OfflineDataService", () => {
   let service: OfflineDataService
   let networkService: SpyObj<NetworkService>
+  let offline$: BehaviorSubject<boolean>
   let httpMock: HttpTestingController
   let mockLocalStorage: {
     _storage: Record<string, string>
@@ -131,8 +137,10 @@ describe("OfflineDataService", () => {
     spy.clear.mockResolvedValue(undefined)
 
     // Mock NetworkService
+    offline$ = new BehaviorSubject(false)
     const networkSpy = createSpyObj<NetworkService>("NetworkService", [], {
       isOffline: false,
+      isOffline$: offline$,
     })
 
     const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
@@ -419,6 +427,97 @@ describe("OfflineDataService", () => {
       httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
       await vi.advanceTimersByTimeAsync(50)
       await retry
+    })
+
+    // A dropped connection can leave the download hanging for minutes; the
+    // reconnect's preload joined it instead of starting again.
+    it("cancels the download on going offline, so the reconnect starts it again", async () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      const first = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      const stalled = httpMock.expectOne("v1/books?withChapters=true")
+
+      offline$.next(true)
+      expect(stalled.cancelled).toBe(true)
+      await first
+
+      offline$.next(false)
+      const reconnect = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await flushIntros()
+      await reconnect
+      expect(mockLocalStorage._storage["booksCacheReady"]).toBe("true")
+    })
+
+    it("tries a failed download again later, waiting longer each time", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([
+        {
+          id: "a",
+          name: "A",
+          shortName: "A",
+          abrv: "a",
+          chapterCount: 0,
+          introSlug: "a",
+        },
+      ])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS - 10)
+      httpMock.expectNone("v1/books?withChapters=true")
+      await vi.advanceTimersByTimeAsync(10)
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      // Twice as long the second time.
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectNone("v1/books?withChapters=true")
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(50)
+
+      // Done: nothing more is asked.
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 100)
+      httpMock.expectNone("v1/books?withChapters=true")
+    })
+
+    it("leaves a failed download to the reconnect while offline", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([
+        {
+          id: "a",
+          name: "A",
+          shortName: "A",
+          abrv: "a",
+          chapterCount: 0,
+          introSlug: "a",
+        },
+      ])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      const isOfflineSpy = Object.getOwnPropertyDescriptor(
+        networkService,
+        "isOffline",
+      )?.get as Mock
+      isOfflineSpy.mockReturnValue(true)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 100)
+      httpMock.expectNone("v1/books?withChapters=true")
     })
 
     it("skips the service worker's copy of the download on the web", async () => {
