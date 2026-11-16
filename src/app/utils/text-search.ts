@@ -18,14 +18,21 @@ export interface VerseLine {
  * runs are joined as they are: the edition splits "Senhor" into a run of its
  * own (small capitals), so joining them with spaces put one before the
  * punctuation ("o Senhor :"). Lines are trimmed, without zero-width spaces,
- * and may be empty.
+ * and may be empty. A heading's runs are left out: the edition splits it too
+ * ("O ", "Senhor", " é o Bom Pastor" after Ez 34,10), and the reader shows
+ * the runs up to the next paragraph or quote as the heading
+ * (VerseComponent.isInSection).
  */
 export function verseLines(verse: Verse): VerseLine[] {
   const lines: VerseLine[] = [{ text: "", paragraph: false }]
+  let inHeading = false
   for (const part of verse.text) {
-    if (part.type === "quote" || part.type === "paragraph") {
+    if (part.type === "section" && part.tag === "s2") {
+      inHeading = true
+    } else if (part.type === "quote" || part.type === "paragraph") {
+      inHeading = false
       lines.push({ text: part.text, paragraph: part.type === "paragraph" })
-    } else if (part.type === "text") {
+    } else if (part.type === "text" && !inHeading) {
       lines[lines.length - 1].text += part.text
     }
   }

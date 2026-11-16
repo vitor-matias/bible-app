@@ -8,7 +8,7 @@
     (menuOpened)="readerMenu.opened()" aria-label="Menu" data-tour="text">
     <mat-icon>menu</mat-icon>
   </button>
-  <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [version]="version"
+  <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [shareText]="shareText()" [version]="version"
     [viewMode]="book().id === 'about' ? null : viewMode()"
     [autoScrollControlsVisible]="autoScrollControlsVisible()" [textSize]="textSize()"
     [studyMode]="studyModeItem" [shortcuts]="shortcutsItem"

@@ -550,6 +550,39 @@ describe("BibleReferenceService", () => {
     expect(refs.map((r) => r.match)).toEqual(["Mt 21,28-32"])
   })
 
+  // Typed in search, «Is50,5-9a» and «Mc8,27-35» found only words.
+  it('takes a reference without the space after its book "Mt5,3-12"', () => {
+    const [mt] = service.extract("Mt5,3-12")
+    expect(mt.book).toBe("Mt")
+    expect(mt.chapter).toBe(5)
+    expect(mt.verses).toEqual([{ type: "range", start: 3, end: 12 }])
+
+    const [first] = service.extract("1Jo4,7b")
+    expect(first.book).toBe("1Jo")
+    expect(first.chapter).toBe(4)
+    expect(first.verses).toEqual([{ type: "single", verse: 7, part: "b" }])
+
+    const [spaced] = service.extract("1 Jo4,7")
+    expect(spaced.book).toBe("1 Jo")
+    expect(spaced.chapter).toBe(4)
+  })
+
+  // The verse list ran on into it: «Jo 3,16, 1» and an overlapping «1Jo4,7».
+  it('stops a verse list before an unspaced reference "Jo 3,16, 1Jo4,7"', () => {
+    for (const text of ["Jo 3,16, 1Jo4,7", "Jo 3,16. 1Jo4,7"]) {
+      expect(service.extract(text).map((r) => r.match)).toEqual([
+        "Jo 3,16",
+        "1Jo4,7",
+      ])
+    }
+  })
+
+  it('leaves a word run into a number alone "Mt5", "Gn2"', () => {
+    expect(service.extract("Mt5")).toEqual([])
+    expect(service.extract("Gn2 e Ex3")).toEqual([])
+    expect(service.extract("Mateus5")).toEqual([])
+  })
+
   // References as liturgical leaflets and the edition's own notes write them.
   // "Cartas de João" is an introduction with the id "joao", which is also what
   // "João" is typed as: the typed name is the Gospel, as on the search page.

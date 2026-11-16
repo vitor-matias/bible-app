@@ -1217,6 +1217,16 @@ describe("SearchComponent", () => {
         )
       })
 
+      // «Is 50,5-9a» offered «Abrir Isaías 50,5-9».
+      it("names half verses as cited, and opens the whole ones", async () => {
+        await opens(
+          "Lc 15,5b-9a",
+          [{ type: "range", start: 5, startPart: "b", end: 9, endPart: "a" }],
+          "Abrir Lucas 15,5b-9a",
+          { verseStart: 5, verseEnd: 9 },
+        )
+      })
+
       it("opens a list of ranges from the first verse to the last", async () => {
         await opens(
           "Lc 15, 1-3. 11-32",

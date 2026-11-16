@@ -161,6 +161,24 @@ private func booksBackButton(for controller: UIViewController) -> UIBarButtonIte
     return UIBarButtonItem(customView: button)
 }
 
+/// A book's name as the bar's title, as the system draws one, but on two
+/// lines when it must: between «‹ Livros» and ✕, «Livro dos Atos dos
+/// Apóstolos» was cut to «Livro dos Atos dos Apó…».
+func pickerTitleView(_ text: String) -> UILabel {
+    let label = UILabel()
+    label.text = text
+    label.font = .systemFont(ofSize: 17, weight: .semibold)
+    label.textColor = .label
+    label.textAlignment = .center
+    label.numberOfLines = 2
+    label.adjustsFontSizeToFitWidth = true
+    label.minimumScaleFactor = 0.75
+    label.accessibilityTraits = .header
+    // Sized by constraints, the bar lets it wrap in the width it has.
+    label.translatesAutoresizingMaskIntoConstraints = false
+    return label
+}
+
 /// The books as tiles, a section per canon group. Shown by name, or by
 /// abbreviation in a denser grid that fits most of a testament on one screen;
 /// the choice is remembered.
@@ -345,6 +363,7 @@ private final class ChapterListViewController: UICollectionViewController {
         }
         super.init(collectionViewLayout: layout)
         title = book.name
+        navigationItem.titleView = pickerTitleView(book.name)
     }
 
     @available(*, unavailable)
