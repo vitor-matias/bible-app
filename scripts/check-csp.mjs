@@ -21,8 +21,17 @@ for (const page of ["index.csr.html", "index.html"]) {
   }
 }
 
-if (!readFileSync("docs/security-headers.md", "utf8").includes(csp)) {
-  problems.push("docs/security-headers.md does not contain vercel.json's CSP verbatim")
+const doc = readFileSync("docs/security-headers.md", "utf8")
+// The nginx lines are what the owner copies, so each one must match exactly.
+const nginx = [
+  ...doc.matchAll(/add_header Content-Security-Policy(?:-Report-Only)? "([^"]*)"/g),
+].map((match) => match[1])
+if (!nginx.length) problems.push("docs/security-headers.md has no nginx CSP add_header line")
+for (const value of nginx) {
+  if (value !== csp) problems.push(`docs/security-headers.md: nginx CSP differs from vercel.json's: ${value}`)
+}
+if (!doc.replace(/add_header Content-Security-Policy.*/g, "").includes(csp)) {
+  problems.push("docs/security-headers.md: the policy overview differs from vercel.json's CSP")
 }
 
 if (problems.length) {

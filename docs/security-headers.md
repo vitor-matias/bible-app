@@ -51,9 +51,14 @@ On the VPS, `/etc/nginx/sites-enabled/bible-app` includes
 asset location (`= /`, `= /search`, `= /manifest.webmanifest`, `= /index.csr.html`,
 `/` and its nested static-file location). The include has to be repeated because an
 `add_header` in a location (each of them sets `Cache-Control`) stops it inheriting the
-server-level ones. `location /v1/` deliberately has no include, so the API keeps only
-Helmet's headers. Adding lines to the snippet therefore covers every page and asset in
-one edit and leaves `/v1/` untouched. Assets (`.js`, `.css`, fonts) get the CSP too;
+server-level ones. `location /v1/` has no include, and its own
+`add_header Cache-Control … always;` is what stops it inheriting the server-level
+include, so the API keeps only Helmet's headers. Never remove that line: without any
+`add_header` of its own, `/v1/` would inherit the page CSP and send two CSPs, which the
+browser applies together (on nginx 1.29.3 or later, `add_header_inherit off;` in that
+location would do the same job; production runs 1.26). Adding lines to the snippet
+therefore covers every page and asset in one edit and leaves `/v1/` untouched; the
+`/v1/books` curl check below confirms it. Assets (`.js`, `.css`, fonts) get the CSP too;
 browsers ignore it on them, except on `ngsw-worker.js`, where it governs the service
 worker, which only fetches from the site and from Umami (tested).
 
