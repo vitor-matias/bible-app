@@ -53,7 +53,9 @@ describe("NativeReportService", () => {
     service.open(genesis, 3)
 
     expect(nativeChrome.showReport).toHaveBeenCalledWith({
-      message: "Encontrou algum problema em «Génesis 3»? Ajude-nos a melhorar.",
+      // The text goes to the analytics server: no personal data.
+      message:
+        "Encontrou algum problema em «Génesis 3»? Ajude-nos a melhorar.\nNão escreva dados pessoais (nome, email, telefone).",
       topics: reports.topics,
       placeholder: expect.any(String),
       maxLength: 500,

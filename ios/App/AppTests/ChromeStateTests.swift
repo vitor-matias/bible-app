@@ -469,7 +469,11 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertNotNil(picker.transitionCoordinator)
         XCTAssertFalse(picker.gestureRecognizerShouldBegin(swipe))
 
-        RunLoop.main.run(until: Date().addingTimeInterval(0.6))
+        // Polled, not a fixed wait: a slow CI runner was still mid-push at 0.6 s.
+        let deadline = Date().addingTimeInterval(5)
+        while picker.transitionCoordinator != nil, Date() < deadline {
+            RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        }
         XCTAssertNil(picker.transitionCoordinator)
         XCTAssertTrue(picker.gestureRecognizerShouldBegin(swipe))
     }

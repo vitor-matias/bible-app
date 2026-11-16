@@ -13,8 +13,7 @@ import { loadTracker } from "./app/services/analytics.service"
 import { DepthLocationStrategy } from "./app/services/depth-location-strategy"
 import { isServiceWorkerEnabled } from "./app/utils/platform"
 
-if (typeof window !== "undefined") loadTracker()
-bootstrapApplication(AppComponent, {
+const app = bootstrapApplication(AppComponent, {
   providers: [
     provideZonelessChangeDetection(),
     provideHydration(),
@@ -27,4 +26,10 @@ bootstrapApplication(AppComponent, {
     provideHttpClient(),
     provideAnimationsAsync(),
   ],
-}).catch((err) => console.error(err))
+})
+// Before the app's first events, which wait for it. The script itself goes in
+// once the first page is drawn and titled.
+if (typeof window !== "undefined") {
+  loadTracker(app.then((appRef) => appRef.whenStable()))
+}
+app.catch((err) => console.error(err))

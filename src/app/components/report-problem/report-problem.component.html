@@ -4,6 +4,7 @@
   <p class="description">
     Encontrou algum problema em «{{ subject }}»?
     <br>Ajude-nos a melhorar.
+    <br>{{ personalDataNotice }}
   </p>
 
   <form [formGroup]="reportForm" class="report-form" (ngSubmit)="onSubmit()">

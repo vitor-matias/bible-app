@@ -16,6 +16,7 @@ import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatInputModule } from "@angular/material/input"
 import { MatSelectModule } from "@angular/material/select"
 import {
+  PERSONAL_DATA_NOTICE,
   PROBLEM_DETAILS_MAX_LENGTH,
   ProblemReportService,
 } from "../../services/problem-report.service"
@@ -60,6 +61,7 @@ export class ReportProblemComponent {
   })
 
   topics = this.reports.topics
+  readonly personalDataNotice = PERSONAL_DATA_NOTICE
 
   /** "Salmo 34 (33)": the passage as the reader names it. */
   get subject(): string {
