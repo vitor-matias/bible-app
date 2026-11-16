@@ -456,6 +456,16 @@ describe("BibleReferenceService", () => {
     expect(spaced.chapter).toBe(4)
   })
 
+  // The verse list ran on into it: «Jo 3,16, 1» and an overlapping «1Jo4,7».
+  it('stops a verse list before an unspaced reference "Jo 3,16, 1Jo4,7"', () => {
+    for (const text of ["Jo 3,16, 1Jo4,7", "Jo 3,16. 1Jo4,7"]) {
+      expect(service.extract(text).map((r) => r.match)).toEqual([
+        "Jo 3,16",
+        "1Jo4,7",
+      ])
+    }
+  })
+
   it('leaves a word run into a number alone "Mt5", "Gn2"', () => {
     expect(service.extract("Mt5")).toEqual([])
     expect(service.extract("Gn2 e Ex3")).toEqual([])

@@ -140,8 +140,9 @@ export class BibleReferenceService {
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")
+    // Spaceless too, like explicitRe: else «Jo 3,16, 1Cor13,4» read «1» as a verse.
     this.nextBookRe = new RegExp(
-      String.raw`^(?:\s*\(n\))?(?:\s*,\s*|\.\s+)(?:${this.bookAlternation})\s+\d`,
+      String.raw`^(?:\s*\(n\))?(?:\s*,\s*|\.\s+)(?:${this.bookAlternation})\s*\d`,
       "i",
     )
   }
