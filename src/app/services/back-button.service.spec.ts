@@ -357,6 +357,40 @@ describe("BackButtonService on the website", () => {
       expect(router.url).toBe(page("1"))
     })
 
+    // A link's notes open on arrival (the reader's openLinkedNotes), after
+    // the address drops `notes` with the drawer's state: the step back over
+    // the drawer's entry was taken for the reader's Back and closed the notes
+    // just opened, and the page's own entry took the drawer's flag.
+    it("closes the panels under a page's new address, not one opened since", async () => {
+      await router.navigateByUrl(page("a"))
+      open = true
+      service.changed()
+      await sync()
+      const dismissed = new Subject<void>()
+      const dismiss = vi.fn()
+      const notes = { dismiss, afterDismissed: () => dismissed }
+
+      location.replaceState(page("sem-notas"), "", location.getState())
+      service.closeOnBack(notes)
+      await vi.waitFor(() =>
+        expect(window.location.href).toContain("pagina=sem-notas"),
+      )
+      await settled()
+
+      expect(closer).toHaveBeenCalledTimes(1)
+      expect(dismiss).not.toHaveBeenCalled()
+      expect(onPanelEntry()).toBe(true)
+
+      window.history.back()
+      await vi.waitFor(() => expect(dismiss).toHaveBeenCalledTimes(1))
+      expect(onPanelEntry()).toBe(false)
+      expect(window.location.href).toContain("pagina=sem-notas")
+      dismissed.next()
+      await settled()
+      expect(onPanelEntry()).toBe(false)
+      expect(router.url).toBe(page("a"))
+    })
+
     // Forward after a Back that closed the panel lands on its entry with
     // nothing open: stepped back over at once, the router left alone.
     it("steps back over a panel's entry Forward lands on", async () => {

@@ -210,6 +210,19 @@ describe("ChapterSelectorComponent", () => {
       expect(tabStops()).toEqual([buttons()[3]])
     })
 
+    // A chapter loading while the focus was on the last one moved the tab
+    // stop to it; End there wrote a second stop on the focused button.
+    it("keeps one tab stop when a chapter loads under the focus", () => {
+      buttons()[3].focus()
+      fixture.componentRef.setInput("selectedChapter", 1)
+      fixture.detectChanges()
+
+      press("End")
+
+      expect(document.activeElement).toBe(buttons()[3])
+      expect(tabStops()).toEqual([buttons()[3]])
+    })
+
     // A Tab pressed before the next check left from the chapter before.
     it("moves the Tab stop with the focus at once", () => {
       buttons()[1].focus()

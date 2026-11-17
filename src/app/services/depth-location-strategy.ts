@@ -28,6 +28,40 @@ export function pageDepth(state: unknown): number {
 }
 
 let panelPop: ((state: unknown) => boolean) | null = null
+let closePanels: (() => void) | null = null
+let pendingAppPops = 0
+const appPops = new WeakSet<object>()
+
+/**
+ * Steps back through history for the app itself, not for the reader: the pop
+ * that follows reaches neither the router nor the panels (isAppPop).
+ */
+export function stepBack(back: () => void): void {
+  pendingAppPops++
+  back()
+}
+
+/**
+ * Whether a popstate is one the app asked for (stepBack). Every listener of
+ * the same event gets the same answer: the first to ask takes the step.
+ */
+/** Whether a step back the app asked for hasn't popped yet. */
+export function appPopPending(): boolean {
+  return pendingAppPops > 0
+}
+
+export function isAppPop(event: object): boolean {
+  if (appPops.has(event)) return true
+  if (pendingAppPops === 0) return false
+  pendingAppPops--
+  appPops.add(event)
+  return true
+}
+
+/** Sets what closes the open panels when their page goes (BackButtonService). */
+export function setPanelsCloser(close: (() => void) | null): void {
+  closePanels = close
+}
 
 /**
  * Sets what says a popstate only went onto or off a panel's entry, which
@@ -55,7 +89,12 @@ export class DepthLocationStrategy extends PathLocationStrategy {
 
   override onPopState(fn: LocationChangeListener): void {
     super.onPopState((event) => {
-      if (event.type === "popstate" && panelPop?.(event.state)) return
+      if (
+        event.type === "popstate" &&
+        (isAppPop(event) || panelPop?.(event.state))
+      ) {
+        return
+      }
       fn(event)
     })
   }
@@ -104,6 +143,9 @@ export class DepthLocationStrategy extends PathLocationStrategy {
     // panel, and the page's own entry takes the new address. Left on the
     // panel's entry, it put the page before it a step back.
     if (isPanelEntry(current) && external !== this.path()) {
+      // The panels open now go with it; one opened from here on (the linked
+      // notes) stays, and takes an entry of its own.
+      closePanels?.()
       const stop = this.platform.onPopState(() => {
         stop()
         super.replaceState(
@@ -113,7 +155,7 @@ export class DepthLocationStrategy extends PathLocationStrategy {
           queryParams,
         )
       })
-      this.platform.back()
+      stepBack(() => this.platform.back())
       return
     }
     const next = withDepth(state, historyDepth(current))
@@ -127,6 +169,11 @@ export class DepthLocationStrategy extends PathLocationStrategy {
   }
 }
 
+/** The state with this depth, and never a panel's flag: only replaceState
+ *  keeps that, on the panel's own entry. */
 function withDepth(state: unknown, appDepth: number): object {
-  return { ...(state && typeof state === "object" ? state : {}), appDepth }
+  const { appPanel: _, ...rest } = (
+    state && typeof state === "object" ? state : {}
+  ) as { appPanel?: unknown }
+  return { ...rest, appDepth }
 }
