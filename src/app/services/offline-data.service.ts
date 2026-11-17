@@ -44,6 +44,8 @@ export class OfflineDataService implements OnDestroy {
   private retryDelayMs = PRELOAD_RETRY_BASE_MS
   /** IndexedDB refused a write: downloading again would only fail to store it. */
   private storageFailed = false
+  /** The last introductions download left some out; the flag can't say so without localStorage. */
+  private introsIncomplete = false
 
   /**
    * Fetches all books and chapters into IndexedDB for offline usage.
@@ -124,7 +126,10 @@ export class OfflineDataService implements OnDestroy {
       (!storage || storage.getItem(this.cacheFlagKey) === "true") &&
       holds(false)
     const introsAlreadyCached =
-      migrated && (!storage || this.areGroupIntrosCached()) && holds(true)
+      migrated &&
+      !this.introsIncomplete &&
+      (!storage || this.areGroupIntrosCached()) &&
+      holds(true)
     const isExpired = this.isCacheExpired()
     if (booksAlreadyCached && introsAlreadyCached && !isExpired) {
       return false
@@ -167,7 +172,8 @@ export class OfflineDataService implements OnDestroy {
     // preloadGroupIntros logs instead of throwing, so a bad /intros response
     // never masks a successful books preload.
     if (!introsAlreadyCached || isExpired) {
-      failed = !(await this.preloadGroupIntros()) || failed
+      this.introsIncomplete = !(await this.preloadGroupIntros())
+      failed = this.introsIncomplete || failed
     }
     return failed
   }

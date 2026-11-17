@@ -612,6 +612,37 @@ describe("OfflineDataService", () => {
       await vi.advanceTimersByTimeAsync(50)
     })
 
+    // Without localStorage the one introduction stored stood for all of
+    // them: the retry fetched nothing and the other stayed missing.
+    it("fetches the introductions left out, even without localStorage", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      const localStorageSpy = Object.getOwnPropertyDescriptor(
+        window,
+        "localStorage",
+      )?.get as Mock
+      localStorageSpy.mockImplementation(() => {
+        throw new Error("denied")
+      })
+      databaseService.getAll.mockResolvedValue(mockBooks)
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/intros").flush([
+        { slug: "pentateuco", name: "PENTATEUCO" },
+        { slug: "reis", name: "REIS" },
+      ])
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/intros/pentateuco")
+        .flush({ slug: "pentateuco", name: "PENTATEUCO", introduction: [] })
+      httpMock.expectOne("v1/intros/reis").error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/intros").flush([])
+      await vi.advanceTimersByTimeAsync(50)
+    })
+
     // Backgrounded and offline when the timer fired, the retry was dropped;
     // a reconnect the listener then missed left it for the next launch.
     it("keeps trying a failed download while offline, asking for the connection", async () => {
