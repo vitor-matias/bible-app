@@ -140,8 +140,8 @@ topmost one before it navigates (`AppComponent.handleBackButton`). On the websit
 
 - While any panel is open, the history has one extra entry on top, at the same address,
   with `appPanel: true` in its state. Back leaves it; the `popstate` closes the topmost
-  panel. `DepthLocationStrategy.onPopState` keeps that pop (onto or off a panel entry, at
-  the same address) from `Location`, so neither the router nor Material's
+  panel. `DepthLocationStrategy.onPopState` keeps that pop (between a panel entry and its page,
+  the same address and one level beneath) from `Location`, so neither the router nor Material's
   `closeOnNavigation` sees it. The router would otherwise navigate where a page wrote the
   address itself (`Location.go`/`replaceState`: the index's themes, the reader's `notes`)
   and its own URL is behind, rebuilding the index or re-scrolling the reader.

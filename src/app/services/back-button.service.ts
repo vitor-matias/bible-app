@@ -42,9 +42,8 @@ export class BackButtonService {
   private syncQueued = false
   /** Set while the history goes back over a panel entry nothing needs now. */
   private leavingPanelEntry = false
-  /** Whether the current history entry is a panel's, and at what address. */
-  private onPanelEntry = false
-  private panelHref: string | null = null
+  /** The current history entry as last seen: a pop says where it went. */
+  private current: HistoryEntry = { state: null, href: "" }
 
   /**
    * Registers a closer; call the returned function to unregister it.
@@ -63,9 +62,16 @@ export class BackButtonService {
   /** Lets the back button dismiss `ref` until it is dismissed. */
   closeOnBack(ref: DismissableRef): void {
     let dismissing = false
+    // Closed from inside too (a reference followed, a ribbon chosen): its
+    // entry mustn't come back while the sheet slides away.
+    const dismiss = ref.dismiss.bind(ref)
+    ref.dismiss = () => {
+      dismissing = true
+      dismiss()
+      this.changed()
+    }
     const unregister = this.register(
       () => {
-        dismissing = true
         ref.dismiss()
         return true
       },
@@ -106,21 +112,17 @@ export class BackButtonService {
    */
   closeOnBrowserBack(): void {
     this.browserBack = true
-    this.onPanelEntry = isPanelEntry(window.history.state)
-    this.panelHref = this.onPanelEntry ? window.location.href : null
+    this.current = here()
     // Onto or off a panel's entry the page stays: Location doesn't pass the
     // pop on to the router (DepthLocationStrategy), which navigated when a
     // page had written the address itself (the index's themes, the reader's
     // notes) and its own URL was behind. Location's listener runs first (the
-    // router made it before this service), while onPanelEntry is the left
-    // entry's.
-    setPanelPopFilter(
-      (state) =>
-        (this.onPanelEntry || isPanelEntry(state)) &&
-        window.location.href === this.panelHref,
+    // router made it before this service), while `current` is the left entry.
+    setPanelPopFilter((state) =>
+      isPanelStep(this.current, { state, href: window.location.href }),
     )
     const onPopState = (event: PopStateEvent) => {
-      this.onPanelEntry = isPanelEntry(event.state)
+      this.current = { state: event.state, href: window.location.href }
       if (this.leavingPanelEntry) {
         this.leavingPanelEntry = false
       } else if (this.anyOpen()) {
@@ -153,7 +155,7 @@ export class BackButtonService {
       )
       .subscribe(() => {
         // A page opened from a panel took its entry (DepthLocationStrategy).
-        this.onPanelEntry = isPanelEntry(window.history.state)
+        this.current = here()
         this.changed()
       })
     // A reload keeps the entry of a panel that is no longer open.
@@ -188,8 +190,7 @@ export class BackButtonService {
         },
         "",
       )
-      this.onPanelEntry = true
-      this.panelHref = window.location.href
+      this.current = here()
     } else if (!open && isPanelEntry(state) && !this.leavingPanelEntry) {
       this.leavingPanelEntry = true
       window.history.back()
@@ -203,4 +204,24 @@ export class BackButtonService {
       ) || this.entries.some((entry) => entry.isOpen())
     )
   }
+}
+
+interface HistoryEntry {
+  state: unknown
+  href: string
+}
+
+function here(): HistoryEntry {
+  return { state: window.history.state, href: window.location.href }
+}
+
+/** Between a panel's entry and its page's, the one just beneath it. */
+function isPanelStep(from: HistoryEntry, to: HistoryEntry): boolean {
+  const [panel, page] = isPanelEntry(from.state) ? [from, to] : [to, from]
+  return (
+    from.href === to.href &&
+    isPanelEntry(panel.state) &&
+    !isPanelEntry(page.state) &&
+    historyDepth(panel.state) === historyDepth(page.state) + 1
+  )
 }

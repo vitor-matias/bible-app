@@ -385,11 +385,13 @@ describe("HeaderComponent", () => {
     })
 
     it("dismisses the bookmark sheet it opened", () => {
+      // The service wraps the ref's dismiss to hear every way it closes.
+      const { dismiss } = bookmarkSheetRef
       fixture.componentRef.setInput("chapterNumber", 1)
       component.openBookmarkSelector()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
-      expect(bookmarkSheetRef.dismiss).toHaveBeenCalled()
+      expect(dismiss).toHaveBeenCalled()
 
       bookmarkSheetDismissed.next()
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)

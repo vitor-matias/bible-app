@@ -49,18 +49,16 @@ describe("BackButtonService", () => {
   describe("closeOnBack", () => {
     it("dismisses the sheet on back, and only until it is dismissed", () => {
       const dismissed = new Subject<void>()
-      const ref = {
-        dismiss: vi.fn().mockName("dismiss"),
-        afterDismissed: () => dismissed.asObservable(),
-      }
+      const dismiss = vi.fn().mockName("dismiss")
+      const ref = { dismiss, afterDismissed: () => dismissed.asObservable() }
       service.closeOnBack(ref)
 
       expect(service.closeTopmost()).toBe(true)
-      expect(ref.dismiss).toHaveBeenCalledTimes(1)
+      expect(dismiss).toHaveBeenCalledTimes(1)
 
       dismissed.next()
       expect(service.closeTopmost()).toBe(false)
-      expect(ref.dismiss).toHaveBeenCalledTimes(1)
+      expect(dismiss).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -281,6 +279,102 @@ describe("BackButtonService on the website", () => {
     } finally {
       location.replaceState(path)
     }
+  })
+
+  describe("among the router's pages", () => {
+    let router: Router
+    let location: Location
+    let path: string
+
+    beforeEach(async () => {
+      router = TestBed.inject(Router)
+      location = TestBed.inject(Location)
+      path = location.path()
+      router.initialNavigation()
+      await vi.waitFor(() => expect(router.navigated).toBe(true))
+    })
+
+    afterEach(() => location.replaceState(path))
+
+    const page = (name: string) => `${path.split("?")[0] || "/"}?pagina=${name}`
+    const settled = async () => {
+      await vi.advanceTimersByTimeAsync(10)
+      await vi.waitFor(() => expect(router.currentNavigation()).toBeNull())
+      await sync()
+    }
+
+    // A reference followed from the notes dismisses the sheet and navigates:
+    // the sheet, open until its exit animation ended, got a new entry over
+    // the reference's page, which it then went back over, leaving it ahead.
+    it("adds no entry for a sheet closed from inside while a link navigates", async () => {
+      await router.navigateByUrl(page("notas"))
+      const dismissed = new Subject<void>()
+      const ref = { dismiss: vi.fn(), afterDismissed: () => dismissed }
+      service.closeOnBack(ref)
+      await sync()
+      expect(onPanelEntry()).toBe(true)
+      const length = window.history.length
+
+      ref.dismiss()
+      await router.navigateByUrl(page("referencia"))
+      await settled()
+      dismissed.next()
+      await settled()
+
+      expect(onPanelEntry()).toBe(false)
+      expect(window.history.length).toBe(length)
+      expect(router.url).toBe(page("referencia"))
+    })
+
+    // Forward after a Back that closed the panel lands on its entry with
+    // nothing open: stepped back over at once, the router left alone.
+    it("steps back over a panel's entry Forward lands on", async () => {
+      await router.navigateByUrl(page("x"))
+      open = true
+      service.changed()
+      await sync()
+      window.history.back()
+      await leftPanelEntry()
+      await settled()
+      const starts: string[] = []
+      router.events.subscribe((event) => {
+        if (event instanceof NavigationStart) starts.push(event.url)
+      })
+
+      window.history.forward()
+      await vi.waitFor(() => expect(onPanelEntry()).toBe(true))
+      await settled()
+      await leftPanelEntry()
+      await settled()
+
+      expect(closer).toHaveBeenCalledTimes(1)
+      expect(starts).toEqual([])
+      expect(router.url).toBe(page("x"))
+    })
+
+    // Back from a page's drawer, Back again, then two entries forward at once
+    // landed on the drawer's entry: taken for a panel's step, the router
+    // stayed on the earlier page under the later one's address.
+    it("lets the router follow a jump onto a panel's entry from another page", async () => {
+      await router.navigateByUrl(page("w"))
+      await router.navigateByUrl(page("x"))
+      open = true
+      service.changed()
+      await sync()
+      window.history.back()
+      await leftPanelEntry()
+      await settled()
+      window.history.back()
+      await vi.waitFor(() => expect(router.url).toBe(page("w")))
+
+      window.history.go(2)
+      await vi.waitFor(() => expect(window.location.href).toContain("pagina=x"))
+      await settled()
+      await leftPanelEntry()
+      await settled()
+
+      expect(router.url).toBe(page("x"))
+    })
   })
 
   it("adds no entry without closeOnBrowserBack, as in the apps", async () => {
