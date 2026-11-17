@@ -10,9 +10,13 @@ import {
 } from "@angular/router"
 import { filter, type Observable, take } from "rxjs"
 import {
+  appPopPending,
   historyDepth,
+  isAppPop,
   isPanelEntry,
   setPanelPopFilter,
+  setPanelsCloser,
+  stepBack,
 } from "./depth-location-strategy"
 
 /** Closes one open panel; returns whether it closed anything. */
@@ -92,6 +96,14 @@ export class BackButtonService {
    * recently registered one, which belongs to the innermost component, and
    * stops at the first that closed a panel.
    */
+  /** Closes every open dialog and panel. */
+  private closeAll(): void {
+    for (const ref of this.dialog.openDialogs) ref.close()
+    for (const entry of [...this.entries].reverse()) {
+      if (entry.isOpen()) entry.closer()
+    }
+  }
+
   closeTopmost(): boolean {
     const dialogs = this.dialog.openDialogs
     if (dialogs.length > 0) {
@@ -121,9 +133,13 @@ export class BackButtonService {
     setPanelPopFilter((state) =>
       isPanelStep(this.current, { state, href: window.location.href }),
     )
+    // A page going from under its panels (DepthLocationStrategy) closes them
+    // first; a panel opened after that keeps its own entry.
+    setPanelsCloser(() => this.closeAll())
     const onPopState = (event: PopStateEvent) => {
       this.current = { state: event.state, href: window.location.href }
-      if (this.leavingPanelEntry) {
+      // The app's own step back (stepBack) closes nothing: only the reader's.
+      if (isAppPop(event)) {
         this.leavingPanelEntry = false
       } else if (this.anyOpen()) {
         this.closeTopmost()
@@ -134,6 +150,7 @@ export class BackButtonService {
     this.destroyRef.onDestroy(() => {
       this.browserBack = false
       setPanelPopFilter(null)
+      setPanelsCloser(null)
       window.removeEventListener("popstate", onPopState)
     })
     this.dialog.afterOpened
@@ -178,7 +195,8 @@ export class BackButtonService {
   private syncHistory(): void {
     // A navigation takes the panel's entry over (DepthLocationStrategy); its
     // end syncs again.
-    if (this.router.currentNavigation()) return
+    // Nor while a step back of the app's own is on its way: its pop syncs.
+    if (this.router.currentNavigation() || appPopPending()) return
     const state: unknown = window.history.state
     const open = this.anyOpen()
     if (open && !isPanelEntry(state)) {
@@ -193,7 +211,7 @@ export class BackButtonService {
       this.current = here()
     } else if (!open && isPanelEntry(state) && !this.leavingPanelEntry) {
       this.leavingPanelEntry = true
-      window.history.back()
+      stepBack(() => window.history.back())
     }
   }
 

@@ -150,7 +150,12 @@ topmost one before it navigates (`AppComponent.handleBackButton`). On the websit
   `DepthLocationStrategy` makes a page opened from a panel *replace* the panel's entry,
   a `replaceState` at the same address keeps the flag, and one to another address
   (a failed chapter reverted) first goes back over the panel entry, closing the panel,
-  then replaces the page's own entry. A reload with the entry on top leaves it at start.
+  then replaces the page's own entry (without the panel flag). A reload with the entry
+  on top leaves it at start.
+- The app's own steps back go through `stepBack()`; `isAppPop(event)` marks their pop, which
+  then reaches neither the router nor `closeTopmost` (only the reader's Back closes a
+  panel). Panels closed for a page's new address are those open then; one opened right
+  after (the linked notes) keeps its own new entry.
 - A panel tells the service when it opens or closes (`changed()`, synced after the
   current task so the drawer switching from books to chapters doesn't count) and passes
   `isOpen` to `register`. A new panel needs both, or Back navigates past it.
