@@ -80,6 +80,9 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   readonly nextVerseStartsWithQuote = input(false)
 
+  /** False where the chapter's number has no place: BibleScroll's cards show the verse alone. */
+  readonly showChapterNumber = input(true)
+
   @ViewChildren("indentable")
   indentableElements!: QueryList<ElementRef<HTMLElement>>
 
@@ -281,7 +284,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private computeChapterNumberIndex(): number {
     const data = this.data()
-    if (data.number !== 0) return -1
+    if (data.number !== 0 || !this.showChapterNumber()) return -1
 
     const hasS2 = data.text.some(
       (text) => text.type === "section" && text.tag === "s2",

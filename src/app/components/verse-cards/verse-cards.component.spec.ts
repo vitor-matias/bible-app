@@ -145,6 +145,22 @@ describe("VerseCardsComponent", () => {
     expect(first.querySelector("[role=button]")).toBeNull()
   })
 
+  // Text the edition keeps before verse 1 (the acrostic letters of Ps 119,
+  // Esther's Greek additions) is where the reader draws the chapter's large
+  // number. A card shows the verse and nothing else.
+  it("shows text from verse 0 without the chapter number", () => {
+    fixture.componentRef.setInput("chapter", {
+      ...chapter,
+      number: 119,
+      verses: [{ ...verse(0, text("Alef")), chapterNumber: 119 }],
+    })
+    fixture.detectChanges()
+
+    expect(cards().length).toBe(1)
+    expect(cards()[0].querySelector(".chapterNumber")).toBeNull()
+    expect(cards()[0].textContent?.trim()).toBe("Alef")
+  })
+
   it("gives each verse the id a deep link scrolls to", () => {
     // ?verseStart=2 is resolved by the reader with [id="2"], in every view.
     expect(cards()[1].querySelector("verse")?.getAttribute("id")).toBe("2")

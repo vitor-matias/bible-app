@@ -13,7 +13,7 @@
      exactly as in the reader's other views. -->
 <article class="verse-card" [attr.aria-label]="verse.number > 0 ? 'Versículo ' + verse.number : null">
   <div class="card-text">
-    <verse [id]="verse.number" class="verse" [data]="verse"></verse>
+    <verse [id]="verse.number" class="verse" [data]="verse" [showChapterNumber]="false"></verse>
   </div>
   @if (last && endOfBookLabel) {
   <p class="end-of-book">{{ endOfBookLabel }}</p>
