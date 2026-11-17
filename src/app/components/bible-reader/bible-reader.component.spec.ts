@@ -37,7 +37,10 @@ import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP } from "../../services/toast.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
-import { BibleReaderComponent } from "./bible-reader.component"
+import {
+  BibleReaderComponent,
+  RETRY_FEEDBACK_MS,
+} from "./bible-reader.component"
 
 /** A step to the next or previous chapter: reading on keeps the way back. */
 const STEP = { info: CHAPTER_STEP }
@@ -83,6 +86,7 @@ describe("BibleReaderComponent", () => {
       "parseChapterUrlSegment",
       "loadGroupIntroBody",
       "retryBooks",
+      "getAboutBook",
     ])
     // The real BibleReferenceService reads it, for NativeFootnotesService.
     bookServiceSpy.getBooks.mockReturnValue(mockBooks as unknown as Book[])
@@ -91,6 +95,7 @@ describe("BibleReaderComponent", () => {
     ) as unknown as BehaviorSubject<Book[]>
     bookServiceSpy.booksUnavailable$ = of(false)
     bookServiceSpy.retryBooks.mockResolvedValue(undefined)
+    bookServiceSpy.getAboutBook.mockReturnValue(mockBooks[1] as unknown as Book)
     preferencesServiceSpy = createSpyObj("PreferencesService", [
       "getAutoScrollSpeed",
       "getViewMode",
@@ -570,6 +575,34 @@ describe("BibleReaderComponent", () => {
     })
   })
 
+  // A first launch downloads the Bible, a blank screen until then.
+  describe("while the first book list loads", () => {
+    const notice = (): HTMLElement | null =>
+      fixture.nativeElement.querySelector(".books-loading")
+
+    beforeEach(() => {
+      bookServiceSpy.books$ = new Subject<Book[]>()
+    })
+
+    it("says the Bible is loading", () => {
+      fixture.detectChanges()
+
+      expect(notice()?.getAttribute("role")).toBe("status")
+      expect(notice()?.textContent).toContain("A carregar a Bíblia…")
+    })
+
+    it("leaves a prerendered page's text alone", () => {
+      vi.spyOn(TestBed.inject(PendingTasks), "add").mockReturnValue(() => {})
+      fixture.nativeElement.insertAdjacentHTML(
+        "beforeend",
+        '<div class="chapterBlock"><verse>No princípio</verse></div>',
+      )
+      fixture.detectChanges()
+
+      expect(notice()).toBeNull()
+    })
+  })
+
   describe("when the book list cannot be loaded", () => {
     let unavailable$: BehaviorSubject<boolean>
 
@@ -585,17 +618,189 @@ describe("BibleReaderComponent", () => {
       fixture.nativeElement.querySelector(".books-unavailable")
 
     it("shows an empty state with a retry instead of a blank page", () => {
-      expect(component.book).toBeFalsy()
       expect(emptyState()?.getAttribute("role")).toBe("alert")
       expect(emptyState()?.textContent).toContain("Tentar novamente")
     })
 
-    it("retries loading the books from the empty state", async () => {
-      emptyState()?.querySelector("button")?.click()
+    // A first launch offline was a bare error page: no header, no menu.
+    it("keeps the header and its menu, over the About page", () => {
+      expect(component.book.id).toBe("about")
+      expect(fixture.nativeElement.querySelector("header")).not.toBeNull()
+      expect(fixture.nativeElement.querySelector("about")).not.toBeNull()
+    })
+
+    it("keeps the passage saved to open once the books load", () => {
+      expect(preferencesServiceSpy.setLastBookId).not.toHaveBeenCalled()
+      expect(preferencesServiceSpy.setLastChapterNumber).not.toHaveBeenCalled()
+    })
+
+    // Opened cold on /gn/5: once the books came, Génesis 5 failing took the
+    // reader back to the About page shown meanwhile, under /sobre/1.
+    it("keeps the passage asked for when it fails once the books come", async () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { params: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.params = {
+        book: "gen",
+        chapter: "5",
+      }
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "5"],
+        ]),
+      )
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("offline")),
+      )
+      routerSpy.navigate.mockClear()
+
+      unavailable$.next(false)
+      ;(bookServiceSpy.books$ as unknown as Subject<Book[]>).next(
+        mockBooks as unknown as Book[],
+      )
+      fixture.detectChanges()
       await fixture.whenStable()
+
+      expect(component.book.id).toBe("gen")
+      expect(component.chapterNumber).toBe(5)
+      expect(
+        fixture.nativeElement.querySelector(".chapter-unavailable")
+          ?.textContent,
+      ).toContain("Não foi possível carregar o capítulo")
+      expect(routerSpy.navigate).not.toHaveBeenCalledWith(
+        expect.arrayContaining(["/"]),
+        { replaceUrl: true },
+      )
+      expect(snackBarSpy.open).not.toHaveBeenCalled()
+    })
+
+    // Offline first launch, then a retry that works: the About page opened
+    // then is a page like any other, saved and gone back to on a failure.
+    it("treats the About page opened once the books come as any page", async () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { params: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.params = {}
+      bookServiceSpy.findBook.mockImplementation(
+        (id: string) =>
+          (id === "about" ? mockBooks[1] : mockBooks[0]) as unknown as Book,
+      )
+      const paramMap = (
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap
+      paramMap.next(
+        new Map([
+          ["book", "about"],
+          ["chapter", "1"],
+        ]),
+      )
+
+      // As BookService does: the flag drops before the list goes out.
+      unavailable$.next(false)
+      ;(bookServiceSpy.books$ as unknown as Subject<Book[]>).next(
+        mockBooks as unknown as Book[],
+      )
+      fixture.detectChanges()
+      await fixture.whenStable()
+      expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("about")
+
+      // The spec's reader has no real drawer (see the other route changes).
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("offline")),
+      )
+      paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "1"],
+        ]),
+      )
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(component.book.id).toBe("about")
+      expect(
+        fixture.nativeElement.querySelector(".chapter-unavailable"),
+      ).toBeNull()
+      expect(snackBarSpy.open).toHaveBeenCalled()
+    })
+
+    // The About page's text and its arrows (to /sobre/2) stayed under
+    // Génesis 5 while that chapter loaded.
+    it("leaves nothing of the About page under the passage still loading", async () => {
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { params: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.params = {
+        book: "gen",
+        chapter: "5",
+      }
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "5"],
+        ]),
+      )
+      expect(component.chapter).toBeDefined()
+      apiServiceSpy.getChapter.mockReturnValue(new Subject<Chapter>())
+
+      unavailable$.next(false)
+      ;(bookServiceSpy.books$ as unknown as Subject<Book[]>).next(
+        mockBooks as unknown as Book[],
+      )
+      fixture.detectChanges()
+
+      expect(component.book.id).toBe("gen")
+      expect(component.chapter).toBeUndefined()
+      expect(component.canGoNext).toBe(false)
+      expect(fixture.nativeElement.querySelector("about")).toBeNull()
+    })
+
+    it("has no book list to open yet", () => {
+      expect(() => component.openBookDrawer({ open: true })).not.toThrow()
+      expect(() => component.openChapterDrawer({ open: true })).not.toThrow()
+    })
+
+    it("retries loading the books from the empty state", async () => {
+      vi.useFakeTimers()
+      emptyState()?.querySelector("button")?.click()
+      await vi.advanceTimersByTimeAsync(RETRY_FEEDBACK_MS)
 
       expect(bookServiceSpy.retryBooks).toHaveBeenCalled()
       expect(component.retryingBooks).toBe(false)
+    })
+
+    // Offline, the retry failed at once: the button never seemed to work.
+    it("shows the retry under way for a moment, though it fails at once", async () => {
+      vi.useFakeTimers()
+      const button = () =>
+        emptyState()?.querySelector("button") as HTMLButtonElement
+      button().click()
+      await vi.advanceTimersByTimeAsync(0)
+      fixture.detectChanges()
+
+      expect(button().textContent).toContain("A tentar…")
+      expect(button().disabled).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(RETRY_FEEDBACK_MS)
+      fixture.detectChanges()
+      expect(button().textContent).toContain("Tentar novamente")
     })
 
     it("hides the empty state once the books are available again", () => {
@@ -663,13 +868,20 @@ describe("BibleReaderComponent", () => {
     it("keeps the page up while a retry fails too", async () => {
       fixture.detectChanges()
       await fixture.whenStable()
+      vi.useFakeTimers()
 
       const retry = () =>
         failure()?.querySelector("button") as HTMLButtonElement
       retry().click()
-      await fixture.whenStable()
+      await vi.advanceTimersByTimeAsync(0)
+      fixture.detectChanges()
 
       expect(apiServiceSpy.getChapter).toHaveBeenCalledTimes(2)
+      // Failing at once, it still shows it was tried.
+      expect(retry().textContent).toContain("A tentar…")
+      expect(retry().disabled).toBe(true)
+      await vi.advanceTimersByTimeAsync(RETRY_FEEDBACK_MS)
+      fixture.detectChanges()
       expect(retry().disabled).toBe(false)
       expect(snackBarSpy.open).not.toHaveBeenCalled()
     })
@@ -2538,7 +2750,7 @@ describe("BibleReaderComponent", () => {
         ).not.toHaveBeenCalled()
 
         back.next(chapter(1))
-        expect(component.chapter.number).toBe(1)
+        expect(component.chapter?.number).toBe(1)
         expect(preferencesServiceSpy.setLastChapterNumber).toHaveBeenCalledWith(
           1,
         )
