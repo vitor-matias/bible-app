@@ -3,6 +3,7 @@ import {
   passageLabel,
   passageShortLabels,
   passageSpokenLabel,
+  sharedPassage,
 } from "./passage-label"
 
 describe("passage labels", () => {
@@ -32,6 +33,27 @@ describe("passage labels", () => {
   it("cite a verse after a comma, as the text does", () => {
     expect(passageLabel(luke, 2, 32)).toBe("Lucas 2,32")
     expect(passageLabel(luke, 2)).toBe("Lucas 2")
+  })
+
+  // Shares said «Ler Evangelho de São Mateus 5.» for /mt/5?verseStart=3&verseEnd=12.
+  it("name the passage a shared link opens", () => {
+    expect(sharedPassage(luke, 5, "?verseStart=3&verseEnd=12")).toBe(
+      "Lucas 5,3-12",
+    )
+    expect(sharedPassage(luke, 5, "?verseStart=3")).toBe("Lucas 5,3")
+    expect(sharedPassage(luke, 5, "?verseStart=3&verseEnd=3")).toBe("Lucas 5,3")
+    expect(sharedPassage(luke, 5, "")).toBe("Lucas 5")
+    expect(sharedPassage(psalms, 23, "?verseStart=1&verseEnd=4")).toBe(
+      "Salmo 23 (22),1-4",
+    )
+    expect(sharedPassage(luke, 0, "")).toBe("Lucas Introdução")
+    expect(
+      sharedPassage(
+        { ...luke, name: "Introdução ao Pentateuco", introSlug: "pentateuco" },
+        0,
+        "",
+      ),
+    ).toBe("Introdução ao Pentateuco")
   })
 
   it("name one psalm, with its liturgical number in parentheses", () => {

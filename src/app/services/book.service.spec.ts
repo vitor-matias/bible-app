@@ -182,6 +182,47 @@ describe("BookService", () => {
       expect(svc.findTypedBook("pentateuco")).toBeUndefined()
     })
 
+    // "/joao/3", "/gên/1", "/sal/23" and "/hb/1" opened the not-found page.
+    it("finds a link's book as people type it", async () => {
+      apiBooks.push(
+        {
+          id: "jhn",
+          name: "Evangelho de São João",
+          shortName: "João",
+          abrv: "Jo",
+          chapterCount: 21,
+        },
+        {
+          id: "heb",
+          name: "Carta aos Hebreus",
+          shortName: "Hebreus",
+          abrv: "Heb",
+          chapterCount: 13,
+        },
+      )
+      const svc = introApi([{ slug: "joao", name: "CARTAS DE JOÃO" }])
+      await svc.initializeBooks()
+      const idOf = (segment: string, chapter: number) =>
+        svc.findUrlBook(segment, chapter).id
+
+      expect(idOf("jo", 3)).toBe("jhn")
+      expect(idOf("JO", 3)).toBe("jhn")
+      expect(idOf("João", 3)).toBe("jhn")
+      expect(idOf("joao", 3)).toBe("jhn")
+      expect(idOf("gên", 1)).toBe("gen")
+      expect(idOf("sal", 23)).toBe("psa")
+      expect(idOf("hb", 1)).toBe("heb")
+      expect(idOf("jó", 1)).toBe("job")
+      // The introduction keeps its own page.
+      expect(idOf("joao", 0)).toBe("joao")
+      // Introductions take the same typed forms as chapters.
+      expect(idOf("sal", 0)).toBe("psa")
+      expect(idOf("hb", 0)).toBe("heb")
+      expect(idOf("gên", 0)).toBe("gen")
+      expect(idOf("sobre", 1)).toBe("about")
+      expect(idOf("xyz", 1)).toBe("about")
+    })
+
     it("caches a fetched introduction body on its book", async () => {
       const svc = introApi(
         [{ slug: "pentateuco", name: "INTRODUÇÃO AO PENTATEUCO" }],
@@ -273,6 +314,8 @@ describe("BookService", () => {
 
       expect(service.findTypedBook("1 Sa")?.id).toBe("1sa")
       expect(service.findTypedBook("1 Sm")?.id).toBe("1sa")
+      // «1Cor13,4» and «2Rs 2,11» found no book.
+      expect(service.findTypedBook("1Sm")?.id).toBe("1sa")
       expect(service.findTypedBook("Genesis")?.id).toBe("gen")
     })
 
@@ -306,6 +349,7 @@ describe("BookService", () => {
       expect(service.getChapterUrlSegment(0)).toBe("intro")
       expect(service.getChapterUrlSegment(3)).toBe("3")
       expect(service.parseChapterUrlSegment("intro")).toBe(0)
+      expect(service.parseChapterUrlSegment("INTRO")).toBe(0)
       // Legacy /0 URLs keep working
       expect(service.parseChapterUrlSegment("0")).toBe(0)
       expect(service.parseChapterUrlSegment("12")).toBe(12)
