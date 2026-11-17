@@ -106,11 +106,16 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
     })[event.key]
     if (target === undefined) return
     event.preventDefault()
-    const next = buttons[Math.max(0, Math.min(target, buttons.length - 1))]
+    const nextIndex = Math.max(0, Math.min(target, buttons.length - 1))
+    const next = buttons[nextIndex]
     // At once, not at the next check: a Tab right after leaves from here.
     buttons[index].tabIndex = -1
     next.tabIndex = 0
     next.focus()
+    // Also where the focus stays (an end of the list), after a chapter load
+    // moved the tab stop to the chapter now read: one stop, not two.
+    const chapter = this.chapters()[nextIndex]
+    if (chapter) this.focused.set(chapter.number)
   }
 
   getChapterDisplay(chapter: Chapter): string {
