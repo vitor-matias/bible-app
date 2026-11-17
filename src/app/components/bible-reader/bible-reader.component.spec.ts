@@ -2691,6 +2691,33 @@ describe("BibleReaderComponent", () => {
         expect(animationServiceSpy.scrollToTop.mock.lastCall?.[3]).toBe(true)
       })
 
+      // 2, 3, then 2 again in one slide: the first 2's failure, waiting on
+      // the slide, read as the last request's and threw it away.
+      it("lets only the last request for a chapter land, not an earlier one's failure", async () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        const first = new Subject<Chapter>()
+        const third = new Subject<Chapter>()
+        const again = new Subject<Chapter>()
+        apiServiceSpy.getChapter
+          .mockReturnValueOnce(first)
+          .mockReturnValueOnce(third)
+          .mockReturnValueOnce(again)
+
+        component.goToNextChapter()
+        goTo(2)
+        first.error(new Error("Offline"))
+        component.goToNextChapter()
+        goTo(3)
+        component.goToPreviousChapter()
+        goTo(2)
+        again.next(chapter(2))
+        endSlide()
+        await new Promise((resolve) => setTimeout(resolve))
+
+        expect(component.chapterNumber).toBe(2)
+        expect(snackBarSpy.open).not.toHaveBeenCalled()
+      })
+
       // Stepping back opens a chapter at its end; not the one gone back to.
       it("opens the chapter gone back to at its start", () => {
         component.isNavigatingBackwards = true

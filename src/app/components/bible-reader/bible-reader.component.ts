@@ -198,6 +198,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   introLink: (string | number)[] = []
   /** The chapter last asked for, which an async load must still match. */
   private pendingChapter?: Chapter["number"]
+  /** Counts chapter requests, so only the latest one's outcome lands. */
+  private chapterRequest = 0
   /** The verse a link led to in this chapter: the one being read while it shows. */
   private linkedVerse?: Verse["number"]
   /** What is on screen, for a failed load to go back to. */
@@ -747,8 +749,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck()
     }
     const requested = this.book
+    // This request, not just its chapter: a burst can ask for 2, 3 and 2
+    // again, and the first 2's failure, waiting on the slide, isn't the last's.
+    const request = ++this.chapterRequest
     const isCurrent = () =>
-      this.book.id === requested.id && this.pendingChapter === chapter
+      request === this.chapterRequest &&
+      this.book.id === requested.id &&
+      this.pendingChapter === chapter
     const retry = () =>
       this.getChapter(chapter, verseStart, verseEnd, highlight)
     // The slide-out outlasts the load: another chapter may be asked for by then.
