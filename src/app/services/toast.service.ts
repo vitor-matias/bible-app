@@ -13,7 +13,7 @@ import type { Observable, Subscription } from "rxjs"
 import { filter, take } from "rxjs/operators"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
 import { BookService } from "./book.service"
-import { historyDepth } from "./depth-location-strategy"
+import { historyDepth, isPanelEntry } from "./depth-location-strategy"
 import { NativeChromeService } from "./native-chrome.service"
 
 /**
@@ -109,8 +109,11 @@ export class ToastService {
     isOrigin: (url: string) => boolean,
   ): void {
     this.returnWatch?.unsubscribe()
-    // Still on the page the reader leaves for the reference: its entry.
-    const origin = historyDepth(this.location.getState())
+    // Still on the page the reader leaves for the reference: its entry. Not a
+    // sheet's on top of it (BackButtonService), which the reference's page
+    // takes over (DepthLocationStrategy): the page's is the one beneath.
+    const state = this.location.getState()
+    const origin = historyDepth(state) - (isPanelEntry(state) ? 1 : 0)
     const goBack = () => {
       // Elsewhere, or no such entry (a reload, a replaced history): go there.
       if (historyDepth(this.location.getState()) !== origin + 1) {
