@@ -569,6 +569,23 @@ describe("OfflineDataService", () => {
       httpMock.expectNone("v1/intros")
     })
 
+    // An empty 200 parses as null: no books cached, and no retry either.
+    it("tries again after a download that brought no books", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([introRecord])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/books?withChapters=true").flush(null)
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(mockLocalStorage._storage["booksCacheReady"]).toBe("true")
+    })
+
     it("leaves a failed download to the reconnect while offline", async () => {
       vi.useFakeTimers()
       vi.spyOn(console, "error").mockReturnValue(undefined)

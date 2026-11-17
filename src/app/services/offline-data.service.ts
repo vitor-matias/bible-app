@@ -138,6 +138,11 @@ export class OfflineDataService implements OnDestroy {
           // Native is cross-origin, where a custom header forces a CORS preflight.
           Capacitor.isNativePlatform() ? {} : { "ngsw-bypass": "true" },
         )
+        // An empty 200 parses as null: a failed download, worth retrying.
+        if (!Array.isArray(books) || !books.length) {
+          books = undefined
+          throw new Error("Unexpected response for the books download")
+        }
       } catch (error) {
         failed = true
         console.error("Failed to preload books for offline use", error)
