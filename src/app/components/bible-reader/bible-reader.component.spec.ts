@@ -2620,6 +2620,43 @@ describe("BibleReaderComponent", () => {
         expect(animationServiceSpy.scrollToTop.mock.lastCall?.[3]).toBe(false)
       })
 
+      // Gn 3, ‹ to Gn 2, then Êxodo 2 picked before it came: the same chapter
+      // number read as the step's, and Êxodo 2 opened at its end.
+      it("opens another book's chapter of the same number at its start", () => {
+        const exodus = {
+          id: "exo",
+          name: "Êxodo",
+          urlAbrv: "ex",
+          chapterCount: 40,
+        } as unknown as Book
+        bookServiceSpy.findBook.mockImplementation((id: string) =>
+          id === "exo" ? exodus : (mockBooks[0] as unknown as Book),
+        )
+        apiServiceSpy.getChapter.mockReturnValue(of(chapter(3)))
+        component.getChapter(3)
+        // Rendering chapter 3 set the drawer query to the bare element.
+        component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+        apiServiceSpy.getChapter.mockReturnValue(load)
+
+        component.goToPreviousChapter()
+        goTo(2)
+        apiServiceSpy.getChapter.mockReturnValue(
+          of({ bookId: "exo", number: 2, verses: [] } as unknown as Chapter),
+        )
+        ;(
+          routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+        ).paramMap.next(
+          new Map([
+            ["book", "exo"],
+            ["chapter", "2"],
+          ]),
+        )
+
+        expect(component.book.id).toBe("exo")
+        expect(component.isNavigatingBackwards).toBe(false)
+        expect(animationServiceSpy.scrollToTop.mock.lastCall?.[3]).toBe(false)
+      })
+
       it("does not load again when the failed chapter's URL is put back", () => {
         vi.spyOn(console, "error").mockReturnValue(undefined)
         goTo(2)

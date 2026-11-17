@@ -404,10 +404,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         }
 
         // A load is dropped for this one: its direction isn't this one's,
-        // unless it is the next step of the same slide.
+        // unless it is the next step of the same slide: that chapter of that
+        // book, not of another one picked meanwhile.
         if (
           this.pendingChapter !== this.chapterNumber &&
-          chapterParam !== this.slideTo
+          (chapterParam !== this.slideTo?.chapter ||
+            tempBook.id !== this.slideTo.bookId)
         ) {
           this.clearChapterSlide()
         }
@@ -465,15 +467,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.autoScrollService.stop()
     this.isNavigatingForwards = forwards
     this.isNavigatingBackwards = !forwards
-    this.slideTo = target
+    this.slideTo = { bookId: this.book.id, chapter: target }
     // A tap during the slide goes on from there.
     this.rebuildChapterLinks()
   }
 
   /** Where a step goes on from: the chapter on its way, else the one shown. */
   private get stepFrom(): Chapter["number"] {
-    return this.changingChapter && this.slideTo !== undefined
-      ? this.slideTo
+    return this.changingChapter && this.slideTo?.bookId === this.book?.id
+      ? this.slideTo.chapter
       : this.chapterNumber
   }
 
@@ -601,8 +603,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return this.isNavigatingForwards || this.isNavigatingBackwards
   }
 
-  /** The chapter the slide under way heads for. */
-  private slideTo?: Chapter["number"]
+  /** The chapter the slide under way heads for, and its book. */
+  private slideTo?: { bookId: Book["id"]; chapter: Chapter["number"] }
   /**
    * The slide-out under way or done, which a later step's load waits on too;
    * until a chapter is shown, or the load fails.
@@ -663,8 +665,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     })
     // No chapter will load to clear the slide: the next step mustn't wait on
     // it. Unless a later step superseded this navigation and owns the slide.
+    const slide = this.slideTo
     const clear = () => {
-      if (this.slideTo === chapter) this.clearChapterSlide()
+      if (this.slideTo === slide) this.clearChapterSlide()
     }
     void navigated.then((ok) => {
       if (!ok) clear()
