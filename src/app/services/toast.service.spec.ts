@@ -18,7 +18,7 @@ import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
 import { DepthLocationStrategy } from "./depth-location-strategy"
 import { NativeChromeService } from "./native-chrome.service"
-import { ToastService } from "./toast.service"
+import { CHAPTER_STEP, ToastService } from "./toast.service"
 
 @Component({ template: "" })
 class PassagePage {}
@@ -268,13 +268,50 @@ describe("ToastService", () => {
         expect(hideToast).toHaveBeenCalledTimes(1)
       })
 
-      it("keeps it while they read on, until they come back to its chapter", async () => {
+      /** The reader's ‹ › arrows, a swipe or an arrow key. */
+      const step = (url: string) =>
+        router.navigateByUrl(url, { info: CHAPTER_STEP })
+
+      it("keeps it while they read on with the chapter arrows", async () => {
         await followReference(false)
-        await router.navigateByUrl("/jo/2")
+        await step("/jo/2")
+        await step("/jo/3")
+
+        expect(snackRef.dismiss).not.toHaveBeenCalled()
+      })
+
+      it("takes it down once reading on brings them back to its chapter", async () => {
+        start(false)
+        await router.navigateByUrl("/gn/1")
+        toast.showReturn({ bookId: "gen", chapterNumber: 1, number: 1 })
+        await router.navigateByUrl("/gn/3?verseStart=2")
+        await step("/gn/2")
         expect(snackRef.dismiss).not.toHaveBeenCalled()
 
-        // The passage picker, say.
-        await router.navigateByUrl("/gn/1")
+        await step("/gn/1")
+
+        expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
+      })
+
+      // Owner's decision: it survived the passage picker, a search result, a
+      // ribbon, another reference. Only reading on keeps it.
+      for (const native of [false, true]) {
+        it(`takes it down on any other way to a passage${native ? " in the apps" : ""}`, async () => {
+          await followReference(native)
+
+          // The passage picker, a search result, a ribbon or another reference.
+          await router.navigateByUrl("/jo/5?verseStart=2")
+
+          if (native) expect(hideToast).toHaveBeenCalledTimes(1)
+          else expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
+        })
+      }
+
+      it("takes it down on a passage after a step", async () => {
+        await followReference(false)
+        await step("/jo/2")
+
+        await router.navigateByUrl("/ex/3")
 
         expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
       })

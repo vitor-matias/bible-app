@@ -52,7 +52,7 @@ import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
-import { ToastService } from "../../services/toast.service"
+import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
 import { introductionTitle, passageLabel } from "../../utils/passage-label"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
@@ -652,11 +652,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return Capacitor.isNativePlatform()
   }
 
+  /** Marks the anchors' steps as reading on, which keeps "Voltar para …". */
+  readonly chapterStep = CHAPTER_STEP
+
   private navigateToAdjacentChapter(chapter: Chapter["number"]): void {
     const commands = this.chapterCommands(chapter, true)
-    const navigated = this.replaceChapterHistory
-      ? this.router.navigate(commands, { replaceUrl: true })
-      : this.router.navigate(commands)
+    const navigated = this.router.navigate(commands, {
+      info: CHAPTER_STEP,
+      ...(this.replaceChapterHistory && { replaceUrl: true }),
+    })
     // No chapter will load to clear the slide: the next step mustn't wait on
     // it. Unless a later step superseded this navigation and owns the slide.
     const clear = () => {

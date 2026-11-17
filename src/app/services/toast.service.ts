@@ -16,6 +16,12 @@ import { BookService } from "./book.service"
 import { historyDepth } from "./depth-location-strategy"
 import { NativeChromeService } from "./native-chrome.service"
 
+/**
+ * Navigation `info` of a step to the next or previous chapter (the reader's
+ * ‹ › arrows, swipes, arrow keys): reading on, which keeps "Voltar para …".
+ */
+export const CHAPTER_STEP = "chapter-step"
+
 export interface ToastOptions {
   /** The snackbar's button on the web ("" for none); the native toast has none. */
   action?: string
@@ -148,11 +154,13 @@ export class ToastService {
   }
 
   /**
-   * The way back goes once the reader has gone back by another route: the back
-   * gesture, Android's back button or the browser's (any step through
-   * history), or anything that brings them back to where they were, such as the
-   * passage picker. Reading on from the reference keeps it, as Books does;
-   * leaving the text for search or the book list doesn't.
+   * The way back stays only while the reader reads on from the reference,
+   * chapter by chapter (CHAPTER_STEP: the ‹ › arrows, swipes, arrow keys), as
+   * Books does. It goes on any other navigation (the passage picker, search, a
+   * ribbon, another reference, a link), on a step through history (the back
+   * gesture, Android's back button or the browser's), and once reading on
+   * brings them back to where they were. In every app: the iOS pill and the
+   * Android snackbar are taken down through `hide` too.
    */
   private hideOnReturn(
     isOrigin: (url: string) => boolean,
@@ -162,14 +170,19 @@ export class ToastService {
     // A reference within the chapter doesn't leave it, so landing there
     // isn't a return.
     let away = !isOrigin(this.router.url)
+    // The first navigation to end is the reference's own.
+    let followed = false
+    let step = false
     const watch = this.router.events.subscribe((event) => {
       let done = false
       if (event instanceof NavigationStart) {
         done = event.navigationTrigger === "popstate"
+        step = this.router.currentNavigation()?.extras.info === CHAPTER_STEP
       } else if (event instanceof NavigationEnd) {
         const url = event.urlAfterRedirects
         const here = isOrigin(url)
-        done = (here && away) || !this.isReader(url)
+        done = followed ? !step || (here && away) : !this.isReader(url)
+        followed = true
         away ||= !here
       }
       if (!done) return

@@ -35,8 +35,12 @@ import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
+import { CHAPTER_STEP } from "../../services/toast.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BibleReaderComponent } from "./bible-reader.component"
+
+/** A step to the next or previous chapter: reading on keeps the way back. */
+const STEP = { info: CHAPTER_STEP }
 
 describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
@@ -823,7 +827,10 @@ describe("BibleReaderComponent", () => {
       component.goToNextChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingForwards).toBe(true)
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "2"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "2"],
+        STEP,
+      )
     })
 
     it("goToPreviousChapter should navigate backwards and stop scroll", () => {
@@ -831,7 +838,10 @@ describe("BibleReaderComponent", () => {
       component.goToPreviousChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingBackwards).toBe(true)
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        STEP,
+      )
     })
 
     it("replaces the history entry for chapter steps in the native apps", () => {
@@ -842,8 +852,8 @@ describe("BibleReaderComponent", () => {
       component.goToPreviousChapter()
 
       expect(vi.mocked(routerSpy.navigate).mock.calls).toEqual([
-        [["/", "1-genesis", "3"], { replaceUrl: true }],
-        [["/", "1-genesis", "1"], { replaceUrl: true }],
+        [["/", "1-genesis", "3"], { ...STEP, replaceUrl: true }],
+        [["/", "1-genesis", "1"], { ...STEP, replaceUrl: true }],
       ])
     })
 
@@ -868,6 +878,8 @@ describe("BibleReaderComponent", () => {
         expect(links.length).toBeGreaterThan(0)
         for (const link of links) {
           expect(link.injector.get(RouterLink).replaceUrl).toBe(native)
+          // Reading on, which keeps "Voltar para …" (ToastService).
+          expect(link.injector.get(RouterLink).info).toBe(CHAPTER_STEP)
         }
       })
     }
@@ -905,9 +917,9 @@ describe("BibleReaderComponent", () => {
       component.goToPreviousChapter()
 
       expect(vi.mocked(routerSpy.navigate).mock.calls).toEqual([
-        [["/", "1-genesis", "2"]],
-        [["/", "1-genesis", "3"]],
-        [["/", "1-genesis", "2"]],
+        [["/", "1-genesis", "2"], STEP],
+        [["/", "1-genesis", "3"], STEP],
+        [["/", "1-genesis", "2"], STEP],
       ])
       expect(hapticsSpy.light).toHaveBeenCalledTimes(3)
       expect(component.nextChapterLink).toEqual(["/", "1-genesis", "3"])
@@ -1323,7 +1335,10 @@ describe("BibleReaderComponent", () => {
     it("onSwipeLeft should go to next chapter if scrolling mode", () => {
       component.viewMode = "scrolling"
       component.onSwipeLeft()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "2"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "2"],
+        STEP,
+      )
     })
 
     it("onSwipeLeft should go to next page if paged mode", () => {
@@ -1339,7 +1354,10 @@ describe("BibleReaderComponent", () => {
       component.chapterNumber = 2
       component.viewMode = "scrolling"
       component.onSwipeRight()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        STEP,
+      )
     })
 
     it("onSwipeRight should go to prev page if paged mode", () => {
@@ -1354,14 +1372,20 @@ describe("BibleReaderComponent", () => {
     it("onArrowPress should handle arrow directions", () => {
       component.chapterNumber = 2
       component.onArrowPress(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        STEP,
+      )
 
       land()
       routerSpy.navigate.mockClear()
       component.onArrowPress(
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
       )
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "3"],
+        STEP,
+      )
     })
 
     // The shortcut fired from anywhere: ← in the book filter changed the
@@ -1394,7 +1418,10 @@ describe("BibleReaderComponent", () => {
 
       it("turn the chapter from the page", () => {
         press({}, attach(document.createElement("div")))
-        expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+        expect(routerSpy.navigate).toHaveBeenCalledWith(
+          ["/", "1-genesis", "3"],
+          STEP,
+        )
       })
 
       it("leave a text field's caret alone", () => {
@@ -1437,7 +1464,10 @@ describe("BibleReaderComponent", () => {
 
         press({}, attach(document.createElement("div")))
 
-        expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+        expect(routerSpy.navigate).toHaveBeenCalledWith(
+          ["/", "1-genesis", "3"],
+          STEP,
+        )
       })
 
       it("don't turn the chapter while the book drawer is open", () => {
@@ -2858,7 +2888,10 @@ describe("BibleReaderComponent", () => {
     it("steps like the swipes do", () => {
       at(2)
       component.stepForward()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "3"],
+        STEP,
+      )
     })
 
     it("opens the passage picked", () => {
