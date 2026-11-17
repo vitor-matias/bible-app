@@ -2148,15 +2148,33 @@ describe("BibleReaderComponent", () => {
         expect(first).not.toHaveBeenCalled()
       })
 
-      it("leaves a deep link into a chapter to scroll to its verse instead", () => {
+      // Regression: nothing scrolls to a verse the chapter has no card for
+      // (/jo/3?verseStart=40), and the view stayed at the top of the scroller,
+      // on the stop that leads back a chapter.
+      it("rests on the first verse before a deep link scrolls to its own", () => {
         bootOn("android", true)
         const [first] = seedCards(3)
         animationServiceSpy.scrollToTop.mockClear()
+        animationServiceSpy.scrollToVerseElement.mockClear()
+
+        component.getChapter(2, 40)
+
+        expect(first).toHaveBeenCalledExactlyOnceWith({ block: "start" })
+        // The link still gets its turn, and the smooth scroll to the top none.
+        expect(lastCall(animationServiceSpy.scrollToVerseElement)[2]).toBe(40)
+        expect(animationServiceSpy.scrollToTop).not.toHaveBeenCalled()
+      })
+
+      it("leaves the running text to the deep link alone", () => {
+        bootOn("android", false)
+        const restOnCard = vi.spyOn(
+          component as unknown as { restOnCard(edge: string): void },
+          "restOnCard",
+        )
 
         component.getChapter(2, 16)
 
-        expect(first).not.toHaveBeenCalled()
-        expect(animationServiceSpy.scrollToTop).not.toHaveBeenCalled()
+        expect(restOnCard).not.toHaveBeenCalled()
       })
 
       it("goes back a chapter when the reader scrolls up past the first verse", () => {

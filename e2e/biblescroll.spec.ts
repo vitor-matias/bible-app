@@ -1,4 +1,4 @@
-import { devices, expect, test } from "@playwright/test"
+import { devices, expect, type Page, test } from "@playwright/test"
 
 // BibleScroll is the reader's one-verse-per-card view, offered on phones and
 // tablets only. Its chapter stops rely on how a real browser orders scroll
@@ -41,4 +41,43 @@ test("asks once for a chapter that fails to load, however long the reader rests 
   expect(requests).toBe(1)
   await expect(page).toHaveURL(/\/jo\/3$/)
   await expect(page.locator(".end-card")).toBeInViewport()
+})
+
+/** Which full-screen card or stop the scroller rests on, counted from the top. */
+function restingIndex(page: Page): Promise<number> {
+  return page
+    .locator("mat-drawer-content")
+    .evaluate((scroller) => scroller.scrollTop / scroller.clientHeight)
+}
+
+// From chapter 2 on, the top of the scroller is the stop that leads back a
+// chapter: a chapter must never open resting there.
+test.describe("a link to a verse", () => {
+  test("opens on that verse's card", async ({ page }) => {
+    await page.goto("/jo/3?verseStart=16")
+    await page
+      .locator("article.verse-card")
+      .first()
+      .waitFor({ timeout: 15_000 })
+
+    // Index 0 is the "João 2" stop, so verse 16 is the sixteenth after it.
+    await expect.poll(() => restingIndex(page), { timeout: 10_000 }).toBe(16)
+    await expect(page.locator('verse[id="16"]')).toBeInViewport()
+  })
+
+  // Regression: nothing scrolls to a verse the chapter has no card for (John 3
+  // has 36), and the view stayed where it opened: on the stop.
+  test("opens on the first verse when the chapter has no such verse", async ({
+    page,
+  }) => {
+    await page.goto("/jo/3?verseStart=40")
+    await page
+      .locator("article.verse-card")
+      .first()
+      .waitFor({ timeout: 15_000 })
+
+    await expect.poll(() => restingIndex(page), { timeout: 10_000 }).toBe(1)
+    await expect(page.locator('verse[id="1"]')).toBeInViewport()
+    await expect(page).toHaveURL(/\/jo\/3/)
+  })
 })

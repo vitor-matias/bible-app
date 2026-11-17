@@ -1086,6 +1086,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges()
 
     if (verseStart) {
+      // Nothing scrolls to a verse the chapter has no card for (a link past
+      // its last verse): the view would stay on the leading stop.
+      if (this.showCards) this.restOnCard("first")
       this.scrollToVerse(verseStart, verseEnd, highlight)
     } else if (this.showCards || !alreadyShown) {
       // The card view places itself — on the hydrated first page too, whose
