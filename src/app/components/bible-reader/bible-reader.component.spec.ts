@@ -779,6 +779,47 @@ describe("BibleReaderComponent", () => {
       expect(snackBarSpy.open).not.toHaveBeenCalled()
     })
 
+    // Study mode is restored at startup in a wide window: its column had no
+    // else for a chapter that never came, and stayed blank with no message.
+    describe("in study mode", () => {
+      const openInStudyMode = async () => {
+        fixture.detectChanges()
+        studyMode.activate()
+        await fixture.whenStable()
+        fixture.detectChanges()
+      }
+
+      it("says so in the study column, not in a passing toast", async () => {
+        await openInStudyMode()
+
+        expect(failure()).not.toBeNull()
+        expect(failure()?.closest(".study-text")).not.toBeNull()
+        expect(failure()?.getAttribute("role")).toBe("alert")
+        // A column's height, not the page's the reading layout's alert has.
+        expect(getComputedStyle(failure() as HTMLElement).minHeight).toBe("0px")
+        expect(failure()?.textContent).toContain(
+          "Não foi possível carregar o capítulo",
+        )
+        expect(snackBarSpy.open).not.toHaveBeenCalled()
+      })
+
+      it("loads the chapter again on «Tentar novamente»", async () => {
+        await openInStudyMode()
+        apiServiceSpy.getChapter.mockReturnValue(
+          of(mockChapter as unknown as Chapter),
+        )
+
+        const retry = failure()?.querySelector("button") as HTMLButtonElement
+        expect(retry.textContent).toContain("Tentar novamente")
+        retry.click()
+        await fixture.whenStable()
+        fixture.detectChanges()
+
+        expect(apiServiceSpy.getChapter).toHaveBeenCalledTimes(2)
+        expect(failure()).toBeNull()
+      })
+    })
+
     // A shared link to a verse's notes (/jo/4?verseStart=3&notes=3): the
     // failure took verseStart and notes off the address and dropped the
     // notes, so the retry opened the verse but not its notes.

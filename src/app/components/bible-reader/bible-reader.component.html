@@ -66,6 +66,18 @@
               (verseSelected)="onVerseSelected($event)"></verse>
             }
             }
+            } @else if (chapterUnavailable) {
+            <!-- A chapter that could not be opened cold: said here as in the
+                 reading layout (below), where a toast would fade over a blank
+                 column. The same words and the same way to ask again. -->
+            <div class="books-unavailable chapter-unavailable" role="alert">
+              <mat-icon class="books-unavailable-icon" aria-hidden="true">cloud_off</mat-icon>
+              <h2 class="books-unavailable-title">Não foi possível carregar o capítulo</h2>
+              <p>Verifique a ligação à internet e tente novamente.</p>
+              <button type="button" mat-flat-button (click)="retryChapter()" [disabled]="retryingChapter">
+                {{ retryingChapter ? "A tentar…" : "Tentar novamente" }}
+              </button>
+            </div>
             }
           </div>
         </div>

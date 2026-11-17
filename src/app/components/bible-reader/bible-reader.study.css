@@ -346,3 +346,12 @@
   padding: 6px 12px;
   font-size: 13px;
 }
+
+/* The chapter could not be opened: said in the reading column, as the reading
+   layout says it over the page. That alert is a page's height; here it is the
+   column's, and the column's own colour shows through. */
+.study-text .chapter-unavailable {
+  min-height: 0;
+  padding-block: 64px;
+  background-color: transparent;
+}
