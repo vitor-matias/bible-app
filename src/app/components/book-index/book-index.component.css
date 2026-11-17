@@ -31,6 +31,12 @@
   height: 56px;
 }
 
+/* Only hosts the menu's overlay: as a flex item it would add a gap, and push
+   the title off centre. */
+.content > reader-menu {
+  display: none;
+}
+
 /* Same pill shape and typography as the reader's .bookSelectorButton. */
 .toolbar-title {
   font-family: Roboto, sans-serif;

@@ -92,7 +92,6 @@ export class ReaderMenuComponent {
 
   readonly decreaseFontSize = output<void>()
   readonly increaseFontSize = output<void>()
-  readonly resetFontSize = output<void>()
   readonly toggleViewMode = output<void>()
   readonly bookmarks = output<void>()
   readonly toggleAutoScrollControls = output<void>()

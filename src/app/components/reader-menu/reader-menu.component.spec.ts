@@ -17,7 +17,6 @@ import {
     <reader-menu #menu="readerMenu" [viewMode]="viewMode()" [canShare]="canShare()" [shareText]="shareText()"
       [autoScrollControlsVisible]="autoScroll()" [textSize]="textSize()"
       [studyMode]="studyMode()" [shortcuts]="shortcuts()"
-      (resetFontSize)="resets.set(resets() + 1)"
       (increaseFontSize)="increases.set(increases() + 1)"
       (decreaseFontSize)="decreases.set(decreases() + 1)"
       (toggleStudyMode)="toggled.update((n) => n + 1)"
@@ -36,7 +35,6 @@ class HostComponent {
   readonly textSize = signal<TextSize | null>(null)
   readonly canShare = signal(false)
   readonly shareText = signal("")
-  readonly resets = signal(0)
   readonly increases = signal(0)
   readonly decreases = signal(0)
   readonly toggles = signal(0)
@@ -104,22 +102,6 @@ describe("ReaderMenuComponent", () => {
     open("scrolling", true)
 
     expect(document.body.textContent).not.toContain("Indisponível")
-  })
-
-  it("resets the text size from its own control", () => {
-    const fixture = TestBed.createComponent(HostComponent)
-    fixture.componentInstance.viewMode.set("scrolling")
-    fixture.detectChanges()
-    fixture.debugElement
-      .query(By.directive(MatMenuTrigger))
-      .injector.get(MatMenuTrigger)
-      .openMenu()
-    fixture.detectChanges()
-    document
-      .querySelector<HTMLButtonElement>('[aria-label="Repor tamanho do texto"]')
-      ?.click()
-
-    expect(fixture.componentInstance.resets()).toBe(1)
   })
 
   // At 235% «Aumentar texto» looked as if it worked and did nothing.
