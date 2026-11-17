@@ -470,8 +470,8 @@ h6 {
   width: auto;
 }
 
-/* Shown instead of the reader when the book list cannot be loaded. There is
-   no header here, so clear the status bar / notch ourselves. */
+/* The Bible loading, on a screen of its own: clear the status bar / notch.
+   Under the reader's header, what can't load (styles.css). */
 .books-unavailable {
   display: flex;
   flex-direction: column;

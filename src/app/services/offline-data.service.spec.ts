@@ -4,16 +4,22 @@ import {
 } from "@angular/common/http/testing"
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
+import { BehaviorSubject } from "rxjs"
 import type { Mock } from "vitest"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
 import { NetworkService } from "./network.service"
-import { OfflineDataService, PRELOAD_TIMEOUT_MS } from "./offline-data.service"
+import {
+  OfflineDataService,
+  PRELOAD_RETRY_BASE_MS,
+  PRELOAD_TIMEOUT_MS,
+} from "./offline-data.service"
 
 describe("OfflineDataService", () => {
   let service: OfflineDataService
   let networkService: SpyObj<NetworkService>
+  let offline$: BehaviorSubject<boolean>
   let httpMock: HttpTestingController
   let mockLocalStorage: {
     _storage: Record<string, string>
@@ -67,10 +73,20 @@ describe("OfflineDataService", () => {
     },
   ]
 
+  const introRecord: Book = {
+    id: "pentateuco",
+    name: "Pentateuco",
+    shortName: "Pentateuco",
+    abrv: "pentateuco",
+    chapterCount: 0,
+    introSlug: "pentateuco",
+    introduction: [],
+  }
+
   let databaseService: SpyObj<DatabaseService>
 
   const flushMicrotasks = async () => {
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
       await Promise.resolve()
     }
   }
@@ -131,9 +147,13 @@ describe("OfflineDataService", () => {
     spy.clear.mockResolvedValue(undefined)
 
     // Mock NetworkService
-    const networkSpy = createSpyObj<NetworkService>("NetworkService", [], {
-      isOffline: false,
-    })
+    offline$ = new BehaviorSubject(false)
+    const networkSpy = createSpyObj<NetworkService>(
+      "NetworkService",
+      ["refresh"],
+      { isOffline: false, isOffline$: offline$ },
+    )
+    networkSpy.refresh.mockResolvedValue(undefined)
 
     const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue(undefined)
@@ -167,6 +187,33 @@ describe("OfflineDataService", () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
       mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
       mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+
+      await service.preloadAllBooksAndChapters()
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectNone("v1/intros")
+    })
+
+    // The flags live in localStorage, which can outlast the records.
+    it("downloads again when IndexedDB lost the records the flags vouch for", async () => {
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+
+      const promise = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await flushIntros()
+      await promise
+    })
+
+    it("trusts the flags when IndexedDB can't be read", async () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      databaseService.getAll.mockRejectedValue(new Error("unavailable"))
 
       await service.preloadAllBooksAndChapters()
 
@@ -176,6 +223,7 @@ describe("OfflineDataService", () => {
 
     it("retries only the introductions, not the whole books payload, when books are cached but introductions never finished caching", async () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue(mockBooks)
       mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
       // groupIntrosCacheReady deliberately left unset, as if a previous
       // launch cached the books but /intros failed partway through.
@@ -353,7 +401,13 @@ describe("OfflineDataService", () => {
       httpMock
         .expectOne("v1/books?withChapters=true")
         .error(new ProgressEvent("error"))
-      await flushIntros()
+      await flushIntros([{ slug: "pentateuco", name: "PENTATEUCO" }])
+      await flushMacrotask()
+      httpMock.expectOne("v1/intros/pentateuco").flush({
+        slug: "pentateuco",
+        name: "PENTATEUCO",
+        introduction: [],
+      })
       await firstPromise
 
       // The intros-only write must not have claimed the books are cached —
@@ -409,7 +463,13 @@ describe("OfflineDataService", () => {
       httpMock.expectOne("v1/books?withChapters=true")
 
       await vi.advanceTimersByTimeAsync(PRELOAD_TIMEOUT_MS)
-      httpMock.expectOne("v1/intros").flush([])
+      httpMock
+        .expectOne("v1/intros")
+        .flush([{ slug: "pentateuco", name: "PENTATEUCO" }])
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/intros/pentateuco")
+        .flush({ slug: "pentateuco", name: "PENTATEUCO", introduction: [] })
       await vi.advanceTimersByTimeAsync(0)
       await stalled
 
@@ -419,6 +479,258 @@ describe("OfflineDataService", () => {
       httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
       await vi.advanceTimersByTimeAsync(50)
       await retry
+    })
+
+    // A dropped connection can leave the download hanging for minutes; the
+    // reconnect's preload joined it instead of starting again.
+    it("cancels the download on going offline, so the reconnect starts it again", async () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      const first = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      const stalled = httpMock.expectOne("v1/books?withChapters=true")
+
+      offline$.next(true)
+      expect(stalled.cancelled).toBe(true)
+      await first
+
+      offline$.next(false)
+      const reconnect = service.preloadAllBooksAndChapters()
+      await flushMicrotasks()
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await flushIntros()
+      await reconnect
+      expect(mockLocalStorage._storage["booksCacheReady"]).toBe("true")
+    })
+
+    it("tries a failed download again later, waiting longer each time", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([
+        {
+          id: "a",
+          name: "A",
+          shortName: "A",
+          abrv: "a",
+          chapterCount: 0,
+          introSlug: "a",
+        },
+      ])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS - 10)
+      httpMock.expectNone("v1/books?withChapters=true")
+      await vi.advanceTimersByTimeAsync(10)
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      // Twice as long the second time.
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectNone("v1/books?withChapters=true")
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(50)
+
+      // Done: nothing more is asked.
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 100)
+      httpMock.expectNone("v1/books?withChapters=true")
+    })
+
+    // A download failing after the service is torn down armed another retry.
+    it("arms no retry once destroyed", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([
+        {
+          id: "a",
+          name: "A",
+          shortName: "A",
+          abrv: "a",
+          chapterCount: 0,
+          introSlug: "a",
+        },
+      ])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      service.ngOnDestroy()
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 4)
+      httpMock.expectNone("v1/books?withChapters=true")
+    })
+
+    // IndexedDB full (QuotaExceededError): the intros' write failing too
+    // retried the preload, downloading the Bible again every few minutes.
+    it("never downloads the Bible again when storing it fails", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      databaseService.clearAndPutAll.mockRejectedValue(
+        new DOMException("full", "QuotaExceededError"),
+      )
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/intros")
+        .flush([{ slug: "pentateuco", name: "PENTATEUCO" }])
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/intros/pentateuco")
+        .flush({ slug: "pentateuco", name: "PENTATEUCO", introduction: [] })
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 200)
+      // Nor on a reconnect.
+      await service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectNone("v1/intros")
+    })
+
+    // An empty 200 parses as null: no books cached, and no retry either.
+    it("tries again after a download that brought no books", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([introRecord])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/books?withChapters=true").flush(null)
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(mockLocalStorage._storage["booksCacheReady"]).toBe("true")
+    })
+
+    // The books stored with a fresh timestamp, the introductions failed:
+    // their old flag made the retry skip them until the next expiry.
+    it("retries the introductions of an expired refresh that failed", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = (
+        Date.now() - FORTY_ONE_DAYS_MS
+      ).toString()
+      databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/intros").error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectOne("v1/intros").flush([])
+      await vi.advanceTimersByTimeAsync(50)
+    })
+
+    // Without localStorage the one introduction stored stood for all of
+    // them: the retry fetched nothing and the other stayed missing.
+    it("fetches the introductions left out, even without localStorage", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      const localStorageSpy = Object.getOwnPropertyDescriptor(
+        window,
+        "localStorage",
+      )?.get as Mock
+      localStorageSpy.mockImplementation(() => {
+        throw new Error("denied")
+      })
+      databaseService.getAll.mockResolvedValue(mockBooks)
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/intros").flush([
+        { slug: "pentateuco", name: "PENTATEUCO" },
+        { slug: "reis", name: "REIS" },
+      ])
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/intros/pentateuco")
+        .flush({ slug: "pentateuco", name: "PENTATEUCO", introduction: [] })
+      httpMock.expectOne("v1/intros/reis").error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/intros").flush([])
+      await vi.advanceTimersByTimeAsync(50)
+    })
+
+    // A caller joining between the retry's arming and the run's end cleared
+    // the timer, then joined the finished run: no retry.
+    it("keeps the retry armed for a caller joining the run as it ends", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([introRecord])
+      const arm = globalThis.setTimeout
+      let joined = false
+      vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+        handler: () => void,
+        ms?: number,
+      ) => {
+        const id = arm(handler, ms)
+        if (ms === PRELOAD_RETRY_BASE_MS && !joined) {
+          joined = true
+          queueMicrotask(() => void service.preloadAllBooksAndChapters())
+        }
+        return id
+      }) as typeof setTimeout)
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(joined).toBe(true)
+      httpMock.expectNone("v1/books?withChapters=true")
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(50)
+    })
+
+    // Backgrounded and offline when the timer fired, the retry was dropped;
+    // a reconnect the listener then missed left it for the next launch.
+    it("keeps trying a failed download while offline, asking for the connection", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([introRecord])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      const isOfflineSpy = Object.getOwnPropertyDescriptor(
+        networkService,
+        "isOffline",
+      )?.get as Mock
+      isOfflineSpy.mockReturnValue(true)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 3)
+      httpMock.expectNone("v1/books?withChapters=true")
+      expect(networkService.refresh).toHaveBeenCalled()
+
+      // The connection is back, unseen until asked.
+      networkService.refresh.mockImplementation(async () => {
+        isOfflineSpy.mockReturnValue(false)
+      })
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(50)
     })
 
     it("skips the service worker's copy of the download on the web", async () => {
@@ -973,6 +1285,10 @@ describe("OfflineDataService", () => {
   })
 
   describe("cache expiry", () => {
+    beforeEach(() => {
+      databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+    })
+
     it("should consider cache expired after 40 days", async () => {
       // 41 days ago
       const oldTimestamp = Date.now() - FORTY_ONE_DAYS_MS
