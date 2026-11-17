@@ -1,10 +1,26 @@
+import { Location } from "@angular/common"
 import { DOCUMENT, Injectable, inject } from "@angular/core"
 import { MatSnackBar } from "@angular/material/snack-bar"
-import { NavigationEnd, NavigationStart, Router } from "@angular/router"
+import {
+  NavigationCancel,
+  NavigationEnd,
+  NavigationError,
+  type NavigationExtras,
+  NavigationStart,
+  Router,
+} from "@angular/router"
 import type { Observable, Subscription } from "rxjs"
+import { filter, take } from "rxjs/operators"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
 import { BookService } from "./book.service"
+import { historyDepth } from "./depth-location-strategy"
 import { NativeChromeService } from "./native-chrome.service"
+
+/**
+ * Navigation `info` of a step to the next or previous chapter (the reader's
+ * ‹ › arrows, swipes, arrow keys): reading on, which keeps "Voltar para …".
+ */
+export const CHAPTER_STEP = "chapter-step"
 
 export interface ToastOptions {
   /** The snackbar's button on the web ("" for none); the native toast has none. */
@@ -26,6 +42,7 @@ export class ToastService {
   private readonly bookService = inject(BookService)
   private readonly router = inject(Router)
   private readonly document = inject(DOCUMENT)
+  private readonly location = inject(Location)
   /** Takes down the "Voltar para …" showing, if any; see showReturn. */
   private returnWatch?: Subscription
 
@@ -64,9 +81,10 @@ export class ToastService {
     const book = this.bookService.findBook(from.bookId)
     const urlAbrv = this.bookService.getUrlAbrv(book)
     const message = `Voltar para ${book.shortName} ${from.chapterNumber},${verseNumber}`
-    const goBack = () =>
+    const goBack = (extras: NavigationExtras = {}) =>
       this.router.navigate([urlAbrv, from.chapterNumber], {
         queryParams: { verseStart: verseNumber, highlight: false },
+        ...extras,
       })
 
     this.showWayBack(message, goBack, (url) =>
@@ -78,17 +96,44 @@ export class ToastService {
   showReturnToIndex(slug: string): void {
     this.showWayBack(
       "Voltar para o Índice",
-      () => this.router.navigate(["/indice", slug]),
+      // `replaceUrl` after a step back to an /indice with every theme open.
+      (extras: NavigationExtras = {}) =>
+        this.router.navigate(["/indice", slug], extras),
       (url) => this.isIndex(url),
     )
   }
 
   private showWayBack(
     message: string,
-    goBack: () => void,
+    goTo: (extras?: NavigationExtras) => void,
     isOrigin: (url: string) => boolean,
   ): void {
     this.returnWatch?.unsubscribe()
+    // Still on the page the reader leaves for the reference: its entry.
+    const origin = historyDepth(this.location.getState())
+    const goBack = () => {
+      // Elsewhere, or no such entry (a reload, a replaced history): go there.
+      if (historyDepth(this.location.getState()) !== origin + 1) {
+        goTo()
+        return
+      }
+      // Its entry is the one before: step back to it, so Back afterwards
+      // doesn't return to the reference, then to the place in it.
+      this.router.events
+        .pipe(
+          filter(
+            (event) =>
+              event instanceof NavigationEnd ||
+              event instanceof NavigationCancel ||
+              event instanceof NavigationError,
+          ),
+          take(1),
+        )
+        .subscribe((event) => {
+          if (event instanceof NavigationEnd) goTo({ replaceUrl: true })
+        })
+      this.location.back()
+    }
     // The way back is the button, as Books' "Back to Page" is: the iOS glass
     // toast, or the snackbar elsewhere.
     if (this.nativeChrome.enabled) {
@@ -111,11 +156,13 @@ export class ToastService {
   }
 
   /**
-   * The way back goes once the reader has gone back by another route: the back
-   * gesture, Android's back button or the browser's (any step through
-   * history), or anything that brings them back to where they were, such as the
-   * passage picker. Reading on from the reference keeps it, as Books does;
-   * leaving the text for search or the book list doesn't.
+   * The way back stays only while the reader reads on from the reference,
+   * chapter by chapter (CHAPTER_STEP: the ‹ › arrows, swipes, arrow keys), as
+   * Books does. It goes on any other navigation (the passage picker, search, a
+   * ribbon, another reference, a link), on a step through history (the back
+   * gesture, Android's back button or the browser's), and once reading on
+   * brings them back to where they were. In every app: the iOS pill and the
+   * Android snackbar are taken down through `hide` too.
    */
   private hideOnReturn(
     isOrigin: (url: string) => boolean,
@@ -125,14 +172,19 @@ export class ToastService {
     // A reference within the chapter doesn't leave it, so landing there
     // isn't a return.
     let away = !isOrigin(this.router.url)
+    // The first navigation to end is the reference's own.
+    let followed = false
+    let step = false
     const watch = this.router.events.subscribe((event) => {
       let done = false
       if (event instanceof NavigationStart) {
         done = event.navigationTrigger === "popstate"
+        step = this.router.currentNavigation()?.extras.info === CHAPTER_STEP
       } else if (event instanceof NavigationEnd) {
         const url = event.urlAfterRedirects
         const here = isOrigin(url)
-        done = (here && away) || !this.isReader(url)
+        done = followed ? !step || (here && away) : !this.isReader(url)
+        followed = true
         away ||= !here
       }
       if (!done) return

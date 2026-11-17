@@ -452,12 +452,31 @@ describe("PagedNavigationDirective", () => {
     /** An element whose first fragment sits `left` px into the scroller. */
     function elementAt(left: number): HTMLElement {
       const element = document.createElement("span")
-      const rect = { left, right: left, top: 0, bottom: 0 } as DOMRect
+      const rect = { left, right: left + 10, width: 10, top: 0, bottom: 0 }
       vi.spyOn(element, "getClientRects").mockReturnValue([
         rect,
       ] as unknown as DOMRectList)
       return element
     }
+
+    // A verse's first fragment is the space before its number: left empty
+    // at the foot of the page before when the number opens a page.
+    it("goes to the page the verse's text starts on, not its empty space", () => {
+      stubPageGrid()
+      vi.spyOn(container, "scrollLeft", "get").mockReturnValue(0)
+      const verse = elementAt(180)
+      vi.mocked(verse.getClientRects).mockReturnValue([
+        { left: 180, right: 180, width: 0, top: 0, bottom: 0 },
+        { left: 210, right: 220, width: 10, top: 0, bottom: 0 },
+      ] as unknown as DOMRectList)
+
+      hostComponent.directive.scrollToPage(verse)
+
+      expect(container.scrollTo).toHaveBeenCalledWith({
+        left: 200,
+        behavior: "smooth",
+      })
+    })
 
     it("should scroll to the start of the page holding the element, not to the element itself", () => {
       stubPageGrid()
