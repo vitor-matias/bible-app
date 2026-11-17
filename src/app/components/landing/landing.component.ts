@@ -12,7 +12,7 @@ import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 
 /** How long a phone's visitor sees the page before its store opens. */
-export const AUTO_OPEN_MS = 2500
+export const AUTO_OPEN_MS = 5000
 
 /** Set once the visitor chose for themselves; lasts as long as the tab. */
 export const CHOSE_KEY = "landing-chose"

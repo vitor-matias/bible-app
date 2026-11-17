@@ -35,8 +35,12 @@ import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
+import { CHAPTER_STEP } from "../../services/toast.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BibleReaderComponent } from "./bible-reader.component"
+
+/** A step to the next or previous chapter: reading on keeps the way back. */
+const STEP = { info: CHAPTER_STEP }
 
 describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
@@ -71,6 +75,7 @@ describe("BibleReaderComponent", () => {
     apiServiceSpy = createSpyObj("BibleApiService", ["getChapter"])
     bookServiceSpy = createSpyObj("BookService", [
       "findBook",
+      "findUrlBook",
       "findBookById",
       "getBooks",
       "getUrlAbrv",
@@ -161,6 +166,10 @@ describe("BibleReaderComponent", () => {
     preferencesServiceSpy.getViewMode.mockReturnValue("scrolling")
     preferencesServiceSpy.getAutoScrollControlsVisible.mockReturnValue(false)
     bookServiceSpy.findBook.mockReturnValue(mockBooks[0] as unknown as Book)
+    // The specs set findBook; links resolve through it here.
+    bookServiceSpy.findUrlBook.mockImplementation((segment: string) =>
+      bookServiceSpy.findBook(segment),
+    )
     bookServiceSpy.getUrlAbrv.mockReturnValue("1-genesis")
     bookServiceSpy.getChapterUrlSegment.mockImplementation((chapter: number) =>
       chapter === 0 ? "intro" : chapter.toString(),
@@ -246,6 +255,8 @@ describe("BibleReaderComponent", () => {
     it("should set book and navigate to stored params when URL has no clear intent initially", () => {
       fixture.detectChanges()
       expect(bookServiceSpy.findBook).toHaveBeenCalledWith("gen")
+      // As the guard does: "/joao/3" is João, "/joao/intro" his letters'.
+      expect(bookServiceSpy.findUrlBook).toHaveBeenCalledWith("gen", 1)
       expect(apiServiceSpy.getChapter).toHaveBeenCalledWith("gen", 1)
       expect(routerSpy.navigate).toHaveBeenCalled()
     })
@@ -823,7 +834,10 @@ describe("BibleReaderComponent", () => {
       component.goToNextChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingForwards).toBe(true)
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "2"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "2"],
+        STEP,
+      )
     })
 
     it("goToPreviousChapter should navigate backwards and stop scroll", () => {
@@ -831,7 +845,10 @@ describe("BibleReaderComponent", () => {
       component.goToPreviousChapter()
       expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       expect(component.isNavigatingBackwards).toBe(true)
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        STEP,
+      )
     })
 
     it("replaces the history entry for chapter steps in the native apps", () => {
@@ -842,8 +859,8 @@ describe("BibleReaderComponent", () => {
       component.goToPreviousChapter()
 
       expect(vi.mocked(routerSpy.navigate).mock.calls).toEqual([
-        [["/", "1-genesis", "3"], { replaceUrl: true }],
-        [["/", "1-genesis", "1"], { replaceUrl: true }],
+        [["/", "1-genesis", "3"], { ...STEP, replaceUrl: true }],
+        [["/", "1-genesis", "1"], { ...STEP, replaceUrl: true }],
       ])
     })
 
@@ -868,6 +885,8 @@ describe("BibleReaderComponent", () => {
         expect(links.length).toBeGreaterThan(0)
         for (const link of links) {
           expect(link.injector.get(RouterLink).replaceUrl).toBe(native)
+          // Reading on, which keeps "Voltar para …" (ToastService).
+          expect(link.injector.get(RouterLink).info).toBe(CHAPTER_STEP)
         }
       })
     }
@@ -911,15 +930,41 @@ describe("BibleReaderComponent", () => {
       expect(hapticsSpy.light).toHaveBeenCalledTimes(2)
     })
 
-    // A second swipe during the slide asked for the chapter already on its
-    // way: nothing happened, but it buzzed.
-    it("takes no second step, and gives no buzz, while a chapter is on its way", () => {
+    // Taps during the slide were dropped: five of six in a burst.
+    it("goes on from the chapter on its way for each step during the slide", () => {
       component.goToNextChapter()
       component.goToNextChapter()
       component.goToPreviousChapter()
 
-      expect(routerSpy.navigate).toHaveBeenCalledTimes(1)
-      expect(hapticsSpy.light).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(routerSpy.navigate).mock.calls).toEqual([
+        [["/", "1-genesis", "2"], STEP],
+        [["/", "1-genesis", "3"], STEP],
+        [["/", "1-genesis", "2"], STEP],
+      ])
+      expect(hapticsSpy.light).toHaveBeenCalledTimes(3)
+      expect(component.nextChapterLink).toEqual(["/", "1-genesis", "3"])
+    })
+
+    it("points the arrows past the chapter on its way", () => {
+      component.prepareChapterNavigation(true)
+
+      expect(component.nextChapterLink).toEqual(["/", "1-genesis", "3"])
+      expect(component.previousChapterLink).toEqual(["/", "1-genesis", "1"])
+    })
+
+    it("keeps the slide for the step that superseded a navigation", async () => {
+      let firstEnds: (ok: boolean) => void = () => {}
+      routerSpy.navigate.mockReturnValueOnce(
+        new Promise<boolean>((resolve) => {
+          firstEnds = resolve
+        }),
+      )
+      component.goToNextChapter()
+      component.goToNextChapter()
+      firstEnds(false)
+      await Promise.resolve()
+
+      expect(component.isNavigatingForwards).toBe(true)
     })
 
     it("steps again when the navigation came to nothing", async () => {
@@ -1310,7 +1355,10 @@ describe("BibleReaderComponent", () => {
     it("onSwipeLeft should go to next chapter if scrolling mode", () => {
       component.viewMode = "scrolling"
       component.onSwipeLeft()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "2"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "2"],
+        STEP,
+      )
     })
 
     it("onSwipeLeft should go to next page if paged mode", () => {
@@ -1326,7 +1374,10 @@ describe("BibleReaderComponent", () => {
       component.chapterNumber = 2
       component.viewMode = "scrolling"
       component.onSwipeRight()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        STEP,
+      )
     })
 
     it("onSwipeRight should go to prev page if paged mode", () => {
@@ -1341,14 +1392,20 @@ describe("BibleReaderComponent", () => {
     it("onArrowPress should handle arrow directions", () => {
       component.chapterNumber = 2
       component.onArrowPress(new KeyboardEvent("keydown", { key: "ArrowLeft" }))
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        STEP,
+      )
 
       land()
       routerSpy.navigate.mockClear()
       component.onArrowPress(
         new KeyboardEvent("keydown", { key: "ArrowRight" }),
       )
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "3"],
+        STEP,
+      )
     })
 
     // The shortcut fired from anywhere: ← in the book filter changed the
@@ -1381,7 +1438,38 @@ describe("BibleReaderComponent", () => {
 
       it("turn the chapter from the page", () => {
         press({}, attach(document.createElement("div")))
-        expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+        expect(routerSpy.navigate).toHaveBeenCalledWith(
+          ["/", "1-genesis", "3"],
+          STEP,
+        )
+      })
+
+      // Held, → raced through the book at the key's repeat rate: a second
+      // of it reached Génesis 30.
+      it("turn one chapter while held, not one per repeat", () => {
+        press({})
+        for (let i = 0; i < 10; i++) press({ repeat: true })
+
+        expect(routerSpy.navigate).toHaveBeenCalledTimes(1)
+        expect(hapticsSpy.light).toHaveBeenCalledTimes(1)
+      })
+
+      it("keep turning pages while held, but stop at the chapter's end", () => {
+        component.viewMode = "paged"
+        const pages = createSpyObj("PagedNavigationDirective", [
+          "nextPage",
+          "prevPage",
+        ])
+        // The last page: a turn on goes to the next chapter.
+        pages.nextPage.mockImplementation(() => component.goToNextChapter())
+        component.pagedNav = pages as unknown as PagedNavigationDirective
+
+        for (let i = 0; i < 3; i++) press({ repeat: true })
+        expect(pages.nextPage).toHaveBeenCalledTimes(3)
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+
+        press({})
+        expect(routerSpy.navigate).toHaveBeenCalledTimes(1)
       })
 
       it("leave a text field's caret alone", () => {
@@ -1424,7 +1512,10 @@ describe("BibleReaderComponent", () => {
 
         press({}, attach(document.createElement("div")))
 
-        expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+        expect(routerSpy.navigate).toHaveBeenCalledWith(
+          ["/", "1-genesis", "3"],
+          STEP,
+        )
       })
 
       it("don't turn the chapter while the book drawer is open", () => {
@@ -1875,6 +1966,70 @@ describe("BibleReaderComponent", () => {
       expect(inView(first, drawer())).toBe(true)
     })
 
+    const verse = (id: number) =>
+      host.querySelector(`verse[id="${id}"]`) as HTMLElement
+
+    /** Scrolls the verse's first line to `offset` px below the view's top. */
+    function scrollVerseTo(id: number, offset: number): void {
+      drawer().scrollTop +=
+        verse(id).getClientRects()[0].top -
+        drawer().getBoundingClientRect().top -
+        offset
+    }
+
+    // The tail of verse 19 shares verse 20's first line: it went to 19's
+    // page, a page early, and walked back further at every switch.
+    it("goes to the verse starting in view, not the one ending there", async () => {
+      scrollVerseTo(20, 2)
+      const scrollToPage = vi.spyOn(
+        component.pagedNav as PagedNavigationDirective,
+        "scrollToPage",
+      )
+
+      await toggle()
+
+      expect(scrollToPage).toHaveBeenCalledWith(verse(20), "instant")
+    })
+
+    it("goes to the verse a link opened on while it shows", async () => {
+      ;(
+        routeMock as { queryParamMap: BehaviorSubject<unknown> }
+      ).queryParamMap.next(new Map([["verseStart", "22"]]))
+      scrollVerseTo(21, 2)
+      expect(inView(verse(22), drawer())).toBe(true)
+      const scrollToPage = vi.spyOn(
+        component.pagedNav as PagedNavigationDirective,
+        "scrollToPage",
+      )
+
+      await toggle()
+
+      expect(scrollToPage).toHaveBeenCalledWith(verse(22), "instant")
+    })
+
+    it("brings back to the top the first verse starting on the page", async () => {
+      await toggle()
+      const page = pages()
+      const box = page.getBoundingClientRect()
+      const onPage = (rect: DOMRect) =>
+        rect.left >= box.left - 1 && rect.left < box.right
+      // A page that opens with the end of a verse begun on the page before.
+      let starting: HTMLElement | undefined
+      for (let left = 0; !starting && left < page.scrollWidth; left += 50) {
+        page.scrollLeft = left
+        if (onPage(showing(page).getClientRects()[0])) continue
+        starting = Array.from(host.querySelectorAll<HTMLElement>("verse")).find(
+          (candidate) => onPage(candidate.getClientRects()[0]),
+        )
+      }
+      expect(starting).toBeDefined()
+
+      await toggle()
+
+      const top = drawer().getBoundingClientRect().top
+      expect(starting?.getClientRects()[0].top).toBeCloseTo(top, -1)
+    })
+
     // The apps' bars float over the text: a verse under the top bar is not
     // being read, and one scrolled to the top went under it.
     describe("under the native bars", () => {
@@ -1899,13 +2054,6 @@ describe("BibleReaderComponent", () => {
         scroller.scrollTop +=
           verse20.getClientRects()[0].top -
           (scroller.getBoundingClientRect().top + BAR)
-        const view = scroller.getBoundingClientRect()
-        const belowBar = Array.from(host.querySelectorAll("verse")).find(
-          (verse) =>
-            Array.from(verse.getClientRects()).some(
-              (line) => line.bottom > view.top + BAR,
-            ),
-        )
         const scrollToPage = vi.spyOn(
           component.pagedNav as PagedNavigationDirective,
           "scrollToPage",
@@ -1913,21 +2061,22 @@ describe("BibleReaderComponent", () => {
 
         await toggle()
 
-        expect(scrollToPage).toHaveBeenCalledWith(belowBar, "instant")
+        expect(scrollToPage).toHaveBeenCalledWith(verse20, "instant")
       })
 
       it("brings the verse back below the top bar", async () => {
         await toggle()
         ;(component.pagedNav as PagedNavigationDirective).scrollToPage(
-          host.querySelector('verse[id="20"]') as HTMLElement,
+          verse(20),
           "instant",
         )
-        const first = showing(pages())
 
         await toggle()
 
         const top = drawer().getBoundingClientRect().top + BAR
-        expect(first.getClientRects()[0].top).toBeGreaterThanOrEqual(top - 1)
+        expect(verse(20).getClientRects()[0].top).toBeGreaterThanOrEqual(
+          top - 1,
+        )
       })
     })
   })
@@ -2423,6 +2572,172 @@ describe("BibleReaderComponent", () => {
         expect(routerSpy.navigate).not.toHaveBeenCalled()
       })
 
+      // A burst of taps: each step's chapter joins the slide-out under way,
+      // and only the last one opens, sliding in.
+      it("opens the last of the steps taken during the slide", async () => {
+        component.goToNextChapter()
+        goTo(2)
+        load.next(chapter(2))
+        component.goToNextChapter()
+        const third = new Subject<Chapter>()
+        apiServiceSpy.getChapter.mockReturnValue(third)
+        goTo(3)
+        third.next(chapter(3))
+
+        expect(component.isNavigatingForwards).toBe(true)
+        expect(component.chapterNumber).toBe(1)
+        endSlide()
+        await new Promise((resolve) => setTimeout(resolve))
+
+        expect(
+          animationServiceSpy.triggerSlideOutAnimation,
+        ).toHaveBeenCalledTimes(1)
+        expect(component.chapterNumber).toBe(3)
+        expect(preferencesServiceSpy.setLastChapterNumber.mock.calls).toEqual([
+          [3],
+        ])
+      })
+
+      // The slide-out ended before the later step's chapter came: its class
+      // went, chapter 1 showed again, and slid out a second time.
+      it("keeps the chapter slid out hidden until the last step's arrives", async () => {
+        const container = component.bookContainer.nativeElement as HTMLElement
+        component.goToNextChapter()
+        goTo(2)
+        load.next(chapter(2))
+        component.goToNextChapter()
+        const third = new Subject<Chapter>()
+        apiServiceSpy.getChapter.mockReturnValue(third)
+        goTo(3)
+
+        endSlide()
+        await new Promise((resolve) => setTimeout(resolve))
+        expect(container.style.opacity).toBe("0")
+        expect(component.chapterNumber).toBe(1)
+
+        third.next(chapter(3))
+        await new Promise((resolve) => setTimeout(resolve))
+
+        expect(
+          animationServiceSpy.triggerSlideOutAnimation,
+        ).toHaveBeenCalledTimes(1)
+        expect(component.chapterNumber).toBe(3)
+      })
+
+      // A step that failed left the arrows built past the chapter that never
+      // came: › skipped a chapter, ‹ pointed at the one on screen.
+      for (const forwards of [true, false]) {
+        it(`points the arrows around the chapter on screen after a failed step ${forwards ? "on" : "back"}`, async () => {
+          vi.spyOn(console, "error").mockReturnValue(undefined)
+          apiServiceSpy.getChapter.mockReturnValue(of(chapter(5)))
+          component.getChapter(5)
+          expect(component.chapterNumber).toBe(5)
+          // Rendering chapter 5 set the drawer query to the bare element.
+          component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+          apiServiceSpy.getChapter.mockReturnValue(load)
+
+          component.prepareChapterNavigation(forwards)
+          goTo(forwards ? 6 : 4)
+          load.error(new Error("Offline"))
+          endSlide()
+          await new Promise((resolve) => setTimeout(resolve))
+
+          expect(component.chapterNumber).toBe(5)
+          expect(component.previousChapterLink).toEqual(["/", "1-genesis", "4"])
+          expect(component.nextChapterLink).toEqual(["/", "1-genesis", "6"])
+          // Slid out for the chapter that never came, it slides back in.
+          expect(
+            animationServiceSpy.triggerSlideAnimation,
+          ).toHaveBeenLastCalledWith(
+            undefined,
+            component.bookContainer.nativeElement,
+            false,
+          )
+        })
+      }
+
+      it("points the arrows around the chapter on screen after a step that went nowhere", async () => {
+        routerSpy.navigate.mockResolvedValue(false)
+
+        component.goToNextChapter()
+        await Promise.resolve()
+
+        expect(component.nextChapterLink).toEqual(["/", "1-genesis", "2"])
+      })
+
+      // › on 5, then Back (or a ribbon, a link) to 4 before that step's
+      // navigation came: 4 opened with its arrows around 6, › leading to 7.
+      it("points the arrows around a chapter reached by another way during a step", () => {
+        apiServiceSpy.getChapter.mockReturnValue(of(chapter(5)))
+        component.getChapter(5)
+        // Rendering chapter 5 set the drawer query to the bare element.
+        component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+
+        component.prepareChapterNavigation(true)
+        apiServiceSpy.getChapter.mockReturnValue(of(chapter(4)))
+        goTo(4)
+
+        expect(component.chapterNumber).toBe(4)
+        expect(component.isNavigatingForwards).toBe(false)
+        expect(component.previousChapterLink).toEqual(["/", "1-genesis", "3"])
+        expect(component.nextChapterLink).toEqual(["/", "1-genesis", "5"])
+      })
+
+      // ‹ from /gn/3?verseStart=5: the router sends the new query first,
+      // paired with chapter 3, and that dropped the step. Chapter 2 came
+      // with no slide, at its start.
+      it("keeps a step through the query that comes before its chapter", async () => {
+        const third = new Subject<Chapter>()
+        apiServiceSpy.getChapter.mockReturnValue(third)
+        goTo(3, ["verseStart", "5"])
+        third.next(chapter(3))
+        // Rendering chapter 3 set the drawer query to the bare element.
+        component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+        apiServiceSpy.getChapter.mockReturnValue(load)
+        expect(component.chapterNumber).toBe(3)
+
+        component.goToPreviousChapter()
+        ;(
+          routeMock as { queryParamMap: BehaviorSubject<Map<string, string>> }
+        ).queryParamMap.next(new Map())
+        expect(component.isNavigatingBackwards).toBe(true)
+        goTo(2)
+        load.next(chapter(2))
+        endSlide()
+        await new Promise((resolve) => setTimeout(resolve))
+
+        expect(animationServiceSpy.triggerSlideOutAnimation).toHaveBeenCalled()
+        expect(component.chapterNumber).toBe(2)
+        expect(animationServiceSpy.scrollToTop.mock.lastCall?.[3]).toBe(true)
+      })
+
+      // 2, 3, then 2 again in one slide: the first 2's failure, waiting on
+      // the slide, read as the last request's and threw it away.
+      it("lets only the last request for a chapter land, not an earlier one's failure", async () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        const first = new Subject<Chapter>()
+        const third = new Subject<Chapter>()
+        const again = new Subject<Chapter>()
+        apiServiceSpy.getChapter
+          .mockReturnValueOnce(first)
+          .mockReturnValueOnce(third)
+          .mockReturnValueOnce(again)
+
+        component.goToNextChapter()
+        goTo(2)
+        first.error(new Error("Offline"))
+        component.goToNextChapter()
+        goTo(3)
+        component.goToPreviousChapter()
+        goTo(2)
+        again.next(chapter(2))
+        endSlide()
+        await new Promise((resolve) => setTimeout(resolve))
+
+        expect(component.chapterNumber).toBe(2)
+        expect(snackBarSpy.open).not.toHaveBeenCalled()
+      })
+
       // Stepping back opens a chapter at its end; not the one gone back to.
       it("opens the chapter gone back to at its start", () => {
         component.isNavigatingBackwards = true
@@ -2430,6 +2745,43 @@ describe("BibleReaderComponent", () => {
         apiServiceSpy.getChapter.mockReturnValue(of(chapter(1)))
         goTo(1)
 
+        expect(component.isNavigatingBackwards).toBe(false)
+        expect(animationServiceSpy.scrollToTop.mock.lastCall?.[3]).toBe(false)
+      })
+
+      // Gn 3, ‹ to Gn 2, then Êxodo 2 picked before it came: the same chapter
+      // number read as the step's, and Êxodo 2 opened at its end.
+      it("opens another book's chapter of the same number at its start", () => {
+        const exodus = {
+          id: "exo",
+          name: "Êxodo",
+          urlAbrv: "ex",
+          chapterCount: 40,
+        } as unknown as Book
+        bookServiceSpy.findBook.mockImplementation((id: string) =>
+          id === "exo" ? exodus : (mockBooks[0] as unknown as Book),
+        )
+        apiServiceSpy.getChapter.mockReturnValue(of(chapter(3)))
+        component.getChapter(3)
+        // Rendering chapter 3 set the drawer query to the bare element.
+        component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+        apiServiceSpy.getChapter.mockReturnValue(load)
+
+        component.goToPreviousChapter()
+        goTo(2)
+        apiServiceSpy.getChapter.mockReturnValue(
+          of({ bookId: "exo", number: 2, verses: [] } as unknown as Chapter),
+        )
+        ;(
+          routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+        ).paramMap.next(
+          new Map([
+            ["book", "exo"],
+            ["chapter", "2"],
+          ]),
+        )
+
+        expect(component.book.id).toBe("exo")
         expect(component.isNavigatingBackwards).toBe(false)
         expect(animationServiceSpy.scrollToTop.mock.lastCall?.[3]).toBe(false)
       })
@@ -2535,7 +2887,6 @@ describe("BibleReaderComponent", () => {
       bookServiceSpy.getUrlAbrv.mockImplementation((book: Book) => book.id)
       fixture.detectChanges()
       component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
-      const nextChapterLink = component.nextChapterLink
 
       bookServiceSpy.findBook.mockReturnValue({
         id: "jhn",
@@ -2563,7 +2914,8 @@ describe("BibleReaderComponent", () => {
       expect(component.chaptersWithIntro.some((c) => c.number === 0)).toBe(
         false,
       )
-      expect(component.nextChapterLink).toEqual(nextChapterLink)
+      // The shown book's, not John's.
+      expect(component.nextChapterLink).toEqual(["/", "gen", "2"])
     })
 
     // /ex/intro on a book without one sets chapter 1 before loading it: on a
@@ -2702,7 +3054,10 @@ describe("BibleReaderComponent", () => {
     it("steps like the swipes do", () => {
       at(2)
       component.stepForward()
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"])
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "3"],
+        STEP,
+      )
     })
 
     it("opens the passage picked", () => {
@@ -2782,6 +3137,27 @@ describe("BibleReaderComponent", () => {
         "1-genesis",
         "intro",
       ])
+    })
+
+    // A step on from chapter 1 moved the shared ‹ link to chapter 1: the card,
+    // still there while chapter 2 came, led back to chapter 1.
+    it("still leads to the introduction while a step on is under way", async () => {
+      const cardFixture = await readerAt(1, { introduction: true })
+      const reader = cardFixture.componentInstance
+      routerSpy.navigate.mockReturnValue(new Promise(() => {}))
+      reader.goToNextChapter()
+      cardFixture.detectChanges()
+
+      // What the card links to, while ‹ points past chapter 2's way.
+      expect(reader.introLink).toEqual(["/", "1-genesis", "intro"])
+      const [intro] = cards(cardFixture)
+      intro.nativeElement.dispatchEvent(
+        new MouseEvent("click", { button: 0, cancelable: true }),
+      )
+
+      // The step it takes heads for the introduction: › goes on to chapter 1.
+      expect(reader.isNavigatingBackwards).toBe(true)
+      expect(reader.nextChapterLink).toEqual(["/", "1-genesis", "1"])
     })
 
     it("has nothing above chapter 1 of a book without an introduction", async () => {

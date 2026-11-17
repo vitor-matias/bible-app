@@ -158,4 +158,6 @@ topmost one before it navigates (`AppComponent.handleBackButton`). On the websit
 behaviour (redirects, 404s, caching, headers, HTTP/2, how the prerendered pages are
 delivered) from it: production serves the same `dist/bible-app/browser` from its own web
 server. `injectSpeedInsights()` in `app.component.ts` only runs on Vercel hosts
-(`isVercelHost`), so Speed Insights data exists for the preview only.
+(`isVercelHost`), so Speed Insights data exists for the preview only. Security headers
+(CSP and the rest) are in `vercel.json` for the preview and in
+[security-headers.md](security-headers.md) for production's nginx.

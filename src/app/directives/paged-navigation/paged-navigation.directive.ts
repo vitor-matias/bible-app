@@ -298,7 +298,11 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     element: HTMLElement,
     advanceWidth: number,
   ): { first: number; last: number } {
-    const rects = element.getClientRects()
+    // Not the space before a verse's number, left empty at the foot of the
+    // page before when the number opens a page: it sent the verse back a page.
+    const rects = Array.from(element.getClientRects()).filter(
+      (rect) => rect.width > 0,
+    )
     const box = element.getBoundingClientRect()
     const origin =
       this.container.getBoundingClientRect().left - this.container.scrollLeft

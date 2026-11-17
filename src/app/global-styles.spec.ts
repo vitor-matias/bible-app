@@ -3,6 +3,7 @@ import { TestBed } from "@angular/core/testing"
 import { MatButton } from "@angular/material/button"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { provideNoopAnimations } from "@angular/platform-browser/animations"
+import { page } from "vitest/browser"
 import { RIBBON_COLORS } from "./services/bookmark-ribbons.service"
 import { contrastRatio } from "./testing/contrast"
 import { moreContrast } from "./testing/forced-colors"
@@ -46,6 +47,54 @@ describe("global styles", () => {
     ) as HTMLElement
     expect(snackBar).toBeTruthy()
     expect(getComputedStyle(snackBar).marginBottom).toBe("108px")
+  })
+
+  // On a phone the way back ("Voltar para Mateus 5,1") covered the reader's
+  // ‹ › chapter arrows at the foot of the screen.
+  describe("over the reader's chapter arrows on a phone", () => {
+    let arrow: HTMLElement
+
+    beforeEach(async () => {
+      await page.viewport(393, 600)
+      arrow = document.createElement("a")
+      arrow.className = "floating-nav-button"
+      document.body.append(arrow)
+    })
+
+    afterEach(async () => {
+      arrow.remove()
+      document.body.classList.remove("native-chrome")
+      await page.viewport(800, 600)
+    })
+
+    const openToast = () => {
+      TestBed.createComponent(HostComponent)
+      TestBed.inject(MatSnackBar).open("Voltar para Mateus 5,1", "Fechar")
+      return Array.from(
+        document.querySelectorAll(".mat-mdc-snack-bar-container"),
+      ).at(-1) as HTMLElement
+    }
+
+    it("lifts the toast above them", () => {
+      // 52px up and 48px tall, above the inset, as the arrows are.
+      expect(getComputedStyle(openToast()).marginBottom).toBe("208px")
+    })
+
+    // Lifted by a margin, its pane still spanned the arrows and took their taps.
+    // (Specs load no overlay positioning, so the toast is not at the foot
+    // here: what takes the taps is checked instead.)
+    it("leaves the arrows' taps to them", () => {
+      const toast = openToast()
+      const pane = toast.closest(".cdk-overlay-pane") as HTMLElement
+
+      expect(getComputedStyle(pane).pointerEvents).toBe("none")
+      expect(getComputedStyle(toast).pointerEvents).toBe("auto")
+    })
+
+    it("leaves it in place in the apps, which draw no arrows of their own", () => {
+      document.body.classList.add("native-chrome")
+      expect(getComputedStyle(openToast()).marginBottom).toBe("108px")
+    })
   })
 
   // In the light theme the action ("OK", "Fechar") was black on the dark

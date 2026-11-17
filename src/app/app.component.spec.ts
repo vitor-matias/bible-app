@@ -17,6 +17,7 @@ import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
 import { PreferencesService } from "./services/preferences.service"
 import { ToastService } from "./services/toast.service"
+import { UpdatePromptService } from "./services/update-prompt.service"
 import { createSpyObj, type SpyObj } from "./testing/spy-obj"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
 
@@ -34,14 +35,21 @@ describe("AppComponent", () => {
   }
   let toastSpy: SpyObj<ToastService>
   let appPromoSpy: SpyObj<AppPromoService>
+  let updatePromptSpy: SpyObj<UpdatePromptService>
 
   beforeEach(async () => {
     pageHostname = "localhost"
     routerSpy = createSpyObj("Router", ["navigateByUrl", "navigate"])
-    mockAppPlugin = createSpyObj("App", ["addListener", "minimizeApp"])
+    mockAppPlugin = createSpyObj("App", [
+      "addListener",
+      "minimizeApp",
+      "getLaunchUrl",
+    ])
+    mockAppPlugin.getLaunchUrl.mockResolvedValue({})
     dialogStub = { openDialogs: [] }
     toastSpy = createSpyObj("ToastService", ["show"])
     appPromoSpy = createSpyObj("AppPromoService", ["scheduleOnce"])
+    updatePromptSpy = createSpyObj("UpdatePromptService", ["init"])
 
     const offlineDataSpy = createSpyObj("OfflineDataService", [
       "preloadAllBooksAndChapters",
@@ -67,6 +75,7 @@ describe("AppComponent", () => {
         { provide: NativeShellService, useValue: nativeShellSpy },
         { provide: ToastService, useValue: toastSpy },
         { provide: AppPromoService, useValue: appPromoSpy },
+        { provide: UpdatePromptService, useValue: updatePromptSpy },
         { provide: PAGE_HOSTNAME, useFactory: () => pageHostname },
       ],
     }).compileComponents()
@@ -199,6 +208,7 @@ describe("AppComponent", () => {
 
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
         queryParams: { q: "Salmo 23" },
+        replaceUrl: false,
       })
     } finally {
       history.replaceState(null, "", originalUrl)
@@ -221,6 +231,7 @@ describe("AppComponent", () => {
 
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
         queryParams: { q: "Salmo 23" },
+        replaceUrl: false,
       })
     } finally {
       history.replaceState(null, "", originalUrl)
@@ -246,6 +257,16 @@ describe("AppComponent", () => {
     TestBed.createComponent(AppComponent).detectChanges()
 
     expect(appPromoSpy.scheduleOnce).toHaveBeenCalled()
+  })
+
+  it("should start watching for a new version on startup", () => {
+    mockAppPlugin.addListener.mockResolvedValue({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+
+    TestBed.createComponent(AppComponent).detectChanges()
+
+    expect(updatePromptSpy.init).toHaveBeenCalled()
   })
 
   it("should setup app links listener on native platform", () => {
@@ -295,7 +316,109 @@ describe("AppComponent", () => {
 
     expect(routerSpy.navigateByUrl).toHaveBeenCalledWith(
       "/book/gn/1?query=test#hash",
+      { replaceUrl: false },
     )
+  })
+
+  describe("the link that launched the app", () => {
+    const link = "https://biblia.capuchinhos.org/indice/amor"
+    let openUrl: (event: URLOpenListenerEvent) => void
+    /** Answers the second getLaunchUrl, which comes after any held link. */
+    let answerAfterHeldLink: () => void
+
+    beforeEach(() => {
+      openUrl = () => {}
+      mockAppPlugin.getLaunchUrl.mockResolvedValueOnce({ url: link })
+      mockAppPlugin.getLaunchUrl.mockReturnValueOnce(
+        new Promise((resolve) => {
+          answerAfterHeldLink = () => resolve({ url: link })
+        }),
+      )
+      mockAppPlugin.addListener.mockImplementation(((
+        eventName: string,
+        callback: (event: URLOpenListenerEvent) => void,
+      ) => {
+        if (eventName === "appUrlOpen") openUrl = callback
+        return Promise.resolve({
+          remove: async () => {},
+        } as unknown as PluginListenerHandle)
+        // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+      }) as any)
+      TestBed.createComponent(AppComponent).detectChanges()
+    })
+
+    // A cold link pushed onto "/", so Back showed the last passage read
+    // before the exit toast.
+    it("opens in place of the start page", async () => {
+      await Promise.resolve()
+      ngZone.run(() => openUrl({ url: link }))
+      answerAfterHeldLink()
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/indice/amor", {
+        replaceUrl: true,
+      })
+
+      // The same link again, from a running app, is a page of its own.
+      ngZone.run(() => openUrl({ url: link }))
+      expect(routerSpy.navigateByUrl).toHaveBeenLastCalledWith("/indice/amor", {
+        replaceUrl: false,
+      })
+    })
+
+    // An activity recreated from saved state still reports its launch URL,
+    // but MainActivity drops the replayed link: tapping it later replaced
+    // the passage being read.
+    it("is a page of its own once the start has passed without it", async () => {
+      answerAfterHeldLink()
+      await new Promise((resolve) => setTimeout(resolve))
+      ngZone.run(() => openUrl({ url: link }))
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/indice/amor", {
+        replaceUrl: false,
+      })
+    })
+  })
+
+  // MainActivity rewrites a share that starts the app into a share-target URL
+  // on the root; Back from what it opens showed the last passage read.
+  describe("the share that launched the app", () => {
+    let openUrl: (event: URLOpenListenerEvent) => void
+
+    const launchWith = async (link: string) => {
+      openUrl = () => {}
+      mockAppPlugin.getLaunchUrl.mockResolvedValueOnce({ url: link })
+      mockAppPlugin.getLaunchUrl.mockReturnValueOnce(new Promise(() => {}))
+      mockAppPlugin.addListener.mockImplementation(((
+        eventName: string,
+        callback: (event: URLOpenListenerEvent) => void,
+      ) => {
+        if (eventName === "appUrlOpen") openUrl = callback
+        return Promise.resolve({
+          remove: async () => {},
+        } as unknown as PluginListenerHandle)
+        // biome-ignore lint/suspicious/noExplicitAny: Mocking Capacitor plugin
+      }) as any)
+      TestBed.createComponent(AppComponent).detectChanges()
+      await Promise.resolve()
+      ngZone.run(() => openUrl({ url: link }))
+    }
+
+    it("opens its search in place of the start page", async () => {
+      await launchWith("https://biblia.capuchinhos.org/?text=amai-vos")
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
+        queryParams: { q: "amai-vos" },
+        replaceUrl: true,
+      })
+    })
+
+    it("opens its link in place of the start page", async () => {
+      await launchWith(
+        `https://biblia.capuchinhos.org/?text=${encodeURIComponent(
+          "Lê isto: https://biblia.capuchinhos.org/mc/7",
+        )}`,
+      )
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/mc/7", {
+        replaceUrl: true,
+      })
+    })
   })
 
   it("should not route when invalid domain app link is opened", async () => {
@@ -497,6 +620,7 @@ describe("AppComponent", () => {
       )
       expect(routerSpy.navigate).toHaveBeenCalledWith(["/search"], {
         queryParams: { q: "amai-vos uns aos outros" },
+        replaceUrl: false,
       })
       expect(routerSpy.navigateByUrl).not.toHaveBeenCalled()
     })
@@ -508,13 +632,17 @@ describe("AppComponent", () => {
           "Lê isto: https://biblia.capuchinhos.org/mc/7.",
         )}`,
       )
-      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/mc/7")
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/mc/7", {
+        replaceUrl: false,
+      })
       expect(routerSpy.navigate).not.toHaveBeenCalled()
     })
 
     it("still opens plain app links on the root", () => {
       openUrl("https://biblia.capuchinhos.org/?ref=x")
-      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/?ref=x")
+      expect(routerSpy.navigateByUrl).toHaveBeenCalledWith("/?ref=x", {
+        replaceUrl: false,
+      })
     })
   })
 })

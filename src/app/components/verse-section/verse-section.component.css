@@ -44,6 +44,14 @@
   margin: 0 auto;
 }
 
+/* At the largest sizes the number leaves it a word's width or less, and its
+   words broke ("PASTO/R"): it goes below the number, a line wide. */
+:host-context(.large-text) .center.besideChapterNumber {
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
 * {
   user-select: text !important;
   -webkit-user-select: text !important;

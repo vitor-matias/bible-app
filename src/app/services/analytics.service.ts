@@ -14,15 +14,21 @@ export const DELIVERY_TIMEOUT_MS = 15_000
  */
 export const BUILD_DATA_WAIT_MS = 3_000
 
+/** How long the tracker waits for the first page before it goes in anyway. */
+export const TRACKER_FALLBACK_MS = 5_000
+
 /** Settles once the script from loadTracker has loaded or failed. */
 let trackerSettled: Promise<unknown> = Promise.resolve()
 
 /**
- * Sets Umami's hook, then inserts its script. Not a tag in index.html: the
- * bundle would wait behind a deferred one, for minutes if the server never
- * replies, and an async one can send its first page view before the hook.
+ * Sets Umami's hook, then inserts its script once `pageReady` settles. Not a
+ * tag in index.html: the bundle would wait behind a deferred one, for minutes
+ * if the server never replies, and an async one can send its first page view
+ * before the hook. The first page view and app_open, held until then, carry
+ * document.title, which the first page sets only once it has loaded. A page
+ * that never settles still gets the script after TRACKER_FALLBACK_MS.
  */
-export function loadTracker(): void {
+export function loadTracker(pageReady: Promise<unknown>): void {
   window.umamiBeforeSend = prepareUmamiPayload
   const tracker = document.createElement("script")
   tracker.src = "https://umami.dojo.pt/script.js"
@@ -31,7 +37,15 @@ export function loadTracker(): void {
   trackerSettled = new Promise((settled) => {
     tracker.onload = tracker.onerror = settled
   })
-  document.head.append(tracker)
+  let inserted = false
+  const insert = () => {
+    if (inserted) return
+    inserted = true
+    clearTimeout(fallback)
+    document.head.append(tracker)
+  }
+  const fallback = setTimeout(insert, TRACKER_FALLBACK_MS)
+  pageReady.then(insert, insert)
 }
 
 @Injectable({
@@ -101,7 +115,7 @@ export class AnalyticsService {
       language: navigator.language,
       title: document.title,
       hostname: location.hostname,
-      url: location.href,
+      url: reportUrl(location.href),
       referrer: "",
       name: eventName,
       data: {
@@ -197,6 +211,22 @@ export interface UmamiPayload {
   hostname?: string
   tag?: string
   [field: string]: unknown
+}
+
+/** Of a report's query, what helps find the problem: the verses read. */
+const REPORT_PARAMS = ["verseStart", "verseEnd"]
+
+/** The page a report was sent from, with no query beyond REPORT_PARAMS. */
+export function reportUrl(href: string): string {
+  const url = new URL(href)
+  const kept = new URLSearchParams()
+  for (const param of REPORT_PARAMS) {
+    const value = url.searchParams.get(param)
+    if (value !== null) kept.set(param, value)
+  }
+  const query = kept.toString()
+  // Not url.origin: it is "null" for the iOS shell's capacitor://localhost.
+  return `${url.protocol}//${url.host}${url.pathname}${query ? `?${query}` : ""}`
 }
 
 /** What the reader searched or shared, in /search?q= and share-target URLs. */

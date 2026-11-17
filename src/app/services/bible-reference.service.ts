@@ -131,15 +131,18 @@ export class BibleReferenceService {
     //  - same-chapter:  Book <sp> Chapter [:.,] v1 [- v2]
     //  - cross-chapter: Book <sp> Chapter [:.,] v1 - endCh [:,] endV
     // Note: cross-chapter branch FIRST to handle "Jb 38,1-39,30" correctly.
+    // The space after the book may be left out ("Is50,5-9a", "1Cor13,4"),
+    // but only before chapter and verse (extract skips a bare "Is50").
     const pattern =
-      String.raw`\b(?<book>${this.bookAlternation})\s+(?<chapter>\d+)` +
+      String.raw`\b(?<book>${this.bookAlternation})(?<gap>\s*)(?<chapter>\d+)` +
       String.raw`(?:\s*(?:[:.]|,(?!\s))\s*(?<v1>\d+(?:[a-c]{1,2})?)` +
       String.raw`(?:\s*[-\u2010-\u2015\u2212]\s*(?:(?<endCh>\d+)\s*(?::|,(?!\s))\s*(?<endV>\d+(?:[a-c]{1,2})?)|(?<v2>\d+(?:[a-c]{1,2})?)))?` +
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")
+    // Spaceless too, like explicitRe: else «Jo 3,16, 1Cor13,4» read «1» as a verse.
     this.nextBookRe = new RegExp(
-      String.raw`^(?:\s*\(n\))?(?:\s*,\s*|\.\s+)(?:${this.bookAlternation})\s+\d`,
+      String.raw`^(?:\s*\(n\))?(?:\s*,\s*|\.\s+)(?:${this.bookAlternation})\s*\d`,
       "i",
     )
   }
@@ -176,6 +179,7 @@ export class BibleReferenceService {
       const gs = m.groups as
         | {
             book: string
+            gap: string
             chapter: string
             v1?: string
             v2?: string
@@ -184,6 +188,8 @@ export class BibleReferenceService {
           }
         | undefined
       if (!gs) continue
+      // A word run into a number ("Is50", "Sl2") is not taken for a book.
+      if (!gs.gap && !gs.v1) continue
 
       const start = m.index ?? 0
       const book = gs.book.trim()
