@@ -42,7 +42,6 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.rememberBottomSheetState
@@ -277,7 +276,7 @@ private fun AppearanceSheet(chrome: ChromeController, sheet: Sheet) {
 }
 
 /**
- * "Tamanho do texto: 120 %", Repor, and − and + in steps of 10, off at
+ * "Tamanho do texto: 120 %", and − and + in steps of 10, off at
  * either end of the range. Buttons rather than a slider: dragging is hard
  * with a tremor, and a switch can't drag.
  */
@@ -297,9 +296,6 @@ private fun TextSizeControls(chrome: ChromeController, size: TextSize?, compact:
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        if (size != null) {
-            TextButton(onClick = { chrome.send("font-reset") }, enabled = size.canReset) { Text("Repor") }
-        }
     }
     ConnectedButtons(
         listOf(
