@@ -74,11 +74,14 @@ export class VerseCardsComponent
   /** The host's scroller, found once the cards are in the page. */
   private scroller?: HTMLElement
   private isScrolling = false
+  /** Scroll events so far: how a stop tells a scroll onto it from its own box moving. */
+  private scrolls = 0
   private scrollIdleTimer?: ReturnType<typeof setTimeout>
   /** Stops the reader has arrived on while the scroll was still moving. */
   private arrivals = new Set<EventEmitter<void>>()
 
   private readonly onScroll = (): void => {
+    this.scrolls += 1
     this.isScrolling = true
     clearTimeout(this.scrollIdleTimer)
     this.scrollIdleTimer = setTimeout(
@@ -158,6 +161,12 @@ export class VerseCardsComponent
    * it asked for loads, and again only after the reader has left it and come
    * back, which is also how a failed load is retried.
    *
+   * Leaving and coming back takes a scroll in between: the stop's own box
+   * moving is not the reader moving. A chapter that fails to load slides the
+   * reader 60px aside and back, which shows 84% of a phone-wide stop and then
+   * all of it again; taken for an arrival, that asked for the chapter again
+   * after every failure, without the reader touching the screen.
+   *
    * Judged by the ratio, not isIntersecting: engines disagree on whether that
    * flag is already true below the threshold, where it would fire on the
    * first sliver of the stop peeking in.
@@ -174,15 +183,20 @@ export class VerseCardsComponent
     reached: EventEmitter<void>,
   ): IntersectionObserver | undefined {
     if (!stop || typeof IntersectionObserver === "undefined") return undefined
-    let seenAway = false
+    // The scroll count when the stop was last seen off screen, once it has been.
+    let awayAt: number | undefined
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.intersectionRatio < STOP_REACHED_RATIO) {
-            seenAway = true
+            awayAt = this.scrolls
             this.arrivals.delete(reached)
-          } else if (seenAway) {
-            seenAway = false
+          } else if (
+            awayAt !== undefined &&
+            // With no scroller to listen to, any return has to count.
+            (!this.scroller || this.scrolls > awayAt)
+          ) {
+            awayAt = undefined
             if (this.isScrolling) {
               this.arrivals.add(reached)
             } else {

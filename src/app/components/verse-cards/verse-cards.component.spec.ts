@@ -311,10 +311,13 @@ describe("VerseCardsComponent", () => {
       return observer
     }
 
-    /** The reader swipes past the last verse: the stop comes on screen mid-glide. */
+    /**
+     * The reader swipes past the last verse: the stop, off screen while the
+     * chapter was read, comes on screen mid-glide.
+     */
     function flingOntoEndStop(): void {
-      scroller.dispatchEvent(new Event("scroll"))
       observerOf(".end-card").report(0)
+      scroller.dispatchEvent(new Event("scroll"))
       observerOf(".end-card").report(1)
     }
 
@@ -370,18 +373,50 @@ describe("VerseCardsComponent", () => {
       expect(host.componentInstance.reachedEnd).not.toHaveBeenCalled()
     })
 
+    // Regression: a chapter that fails to load slides the reader 60px aside
+    // and back. On a phone that showed 84% of the stop, then all of it again,
+    // and each time the stop asked for the chapter once more.
+    it("does not take the stop's own box moving for the reader leaving and coming back", () => {
+      flingOntoEndStop()
+      scroller.dispatchEvent(new Event("scrollend"))
+      expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
+
+      // The reader rests on the stop; the slide comes and goes, with no scroll.
+      observerOf(".end-card").report(0.84)
+      observerOf(".end-card").report(1)
+
+      expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
+    })
+
+    it("asks again once the reader has scrolled off the stop and back, which is the retry", () => {
+      flingOntoEndStop()
+      scroller.dispatchEvent(new Event("scrollend"))
+      observerOf(".end-card").report(0.84)
+      observerOf(".end-card").report(1)
+
+      scroller.dispatchEvent(new Event("scroll"))
+      observerOf(".end-card").report(0)
+      scroller.dispatchEvent(new Event("scroll"))
+      observerOf(".end-card").report(1)
+      scroller.dispatchEvent(new Event("scrollend"))
+
+      expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(2)
+    })
+
     it("asks straight away when the view is already at rest", () => {
-      // A jump (a keyboard End, a programmatic scroll) can be over before the
+      // A jump (a keyboard End, a programmatic scroll) is over before the
       // observer reports; waiting for a scrollend then would wait for ever.
       observerOf(".end-card").report(0)
+      scroller.dispatchEvent(new Event("scroll"))
+      scroller.dispatchEvent(new Event("scrollend"))
       observerOf(".end-card").report(1)
 
       expect(host.componentInstance.reachedEnd).toHaveBeenCalledTimes(1)
     })
 
     it("holds the leading stop to the same rule", () => {
-      scroller.dispatchEvent(new Event("scroll"))
       observerOf(".start-card").report(0)
+      scroller.dispatchEvent(new Event("scroll"))
       observerOf(".start-card").report(1)
       expect(host.componentInstance.reachedStart).not.toHaveBeenCalled()
 
