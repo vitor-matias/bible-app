@@ -41,8 +41,8 @@
         [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
         (pageStateChange)="onPageStateChange($event)">
         @if (showChapterCards && introCard) {
-        <a class="chapter-card chapter-card-previous" [routerLink]="previousChapterLink" [replaceUrl]="replaceChapterHistory"
-          (click)="prepareChapterNavigation(false, $event)">
+        <a class="chapter-card chapter-card-previous" [routerLink]="introLink" [replaceUrl]="replaceChapterHistory" [info]="chapterStep"
+          (click)="prepareChapterNavigation(false, $event, 0)">
           <mat-icon aria-hidden="true">arrow_back</mat-icon>
           <span class="chapter-card-text">
             <span class="chapter-card-kicker">Antes do capítulo 1</span>
@@ -70,7 +70,7 @@
           }
         </div>
         @if (showChapterCards && nextBook) {
-        <a class="chapter-card chapter-card-next" [routerLink]="nextBookLink" [replaceUrl]="replaceChapterHistory"
+        <a class="chapter-card chapter-card-next" [routerLink]="nextBookLink" [replaceUrl]="replaceChapterHistory" [info]="chapterStep"
           (click)="prepareBookNavigation($event)">
           <span class="chapter-card-text">
             <span class="chapter-card-kicker">Livro seguinte</span>
@@ -95,7 +95,7 @@
       @if (canGoPrevious) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button prev-chapter" mat-mini-fab aria-label="Capítulo anterior"
-        [routerLink]="previousChapterLink" [replaceUrl]="replaceChapterHistory" (click)="prepareChapterNavigation(false, $event)">
+        [routerLink]="previousChapterLink" [replaceUrl]="replaceChapterHistory" [info]="chapterStep" (click)="prepareChapterNavigation(false, $event)">
         <mat-icon>chevron_left</mat-icon>
       </a>
       } @else {
@@ -112,7 +112,7 @@
       @if (canGoNext) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button next-chapter" mat-mini-fab aria-label="Capítulo seguinte"
-        [routerLink]="nextChapterLink" [replaceUrl]="replaceChapterHistory" (click)="prepareChapterNavigation(true, $event)">
+        [routerLink]="nextChapterLink" [replaceUrl]="replaceChapterHistory" [info]="chapterStep" (click)="prepareChapterNavigation(true, $event)">
         <mat-icon>chevron_right</mat-icon>
       </a>
       } @else {

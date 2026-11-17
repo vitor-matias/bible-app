@@ -245,6 +245,27 @@ describe("VerseSectionComponent", () => {
       expect(heading.previousElementSibling).toBeNull()
     })
 
+    // At the largest sizes the number left it a word's width or less: «O BOM
+    // PASTOR» broke «PASTO/R», one letter a line at 320 px.
+    it("goes below the chapter number, a line wide, at the largest text sizes", () => {
+      const host = fixture.nativeElement as HTMLElement
+      const container = document.createElement("div")
+      container.className = "text-container large-text"
+      container.style.width = "800px"
+      const number = document.createElement("div")
+      number.style.cssText = "float: left; width: 100px; height: 40px"
+      host.before(container)
+      container.append(number, host)
+
+      const heading = render({ changeLine: false, beside: true })
+      const box = heading.getBoundingClientRect()
+      const numberBottom = number.getBoundingClientRect().bottom
+      container.replaceWith(host)
+
+      expect(box.top).toBeGreaterThanOrEqual(numberBottom)
+      expect(box.width).toBeCloseTo(800, 0)
+    })
+
     it("leaves a heading that runs into the text inline, with no break before it", () => {
       fixture.componentRef.setInput("changeLine", true)
       setData(
