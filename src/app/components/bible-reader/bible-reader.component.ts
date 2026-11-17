@@ -392,14 +392,22 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
         const tempBook = this.bookService.findBook(bookParam)
 
-        // A step on its way goes with any other route than its own chapter
-        // of its own book (Back, a ribbon, a link, a pick), its direction
-        // and links with it. Flags no tap set go with a load not theirs.
+        // A step on its way goes with a route to another chapter than its own
+        // (Back, a ribbon, a link, a pick), its direction and links with it.
+        // Not with the chapter shown while nothing else loads: leaving
+        // /gn/3?verseStart=5, the new query comes first, paired with the old
+        // chapter. Flags no tap set go with a load not theirs.
         const stepHere = this.slideTo
           ? chapterParam === this.slideTo.chapter &&
             tempBook.id === this.slideTo.bookId
           : this.pendingChapter === this.chapterNumber
-        if (this.changingChapter && !stepHere) this.clearChapterSlide()
+        const shownHere =
+          chapterParam === this.chapterNumber &&
+          tempBook.id === this.book.id &&
+          this.pendingChapter === this.chapterNumber
+        if (this.changingChapter && !stepHere && !shownHere) {
+          this.clearChapterSlide()
+        }
 
         if (
           this.book.id === tempBook.id &&

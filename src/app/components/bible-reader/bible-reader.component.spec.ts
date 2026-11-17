@@ -2663,6 +2663,34 @@ describe("BibleReaderComponent", () => {
         expect(component.nextChapterLink).toEqual(["/", "1-genesis", "5"])
       })
 
+      // ‹ from /gn/3?verseStart=5: the router sends the new query first,
+      // paired with chapter 3, and that dropped the step. Chapter 2 came
+      // with no slide, at its start.
+      it("keeps a step through the query that comes before its chapter", async () => {
+        const third = new Subject<Chapter>()
+        apiServiceSpy.getChapter.mockReturnValue(third)
+        goTo(3, ["verseStart", "5"])
+        third.next(chapter(3))
+        // Rendering chapter 3 set the drawer query to the bare element.
+        component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+        apiServiceSpy.getChapter.mockReturnValue(load)
+        expect(component.chapterNumber).toBe(3)
+
+        component.goToPreviousChapter()
+        ;(
+          routeMock as { queryParamMap: BehaviorSubject<Map<string, string>> }
+        ).queryParamMap.next(new Map())
+        expect(component.isNavigatingBackwards).toBe(true)
+        goTo(2)
+        load.next(chapter(2))
+        endSlide()
+        await new Promise((resolve) => setTimeout(resolve))
+
+        expect(animationServiceSpy.triggerSlideOutAnimation).toHaveBeenCalled()
+        expect(component.chapterNumber).toBe(2)
+        expect(animationServiceSpy.scrollToTop.mock.lastCall?.[3]).toBe(true)
+      })
+
       // Stepping back opens a chapter at its end; not the one gone back to.
       it("opens the chapter gone back to at its start", () => {
         component.isNavigatingBackwards = true
