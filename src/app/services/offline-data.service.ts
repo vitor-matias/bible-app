@@ -52,8 +52,10 @@ export class OfflineDataService implements OnDestroy {
    * Subsequent calls are skipped once the data is cached.
    */
   preloadAllBooksAndChapters(): Promise<void> {
+    // Joining a run that is ending must not cancel the retry it just armed.
+    if (this.preloadPromise) return this.preloadPromise
     clearTimeout(this.retryTimer)
-    this.preloadPromise ??= this.runPreload()
+    this.preloadPromise = this.runPreload()
       .then((failed) => this.scheduleRetry(failed))
       .finally(() => {
         this.preloadPromise = null

@@ -643,6 +643,40 @@ describe("OfflineDataService", () => {
       await vi.advanceTimersByTimeAsync(50)
     })
 
+    // A caller joining between the retry's arming and the run's end cleared
+    // the timer, then joined the finished run: no retry.
+    it("keeps the retry armed for a caller joining the run as it ends", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([introRecord])
+      const arm = globalThis.setTimeout
+      let joined = false
+      vi.spyOn(globalThis, "setTimeout").mockImplementation(((
+        handler: () => void,
+        ms?: number,
+      ) => {
+        const id = arm(handler, ms)
+        if (ms === PRELOAD_RETRY_BASE_MS && !joined) {
+          joined = true
+          queueMicrotask(() => void service.preloadAllBooksAndChapters())
+        }
+        return id
+      }) as typeof setTimeout)
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+      expect(joined).toBe(true)
+      httpMock.expectNone("v1/books?withChapters=true")
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(50)
+    })
+
     // Backgrounded and offline when the timer fired, the retry was dropped;
     // a reconnect the listener then missed left it for the next launch.
     it("keeps trying a failed download while offline, asking for the connection", async () => {
