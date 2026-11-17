@@ -9,7 +9,11 @@ import {
   Router,
 } from "@angular/router"
 import { filter, type Observable, take } from "rxjs"
-import { historyDepth, isPanelEntry } from "./depth-location-strategy"
+import {
+  historyDepth,
+  isPanelEntry,
+  setPanelPopFilter,
+} from "./depth-location-strategy"
 
 /** Closes one open panel; returns whether it closed anything. */
 export type BackCloser = () => boolean
@@ -38,6 +42,9 @@ export class BackButtonService {
   private syncQueued = false
   /** Set while the history goes back over a panel entry nothing needs now. */
   private leavingPanelEntry = false
+  /** Whether the current history entry is a panel's, and at what address. */
+  private onPanelEntry = false
+  private panelHref: string | null = null
 
   /**
    * Registers a closer; call the returned function to unregister it.
@@ -99,7 +106,21 @@ export class BackButtonService {
    */
   closeOnBrowserBack(): void {
     this.browserBack = true
-    const onPopState = () => {
+    this.onPanelEntry = isPanelEntry(window.history.state)
+    this.panelHref = this.onPanelEntry ? window.location.href : null
+    // Onto or off a panel's entry the page stays: Location doesn't pass the
+    // pop on to the router (DepthLocationStrategy), which navigated when a
+    // page had written the address itself (the index's themes, the reader's
+    // notes) and its own URL was behind. Location's listener runs first (the
+    // router made it before this service), while onPanelEntry is the left
+    // entry's.
+    setPanelPopFilter(
+      (state) =>
+        (this.onPanelEntry || isPanelEntry(state)) &&
+        window.location.href === this.panelHref,
+    )
+    const onPopState = (event: PopStateEvent) => {
+      this.onPanelEntry = isPanelEntry(event.state)
       if (this.leavingPanelEntry) {
         this.leavingPanelEntry = false
       } else if (this.anyOpen()) {
@@ -110,6 +131,7 @@ export class BackButtonService {
     window.addEventListener("popstate", onPopState)
     this.destroyRef.onDestroy(() => {
       this.browserBack = false
+      setPanelPopFilter(null)
       window.removeEventListener("popstate", onPopState)
     })
     this.dialog.afterOpened
@@ -129,7 +151,11 @@ export class BackButtonService {
         ),
         takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe(() => this.changed())
+      .subscribe(() => {
+        // A page opened from a panel took its entry (DepthLocationStrategy).
+        this.onPanelEntry = isPanelEntry(window.history.state)
+        this.changed()
+      })
     // A reload keeps the entry of a panel that is no longer open.
     this.changed()
   }
@@ -162,6 +188,8 @@ export class BackButtonService {
         },
         "",
       )
+      this.onPanelEntry = true
+      this.panelHref = window.location.href
     } else if (!open && isPanelEntry(state) && !this.leavingPanelEntry) {
       this.leavingPanelEntry = true
       window.history.back()

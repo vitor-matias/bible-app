@@ -1,4 +1,8 @@
-import { PathLocationStrategy, PlatformLocation } from "@angular/common"
+import {
+  type LocationChangeListener,
+  PathLocationStrategy,
+  PlatformLocation,
+} from "@angular/common"
 import { Injectable, inject } from "@angular/core"
 
 /**
@@ -15,9 +19,22 @@ export function isPanelEntry(state: unknown): boolean {
   return (state as { appPanel?: unknown } | null)?.appPanel === true
 }
 
+let panelPop: ((state: unknown) => boolean) | null = null
+
+/**
+ * Sets what says a popstate only went onto or off a panel's entry, which
+ * Location then keeps from the router (BackButtonService); null for none.
+ */
+export function setPanelPopFilter(
+  filter: ((state: unknown) => boolean) | null,
+): void {
+  panelPop = filter
+}
+
 /**
  * The router's location strategy, also keeping in each history entry how
- * many of the app's pages lie behind it.
+ * many of the app's pages lie behind it, and keeping from Location the pops
+ * that only open or close a panel.
  *
  * Android's WebView, like Chrome, skips on Back an entry the page left
  * without a tap on the page itself, and the native bars' buttons are not
@@ -27,6 +44,13 @@ export function isPanelEntry(state: unknown): boolean {
 @Injectable()
 export class DepthLocationStrategy extends PathLocationStrategy {
   private readonly platform = inject(PlatformLocation)
+
+  override onPopState(fn: LocationChangeListener): void {
+    super.onPopState((event) => {
+      if (event.type === "popstate" && panelPop?.(event.state)) return
+      fn(event)
+    })
+  }
 
   override pushState(
     state: unknown,

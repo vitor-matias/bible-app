@@ -1,8 +1,15 @@
+import {
+  BrowserPlatformLocation,
+  Location,
+  LocationStrategy,
+  PlatformLocation,
+} from "@angular/common"
 import { TestBed } from "@angular/core/testing"
-import { provideRouter, Router } from "@angular/router"
+import { NavigationStart, provideRouter, Router } from "@angular/router"
 import { Subject } from "rxjs"
 import type { Mock } from "vitest"
 import { BackButtonService, type BackCloser } from "./back-button.service"
+import { DepthLocationStrategy } from "./depth-location-strategy"
 
 describe("BackButtonService", () => {
   let service: BackButtonService
@@ -97,16 +104,21 @@ describe("BackButtonService on the website", () => {
 
   /** Runs the queued history sync. */
   const sync = () => vi.advanceTimersByTimeAsync(1)
-  /** Resolves on the next popstate, which history.back() fires later. */
-  const popState = () =>
-    new Promise<void>((resolve) =>
-      window.addEventListener("popstate", () => resolve(), { once: true }),
-    )
   const onPanelEntry = () => window.history.state?.appPanel === true
+  /** Waits for history.back(), which pops later, to have left the entry. */
+  const leftPanelEntry = () =>
+    vi.waitFor(() => expect(onPanelEntry()).toBe(false))
 
   beforeEach(() => {
     vi.useFakeTimers()
-    TestBed.configureTestingModule({ providers: [provideRouter([])] })
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter([{ path: "**", children: [] }]),
+        // The real address and history: TestBed mocks them by default.
+        { provide: PlatformLocation, useClass: BrowserPlatformLocation },
+        { provide: LocationStrategy, useClass: DepthLocationStrategy },
+      ],
+    })
     service = TestBed.inject(BackButtonService)
     open = false
     closer = vi.fn<BackCloser>(() => {
@@ -120,9 +132,8 @@ describe("BackButtonService on the website", () => {
   afterEach(async () => {
     // Leave no panel entry to the next spec.
     if (onPanelEntry()) {
-      const popped = popState()
       window.history.back()
-      await popped
+      await leftPanelEntry()
     }
   })
 
@@ -134,9 +145,8 @@ describe("BackButtonService on the website", () => {
     expect(onPanelEntry()).toBe(true)
     expect(window.location.href).toBe(url)
 
-    const popped = popState()
     window.history.back()
-    await popped
+    await leftPanelEntry()
 
     expect(closer).toHaveBeenCalledTimes(1)
     expect(open).toBe(false)
@@ -151,11 +161,9 @@ describe("BackButtonService on the website", () => {
 
     open = false
     service.changed()
-    const popped = popState()
     await sync()
-    await popped
+    await leftPanelEntry()
 
-    expect(onPanelEntry()).toBe(false)
     expect(closer).not.toHaveBeenCalled()
   })
 
@@ -197,14 +205,58 @@ describe("BackButtonService on the website", () => {
 
   it("leaves a panel's entry a reload kept, with the panel gone", async () => {
     window.history.pushState({ appPanel: true }, "")
-    const popped = popState()
     service.changed()
     await sync()
-    await popped
+    await leftPanelEntry()
 
-    expect(onPanelEntry()).toBe(false)
     expect(closer).not.toHaveBeenCalled()
   })
+
+  // The index writes a theme's address itself (Location.go), the reader drops
+  // its notes from the address (Location.replaceState): the router's URL was
+  // behind, and closing a menu or sheet over them navigated, which rebuilt the
+  // index (its open theme lost) and scrolled the reader to the verse again.
+  const pageWrites: [string, (location: Location, url: string) => void][] = [
+    ["a step it took itself", (location, url) => location.go(url)],
+    ["an address it replaced", (location, url) => location.replaceState(url)],
+  ]
+  for (const [name, write] of pageWrites) {
+    it(`keeps the router still over ${name}`, async () => {
+      const router = TestBed.inject(Router)
+      const location = TestBed.inject(Location)
+      const path = location.path()
+      router.initialNavigation()
+      await vi.waitFor(() => expect(router.navigated).toBe(true))
+      const starts: string[] = []
+      router.events.subscribe((event) => {
+        if (event instanceof NavigationStart) starts.push(event.url)
+      })
+      write(location, `${path.split("?")[0]}?tema=amor`)
+
+      try {
+        // Closed with its ✕ ...
+        open = true
+        service.changed()
+        await sync()
+        open = false
+        service.changed()
+        await sync()
+        await leftPanelEntry()
+        // ... and with Back.
+        open = true
+        service.changed()
+        await sync()
+        window.history.back()
+        await leftPanelEntry()
+        await vi.advanceTimersByTimeAsync(10)
+
+        expect(closer).toHaveBeenCalledTimes(1)
+        expect(starts).toEqual([])
+      } finally {
+        location.replaceState(path)
+      }
+    })
+  }
 
   it("adds no entry without closeOnBrowserBack, as in the apps", async () => {
     TestBed.resetTestingModule()
