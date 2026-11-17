@@ -96,7 +96,9 @@ export class ToastService {
   showReturnToIndex(slug: string): void {
     this.showWayBack(
       "Voltar para o Índice",
-      () => this.router.navigate(["/indice", slug]),
+      // `replaceUrl` after a step back to an /indice with every theme open.
+      (extras: NavigationExtras = {}) =>
+        this.router.navigate(["/indice", slug], extras),
       (url) => this.isIndex(url),
     )
   }

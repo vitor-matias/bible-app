@@ -137,7 +137,7 @@ describe("ToastService", () => {
       }
       expect(data.message).toBe("Voltar para o Índice")
       data.returnUrl()
-      expect(navigate).toHaveBeenCalledWith(["/indice", "amor"])
+      expect(navigate).toHaveBeenCalledWith(["/indice", "amor"], {})
     })
 
     it("is a button on the glass toast in the native apps", () => {
@@ -404,6 +404,26 @@ describe("ToastService", () => {
 
           expect(router.url).toBe("/gn/5?verseStart=1&highlight=false")
           expect(depth()).toBe((before ?? 0) + 1)
+        })
+
+        // From /indice with every theme open, back then onto the theme
+        // pushed /indice/amor: Back then led to the index again.
+        it("steps back to the index and opens the theme in that entry", async () => {
+          toast = create(false, true)
+          router = TestBed.inject(Router)
+          platform = TestBed.inject(PlatformLocation) as MockPlatformLocation
+          router.initialNavigation()
+          await router.navigateByUrl("/gn/4")
+          await router.navigateByUrl("/indice")
+          const origin = depth()
+          toast.showReturnToIndex("amor")
+          await router.navigateByUrl("/gn/1")
+
+          returnSnack().returnUrl()
+          await settle()
+
+          expect(router.url).toBe("/indice/amor")
+          expect(depth()).toBe(origin)
         })
       })
 
