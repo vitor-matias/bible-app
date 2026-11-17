@@ -1,5 +1,8 @@
-import { Location } from "@angular/common"
-import { provideLocationMocks } from "@angular/common/testing"
+import { Location, LocationStrategy, PlatformLocation } from "@angular/common"
+import {
+  MockPlatformLocation,
+  provideLocationMocks,
+} from "@angular/common/testing"
 import { ApplicationRef, Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import {
@@ -13,8 +16,9 @@ import type { Mock } from "vitest"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
 import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { BookService } from "./book.service"
+import { DepthLocationStrategy } from "./depth-location-strategy"
 import { NativeChromeService } from "./native-chrome.service"
-import { ToastService } from "./toast.service"
+import { CHAPTER_STEP, ToastService } from "./toast.service"
 
 @Component({ template: "" })
 class PassagePage {}
@@ -30,7 +34,7 @@ describe("ToastService", () => {
   /** What takes the glass toast down (NativeChromeService.toast). */
   let hideToast: Mock
 
-  function create(native: boolean): ToastService {
+  function create(native: boolean, appHistory = false): ToastService {
     snackClosed = new Subject()
     snackRef = createSpyObj("MatSnackBarRef", ["dismiss", "afterDismissed"])
     snackRef.afterDismissed.mockReturnValue(snackClosed)
@@ -49,8 +53,14 @@ describe("ToastService", () => {
           { path: ":book/:chapter", component: PassagePage },
           { path: "**", component: PassagePage },
         ]),
-        // History to step back through.
-        provideLocationMocks(),
+        // History to step back through: the app's own, which counts the
+        // entries, over a browser's.
+        appHistory
+          ? [
+              { provide: PlatformLocation, useClass: MockPlatformLocation },
+              { provide: LocationStrategy, useClass: DepthLocationStrategy },
+            ]
+          : provideLocationMocks(),
         {
           provide: BookService,
           useValue: {
@@ -127,7 +137,7 @@ describe("ToastService", () => {
       }
       expect(data.message).toBe("Voltar para o Índice")
       data.returnUrl()
-      expect(navigate).toHaveBeenCalledWith(["/indice", "amor"])
+      expect(navigate).toHaveBeenCalledWith(["/indice", "amor"], {})
     })
 
     it("is a button on the glass toast in the native apps", () => {
@@ -258,13 +268,50 @@ describe("ToastService", () => {
         expect(hideToast).toHaveBeenCalledTimes(1)
       })
 
-      it("keeps it while they read on, until they come back to its chapter", async () => {
+      /** The reader's ‹ › arrows, a swipe or an arrow key. */
+      const step = (url: string) =>
+        router.navigateByUrl(url, { info: CHAPTER_STEP })
+
+      it("keeps it while they read on with the chapter arrows", async () => {
         await followReference(false)
-        await router.navigateByUrl("/jo/2")
+        await step("/jo/2")
+        await step("/jo/3")
+
+        expect(snackRef.dismiss).not.toHaveBeenCalled()
+      })
+
+      it("takes it down once reading on brings them back to its chapter", async () => {
+        start(false)
+        await router.navigateByUrl("/gn/1")
+        toast.showReturn({ bookId: "gen", chapterNumber: 1, number: 1 })
+        await router.navigateByUrl("/gn/3?verseStart=2")
+        await step("/gn/2")
         expect(snackRef.dismiss).not.toHaveBeenCalled()
 
-        // The passage picker, say.
-        await router.navigateByUrl("/gn/1")
+        await step("/gn/1")
+
+        expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
+      })
+
+      // Owner's decision: it survived the passage picker, a search result, a
+      // ribbon, another reference. Only reading on keeps it.
+      for (const native of [false, true]) {
+        it(`takes it down on any other way to a passage${native ? " in the apps" : ""}`, async () => {
+          await followReference(native)
+
+          // The passage picker, a search result, a ribbon or another reference.
+          await router.navigateByUrl("/jo/5?verseStart=2")
+
+          if (native) expect(hideToast).toHaveBeenCalledTimes(1)
+          else expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
+        })
+      }
+
+      it("takes it down on a passage after a step", async () => {
+        await followReference(false)
+        await step("/jo/2")
+
+        await router.navigateByUrl("/ex/3")
 
         expect(snackRef.dismiss).toHaveBeenCalledTimes(1)
       })
@@ -312,6 +359,72 @@ describe("ToastService", () => {
         await settle()
 
         expect(router.url).toBe("/gn/1?verseStart=1&highlight=false")
+      })
+
+      describe("in the app's history", () => {
+        let platform: MockPlatformLocation
+
+        async function followFrom(origin: string): Promise<void> {
+          toast = create(false, true)
+          router = TestBed.inject(Router)
+          platform = TestBed.inject(PlatformLocation) as MockPlatformLocation
+          router.initialNavigation()
+          await router.navigateByUrl("/gn/4")
+          await router.navigateByUrl(origin)
+          toast.showReturn({ bookId: "gen", chapterNumber: 5, number: 1 })
+          await router.navigateByUrl("/jo/1?verseStart=1&verseEnd=3")
+        }
+
+        const depth = () =>
+          (platform.getState() as { appDepth?: number }).appDepth
+
+        // It pushed /gn/5?verseStart=1…: Back afterwards returned to the
+        // reference rather than to the page before.
+        it("steps back to the entry the reference was followed from", async () => {
+          await followFrom("/gn/5")
+          const before = depth()
+
+          returnSnack().returnUrl()
+          await settle()
+
+          expect(router.url).toBe("/gn/5?verseStart=1&highlight=false")
+          expect(depth()).toBe((before ?? 0) - 1)
+          TestBed.inject(Location).back()
+          await settle()
+          expect(router.url).toBe("/gn/4")
+        })
+
+        it("goes there anew once the reader has read on", async () => {
+          await followFrom("/gn/5")
+          await router.navigateByUrl("/jo/2")
+          const before = depth()
+
+          returnSnack().returnUrl()
+          await settle()
+
+          expect(router.url).toBe("/gn/5?verseStart=1&highlight=false")
+          expect(depth()).toBe((before ?? 0) + 1)
+        })
+
+        // From /indice with every theme open, back then onto the theme
+        // pushed /indice/amor: Back then led to the index again.
+        it("steps back to the index and opens the theme in that entry", async () => {
+          toast = create(false, true)
+          router = TestBed.inject(Router)
+          platform = TestBed.inject(PlatformLocation) as MockPlatformLocation
+          router.initialNavigation()
+          await router.navigateByUrl("/gn/4")
+          await router.navigateByUrl("/indice")
+          const origin = depth()
+          toast.showReturnToIndex("amor")
+          await router.navigateByUrl("/gn/1")
+
+          returnSnack().returnUrl()
+          await settle()
+
+          expect(router.url).toBe("/indice/amor")
+          expect(depth()).toBe(origin)
+        })
       })
 
       it("stops watching once the snackbar has closed", async () => {
