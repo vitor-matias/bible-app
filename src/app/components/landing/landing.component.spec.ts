@@ -51,12 +51,12 @@ describe("LandingComponent", () => {
   })
 
   for (const platform of ["ios", "android"] as const) {
-    it(`sends ${platform} to its store once the bar fills`, async () => {
+    it(`sends ${platform} to its store at 5000 ms, but not at 4999 ms`, async () => {
       const { el, navigate } = await setup(platform)
       expect(el.querySelector("a.auto")?.getAttribute("href")).toBe(
         `/${platform}`,
       )
-      await vi.advanceTimersByTimeAsync(AUTO_OPEN_MS - 1)
+      await vi.advanceTimersByTimeAsync(4999)
       expect(navigate).not.toHaveBeenCalled()
       await vi.advanceTimersByTimeAsync(1)
       expect(navigate).toHaveBeenCalledWith(`/${platform}`)
