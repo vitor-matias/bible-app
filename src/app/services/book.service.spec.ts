@@ -1,7 +1,7 @@
 import { PLATFORM_ID } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
-import { BehaviorSubject, firstValueFrom, of, throwError } from "rxjs"
+import { BehaviorSubject, firstValueFrom, of, take, throwError } from "rxjs"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { APP_PLUGIN } from "../tokens"
 import { BibleApiService } from "./bible-api.service"
@@ -500,6 +500,23 @@ describe("BookService", () => {
 
       expect(await firstValueFrom(svc.booksUnavailable$)).toBe(false)
       expect(svc.getBooks().length).toBeGreaterThan(0)
+    })
+
+    // The reader opened the books with the flag still up, as if they were
+    // missing: the About page it showed was never saved nor gone back to.
+    it("is no longer unavailable by the time the books arrive", async () => {
+      const svc = createService()
+      await settle(svc)
+      let unavailableOnArrival: boolean | undefined
+      svc.books$.pipe(take(1)).subscribe(() => {
+        svc.booksUnavailable$.pipe(take(1)).subscribe((unavailable) => {
+          unavailableOnArrival = unavailable
+        })
+      })
+
+      await svc.retryBooks()
+
+      expect(unavailableOnArrival).toBe(false)
     })
 
     it("retries when the connection comes back", async () => {

@@ -670,6 +670,59 @@ describe("BibleReaderComponent", () => {
       expect(snackBarSpy.open).not.toHaveBeenCalled()
     })
 
+    // Offline first launch, then a retry that works: the About page opened
+    // then is a page like any other, saved and gone back to on a failure.
+    it("treats the About page opened once the books come as any page", async () => {
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { params: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.params = {}
+      bookServiceSpy.findBook.mockImplementation(
+        (id: string) =>
+          (id === "about" ? mockBooks[1] : mockBooks[0]) as unknown as Book,
+      )
+      const paramMap = (
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap
+      paramMap.next(
+        new Map([
+          ["book", "about"],
+          ["chapter", "1"],
+        ]),
+      )
+
+      // As BookService does: the flag drops before the list goes out.
+      unavailable$.next(false)
+      ;(bookServiceSpy.books$ as unknown as Subject<Book[]>).next(
+        mockBooks as unknown as Book[],
+      )
+      fixture.detectChanges()
+      await fixture.whenStable()
+      expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("about")
+
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("offline")),
+      )
+      paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "1"],
+        ]),
+      )
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(component.book.id).toBe("about")
+      expect(
+        fixture.nativeElement.querySelector(".chapter-unavailable"),
+      ).toBeNull()
+      expect(snackBarSpy.open).toHaveBeenCalled()
+    })
+
     it("has no book list to open yet", () => {
       expect(() => component.openBookDrawer({ open: true })).not.toThrow()
       expect(() => component.openChapterDrawer({ open: true })).not.toThrow()
