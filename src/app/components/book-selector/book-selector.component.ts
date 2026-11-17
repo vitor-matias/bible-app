@@ -124,6 +124,17 @@ export class BookSelectorComponent implements AfterViewInit, OnChanges {
 
   constructor() {
     this.filterBooks("")
+    // The tree's keys took Alt+←/→ (the browser's Back and Forward) and the
+    // ⌘/Ctrl+arrows: keep them from it, in the capture phase, before it acts.
+    this.elementRef.nativeElement.addEventListener?.(
+      "keydown",
+      (event: KeyboardEvent) => {
+        if (event.altKey || event.ctrlKey || event.metaKey) {
+          event.stopPropagation()
+        }
+      },
+      true,
+    )
   }
 
   hasChild = (_: number, node: ExampleFlatNode) => node.expandable

@@ -220,6 +220,24 @@ describe("ChapterSelectorComponent", () => {
       expect(tabStops()).toEqual([buttons()[2]])
     })
 
+    // Alt+← is the browser's Back, which closes the drawer.
+    it("leaves the arrows with Alt, Ctrl or ⌘ to the browser", () => {
+      buttons()[1].focus()
+
+      for (const modifier of ["altKey", "ctrlKey", "metaKey"]) {
+        const event = new KeyboardEvent("keydown", {
+          key: "ArrowLeft",
+          [modifier]: true,
+          bubbles: true,
+          cancelable: true,
+        })
+        buttons()[1].dispatchEvent(event)
+
+        expect(event.defaultPrevented, modifier).toBe(false)
+        expect(document.activeElement).toBe(buttons()[1])
+      }
+    })
+
     it("leaves other keys to the button", () => {
       buttons()[1].focus()
 

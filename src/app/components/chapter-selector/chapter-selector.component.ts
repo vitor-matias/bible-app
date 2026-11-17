@@ -94,7 +94,8 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
       this.elementRef.nativeElement.querySelectorAll(".chapterSelectorButton"),
     )
     const index = buttons.indexOf(event.target as HTMLElement)
-    if (index === -1) return
+    // Alt+←/→ are the browser's Back and Forward, ⌘+arrows macOS's own.
+    if (index === -1 || event.altKey || event.ctrlKey || event.metaKey) return
     const target = (<Record<string, number>>{
       ArrowUp: index - 1,
       ArrowLeft: index - 1,
