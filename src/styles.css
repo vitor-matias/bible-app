@@ -472,13 +472,25 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
   color: inherit;
 }
 
-/* A chapter that failed to open cold: in the reader, under its header. */
+/* The Bible, or a chapter that failed to open cold: in the reader, under
+   its header. */
 bible-reader .books-unavailable.chapter-unavailable {
   min-height: calc(
     100dvh - var(--app-header-height) - var(--app-chrome-top) -
       var(--app-inset-bottom)
   );
   padding-top: 24px;
+}
+
+/* The first load's message: after a moment, so a quick load never flashes it. */
+bible-reader .books-loading {
+  animation: books-loading-in 0.3s 1s both;
+}
+
+@keyframes books-loading-in {
+  from {
+    opacity: 0;
+  }
 }
 
 .mat-bottom-sheet-container,

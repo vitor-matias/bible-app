@@ -43,15 +43,12 @@ export class BookService {
   initializeBooks(): Promise<void> {
     if (this.getBooks().length > 0) return Promise.resolve()
     this.initPromise ??= this.loadBooks()
-      .then(
-        () => this.unavailableSubject.next(false),
-        (error: unknown) => {
-          // Never while prerendering: the empty state would be baked into
-          // every static page, which instead falls back to client rendering.
-          if (this.isBrowser) this.unavailableSubject.next(true)
-          throw error
-        },
-      )
+      .catch((error: unknown) => {
+        // Never while prerendering: the empty state would be baked into
+        // every static page, which instead falls back to client rendering.
+        if (this.isBrowser) this.unavailableSubject.next(true)
+        throw error
+      })
       .finally(() => {
         this.initPromise = undefined
       })
@@ -96,6 +93,8 @@ export class BookService {
     const introList = Array.isArray(intros) ? intros : []
     // Clone: the array from BibleApiService is shared with its cache.
     const introSlugs = new Set(introList.map((intro) => intro.slug))
+    // Before the list: whoever it reaches must not still read "unavailable".
+    this.unavailableSubject.next(false)
     this.booksSubject.next([
       ...books.map((book) => this.withSharedIntro(book, introSlugs)),
       this.getAboutBook(),

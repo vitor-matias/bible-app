@@ -1,7 +1,7 @@
 import { Injectable, Injector, inject, NgZone } from "@angular/core"
 import type { PluginListenerHandle } from "@capacitor/core"
 import { type ConnectionStatus, type NetworkPlugin } from "@capacitor/network"
-import { BehaviorSubject, type Observable } from "rxjs"
+import { BehaviorSubject, firstValueFrom, type Observable } from "rxjs"
 import { NETWORK_PLUGIN } from "../tokens"
 import { isStandaloneApp } from "../utils/platform"
 
@@ -23,6 +23,15 @@ export class NetworkService {
 
   get isOffline(): boolean {
     return this.isOfflineSubject.value
+  }
+
+  /** Reads the connection again, for a change the listener may have missed. */
+  async refresh(): Promise<void> {
+    try {
+      this.updateStatus(await this.networkPlugin.getStatus())
+    } catch {
+      // Keep the last known state.
+    }
   }
 
   private async initNetworkListener() {
@@ -58,7 +67,13 @@ export class NetworkService {
       // Lazy-inject to avoid a circular dependency at construction time.
       void (async () => {
         try {
-          const { OfflineDataService } = await import("./offline-data.service")
+          const [{ OfflineDataService }, { BookService }] = await Promise.all([
+            import("./offline-data.service"),
+            import("./book.service"),
+          ])
+          // After the book list, which BookService loads again now: the
+          // download would share a slow link with it (AppComponent too).
+          await firstValueFrom(this.injector.get(BookService).books$)
           const svc = this.injector.get(OfflineDataService)
           await svc.preloadAllBooksAndChapters()
         } catch (error) {

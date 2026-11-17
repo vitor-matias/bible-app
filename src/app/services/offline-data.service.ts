@@ -1,7 +1,7 @@
 import { HttpClient } from "@angular/common/http"
-import { Injectable, inject } from "@angular/core"
+import { Injectable, inject, type OnDestroy } from "@angular/core"
 import { Capacitor } from "@capacitor/core"
-import { firstValueFrom, timeout } from "rxjs"
+import { filter, firstValueFrom, takeUntil, timeout } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { safeLocalStorage } from "../utils/web-storage"
 import { AnalyticsService } from "./analytics.service"
@@ -14,10 +14,14 @@ import { NetworkService } from "./network.service"
  */
 export const PRELOAD_TIMEOUT_MS = 5 * 60_000
 
+/** First wait before a failed download is tried again; it doubles each time. */
+export const PRELOAD_RETRY_BASE_MS = 30_000
+export const PRELOAD_RETRY_MAX_MS = 30 * 60_000
+
 @Injectable({
   providedIn: "root",
 })
-export class OfflineDataService {
+export class OfflineDataService implements OnDestroy {
   private http = inject(HttpClient)
   private databaseService = inject(DatabaseService)
   private networkService = inject(NetworkService)
@@ -36,6 +40,14 @@ export class OfflineDataService {
   private cacheLoadPromise: Promise<void> | null = null
   private migrationPromise: Promise<boolean> | null = null
   private preloadPromise: Promise<void> | null = null
+  private retryTimer?: ReturnType<typeof setTimeout>
+  private retryDelayMs = PRELOAD_RETRY_BASE_MS
+  /** IndexedDB refused a write: downloading again would only fail to store it. */
+  private storageFailed = false
+  /** The last introductions download left some out; the flag can't say so without localStorage. */
+  private introsIncomplete = false
+  /** Torn down: a late failure or a refresh in flight must not arm another retry. */
+  private destroyed = false
 
   /**
    * Fetches all books and chapters into IndexedDB for offline usage.
@@ -44,66 +56,135 @@ export class OfflineDataService {
   preloadAllBooksAndChapters(
     source: "standalone" | "study" = "standalone",
   ): Promise<void> {
-    this.preloadPromise ??= this.runPreload(source).finally(() => {
-      this.preloadPromise = null
-    })
+    // Joining a run that is ending must not cancel the retry it just armed.
+    if (this.preloadPromise) return this.preloadPromise
+    clearTimeout(this.retryTimer)
+    this.preloadPromise = this.runPreload(source)
+      .then((failed) => this.scheduleRetry(failed, source))
+      .finally(() => {
+        this.preloadPromise = null
+      })
     return this.preloadPromise
   }
 
-  private async runPreload(source: "standalone" | "study"): Promise<void> {
-    if (typeof window === "undefined") return
+  ngOnDestroy(): void {
+    this.destroyed = true
+    clearTimeout(this.retryTimer)
+  }
+
+  /** A failed download is tried again while the app stays open, less and less often. */
+  private scheduleRetry(failed: boolean, source: "standalone" | "study"): void {
+    if (!failed || this.storageFailed) {
+      this.retryDelayMs = PRELOAD_RETRY_BASE_MS
+      return
+    }
+    this.armRetry(this.retryDelayMs, source)
+    this.retryDelayMs = Math.min(this.retryDelayMs * 2, PRELOAD_RETRY_MAX_MS)
+  }
+
+  private armRetry(delayMs: number, source: "standalone" | "study"): void {
+    if (this.destroyed) return
+    this.retryTimer = setTimeout(async () => {
+      // In the background the listener can miss a reconnect: ask, and while
+      // offline keep asking.
+      await this.networkService.refresh()
+      if (this.destroyed) return
+      if (this.networkService.isOffline) this.armRetry(delayMs, source)
+      else void this.preloadAllBooksAndChapters(source)
+    }, delayMs)
+  }
+
+  /**
+   * A preload request. Going offline cancels it: a connection that drops
+   * mid-download can leave the request hanging until the timeout, and the
+   * reconnect would join it instead of starting again.
+   */
+  private fetch<T>(url: string, headers: Record<string, string> = {}) {
+    return firstValueFrom(
+      this.http
+        .get<T>(url, { headers })
+        .pipe(
+          timeout(PRELOAD_TIMEOUT_MS),
+          takeUntil(this.networkService.isOffline$.pipe(filter(Boolean))),
+        ),
+    )
+  }
+
+  /** Resolves to whether a download failed, and so is worth retrying. */
+  private async runPreload(source: "standalone" | "study"): Promise<boolean> {
+    // Until the next launch: each try would download the Bible again.
+    if (typeof window === "undefined" || this.storageFailed) return false
 
     const migrated = await this.migrateCacheIfNeeded()
     const storage = safeLocalStorage()
 
     // Flags are untrustworthy after a failed migration (reads fail closed).
-    // Without localStorage, infer readiness from the IndexedDB records.
-    const fallbackBooks = storage ? null : await this.getCachedBooksAsync()
+    // They also outlive records wiped from IndexedDB alone, so they count
+    // only while the records are there; a store that can't be read leaves
+    // them the last word, or every launch would download the Bible again.
+    await this.ensureCacheLoaded()
+    const records = this.cachedBooks
+    const holds = (intro: boolean) =>
+      records
+        ? records.some((book) => !!book.introSlug === intro)
+        : storage !== null
     // Gated independently so a failed /intros fetch never forces a redownload
     // of the multi-megabyte books payload.
     const booksAlreadyCached =
       migrated &&
-      (storage
-        ? storage.getItem(this.cacheFlagKey) === "true"
-        : (fallbackBooks ?? []).some((book) => !book.introSlug))
+      (!storage || storage.getItem(this.cacheFlagKey) === "true") &&
+      holds(false)
     const introsAlreadyCached =
       migrated &&
-      (storage
-        ? this.areGroupIntrosCached()
-        : (fallbackBooks ?? []).some((book) => !!book.introSlug))
+      !this.introsIncomplete &&
+      (!storage || this.areGroupIntrosCached()) &&
+      holds(true)
     const isExpired = this.isCacheExpired()
     if (booksAlreadyCached && introsAlreadyCached && !isExpired) {
-      return
+      return false
     }
     if (isExpired && this.networkService.isOffline) {
       // Offline: prefer stale data over losing offline reading.
-      return
+      return false
     }
 
+    let failed = false
     if (!booksAlreadyCached || isExpired) {
+      let books: Book[] | undefined
       try {
-        const books = await firstValueFrom(
-          this.http
-            .get<Book[]>(`${this.apiBase}/books?withChapters=true`, {
-              // Native is cross-origin, where a custom header forces a CORS preflight.
-              headers: Capacitor.isNativePlatform()
-                ? {}
-                : { "ngsw-bypass": "true" },
-            })
-            .pipe(timeout(PRELOAD_TIMEOUT_MS)),
+        books = await this.fetch<Book[]>(
+          `${this.apiBase}/books?withChapters=true`,
+          // Native is cross-origin, where a custom header forces a CORS preflight.
+          Capacitor.isNativePlatform() ? {} : { "ngsw-bypass": "true" },
         )
-        await this.setCachedBooks(books)
-        this.trackBooksCachedEvent(source)
+        // An empty 200 parses as null: a failed download, worth retrying.
+        if (!Array.isArray(books) || !books.length) {
+          books = undefined
+          throw new Error("Unexpected response for the books download")
+        }
       } catch (error) {
+        failed = true
         console.error("Failed to preload books for offline use", error)
+      }
+      // Not retried if storing fails (setCachedBooks): it would download
+      // the Bible again.
+      if (books) {
+        try {
+          await this.setCachedBooks(books)
+          this.trackBooksCachedEvent(source)
+        } catch (error) {
+          console.error("Failed to preload books for offline use", error)
+        }
       }
     }
 
     // preloadGroupIntros logs instead of throwing, so a bad /intros response
     // never masks a successful books preload.
     if (!introsAlreadyCached || isExpired) {
-      await this.preloadGroupIntros()
+      this.introsIncomplete = !(await this.preloadGroupIntros())
+      failed = this.introsIncomplete || failed
     }
+    return failed
   }
 
   /**
@@ -141,23 +222,18 @@ export class OfflineDataService {
   /**
    * Caches every standalone introduction as a synthetic book record (id =
    * slug, same shape as BookService.toIntroBook()) for offline /intro pages.
+   * Resolves to whether every one of them was fetched.
    */
-  private async preloadGroupIntros(): Promise<void> {
+  private async preloadGroupIntros(): Promise<boolean> {
     try {
-      const summaries = await firstValueFrom(
-        this.http
-          .get<IntroSummary[]>(`${this.apiBase}/intros`)
-          .pipe(timeout(PRELOAD_TIMEOUT_MS)),
+      const summaries = await this.fetch<IntroSummary[]>(
+        `${this.apiBase}/intros`,
       )
       // allSettled: one failing slug must not discard the rest.
       const results = await Promise.allSettled(
         summaries.map((summary) =>
-          firstValueFrom(
-            this.http
-              .get<GroupIntro>(
-                `${this.apiBase}/intros/${encodeURIComponent(summary.slug)}`,
-              )
-              .pipe(timeout(PRELOAD_TIMEOUT_MS)),
+          this.fetch<GroupIntro>(
+            `${this.apiBase}/intros/${encodeURIComponent(summary.slug)}`,
           ),
         ),
       )
@@ -188,14 +264,19 @@ export class OfflineDataService {
         console.error(
           `Failed to preload ${failedCount} of ${results.length} standalone introductions for offline use`,
         )
-      } else {
-        safeLocalStorage()?.setItem(this.groupIntrosCacheFlagKey, "true")
+        return false
       }
+      safeLocalStorage()?.setItem(this.groupIntrosCacheFlagKey, "true")
+      return true
     } catch (error) {
+      // An expired refresh stores the books with a new timestamp: a flag left
+      // from before would make the retry skip the introductions.
+      safeLocalStorage()?.removeItem(this.groupIntrosCacheFlagKey)
       console.error(
         "Failed to preload group introductions for offline use",
         error,
       )
+      return false
     }
   }
 
@@ -225,6 +306,7 @@ export class OfflineDataService {
         storage?.setItem(this.cacheFlagKey, "true")
       }
     } catch (error) {
+      this.storageFailed = true
       console.error("Failed to persist cached books or metadata", error)
       throw error
     }
