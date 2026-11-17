@@ -290,16 +290,6 @@ describe("HeaderComponent", () => {
     )
   })
 
-  it("resets the text size from the web menu's control", () => {
-    const resets = vi.fn()
-    component.resetFontSizeEvent.subscribe(resets)
-    fixture.debugElement
-      .query(By.directive(ReaderMenuComponent))
-      .componentInstance.resetFontSize.emit()
-
-    expect(resets).toHaveBeenCalledTimes(1)
-  })
-
   it("keeps the search button while offline", () => {
     isOfflineSubject.next(true)
     fixture.detectChanges()

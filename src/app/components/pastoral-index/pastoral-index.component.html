@@ -10,7 +10,7 @@
            view mode. -->
       <reader-menu #pageMenu="readerMenu" [canShare]="canShare" [version]="version()" [textSize]="textSizeState()"
         (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
-        (resetFontSize)="resetFontSize()" (bookmarks)="openBookmarks()" (share)="share()" (about)="openAbout()"
+        (bookmarks)="openBookmarks()" (share)="share()" (about)="openAbout()"
         (reportProblem)="reportProblem()" />
       <span class="toolbar-title">Índice Bíblico-Pastoral</span>
       <a mat-flat-button routerLink="/search" aria-label="Pesquisar" class="button actionButton searchButton">

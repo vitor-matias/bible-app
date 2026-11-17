@@ -482,7 +482,6 @@ describe("PastoralIndexComponent", () => {
         "Tema: Claro",
         "Diminuir texto",
         "Aumentar texto",
-        "Repor tamanho do texto",
         "Marcadores",
         typeof navigator.share === "function" ? "Partilhar" : "Copiar ligação",
         "Instalar a app",
@@ -513,14 +512,6 @@ describe("PastoralIndexComponent", () => {
       expect(
         document.querySelector('[aria-label="Diminuir texto"]'),
       ).not.toBeNull()
-
-      const grown = Number.parseFloat(accordion.style.fontSize)
-      ;(
-        document.querySelector(
-          '[aria-label="Repor tamanho do texto"]',
-        ) as HTMLElement
-      ).click()
-      expect(Number.parseFloat(accordion.style.fontSize)).toBeLessThan(grown)
       if (before === null) preferences.clearFontSize("reader")
       else preferences.setFontSize(before, "reader")
     })
