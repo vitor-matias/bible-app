@@ -689,6 +689,26 @@ describe("OfflineDataService", () => {
       await vi.advanceTimersByTimeAsync(50)
     })
 
+    // The study panel offers to remove the Bible it downloaded: a retry armed
+    // by a failed introduction would then fetch it all again, unasked.
+    it("does not download again after the stored Bible is removed", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      databaseService.getAll.mockResolvedValue(mockBooks)
+      void service.preloadAllBooksAndChapters("study")
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/intros").error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await service.removeStoredBible()
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 2)
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectNone("v1/intros")
+    })
+
     // A caller joining between the retry's arming and the run's end cleared
     // the timer, then joined the finished run: no retry.
     it("keeps the retry armed for a caller joining the run as it ends", async () => {

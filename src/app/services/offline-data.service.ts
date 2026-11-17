@@ -206,6 +206,10 @@ export class OfflineDataService implements OnDestroy {
    * installed app stores it by design and fetches it again on its next start.
    */
   async removeStoredBible(): Promise<void> {
+    // A failed download's retry still waiting would fetch the Bible again, a
+    // few MB nobody asked for after the reader was told the text was removed.
+    clearTimeout(this.retryTimer)
+    this.retryDelayMs = PRELOAD_RETRY_BASE_MS
     await this.databaseService.clear("books")
     this.cachedBooks = null
     const storage = safeLocalStorage()
