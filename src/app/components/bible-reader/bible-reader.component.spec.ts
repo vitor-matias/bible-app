@@ -2609,6 +2609,24 @@ describe("BibleReaderComponent", () => {
         expect(component.nextChapterLink).toEqual(["/", "1-genesis", "2"])
       })
 
+      // › on 5, then Back (or a ribbon, a link) to 4 before that step's
+      // navigation came: 4 opened with its arrows around 6, › leading to 7.
+      it("points the arrows around a chapter reached by another way during a step", () => {
+        apiServiceSpy.getChapter.mockReturnValue(of(chapter(5)))
+        component.getChapter(5)
+        // Rendering chapter 5 set the drawer query to the bare element.
+        component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
+
+        component.prepareChapterNavigation(true)
+        apiServiceSpy.getChapter.mockReturnValue(of(chapter(4)))
+        goTo(4)
+
+        expect(component.chapterNumber).toBe(4)
+        expect(component.isNavigatingForwards).toBe(false)
+        expect(component.previousChapterLink).toEqual(["/", "1-genesis", "3"])
+        expect(component.nextChapterLink).toEqual(["/", "1-genesis", "5"])
+      })
+
       // Stepping back opens a chapter at its end; not the one gone back to.
       it("opens the chapter gone back to at its start", () => {
         component.isNavigatingBackwards = true

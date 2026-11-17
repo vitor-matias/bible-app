@@ -392,6 +392,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
         const tempBook = this.bookService.findBook(bookParam)
 
+        // A step on its way goes with any other route than its own chapter
+        // of its own book (Back, a ribbon, a link, a pick), its direction
+        // and links with it. Flags no tap set go with a load not theirs.
+        const stepHere = this.slideTo
+          ? chapterParam === this.slideTo.chapter &&
+            tempBook.id === this.slideTo.bookId
+          : this.pendingChapter === this.chapterNumber
+        if (this.changingChapter && !stepHere) this.clearChapterSlide()
+
         if (
           this.book.id === tempBook.id &&
           this.chapterNumber === chapterParam &&
@@ -404,16 +413,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           return
         }
 
-        // A load is dropped for this one: its direction isn't this one's,
-        // unless it is the next step of the same slide: that chapter of that
-        // book, not of another one picked meanwhile.
-        if (
-          this.pendingChapter !== this.chapterNumber &&
-          (chapterParam !== this.slideTo?.chapter ||
-            tempBook.id !== this.slideTo.bookId)
-        ) {
-          this.clearChapterSlide()
-        }
         this.book = tempBook
         this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
         this.bookDrawer?.close()
@@ -684,6 +683,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private clearChapterSlide(): void {
     this.isNavigatingForwards = false
     this.isNavigatingBackwards = false
+    this.slideTo = undefined
     // They were built past the chapter that was on its way.
     this.rebuildChapterLinks()
     this.cdr.markForCheck()
@@ -964,6 +964,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.chapterUnavailable = false
     this.retryingChapter = false
     this.retryChapterLoad = undefined
+    // The step has landed: the links go around this chapter, not past it.
+    const startAtBottom = this.isNavigatingBackwards
+    this.isNavigatingBackwards = false
+    this.isNavigatingForwards = false
+    this.slideTo = undefined
     this.rebuildChapterLinks()
     this.animationService.cancelPendingRealign()
 
@@ -976,10 +981,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // Its finger's events end with the verse it came down on.
     this.pagedNav?.releaseDrag()
     this.cdr.detectChanges()
-
-    const startAtBottom = this.isNavigatingBackwards
-    this.isNavigatingBackwards = false
-    this.isNavigatingForwards = false
 
     if (verseStart) {
       this.scrollToVerse(verseStart, verseEnd, highlight)
