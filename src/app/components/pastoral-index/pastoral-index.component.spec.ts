@@ -464,6 +464,22 @@ describe("PastoralIndexComponent", () => {
       expect(backButton.changed).toHaveBeenCalledTimes(2)
     })
 
+    // The menu's empty host was a flex item: a third gap pushed the title right.
+    it("keeps the title centred between its buttons", async () => {
+      const fixture = await open()
+      const box = (selector: string) =>
+        fixture.nativeElement
+          .querySelector(selector)
+          .getBoundingClientRect() as DOMRect
+      const title = box(".toolbar-title")
+      const bar = box(".index-toolbar")
+
+      expect(title.left + title.width / 2).toBeCloseTo(
+        bar.left + bar.width / 2,
+        0,
+      )
+    })
+
     it("is the reader's, less auto-scroll and the view mode", async () => {
       const fixture = await open()
       await openMenu(fixture)
