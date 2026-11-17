@@ -64,6 +64,9 @@ import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnot
 import { HeaderComponent } from "../header/header.component"
 import { VerseComponent } from "../verse/verse.component"
 
+/** How long «A tentar…» shows at least: offline, a retry fails at once, unseen. */
+export const RETRY_FEEDBACK_MS = 1000
+
 @Component({
   selector: "bible-reader",
   templateUrl: "./bible-reader.component.html",
@@ -180,14 +183,19 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   books: Book[] = []
   /** The book list could not be loaded and nothing is cached. */
   booksUnavailable = false
+  /** Whether to say the books are loading while there's nothing to show. */
+  showLoading = false
   retryingBooks = false
   /** The first chapter opened could not be loaded: there is none to stay on. */
   chapterUnavailable = false
   retryingChapter = false
   /** Loads that chapter again, as it was asked for. */
   private retryChapterLoad?: () => void
+  /** Until when a retry shows as under way, though it already failed. */
+  private retryFeedbackUntil = 0
+  private retryFeedbackTimer?: ReturnType<typeof setTimeout>
   chapterNumber = 1
-  chapter!: Chapter
+  chapter?: Chapter
 
   bookParam: string | null = null
   chapterParam: string | null = null
@@ -274,9 +282,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Hydration deletes the server DOM it hasn't claimed once the app is stable,
     // and waiting on IndexedDB doesn't count as work: the text would blank out.
-    if (this.host.querySelector(".chapterBlock")) {
+    const prerendered = !!this.host.querySelector(".chapterBlock")
+    if (prerendered) {
       this.endPrerenderHold = this.pendingTasks.add()
     }
+    // Otherwise the page is blank until the books load, which on a first
+    // launch downloads the Bible.
+    this.showLoading = isPlatformBrowser(this.platformId) && !prerendered
 
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()
     if (storedSpeed) {
@@ -299,7 +311,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((unavailable) => {
         this.booksUnavailable = unavailable
-        if (unavailable) this.releasePrerender()
+        if (unavailable) {
+          this.releasePrerender()
+          // Nothing to read, e.g. a first launch offline: the About page is
+          // in the app, and keeps the header and its menu in reach.
+          if (!this.book) {
+            this.book = this.bookService.getAboutBook()
+            this.getChapter(1)
+          }
+        }
         this.cdr.markForCheck()
       })
 
@@ -346,6 +366,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
               storedBook,
               this.chapterNumber,
             )
+            // Nothing of the About page shown while the books couldn't load
+            // stays under this book: its text, or arrows leading back to it.
+            this.chapter = undefined
+            this.rebuildChapterLinks()
 
             const parsedVerseStart = queryParams["verseStart"]
               ? Number.parseInt(queryParams["verseStart"], 10)
@@ -442,6 +466,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.dismissLinkedNotes?.()
     this.releasePrerender()
     this.unregisterBackCloser()
+    clearTimeout(this.retryFeedbackTimer)
     this.destroy$.next()
     this.destroy$.complete()
     this.chapterSubscription?.unsubscribe()
@@ -664,7 +689,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.retryingBooks = true
     this.cdr.markForCheck()
     try {
-      await this.bookService.retryBooks()
+      await Promise.all([
+        this.bookService.retryBooks(),
+        new Promise((resolve) => setTimeout(resolve, RETRY_FEEDBACK_MS)),
+      ])
     } finally {
       this.retryingBooks = false
       this.cdr.markForCheck()
@@ -752,6 +780,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     highlight = true,
   ) {
     this.pendingChapter = chapter
+    clearTimeout(this.retryFeedbackTimer)
     // The failure page's retry is for an older load: it would cancel this one.
     if (this.chapterUnavailable) {
       this.retryingChapter = true
@@ -862,7 +891,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     chapter: Chapter["number"],
     retry: () => void,
   ): void {
-    this.retryingChapter = false
+    const feedbackLeft = this.retryFeedbackUntil - Date.now()
+    if (feedbackLeft > 0) {
+      this.retryFeedbackTimer = setTimeout(() => {
+        this.retryingChapter = false
+        this.cdr.markForCheck()
+      }, feedbackLeft)
+    } else {
+      this.retryingChapter = false
+    }
     if (this.shown) {
       // The chapter too: /intro on a book without one already set it to 1.
       this.book = this.shown.book
@@ -871,6 +908,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       // Opened cold, a toast would fade over a blank page: say it in the page.
       // The chapter asked for is the one the header, the URL and a retry show.
       this.chapterNumber = chapter
+      // Nor the About page shown while the books couldn't load.
+      this.chapter = undefined
       this.chapterUnavailable = true
       this.retryChapterLoad = retry
     }
@@ -910,6 +949,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   retryChapter(): void {
     if (this.retryingChapter) return
     this.retryingChapter = true
+    this.retryFeedbackUntil = Date.now() + RETRY_FEEDBACK_MS
     this.cdr.markForCheck()
     this.retryChapterLoad?.()
   }
@@ -986,7 +1026,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.chapter = chapterData
     this.chapterNumber = chapter
     this.linkedVerse = undefined
-    this.shown = { book: this.book, chapter }
+    // Not the About page shown for want of the books: the passage asked for
+    // (the address) is what a failed first load must keep.
+    this.shown = this.booksUnavailable
+      ? undefined
+      : { book: this.book, chapter }
     this.chapterUnavailable = false
     this.retryingChapter = false
     this.retryChapterLoad = undefined
@@ -1022,8 +1066,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       )
     }
 
-    this.preferencesService.setLastBookId(this.book.id)
-    this.preferencesService.setLastChapterNumber(this.chapterNumber)
+    // Not the About page shown for want of the books: the passage saved is
+    // the one to open once they load.
+    if (!this.booksUnavailable) {
+      this.preferencesService.setLastBookId(this.book.id)
+      this.preferencesService.setLastChapterNumber(this.chapterNumber)
+    }
     this.releasePrerender()
     afterNextRender(() => this.openLinkedNotes(), { injector: this.injector })
   }
@@ -1099,6 +1147,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   openBookDrawer(event: { open: boolean }) {
+    // No books to list yet.
+    if (!this.bookDrawer) return
     if (this.showBooks) {
       this.bookDrawer.toggle().finally(() => {
         this.focusCloseButton()
@@ -1121,6 +1171,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   openChapterDrawer(event: { open: boolean }) {
+    if (!this.bookDrawer) return
     if (!this.showBooks) {
       this.bookDrawer.toggle().finally(() => {
         this.focusCloseButton()

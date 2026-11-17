@@ -11,10 +11,12 @@ import type { BackButtonListenerEvent } from "@capacitor/app"
 import type { PluginListenerHandle } from "@capacitor/core"
 import { Capacitor } from "@capacitor/core"
 import { injectSpeedInsights } from "@vercel/speed-insights"
+import { take } from "rxjs"
 import { appConfig, isVercelHost } from "./config"
 import { AnalyticsService } from "./services/analytics.service"
 import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
+import { BookService } from "./services/book.service"
 import { historyDepth } from "./services/depth-location-strategy"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
@@ -40,6 +42,7 @@ export const EXIT_BACK_WINDOW_MS = 2000
 })
 export class AppComponent implements OnInit, OnDestroy {
   private offlineDataService = inject(OfflineDataService)
+  private bookService = inject(BookService)
   private router = inject(Router)
   private ngZone = inject(NgZone)
   private analyticsService = inject(AnalyticsService)
@@ -74,7 +77,11 @@ export class AppComponent implements OnInit, OnDestroy {
     if (typeof window === "undefined") return
 
     if (isStandaloneApp()) {
-      this.offlineDataService.preloadAllBooksAndChapters()
+      // After the book list: on a slow connection, the Bible's download
+      // queued ahead of it and the list timed out (books unavailable).
+      this.bookService.books$
+        .pipe(take(1))
+        .subscribe(() => this.offlineDataService.preloadAllBooksAndChapters())
     }
 
     void this.trackAppOpenEvent()
