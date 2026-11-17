@@ -79,6 +79,17 @@ describe("global styles", () => {
       expect(getComputedStyle(openToast()).marginBottom).toBe("208px")
     })
 
+    // Lifted by a margin, its pane still spanned the arrows and took their taps.
+    // (Specs load no overlay positioning, so the toast is not at the foot
+    // here: what takes the taps is checked instead.)
+    it("leaves the arrows' taps to them", () => {
+      const toast = openToast()
+      const pane = toast.closest(".cdk-overlay-pane") as HTMLElement
+
+      expect(getComputedStyle(pane).pointerEvents).toBe("none")
+      expect(getComputedStyle(toast).pointerEvents).toBe("auto")
+    })
+
     it("leaves it in place in the apps, which draw no arrows of their own", () => {
       document.body.classList.add("native-chrome")
       expect(getComputedStyle(openToast()).marginBottom).toBe("108px")

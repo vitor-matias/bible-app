@@ -439,12 +439,19 @@ bible-reader .books-unavailable.chapter-unavailable {
 
 /* On a phone the reader's ‹ › arrows sit 52px up, 48px tall
    (bible-reader.component.css): a toast such as "Voltar para …" goes above
-   them, or it covers them. */
+   them, or it covers them. Only the toast takes taps: its pane spans the
+   margin too, and took the arrows' taps there. */
 @media (max-width: 768px) {
+  body:not(.native-chrome):has(.floating-nav-button)
+    .cdk-overlay-pane:has(> .mat-mdc-snack-bar-container) {
+    pointer-events: none;
+  }
+
   body:not(.native-chrome):has(.floating-nav-button)
     .cdk-overlay-pane
     .mat-mdc-snack-bar-container {
     margin-bottom: calc(108px + var(--app-inset-bottom));
+    pointer-events: auto;
   }
 }
 
