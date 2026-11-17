@@ -173,6 +173,9 @@ h3:not(:first-child) {
 .quoteVerseNumber {
   position: absolute;
   right: 100%;
+  /* Not the line's hanging indent: pulled out of its box, the number left it
+     a sliver wide, all the stroke on it showed. */
+  text-indent: 0;
   white-space: nowrap;
   margin-right: 2px;
 }
@@ -323,6 +326,11 @@ h3:not(:first-child) {
    children stop painting so the translucent colour is not laid down twice. */
 :host(.verse-highlight) .quoteVerseNumber {
   background-color: var(--verse-highlight-color);
+  /* Up to the line, as in prose: the number stays where it was. */
+  margin-right: 0;
+  padding-right: 2px;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 :host(.verse-highlight) .quoteVerseNumber .verseNumber,

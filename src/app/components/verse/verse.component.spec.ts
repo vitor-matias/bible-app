@@ -798,6 +798,31 @@ describe("VerseComponent", () => {
       expect(getComputedStyle(digits).backgroundColor).toBe(TRANSPARENT)
     })
 
+    // The line's hanging indent pulled the number out of its wrapper, a
+    // sliver wide: the stroke stopped short of the number, a gap before the line.
+    it("should paint a poetry verse number's stroke from the number up to its line", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 3,
+          text: [{ type: "quote", text: "a line of poetry", identLevel: 1 }],
+        }),
+      )
+      const host = highlightHost()
+
+      const wrapper = (
+        host.querySelector(".quoteVerseNumber") as HTMLElement
+      ).getBoundingClientRect()
+      const digits = (
+        host.querySelector(".quoteVerseNumber .verseNumber") as HTMLElement
+      ).getBoundingClientRect()
+      const line = (
+        host.querySelector(".quoteLineWrapper") as HTMLElement
+      ).getBoundingClientRect()
+      expect(wrapper.left).toBeLessThanOrEqual(digits.left + 0.5)
+      expect(Math.abs(wrapper.right - line.left)).toBeLessThan(0.5)
+    })
+
     function withFootnote(): HTMLElement {
       setData(
         fixture,

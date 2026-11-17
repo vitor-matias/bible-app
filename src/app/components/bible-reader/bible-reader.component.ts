@@ -70,7 +70,7 @@ import {
 } from "../../services/reading-trail.service"
 import { SeoService } from "../../services/seo.service"
 import { StudyModeService } from "../../services/study-mode.service"
-import { ToastService } from "../../services/toast.service"
+import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
 import { introductionTitle, passageLabel } from "../../utils/passage-label"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
@@ -307,8 +307,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   isNavigatingBackwards = false
   previousChapterLink: (string | number)[] = []
   nextChapterLink: (string | number)[] = []
+  introLink: (string | number)[] = []
   /** The chapter last asked for, which an async load must still match. */
   private pendingChapter?: Chapter["number"]
+  /** Counts chapter requests, so only the latest one's outcome lands. */
+  private chapterRequest = 0
+  /** The verse a link led to in this chapter: the one being read while it shows. */
+  private linkedVerse?: Verse["number"]
   /** What is on screen, for a failed load to go back to. */
   private shown?: { book: Book; chapter: Chapter["number"] }
   isFirstPage = true
@@ -639,6 +644,23 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
         const tempBook = this.bookService.findUrlBook(bookParam, chapterParam)
 
+        // A step on its way goes with a route to another chapter than its own
+        // (Back, a ribbon, a link, a pick), its direction and links with it.
+        // Not with the chapter shown while nothing else loads: leaving
+        // /gn/3?verseStart=5, the new query comes first, paired with the old
+        // chapter. Flags no tap set go with a load not theirs.
+        const stepHere = this.slideTo
+          ? chapterParam === this.slideTo.chapter &&
+            tempBook.id === this.slideTo.bookId
+          : this.pendingChapter === this.chapterNumber
+        const shownHere =
+          chapterParam === this.chapterNumber &&
+          tempBook.id === this.book.id &&
+          this.pendingChapter === this.chapterNumber
+        if (this.changingChapter && !stepHere && !shownHere) {
+          this.clearChapterSlide()
+        }
+
         if (
           this.book.id === tempBook.id &&
           this.chapterNumber === chapterParam &&
@@ -655,8 +677,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           return
         }
 
-        // A load is dropped for this one: its direction isn't this one's.
-        if (this.pendingChapter !== this.chapterNumber) this.clearChapterSlide()
         this.book = tempBook
         this.getChapter(chapterParam, verseStartParam, verseEndParam, highlight)
         this.bookDrawer?.close()
@@ -769,16 +789,30 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   // Side effects for the prev/next anchors; RouterLink does the navigation.
   // Skips the clicks RouterLink leaves to the browser: this tab never navigates
   // then, so it would never clear the direction flag.
-  prepareChapterNavigation(forwards: boolean, event?: MouseEvent): void {
+  // `target`: a card's own chapter (the introduction), not the next step's.
+  prepareChapterNavigation(
+    forwards: boolean,
+    event?: MouseEvent,
+    target = forwards ? this.stepFrom + 1 : this.stepFrom - 1,
+  ): void {
     if (event && !this.isPlainLeftClick(event)) return
 
-    const target = forwards ? this.chapterNumber + 1 : this.chapterNumber - 1
     // The anchors bypass goToNextChapter/goToPreviousChapter's bounds check.
     if (target !== this.clampChapter(target)) return
 
     this.autoScrollService.stop()
     this.isNavigatingForwards = forwards
     this.isNavigatingBackwards = !forwards
+    this.slideTo = { bookId: this.book.id, chapter: target }
+    // A tap during the slide goes on from there.
+    this.rebuildChapterLinks()
+  }
+
+  /** Where a step goes on from: the chapter on its way, else the one shown. */
+  private get stepFrom(): Chapter["number"] {
+    return this.changingChapter && this.slideTo?.bookId === this.book?.id
+      ? this.slideTo.chapter
+      : this.chapterNumber
   }
 
   private isPlainLeftClick(event: MouseEvent): boolean {
@@ -793,11 +827,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** Fields, not getters: RouterLink diffs its input by reference. */
   private rebuildChapterLinks(): void {
-    this.previousChapterLink = this.chapterCommands(
-      this.chapterNumber - 1,
-      true,
-    )
-    this.nextChapterLink = this.chapterCommands(this.chapterNumber + 1, true)
+    this.previousChapterLink = this.chapterCommands(this.stepFrom - 1, true)
+    this.nextChapterLink = this.chapterCommands(this.stepFrom + 1, true)
+    // The introduction card names the introduction: no step moves it.
+    this.introLink = this.chapterCommands(0, true)
     const nextId =
       this.book && this.chapterNumber >= this.book.chapterCount
         ? nextCanonBook(this.book.id)
@@ -901,20 +934,28 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * A chapter is already on its way: a second step would ask for the same
-   * one again (chapterNumber changes only once it has loaded), doing nothing
-   * but buzz.
+   * A chapter is already on its way (slideTo): chapterNumber changes only
+   * once it has loaded, so a second step goes on from slideTo instead.
    */
   private get changingChapter(): boolean {
     return this.isNavigatingForwards || this.isNavigatingBackwards
   }
 
+  /** The chapter the slide under way heads for, and its book. */
+  private slideTo?: { bookId: Book["id"]; chapter: Chapter["number"] }
+  /**
+   * The slide-out under way or done, which a later step's load waits on too;
+   * until a chapter is shown, or the load fails.
+   */
+  private slideOut?: Promise<void>
+
   goToNextChapter(): void {
-    if (this.changingChapter) return
-    if (this.book.chapterCount >= this.chapterNumber + 1) {
+    if (this.keyRepeating) return
+    const target = this.stepFrom + 1
+    if (this.book.chapterCount >= target) {
       this.haptics.light()
       this.prepareChapterNavigation(true)
-      this.navigateToAdjacentChapter(this.chapterNumber + 1)
+      this.navigateToAdjacentChapter(target)
     }
   }
 
@@ -923,11 +964,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   goToPreviousChapter(): void {
-    if (this.changingChapter) return
-    if (this.chapterNumber > this.minChapter) {
+    if (this.keyRepeating) return
+    const target = this.stepFrom - 1
+    if (target >= this.minChapter) {
       this.haptics.light()
       this.prepareChapterNavigation(false)
-      this.navigateToAdjacentChapter(this.chapterNumber - 1)
+      this.navigateToAdjacentChapter(target)
     }
   }
 
@@ -952,23 +994,33 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return Capacitor.isNativePlatform()
   }
 
+  /** Marks the anchors' steps as reading on, which keeps "Voltar para …". */
+  readonly chapterStep = CHAPTER_STEP
+
   private navigateToAdjacentChapter(chapter: Chapter["number"]): void {
     const commands = this.chapterCommands(chapter, true)
-    const navigated = this.replaceChapterHistory
-      ? this.router.navigate(commands, { replaceUrl: true })
-      : this.router.navigate(commands)
-    // No chapter will load to clear the slide: the next step mustn't wait on it.
-    void navigated.then(
-      (ok) => {
-        if (!ok) this.clearChapterSlide()
-      },
-      () => this.clearChapterSlide(),
-    )
+    const navigated = this.router.navigate(commands, {
+      info: CHAPTER_STEP,
+      ...(this.replaceChapterHistory && { replaceUrl: true }),
+    })
+    // No chapter will load to clear the slide: the next step mustn't wait on
+    // it. Unless a later step superseded this navigation and owns the slide.
+    const slide = this.slideTo
+    const clear = () => {
+      if (this.slideTo === slide) this.clearChapterSlide()
+    }
+    void navigated.then((ok) => {
+      if (!ok) clear()
+    }, clear)
   }
 
   private clearChapterSlide(): void {
     this.isNavigatingForwards = false
     this.isNavigatingBackwards = false
+    this.slideTo = undefined
+    // They were built past the chapter that was on its way.
+    this.rebuildChapterLinks()
+    this.cdr.markForCheck()
   }
 
   goToChapter(newChapterNumber: Chapter["number"]): void {
@@ -1021,8 +1073,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck()
     }
     const requested = this.book
+    // This request, not just its chapter: a burst can ask for 2, 3 and 2
+    // again, and the first 2's failure, waiting on the slide, isn't the last's.
+    const request = ++this.chapterRequest
     const isCurrent = () =>
-      this.book.id === requested.id && this.pendingChapter === chapter
+      request === this.chapterRequest &&
+      this.book.id === requested.id &&
+      this.pendingChapter === chapter
     const retry = () =>
       this.getChapter(chapter, verseStart, verseEnd, highlight)
     // The slide-out outlasts the load: another chapter may be asked for by then.
@@ -1135,8 +1192,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck()
     // Or the URL coming back here would read as a chapter still to load.
     this.pendingChapter = this.chapterNumber
-    this.isNavigatingBackwards = false
-    this.isNavigatingForwards = false
+    this.clearChapterSlide()
+    // The chapter slid out for this one comes back.
+    const container = this.bookContainer?.nativeElement
+    if (this.slideOut && container) {
+      this.animationService.triggerSlideAnimation(undefined, container, false)
+    }
+    this.slideOut = undefined
     this.releasePrerender()
     // Opened cold, the address already names the chapter asked for: it keeps
     // its verse and notes, for a retry or a reload to open.
@@ -1197,9 +1259,21 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       container &&
       (this.isNavigatingBackwards || this.isNavigatingForwards)
     ) {
-      this.animationService
-        .triggerSlideOutAnimation(container, this.isNavigatingBackwards)
-        .then(work)
+      // A step taken during the slide joins it rather than starting it over.
+      if (!this.slideOut) {
+        const slideOut = this.animationService.triggerSlideOutAnimation(
+          container,
+          this.isNavigatingBackwards,
+        )
+        this.slideOut = slideOut
+        // Out, it stays out until a chapter is shown: its class going would
+        // show it again while a later step's chapter is still loading, and
+        // that one would slide it out a second time.
+        void slideOut.then(() => {
+          if (this.slideOut === slideOut) this.resetContainerForRepaint()
+        })
+      }
+      this.slideOut.then(work)
     } else {
       work()
     }
@@ -1222,9 +1296,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       !this.isNavigatingBackwards
 
     if (!alreadyShown) this.resetContainerForRepaint()
+    this.slideOut = undefined
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+    this.linkedVerse = undefined
     this.shown = { book: this.book, chapter }
     // Following a parallel into the reading column leaves the same chapter
     // open twice; the copy beside it has nothing left to compare.
@@ -1246,6 +1322,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.chapterUnavailable = false
     this.retryingChapter = false
     this.retryChapterLoad = undefined
+    // The step has landed: the links go around this chapter, not past it.
+    const startAtBottom = this.isNavigatingBackwards
+    this.isNavigatingBackwards = false
+    this.isNavigatingForwards = false
+    this.slideTo = undefined
     this.rebuildChapterLinks()
     this.animationService.cancelPendingRealign()
 
@@ -1258,10 +1339,6 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // Its finger's events end with the verse it came down on.
     this.pagedNav?.releaseDrag()
     this.cdr.detectChanges()
-
-    const startAtBottom = this.isNavigatingBackwards
-    this.isNavigatingBackwards = false
-    this.isNavigatingForwards = false
 
     if (verseStart) {
       this.scrollToVerse(verseStart, verseEnd, highlight)
@@ -1349,6 +1426,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     verseEnd?: Verse["number"],
     highlight = true,
   ): void {
+    this.linkedVerse = verseStart
     const pagedNav = this.pagedNav
     this.animationService.scrollToVerseElement(
       this.bookBlock?.nativeElement,
@@ -1417,7 +1495,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // from here would change nothing on screen, and the reader would find it
     // changed on leaving.
     if (this.studyModeActive) return
-    const reading = this.verseInView()
+    const reading = this.verseBeingRead()
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
 
@@ -1445,8 +1523,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     )
   }
 
-  /** The first verse showing, on the page or in the scroller's view. */
-  private verseInView(): HTMLElement | undefined {
+  /**
+   * The verse being read: the one a link led to while its start shows, else
+   * the first verse starting in view (on the page, or below the top of the
+   * scroller's view), else the one filling it. Not the first with any line
+   * showing: the previous verse's last line at the top moved the reader back
+   * a page at every switch.
+   */
+  private verseBeingRead(): HTMLElement | undefined {
     const scroller =
       this.effectiveViewMode === "paged"
         ? this.bookContainer?.nativeElement
@@ -1462,15 +1546,30 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       left: box.left,
       right: box.right,
     }
-    return Array.from(block.querySelectorAll<HTMLElement>("verse")).find(
-      (verse) =>
-        Array.from(verse.getClientRects()).some(
-          (line) =>
-            line.bottom > view.top &&
-            line.top < view.bottom &&
-            line.right > view.left &&
-            line.left < view.right,
-        ),
+    const showing = (line: DOMRect) =>
+      line.bottom > view.top &&
+      line.top < view.bottom &&
+      line.right > view.left &&
+      line.left < view.right
+    // Its number, which switching back scrolls to the top; else its first line.
+    const startShowing = (verse: HTMLElement) => {
+      const start = (
+        verse.querySelector<HTMLElement>(".verseNumber") ?? verse
+      ).getClientRects()[0]
+      return (
+        !!start &&
+        start.top >= view.top - 1 &&
+        start.top < view.bottom &&
+        start.left >= view.left - 1 &&
+        start.left < view.right
+      )
+    }
+    const verses = Array.from(block.querySelectorAll<HTMLElement>("verse"))
+    const linked = verses.find((verse) => verse.id === `${this.linkedVerse}`)
+    if (linked && startShowing(linked)) return linked
+    return (
+      verses.find(startShowing) ??
+      verses.find((verse) => Array.from(verse.getClientRects()).some(showing))
     )
   }
 
@@ -1711,17 +1810,28 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.clearSelection()
       return
     }
-    if (event.key === "ArrowLeft") {
-      this.effectiveViewMode === "paged"
-        ? this.pagedNav?.prevPage()
-        : this.goToPreviousChapter()
-    }
-    if (event.key === "ArrowRight") {
-      this.effectiveViewMode === "paged"
-        ? this.pagedNav?.nextPage()
-        : this.goToNextChapter()
+    // A held key repeats: it may turn pages, not chapters, or it raced
+    // through the book. The paged view's turn past the end comes back
+    // through goTo*Chapter, within this call.
+    this.keyRepeating = event.repeat
+    try {
+      if (event.key === "ArrowLeft") {
+        this.effectiveViewMode === "paged"
+          ? this.pagedNav?.prevPage()
+          : this.goToPreviousChapter()
+      }
+      if (event.key === "ArrowRight") {
+        this.effectiveViewMode === "paged"
+          ? this.pagedNav?.nextPage()
+          : this.goToNextChapter()
+      }
+    } finally {
+      this.keyRepeating = false
     }
   }
+
+  /** While a held arrow key's repeat is handled; see onArrowPress. */
+  private keyRepeating = false
 
   /**
    * Whether a press belongs to the page at all: not a text field's caret, the
