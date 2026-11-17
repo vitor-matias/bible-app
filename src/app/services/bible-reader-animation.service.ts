@@ -235,6 +235,9 @@ export class BibleReaderAnimationService {
           if (highlight) {
             element.classList.add(HIGHLIGHT_CLASS)
             this.highlightFades.get(element)?.()
+            // Joining a range, it has no fade: its entry would keep the
+            // element after the chapter goes.
+            this.highlightFades.delete(element)
             if (extraVerses > 0) range.push(element)
             else this.fadeHighlight(element)
           }

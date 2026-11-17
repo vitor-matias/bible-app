@@ -360,6 +360,27 @@ describe("BibleReaderAnimationService", () => {
       expect(verse1.classList.contains(HIGHLIGHT_CLASS)).toBe(false)
     })
 
+    // Its fade cancelled but its entry kept, a verse that joined a range
+    // stayed in the map after its chapter went.
+    it("keeps no fade entry for a verse that joins a range", async () => {
+      const bookBlock = document.createElement("div")
+      const verses = [1, 2].map((n) => {
+        const el = document.createElement("div")
+        el.id = String(n)
+        bookBlock.appendChild(el)
+        vi.spyOn(el, "scrollIntoView").mockReturnValue(undefined)
+        return el
+      })
+      service.scrollToVerseElement(bookBlock, undefined, 2, 2, true, false)
+      await vi.advanceTimersByTimeAsync(100)
+
+      service.scrollToVerseElement(bookBlock, undefined, 1, 2, true, false)
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(service["highlightFades"].has(verses[1])).toBe(false)
+      document.body.click()
+    })
+
     it("should keep a verse marked while a dialog covers it, then for the full time", async () => {
       const bookBlock = document.createElement("div")
       const verse = document.createElement("div")
