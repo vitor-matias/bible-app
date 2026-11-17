@@ -1,9 +1,11 @@
 <div class="chapterSelectorContainer">
   @if (bookmarks$ | async; as bookmarksMap) {
-    <mat-list>
+    <!-- One tab stop: the arrows, Home and End move between the chapters. -->
+    <mat-list (keydown)="moveFocus($event)">
       @for (chapter of chapters(); track chapter.number) {
       <mat-list-item>
         <button type="button" class="chapterSelectorButton" mat-flat-button (click)="submit(chapter.number)"
+          [tabindex]="chapter.number === tabStop() ? 0 : -1" (focus)="focused.set(chapter.number)"
           [ngClass]="{ 'highlight': chapter.number === highlighted() }">
           <!-- The introduction has no number: skip the slot unless it is
                bookmarked, so the ribbon stays visible. -->

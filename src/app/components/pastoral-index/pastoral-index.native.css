@@ -161,6 +161,21 @@
   font-weight: 600;
 }
 
+/* Letters ~14 px apart are a small target: the bar takes touches a little
+   past its ends, and where the page leaves a margin (iPad), 44 px wide as
+   UIKit's. Not over the rows on a phone, whose right edge it would take. */
+:host(.ios) .letter-bar::before {
+  content: "";
+  position: absolute;
+  inset: -12px 0;
+}
+
+@media (min-width: 744px) {
+  :host(.ios) .letter-bar::before {
+    left: -20px;
+  }
+}
+
 :host(.ios) .letter-bar ::ng-deep .letter {
   padding: 0;
 }

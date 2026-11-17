@@ -134,16 +134,19 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private bottomSheet = inject(MatBottomSheet)
   private nativeFootnotes = inject(NativeFootnotesService)
   private location = inject(Location)
-  private backButton = inject(BackButtonService)
+  protected readonly backButton = inject(BackButtonService)
   /** The verses a link asked to open the notes of, until the chapter is here. */
   private linkedNotes: string | null = null
   private dismissLinkedNotes?: () => void
   private stopTrackingScroll?: () => void
-  private unregisterBackCloser = inject(BackButtonService).register(() => {
-    if (!this.bookDrawer?.opened) return false
-    this.bookDrawer.close()
-    return true
-  })
+  private unregisterBackCloser = this.backButton.register(
+    () => {
+      if (!this.bookDrawer?.opened) return false
+      this.bookDrawer.close()
+      return true
+    },
+    () => !!this.bookDrawer?.opened,
+  )
 
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer

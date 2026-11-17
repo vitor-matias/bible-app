@@ -84,7 +84,11 @@ describe("HeaderComponent", () => {
     bottomSheetSpy.open.mockReturnValue(
       bookmarkSheetRef as unknown as ReturnType<MatBottomSheet["open"]>,
     )
-    dialogSpy = createSpyObj("MatDialog", ["open"])
+    // The back button reads the open dialogs, before any panel of its own.
+    dialogSpy = createSpyObj<MatDialog>("MatDialog", ["open"], {
+      openDialogs: [],
+      afterOpened: new Subject(),
+    })
     analyticsServiceSpy = createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
@@ -381,11 +385,13 @@ describe("HeaderComponent", () => {
     })
 
     it("dismisses the bookmark sheet it opened", () => {
+      // The service wraps the ref's dismiss to hear every way it closes.
+      const { dismiss } = bookmarkSheetRef
       fixture.componentRef.setInput("chapterNumber", 1)
       component.openBookmarkSelector()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
-      expect(bookmarkSheetRef.dismiss).toHaveBeenCalled()
+      expect(dismiss).toHaveBeenCalled()
 
       bookmarkSheetDismissed.next()
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
@@ -401,6 +407,32 @@ describe("HeaderComponent", () => {
       fixture.destroy()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
+    })
+
+    // The website's Back left the page and closed the menu on the way.
+    it("closes the open menu on the browser's Back, on the website", async () => {
+      vi.useFakeTimers()
+      Object.assign(routerSpy, {
+        events: new Subject(),
+        currentNavigation: () => null,
+      })
+      TestBed.inject(BackButtonService).closeOnBrowserBack()
+      const trigger = menuTrigger()
+      const popped = () =>
+        new Promise((resolve) =>
+          window.addEventListener("popstate", resolve, { once: true }),
+        )
+
+      trigger.openMenu()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(window.history.state?.appPanel).toBe(true)
+
+      const back = popped()
+      window.history.back()
+      await back
+      expect(trigger.menuOpen).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(window.history.state?.appPanel).not.toBe(true)
     })
   })
 

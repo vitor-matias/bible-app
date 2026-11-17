@@ -99,6 +99,13 @@
   transition: color 150ms ease;
 }
 
+/* More contrast asked for (styles.css): the text's own colour. */
+@media (prefers-contrast: more) {
+  .site-link {
+    color: var(--text-color) !important;
+  }
+}
+
 /* Generated so the ligature name never enters the link text crawlers read. */
 .site-link::after {
   content: "open_in_new" / "";

@@ -74,6 +74,7 @@ describe("PastoralIndexComponent", () => {
   let analyticsOn: boolean
   let nativeReport: SpyObj<NativeReportService>
   let haptics: SpyObj<HapticsService>
+  let backButton: SpyObj<BackButtonService>
   let themes: {
     currentMode: string
     toggleTheme: ReturnType<typeof vi.fn>
@@ -116,6 +117,12 @@ describe("PastoralIndexComponent", () => {
     analyticsOn = true
     nativeReport = createSpyObj("NativeReportService", ["open"])
     haptics = createSpyObj("HapticsService", ["selection"])
+    backButton = createSpyObj("BackButtonService", [
+      "closeOnBack",
+      "register",
+      "changed",
+    ])
+    backButton.register.mockReturnValue(() => {})
     themes = { currentMode: "light", toggleTheme: vi.fn(), setTheme: vi.fn() }
     actions = new Subject()
     chrome = {
@@ -145,7 +152,7 @@ describe("PastoralIndexComponent", () => {
         { provide: NativeBookmarksService, useValue: nativeBookmarks },
         { provide: NativeReportService, useValue: nativeReport },
         { provide: HapticsService, useValue: haptics },
-        { provide: BackButtonService, useValue: { closeOnBack: vi.fn() } },
+        { provide: BackButtonService, useValue: backButton },
         {
           provide: AnalyticsService,
           useValue: {
@@ -439,6 +446,22 @@ describe("PastoralIndexComponent", () => {
         "menu",
       )
       expect(toolbar.querySelector('[aria-label="Pesquisar"]')).not.toBeNull()
+    })
+
+    // As the reader's: the back button closes it, the browser's on the website.
+    it("closes on the back button, which hears it open and close", async () => {
+      const fixture = await open()
+      const [closer, isOpen] = backButton.register.mock.lastCall ?? []
+      expect(isOpen?.()).toBe(false)
+      expect(closer?.()).toBe(false)
+
+      await openMenu(fixture)
+      expect(backButton.changed).toHaveBeenCalledTimes(1)
+      expect(isOpen?.()).toBe(true)
+
+      expect(closer?.()).toBe(true)
+      expect(isOpen?.()).toBe(false)
+      expect(backButton.changed).toHaveBeenCalledTimes(2)
     })
 
     it("is the reader's, less auto-scroll and the view mode", async () => {
@@ -844,6 +867,27 @@ describe("PastoralIndexComponent", () => {
       expect(size(150)).toBe("16.5px")
       // 1.3em apart: 24.7 px.
       expect(size(235)).toBe("19px")
+    })
+
+    // On the iPad the letters were ~15 pt apart in a 24 px strip.
+    it("take touches past the iOS bar's letters, where that covers no row", async () => {
+      const fixture = await open(undefined, true)
+      const bar = fixture.nativeElement.querySelector(
+        "alphabetical-scroll-bar",
+      ) as HTMLElement
+      const rect = bar.getBoundingClientRect()
+      const middle = rect.top + rect.height / 2
+
+      // Past the ends, and (the spec's 800 px are wider than the list) to
+      // 44 px wide, into the margin.
+      expect(document.elementFromPoint(rect.right - 4, rect.top - 8)).toBe(bar)
+      expect(document.elementFromPoint(rect.right - 4, rect.bottom + 8)).toBe(
+        bar,
+      )
+      expect(document.elementFromPoint(rect.left - 16, middle)).toBe(bar)
+      expect(document.elementFromPoint(rect.left - 24, middle)).not.toBe(bar)
+      // The letters themselves are where they were.
+      expect(rect.width).toBe(24)
     })
 
     it("go to that letter's themes", async () => {
