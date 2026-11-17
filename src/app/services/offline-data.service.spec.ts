@@ -586,6 +586,30 @@ describe("OfflineDataService", () => {
       expect(mockLocalStorage._storage["booksCacheReady"]).toBe("true")
     })
 
+    // The books stored with a fresh timestamp, the introductions failed:
+    // their old flag made the retry skip them until the next expiry.
+    it("retries the introductions of an expired refresh that failed", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = (
+        Date.now() - FORTY_ONE_DAYS_MS
+      ).toString()
+      databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/intros").error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectOne("v1/intros").flush([])
+      await vi.advanceTimersByTimeAsync(50)
+    })
+
     it("leaves a failed download to the reconnect while offline", async () => {
       vi.useFakeTimers()
       vi.spyOn(console, "error").mockReturnValue(undefined)

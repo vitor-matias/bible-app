@@ -222,6 +222,9 @@ export class OfflineDataService implements OnDestroy {
       safeLocalStorage()?.setItem(this.groupIntrosCacheFlagKey, "true")
       return true
     } catch (error) {
+      // An expired refresh stores the books with a new timestamp: a flag left
+      // from before would make the retry skip the introductions.
+      safeLocalStorage()?.removeItem(this.groupIntrosCacheFlagKey)
       console.error(
         "Failed to preload group introductions for offline use",
         error,
