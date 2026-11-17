@@ -326,6 +326,37 @@ describe("BackButtonService on the website", () => {
       expect(router.url).toBe(page("referencia"))
     })
 
+    // ‹ › to a chapter that then failed to load, with the menu opened in
+    // between: the revert to the chapter before rewrote the menu's entry,
+    // and closing the menu stepped back onto the failed chapter, which the
+    // router went to again.
+    it("closes the panel for a page put in place of the one under it", async () => {
+      await router.navigateByUrl(page("1"))
+      await router.navigateByUrl(page("2"))
+      open = true
+      service.changed()
+      await sync()
+      const length = window.history.length
+
+      await router.navigateByUrl(page("1"), { replaceUrl: true })
+      await vi.waitFor(() => expect(window.location.href).toContain("pagina=1"))
+      await settled()
+
+      expect(open).toBe(false)
+      expect(onPanelEntry()).toBe(false)
+      expect(router.url).toBe(page("1"))
+      expect(window.history.length).toBe(length)
+      // The chapter before, as without the panel: not the failed one.
+      const depth = window.history.state?.appDepth
+      window.history.back()
+      await vi.waitFor(() =>
+        expect(window.history.state?.appDepth).toBe(depth - 1),
+      )
+      await settled()
+      expect(window.location.href).toContain("pagina=1")
+      expect(router.url).toBe(page("1"))
+    })
+
     // Forward after a Back that closed the panel lands on its entry with
     // nothing open: stepped back over at once, the router left alone.
     it("steps back over a panel's entry Forward lands on", async () => {

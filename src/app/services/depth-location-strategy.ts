@@ -93,6 +93,29 @@ export class DepthLocationStrategy extends PathLocationStrategy {
     queryParams: string,
   ): void {
     const current = this.platform.getState()
+    // As this.path() reads it: no origin, which a full base href adds.
+    const external = this.prepareExternalUrl(
+      url +
+        (queryParams && !queryParams.startsWith("?") ? "?" : "") +
+        queryParams,
+    ).replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i, "")
+    // Another page in place of the one under a panel (a chapter that failed to
+    // load, reverted): the panel's entry goes first, as Back would close the
+    // panel, and the page's own entry takes the new address. Left on the
+    // panel's entry, it put the page before it a step back.
+    if (isPanelEntry(current) && external !== this.path()) {
+      const stop = this.platform.onPopState(() => {
+        stop()
+        super.replaceState(
+          withDepth(state, historyDepth(current) - 1),
+          title,
+          url,
+          queryParams,
+        )
+      })
+      this.platform.back()
+      return
+    }
     const next = withDepth(state, historyDepth(current))
     // Still the open panel's entry, which Back leaves to close it.
     super.replaceState(
