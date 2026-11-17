@@ -46,6 +46,8 @@ export class OfflineDataService implements OnDestroy {
   private storageFailed = false
   /** The last introductions download left some out; the flag can't say so without localStorage. */
   private introsIncomplete = false
+  /** Torn down: a late failure or a refresh in flight must not arm another retry. */
+  private destroyed = false
 
   /**
    * Fetches all books and chapters into IndexedDB for offline usage.
@@ -64,6 +66,7 @@ export class OfflineDataService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.destroyed = true
     clearTimeout(this.retryTimer)
   }
 
@@ -78,10 +81,12 @@ export class OfflineDataService implements OnDestroy {
   }
 
   private armRetry(delayMs: number): void {
+    if (this.destroyed) return
     this.retryTimer = setTimeout(async () => {
       // In the background the listener can miss a reconnect: ask, and while
       // offline keep asking.
       await this.networkService.refresh()
+      if (this.destroyed) return
       if (this.networkService.isOffline) this.armRetry(delayMs)
       else void this.preloadAllBooksAndChapters()
     }, delayMs)

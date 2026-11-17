@@ -543,6 +543,31 @@ describe("OfflineDataService", () => {
       httpMock.expectNone("v1/books?withChapters=true")
     })
 
+    // A download failing after the service is torn down armed another retry.
+    it("arms no retry once destroyed", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      databaseService.getAll.mockResolvedValue([
+        {
+          id: "a",
+          name: "A",
+          shortName: "A",
+          abrv: "a",
+          chapterCount: 0,
+          introSlug: "a",
+        },
+      ])
+      void service.preloadAllBooksAndChapters()
+      await vi.advanceTimersByTimeAsync(0)
+      service.ngOnDestroy()
+      httpMock
+        .expectOne("v1/books?withChapters=true")
+        .error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 4)
+      httpMock.expectNone("v1/books?withChapters=true")
+    })
+
     // IndexedDB full (QuotaExceededError): the intros' write failing too
     // retried the preload, downloading the Bible again every few minutes.
     it("never downloads the Bible again when storing it fails", async () => {
