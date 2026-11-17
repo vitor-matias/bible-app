@@ -13,7 +13,7 @@ import type { Observable, Subscription } from "rxjs"
 import { filter, take } from "rxjs/operators"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
 import { BookService } from "./book.service"
-import { historyDepth, isPanelEntry } from "./depth-location-strategy"
+import { isPanelEntry, pageDepth } from "./depth-location-strategy"
 import { NativeChromeService } from "./native-chrome.service"
 
 /**
@@ -112,11 +112,11 @@ export class ToastService {
     // Still on the page the reader leaves for the reference: its entry. Not a
     // sheet's on top of it (BackButtonService), which the reference's page
     // takes over (DepthLocationStrategy): the page's is the one beneath.
-    const state = this.location.getState()
-    const origin = historyDepth(state) - (isPanelEntry(state) ? 1 : 0)
+    const origin = pageDepth(this.location.getState())
     const goBack = () => {
+      const state = this.location.getState()
       // Elsewhere, or no such entry (a reload, a replaced history): go there.
-      if (historyDepth(this.location.getState()) !== origin + 1) {
+      if (pageDepth(state) !== origin + 1) {
         goTo()
         return
       }
@@ -135,7 +135,9 @@ export class ToastService {
         .subscribe((event) => {
           if (event instanceof NavigationEnd) goTo({ replaceUrl: true })
         })
-      this.location.back()
+      // Over a sheet opened since (the linked notes) too: its entry goes, and
+      // the step to another address closes the sheet.
+      this.location.historyGo(isPanelEntry(state) ? -2 : -1)
     }
     // The way back is the button, as Books' "Back to Page" is: the iOS glass
     // toast, or the snackbar elsewhere.

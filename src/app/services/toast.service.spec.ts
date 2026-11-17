@@ -429,6 +429,32 @@ describe("ToastService", () => {
           expect(router.url).toBe("/gn/4")
         })
 
+        // A citation with notes= opens the notes on the reference's page after
+        // the way back shows: «Voltar» counted the sheet's entry as a page,
+        // went there anew over it, and Back afterwards returned to the reference.
+        it("steps back over a sheet opened on the reference's page", async () => {
+          await followFrom("/gn/5")
+          const reference = depth() ?? 0
+          platform.pushState(
+            {
+              ...(platform.getState() as object),
+              appDepth: reference + 1,
+              appPanel: true,
+            },
+            "",
+            platform.url,
+          )
+
+          returnSnack().returnUrl()
+          await settle()
+
+          expect(router.url).toBe("/gn/5?verseStart=1&highlight=false")
+          expect(depth()).toBe(reference - 1)
+          TestBed.inject(Location).back()
+          await settle()
+          expect(router.url).toBe("/gn/4")
+        })
+
         it("goes there anew once the reader has read on", async () => {
           await followFrom("/gn/5")
           await router.navigateByUrl("/jo/2")

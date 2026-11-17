@@ -19,6 +19,14 @@ export function isPanelEntry(state: unknown): boolean {
   return (state as { appPanel?: unknown } | null)?.appPanel === true
 }
 
+/**
+ * The depth of the page an entry shows: a panel's entry sits one above the
+ * page's own, at the same address.
+ */
+export function pageDepth(state: unknown): number {
+  return historyDepth(state) - (isPanelEntry(state) ? 1 : 0)
+}
+
 let panelPop: ((state: unknown) => boolean) | null = null
 
 /**

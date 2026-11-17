@@ -258,6 +258,31 @@ describe("BackButtonService on the website", () => {
     })
   }
 
+  // «Voltar» over the notes opened on a reference steps back two entries, past
+  // the panel's and its page's (ToastService).
+  it("closes the panel when the history steps back past its page", async () => {
+    const location = TestBed.inject(Location)
+    const path = location.path()
+    location.go(`${path.split("?")[0]}?referencia=jo1`)
+    try {
+      open = true
+      service.changed()
+      await sync()
+
+      window.history.go(-2)
+      await vi.waitFor(() =>
+        expect(window.location.href).not.toContain("referencia"),
+      )
+      await sync()
+
+      expect(closer).toHaveBeenCalledTimes(1)
+      expect(open).toBe(false)
+      expect(onPanelEntry()).toBe(false)
+    } finally {
+      location.replaceState(path)
+    }
+  })
+
   it("adds no entry without closeOnBrowserBack, as in the apps", async () => {
     TestBed.resetTestingModule()
     TestBed.configureTestingModule({ providers: [provideRouter([])] })
