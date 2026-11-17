@@ -1270,6 +1270,19 @@ describe("BibleReaderComponent", () => {
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
     })
 
+    // The browser's Back on the website closes the drawer through the history
+    // entry it keeps while a panel opens and closes.
+    it("tells the back button when the drawer opens and closes", () => {
+      const changed = vi.spyOn(TestBed.inject(BackButtonService), "changed")
+      const drawer: HTMLElement =
+        fixture.nativeElement.querySelector("mat-drawer")
+
+      drawer.dispatchEvent(new Event("openedStart"))
+      expect(changed).toHaveBeenCalledTimes(1)
+      drawer.dispatchEvent(new Event("closedStart"))
+      expect(changed).toHaveBeenCalledTimes(2)
+    })
+
     it("gives light haptic feedback when turning to another chapter", () => {
       component.chapterNumber = 2
       component.goToNextChapter()

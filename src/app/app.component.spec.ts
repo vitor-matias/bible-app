@@ -175,6 +175,23 @@ describe("AppComponent", () => {
     expect(nativeShellSpy.init).toHaveBeenCalled()
   })
 
+  // Android's Back is the app's own; the browser's closes panels on the website.
+  it("has the browser's Back close panels on the website only", () => {
+    mockAppPlugin.addListener.mockResolvedValue({
+      remove: async () => {},
+    } as unknown as PluginListenerHandle)
+    const closeOnBrowserBack = vi
+      .spyOn(TestBed.inject(BackButtonService), "closeOnBrowserBack")
+      .mockImplementation(() => {})
+
+    TestBed.createComponent(AppComponent).detectChanges()
+    expect(closeOnBrowserBack).not.toHaveBeenCalled()
+
+    ;(Capacitor.isNativePlatform as Mock).mockReturnValue(false)
+    TestBed.createComponent(AppComponent).detectChanges()
+    expect(closeOnBrowserBack).toHaveBeenCalledTimes(1)
+  })
+
   it("should send app_open event on init", async () => {
     mockAppPlugin.addListener.mockResolvedValue({
       remove: async () => {},

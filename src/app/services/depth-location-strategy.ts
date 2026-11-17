@@ -1,4 +1,8 @@
-import { PathLocationStrategy, PlatformLocation } from "@angular/common"
+import {
+  type LocationChangeListener,
+  PathLocationStrategy,
+  PlatformLocation,
+} from "@angular/common"
 import { Injectable, inject } from "@angular/core"
 
 /**
@@ -10,9 +14,35 @@ export function historyDepth(state: unknown): number {
   return typeof depth === "number" && depth > 0 ? depth : 0
 }
 
+/** Whether a history entry is an open panel's own (BackButtonService). */
+export function isPanelEntry(state: unknown): boolean {
+  return (state as { appPanel?: unknown } | null)?.appPanel === true
+}
+
+/**
+ * The depth of the page an entry shows: a panel's entry sits one above the
+ * page's own, at the same address.
+ */
+export function pageDepth(state: unknown): number {
+  return historyDepth(state) - (isPanelEntry(state) ? 1 : 0)
+}
+
+let panelPop: ((state: unknown) => boolean) | null = null
+
+/**
+ * Sets what says a popstate only went onto or off a panel's entry, which
+ * Location then keeps from the router (BackButtonService); null for none.
+ */
+export function setPanelPopFilter(
+  filter: ((state: unknown) => boolean) | null,
+): void {
+  panelPop = filter
+}
+
 /**
  * The router's location strategy, also keeping in each history entry how
- * many of the app's pages lie behind it.
+ * many of the app's pages lie behind it, and keeping from Location the pops
+ * that only open or close a panel.
  *
  * Android's WebView, like Chrome, skips on Back an entry the page left
  * without a tap on the page itself, and the native bars' buttons are not
@@ -23,14 +53,33 @@ export function historyDepth(state: unknown): number {
 export class DepthLocationStrategy extends PathLocationStrategy {
   private readonly platform = inject(PlatformLocation)
 
+  override onPopState(fn: LocationChangeListener): void {
+    super.onPopState((event) => {
+      if (event.type === "popstate" && panelPop?.(event.state)) return
+      fn(event)
+    })
+  }
+
   override pushState(
     state: unknown,
     title: string,
     url: string,
     queryParams: string,
   ): void {
+    const current = this.platform.getState()
+    // A page opened from a panel takes the panel's entry, already one deeper:
+    // Back from it returns to the page under the panel, not to the panel.
+    if (isPanelEntry(current)) {
+      super.replaceState(
+        withDepth(state, historyDepth(current)),
+        title,
+        url,
+        queryParams,
+      )
+      return
+    }
     super.pushState(
-      withDepth(state, historyDepth(this.platform.getState()) + 1),
+      withDepth(state, historyDepth(current) + 1),
       title,
       url,
       queryParams,
@@ -43,8 +92,34 @@ export class DepthLocationStrategy extends PathLocationStrategy {
     url: string,
     queryParams: string,
   ): void {
+    const current = this.platform.getState()
+    // As this.path() reads it: no origin, which a full base href adds.
+    const external = this.prepareExternalUrl(
+      url +
+        (queryParams && !queryParams.startsWith("?") ? "?" : "") +
+        queryParams,
+    ).replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i, "")
+    // Another page in place of the one under a panel (a chapter that failed to
+    // load, reverted): the panel's entry goes first, as Back would close the
+    // panel, and the page's own entry takes the new address. Left on the
+    // panel's entry, it put the page before it a step back.
+    if (isPanelEntry(current) && external !== this.path()) {
+      const stop = this.platform.onPopState(() => {
+        stop()
+        super.replaceState(
+          withDepth(state, historyDepth(current) - 1),
+          title,
+          url,
+          queryParams,
+        )
+      })
+      this.platform.back()
+      return
+    }
+    const next = withDepth(state, historyDepth(current))
+    // Still the open panel's entry, which Back leaves to close it.
     super.replaceState(
-      withDepth(state, historyDepth(this.platform.getState())),
+      isPanelEntry(current) ? { ...next, appPanel: true } : next,
       title,
       url,
       queryParams,

@@ -1176,3 +1176,46 @@ html.no-scrollbar::-webkit-scrollbar {
 html:has(mat-snack-bar-container) .footnotes-container {
   padding-bottom: 72px;
 }
+
+/* More contrast asked for: iOS Increase Contrast, macOS Increase contrast,
+   Windows contrast themes short of forced colours. Tiles that are only a tint
+   away from their surface get an edge, and faint captions, hints and
+   placeholders the text's own colour, in either theme. */
+@media (prefers-contrast: more) {
+  :root,
+  .dark-theme,
+  .platform-ios.native-chrome {
+    --mat-form-field-hint-text-color: var(--text-color);
+    --mat-form-field-filled-input-text-placeholder-color: var(--text-color);
+    --mat-form-field-outlined-input-text-placeholder-color: var(--text-color);
+    --mat-select-placeholder-text-color: var(--text-color);
+    --mat-expansion-header-indicator-color: var(--text-color);
+  }
+
+  ::placeholder {
+    color: var(--text-color) !important;
+    opacity: 0.85 !important;
+  }
+
+  :is(chapter-selector .chapterSelectorButton, book-selector .bookSelectorButton, book-index .group li a) {
+    box-shadow: inset 0 0 0 1px var(--text-color);
+  }
+
+  :is(
+      book-index .intro-text,
+      pastoral-index .index-intro,
+      pastoral-index .letter > h2,
+      app-search :is(.empty-state, .empty-state-icon, .loading, .results-count, .results-hint, .psalm-note),
+      app-bookmark-selector .ribbon-hint,
+      .mat-mdc-menu-panel :is(.menu-version, .open-in-new-icon),
+      .onboarding-dialog .note
+    ) {
+    color: var(--text-color) !important;
+    opacity: 1 !important;
+  }
+
+  /* The chapter arrows rest at 60% until hovered. */
+  bible-reader .floating-nav-button {
+    opacity: 1 !important;
+  }
+}

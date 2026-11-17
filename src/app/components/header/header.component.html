@@ -5,7 +5,8 @@
 <ng-template #chromeMenu>
   <!-- data-tour: ringed by the onboarding step that names the button. -->
   <button class="menuButton" mat-icon-button [matMenuTriggerFor]="readerMenu.menu"
-    (menuOpened)="readerMenu.opened()" aria-label="Menu" data-tour="text">
+    (menuOpened)="readerMenu.opened(); backButton.changed()" (menuClosed)="backButton.changed()"
+    aria-label="Menu" data-tour="text">
     <mat-icon>menu</mat-icon>
   </button>
   <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [shareText]="shareText()" [version]="version"

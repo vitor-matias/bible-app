@@ -158,6 +158,27 @@ describe("BookSelectorComponent", () => {
       expect(submitted).toEqual(["indice"])
     })
 
+    // Alt+← is the browser's Back, which closes the drawer.
+    it("leaves the arrows with Alt, Ctrl or ⌘ to the browser", () => {
+      const node = indexNode()
+      node.focus()
+
+      for (const modifier of ["altKey", "ctrlKey", "metaKey"]) {
+        for (const key of ["ArrowLeft", "ArrowUp", "Home"]) {
+          const event = new KeyboardEvent("keydown", {
+            key,
+            [modifier]: true,
+            bubbles: true,
+            cancelable: true,
+          })
+          node.dispatchEvent(event)
+
+          expect(event.defaultPrevented, `${modifier} ${key}`).toBe(false)
+          expect(document.activeElement).toBe(node)
+        }
+      }
+    })
+
     it("rings the focused book", () => {
       const node = indexNode()
       node.focus()
