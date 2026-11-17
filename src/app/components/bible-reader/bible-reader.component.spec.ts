@@ -3010,6 +3010,27 @@ describe("BibleReaderComponent", () => {
       ])
     })
 
+    // A step on from chapter 1 moved the shared ‹ link to chapter 1: the card,
+    // still there while chapter 2 came, led back to chapter 1.
+    it("still leads to the introduction while a step on is under way", async () => {
+      const cardFixture = await readerAt(1, { introduction: true })
+      const reader = cardFixture.componentInstance
+      routerSpy.navigate.mockReturnValue(new Promise(() => {}))
+      reader.goToNextChapter()
+      cardFixture.detectChanges()
+
+      // What the card links to, while ‹ points past chapter 2's way.
+      expect(reader.introLink).toEqual(["/", "1-genesis", "intro"])
+      const [intro] = cards(cardFixture)
+      intro.nativeElement.dispatchEvent(
+        new MouseEvent("click", { button: 0, cancelable: true }),
+      )
+
+      // The step it takes heads for the introduction: › goes on to chapter 1.
+      expect(reader.isNavigatingBackwards).toBe(true)
+      expect(reader.nextChapterLink).toEqual(["/", "1-genesis", "1"])
+    })
+
     it("has nothing above chapter 1 of a book without an introduction", async () => {
       expect(cards(await readerAt(1)).length).toBe(0)
     })

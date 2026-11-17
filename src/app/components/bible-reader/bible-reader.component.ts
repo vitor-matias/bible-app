@@ -195,6 +195,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   isNavigatingBackwards = false
   previousChapterLink: (string | number)[] = []
   nextChapterLink: (string | number)[] = []
+  introLink: (string | number)[] = []
   /** The chapter last asked for, which an async load must still match. */
   private pendingChapter?: Chapter["number"]
   /** The verse a link led to in this chapter: the one being read while it shows. */
@@ -457,10 +458,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   // Side effects for the prev/next anchors; RouterLink does the navigation.
   // Skips the clicks RouterLink leaves to the browser: this tab never navigates
   // then, so it would never clear the direction flag.
-  prepareChapterNavigation(forwards: boolean, event?: MouseEvent): void {
+  // `target`: a card's own chapter (the introduction), not the next step's.
+  prepareChapterNavigation(
+    forwards: boolean,
+    event?: MouseEvent,
+    target = forwards ? this.stepFrom + 1 : this.stepFrom - 1,
+  ): void {
     if (event && !this.isPlainLeftClick(event)) return
 
-    const target = forwards ? this.stepFrom + 1 : this.stepFrom - 1
     // The anchors bypass goToNextChapter/goToPreviousChapter's bounds check.
     if (target !== this.clampChapter(target)) return
 
@@ -493,6 +498,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private rebuildChapterLinks(): void {
     this.previousChapterLink = this.chapterCommands(this.stepFrom - 1, true)
     this.nextChapterLink = this.chapterCommands(this.stepFrom + 1, true)
+    // The introduction card names the introduction: no step moves it.
+    this.introLink = this.chapterCommands(0, true)
     const nextId =
       this.book && this.chapterNumber >= this.book.chapterCount
         ? nextCanonBook(this.book.id)

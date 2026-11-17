@@ -41,8 +41,8 @@
         [viewMode]="effectiveViewMode" (nextChapter)="goToNextChapter()" (prevChapter)="goToPreviousChapter()"
         (pageStateChange)="onPageStateChange($event)">
         @if (showChapterCards && introCard) {
-        <a class="chapter-card chapter-card-previous" [routerLink]="previousChapterLink" [replaceUrl]="replaceChapterHistory" [info]="chapterStep"
-          (click)="prepareChapterNavigation(false, $event)">
+        <a class="chapter-card chapter-card-previous" [routerLink]="introLink" [replaceUrl]="replaceChapterHistory" [info]="chapterStep"
+          (click)="prepareChapterNavigation(false, $event, 0)">
           <mat-icon aria-hidden="true">arrow_back</mat-icon>
           <span class="chapter-card-text">
             <span class="chapter-card-kicker">Antes do capítulo 1</span>
