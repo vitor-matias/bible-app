@@ -13,7 +13,6 @@
         [viewMode]="book().id === 'about' ? null : viewMode()"
         [autoScrollControlsVisible]="autoScrollControlsVisible()" [textSize]="textSize()"
         (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
-        (resetFontSize)="resetFontSize()"
         (toggleViewMode)="toggleViewMode.emit()" (bookmarks)="openBookmarkSelector()"
         (toggleAutoScrollControls)="toggleAutoScrollControls.emit()" (share)="sharePassage()"
         (about)="openAbout()" (reportProblem)="openReportProblem()" />
