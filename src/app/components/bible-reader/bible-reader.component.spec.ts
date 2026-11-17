@@ -2238,6 +2238,57 @@ describe("BibleReaderComponent", () => {
       }
     })
 
+    // A paragraph break is kept for the break it draws, but with nothing in it
+    // it is no narrative: it must not end a quotation that goes on in verse.
+    describe("a paragraph break before the poetry of a verse", () => {
+      const paragraph = (text = " "): TextType =>
+        ({ type: "paragraph", text }) as TextType
+
+      it("is not the start of the verse, in front of the poetry that follows", () => {
+        const intro = prose("Como é que David lhe chama Senhor, dizendo:")
+        for (const lead of [
+          [paragraph()],
+          [heading("O SENHOR DISSE"), paragraph()],
+        ]) {
+          const verses = [
+            verse(43, [intro]),
+            verse(44, [...lead, quote("Disse o Senhor ao meu Senhor:")]),
+            verse(45, [prose("Ora, se David lhe chama Senhor…")]),
+          ]
+          load(verses)
+
+          expect(component.isQuotationVerse(verses[1])).toBe(true)
+          expect(component.isQuotationVerse(verses[2])).toBe(false)
+        }
+      })
+
+      it("keeps a quotation going through the verses it opens", () => {
+        const verses = [
+          verse(5, [prose("E disse:"), quote("Bem-aventurados os pobres,")]),
+          verse(6, [heading("Os mansos"), paragraph(), quote("os mansos,")]),
+          verse(7, [paragraph(), quote("os que choram,")]),
+        ]
+        load(verses)
+
+        expect(verses.map((v) => component.isQuotationVerse(v))).toEqual([
+          true,
+          true,
+          true,
+        ])
+      })
+
+      it("still lets prose after it end a quotation", () => {
+        const verses = [
+          verse(5, [prose("E disse:"), quote("Bem-aventurados os pobres,")]),
+          verse(6, [paragraph(), prose("E ele calou-se."), quote("Amém.")]),
+        ]
+        load(verses)
+
+        expect(component.isQuotationVerse(verses[0])).toBe(true)
+        expect(component.isQuotationVerse(verses[1])).toBe(false)
+      })
+    })
+
     it("does not read a prophet's superscription as introducing a quotation", () => {
       // Isaiah 1: a prose title, then a chapter of poetry. Every verse after
       // the title opens on poetry and so continues what came before — which

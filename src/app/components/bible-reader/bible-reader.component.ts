@@ -2093,7 +2093,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    * skipped along with the apparatus: a heading is not narrative introducing a
    * quotation. Counting it as prose made the chapter's front matter — which is
    * nothing but a heading — look like the opening of a quotation, and every
-   * psalm inherited it. An empty run is not drawn, so it is not met either.
+   * psalm inherited it. An empty run is not drawn, so it is not met either, and
+   * nor is a paragraph break with nothing in it: it is kept for the break it
+   * draws, but it is no narrative, and a \p before the \q of a quotation's next
+   * verse ended its italics there.
    */
   private static leadingPart(
     parts: TextType[] | undefined,
@@ -2103,7 +2106,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         part.type !== "footnote" &&
         part.type !== "references" &&
         part.type !== "section" &&
-        !VerseComponent.isBlank(part),
+        !VerseComponent.isBlank(part) &&
+        !(part.type === "paragraph" && part.text.trim() === ""),
     )
   }
 

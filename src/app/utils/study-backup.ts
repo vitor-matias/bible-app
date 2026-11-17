@@ -111,10 +111,13 @@ export function parseBackup(
         bookId: n.bookId,
         chapter: n.chapter,
         verse: n.verse,
-        text: n.text,
+        // As saveNote keeps them: it skips a save that says what is there
+        // already, and an untrimmed note would never match, so leaving its
+        // box without typing counted as an edit and moved it to the top.
+        text: n.text.trim(),
         updatedAt: n.updatedAt,
         ...(n.verseEnd !== undefined && { verseEnd: n.verseEnd }),
-        ...(n.title !== undefined && { title: n.title }),
+        ...(n.title?.trim() && { title: n.title.trim() }),
       }),
     )
   const highlights = rawMarks

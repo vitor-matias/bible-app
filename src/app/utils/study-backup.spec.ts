@@ -210,6 +210,29 @@ describe("a saved copy of the notes and marks", () => {
     })
   })
 
+  // saveNote trims both and compares what is there: a copy edited by hand, or
+  // from elsewhere, with "Amor\n" would never match, and leaving its box
+  // without typing would count as an edit and move it to the top.
+  it("keeps a note's text and title as saveNote does, trimmed, and no empty title", () => {
+    const result = parseBackup(
+      JSON.stringify({
+        app: BACKUP_APP,
+        version: 1,
+        exportedAt: "x",
+        notes: [
+          note("mat", 1, 1, "Amor\n", { title: " Tema" }),
+          note("mat", 1, 2, "  sem título  ", { title: "   " }),
+        ],
+        highlights: [],
+      }),
+    )
+
+    expect(result.ok && result.backup.notes).toEqual([
+      note("mat", 1, 1, "Amor", { title: "Tema" }),
+      note("mat", 1, 2, "sem título"),
+    ])
+  })
+
   it("keeps only the fields it knows, so a file cannot bring others in", () => {
     const result = parseBackup(
       JSON.stringify({
