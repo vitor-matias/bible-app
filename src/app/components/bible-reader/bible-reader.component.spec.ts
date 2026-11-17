@@ -711,6 +711,8 @@ describe("BibleReaderComponent", () => {
       await fixture.whenStable()
       expect(preferencesServiceSpy.setLastBookId).toHaveBeenCalledWith("about")
 
+      // The spec's reader has no real drawer (see the other route changes).
+      component.bookDrawer = createSpyObj("MatDrawer", ["close"]) as never
       apiServiceSpy.getChapter.mockReturnValue(
         throwError(() => new Error("offline")),
       )
