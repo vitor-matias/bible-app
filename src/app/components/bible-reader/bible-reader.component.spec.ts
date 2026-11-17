@@ -1424,6 +1424,34 @@ describe("BibleReaderComponent", () => {
         )
       })
 
+      // Held, → raced through the book at the key's repeat rate: a second
+      // of it reached Génesis 30.
+      it("turn one chapter while held, not one per repeat", () => {
+        press({})
+        for (let i = 0; i < 10; i++) press({ repeat: true })
+
+        expect(routerSpy.navigate).toHaveBeenCalledTimes(1)
+        expect(hapticsSpy.light).toHaveBeenCalledTimes(1)
+      })
+
+      it("keep turning pages while held, but stop at the chapter's end", () => {
+        component.viewMode = "paged"
+        const pages = createSpyObj("PagedNavigationDirective", [
+          "nextPage",
+          "prevPage",
+        ])
+        // The last page: a turn on goes to the next chapter.
+        pages.nextPage.mockImplementation(() => component.goToNextChapter())
+        component.pagedNav = pages as unknown as PagedNavigationDirective
+
+        for (let i = 0; i < 3; i++) press({ repeat: true })
+        expect(pages.nextPage).toHaveBeenCalledTimes(3)
+        expect(routerSpy.navigate).not.toHaveBeenCalled()
+
+        press({})
+        expect(routerSpy.navigate).toHaveBeenCalledTimes(1)
+      })
+
       it("leave a text field's caret alone", () => {
         for (const tag of ["input", "textarea"]) {
           press({ key: "ArrowLeft" }, attach(document.createElement(tag)))
@@ -2597,6 +2625,14 @@ describe("BibleReaderComponent", () => {
           expect(component.chapterNumber).toBe(5)
           expect(component.previousChapterLink).toEqual(["/", "1-genesis", "4"])
           expect(component.nextChapterLink).toEqual(["/", "1-genesis", "6"])
+          // Slid out for the chapter that never came, it slides back in.
+          expect(
+            animationServiceSpy.triggerSlideAnimation,
+          ).toHaveBeenLastCalledWith(
+            undefined,
+            component.bookContainer.nativeElement,
+            false,
+          )
         })
       }
 

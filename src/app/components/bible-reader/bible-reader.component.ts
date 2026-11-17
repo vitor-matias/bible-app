@@ -618,6 +618,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private slideOut?: Promise<void>
 
   goToNextChapter(): void {
+    if (this.keyRepeating) return
     const target = this.stepFrom + 1
     if (this.book.chapterCount >= target) {
       this.haptics.light()
@@ -631,6 +632,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   goToPreviousChapter(): void {
+    if (this.keyRepeating) return
     const target = this.stepFrom - 1
     if (target >= this.minChapter) {
       this.haptics.light()
@@ -1205,17 +1207,28 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   @HostListener("window:keydown", ["$event"])
   onArrowPress(event: KeyboardEvent): void {
     if (!this.arrowsTurnPages(event)) return
-    if (event.key === "ArrowLeft") {
-      this.effectiveViewMode === "paged"
-        ? this.pagedNav?.prevPage()
-        : this.goToPreviousChapter()
-    }
-    if (event.key === "ArrowRight") {
-      this.effectiveViewMode === "paged"
-        ? this.pagedNav?.nextPage()
-        : this.goToNextChapter()
+    // A held key repeats: it may turn pages, not chapters, or it raced
+    // through the book. The paged view's turn past the end comes back
+    // through goTo*Chapter, within this call.
+    this.keyRepeating = event.repeat
+    try {
+      if (event.key === "ArrowLeft") {
+        this.effectiveViewMode === "paged"
+          ? this.pagedNav?.prevPage()
+          : this.goToPreviousChapter()
+      }
+      if (event.key === "ArrowRight") {
+        this.effectiveViewMode === "paged"
+          ? this.pagedNav?.nextPage()
+          : this.goToNextChapter()
+      }
+    } finally {
+      this.keyRepeating = false
     }
   }
+
+  /** While a held arrow key's repeat is handled; see onArrowPress. */
+  private keyRepeating = false
 
   /**
    * The arrows belong to what has focus: a text field's caret, the drawer, an
