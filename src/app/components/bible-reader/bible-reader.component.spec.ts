@@ -732,6 +732,42 @@ describe("BibleReaderComponent", () => {
       expect(snackBarSpy.open).toHaveBeenCalled()
     })
 
+    // The About page's text and its arrows (to /sobre/2) stayed under
+    // Génesis 5 while that chapter loaded.
+    it("leaves nothing of the About page under the passage still loading", async () => {
+      ;(
+        routerSpy as unknown as {
+          routerState: {
+            snapshot: { root: { firstChild: { params: object } } }
+          }
+        }
+      ).routerState.snapshot.root.firstChild.params = {
+        book: "gen",
+        chapter: "5",
+      }
+      ;(
+        routeMock as { paramMap: BehaviorSubject<Map<string, string>> }
+      ).paramMap.next(
+        new Map([
+          ["book", "gen"],
+          ["chapter", "5"],
+        ]),
+      )
+      expect(component.chapter).toBeDefined()
+      apiServiceSpy.getChapter.mockReturnValue(new Subject<Chapter>())
+
+      unavailable$.next(false)
+      ;(bookServiceSpy.books$ as unknown as Subject<Book[]>).next(
+        mockBooks as unknown as Book[],
+      )
+      fixture.detectChanges()
+
+      expect(component.book.id).toBe("gen")
+      expect(component.chapter).toBeUndefined()
+      expect(component.canGoNext).toBe(false)
+      expect(fixture.nativeElement.querySelector("about")).toBeNull()
+    })
+
     it("has no book list to open yet", () => {
       expect(() => component.openBookDrawer({ open: true })).not.toThrow()
       expect(() => component.openChapterDrawer({ open: true })).not.toThrow()

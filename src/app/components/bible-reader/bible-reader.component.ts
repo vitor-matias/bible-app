@@ -358,6 +358,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
               storedBook,
               this.chapterNumber,
             )
+            // Nothing of the About page shown while the books couldn't load
+            // stays under this book: its text, or arrows leading back to it.
+            this.chapter = undefined
+            this.rebuildChapterLinks()
 
             const parsedVerseStart = queryParams["verseStart"]
               ? Number.parseInt(queryParams["verseStart"], 10)
