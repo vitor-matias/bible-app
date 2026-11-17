@@ -148,10 +148,12 @@ describe("OfflineDataService", () => {
 
     // Mock NetworkService
     offline$ = new BehaviorSubject(false)
-    const networkSpy = createSpyObj<NetworkService>("NetworkService", [], {
-      isOffline: false,
-      isOffline$: offline$,
-    })
+    const networkSpy = createSpyObj<NetworkService>(
+      "NetworkService",
+      ["refresh"],
+      { isOffline: false, isOffline$: offline$ },
+    )
+    networkSpy.refresh.mockResolvedValue(undefined)
 
     const analyticsSpy = createSpyObj("AnalyticsService", ["track"])
     analyticsSpy.track.mockResolvedValue(undefined)
@@ -610,20 +612,13 @@ describe("OfflineDataService", () => {
       await vi.advanceTimersByTimeAsync(50)
     })
 
-    it("leaves a failed download to the reconnect while offline", async () => {
+    // Backgrounded and offline when the timer fired, the retry was dropped;
+    // a reconnect the listener then missed left it for the next launch.
+    it("keeps trying a failed download while offline, asking for the connection", async () => {
       vi.useFakeTimers()
       vi.spyOn(console, "error").mockReturnValue(undefined)
       mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
-      databaseService.getAll.mockResolvedValue([
-        {
-          id: "a",
-          name: "A",
-          shortName: "A",
-          abrv: "a",
-          chapterCount: 0,
-          introSlug: "a",
-        },
-      ])
+      databaseService.getAll.mockResolvedValue([introRecord])
       void service.preloadAllBooksAndChapters()
       await vi.advanceTimersByTimeAsync(0)
       httpMock
@@ -635,8 +630,17 @@ describe("OfflineDataService", () => {
       )?.get as Mock
       isOfflineSpy.mockReturnValue(true)
 
-      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 100)
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 3)
       httpMock.expectNone("v1/books?withChapters=true")
+      expect(networkService.refresh).toHaveBeenCalled()
+
+      // The connection is back, unseen until asked.
+      networkService.refresh.mockImplementation(async () => {
+        isOfflineSpy.mockReturnValue(false)
+      })
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await vi.advanceTimersByTimeAsync(50)
     })
 
     it("skips the service worker's copy of the download on the web", async () => {

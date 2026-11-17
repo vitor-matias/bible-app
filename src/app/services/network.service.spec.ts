@@ -115,6 +115,15 @@ describe("NetworkService", () => {
     expect(mockNetworkListener.remove).toHaveBeenCalled()
   })
 
+  it("picks up a reconnect the listener missed when asked", async () => {
+    capturedCallback?.({ connected: false, connectionType: "none" })
+    mockStatus = { connected: true, connectionType: "wifi" }
+
+    await service.refresh()
+
+    expect(service.isOffline).toBe(false)
+  })
+
   it("does not preload when a browser tab reconnects", async () => {
     vi.spyOn(window, "matchMedia").mockReturnValue({
       matches: false,

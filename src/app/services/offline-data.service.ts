@@ -69,13 +69,18 @@ export class OfflineDataService implements OnDestroy {
       this.retryDelayMs = PRELOAD_RETRY_BASE_MS
       return
     }
-    this.retryTimer = setTimeout(() => {
-      // Offline, the reconnect starts it (NetworkService).
-      if (!this.networkService.isOffline) {
-        void this.preloadAllBooksAndChapters()
-      }
-    }, this.retryDelayMs)
+    this.armRetry(this.retryDelayMs)
     this.retryDelayMs = Math.min(this.retryDelayMs * 2, PRELOAD_RETRY_MAX_MS)
+  }
+
+  private armRetry(delayMs: number): void {
+    this.retryTimer = setTimeout(async () => {
+      // In the background the listener can miss a reconnect: ask, and while
+      // offline keep asking.
+      await this.networkService.refresh()
+      if (this.networkService.isOffline) this.armRetry(delayMs)
+      else void this.preloadAllBooksAndChapters()
+    }, delayMs)
   }
 
   /**

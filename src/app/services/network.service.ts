@@ -25,6 +25,15 @@ export class NetworkService {
     return this.isOfflineSubject.value
   }
 
+  /** Reads the connection again, for a change the listener may have missed. */
+  async refresh(): Promise<void> {
+    try {
+      this.updateStatus(await this.networkPlugin.getStatus())
+    } catch {
+      // Keep the last known state.
+    }
+  }
+
   private async initNetworkListener() {
     try {
       const status = await this.networkPlugin.getStatus()
