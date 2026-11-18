@@ -3514,6 +3514,33 @@ describe("BibleReaderComponent", () => {
       expect(getComputedStyle(drawer).position).toBe("fixed")
     })
 
+    it("is not slid in, as that would carry its fixed letter bar with it", () => {
+      expect(animationServiceSpy.scrollToTop).not.toHaveBeenCalled()
+      expect(
+        (host.querySelector("#bookContainer") as HTMLElement | null)?.style
+          .opacity ?? "",
+      ).toBe("")
+    })
+
+    it("opens at its top when picked from the book list, partway down", () => {
+      const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {})
+
+      component.goToPassage({ bookId: "indice" })
+
+      expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "instant" })
+    })
+
+    it("holds the window still while the book list is over it", async () => {
+      const root = document.documentElement
+      expect(getComputedStyle(root).overflow).not.toBe("hidden")
+
+      await component.bookDrawer.open()
+      expect(getComputedStyle(root).overflow).toBe("hidden")
+
+      await component.bookDrawer.close()
+      expect(getComputedStyle(root).overflow).not.toBe("hidden")
+    })
+
     it("names the theme open in the header, for its ribbon and its share", async () => {
       expect(header().book.id).toBe("indice")
       expect(header().indexShareText).toBe("Ler o Índice Bíblico-Pastoral.")

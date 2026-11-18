@@ -527,9 +527,16 @@ bible-reader .index-page > :is(.mat-drawer, .mat-drawer-backdrop) {
   height: calc(100dvh - var(--app-header-height));
 }
 
+/* The window scrolls the index: the drawer open, the page stays put behind it. */
+html:has(bible-reader .index-page > .mat-drawer-opened) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
 /* A printed index is its themes alone. */
 @media print {
-  bible-reader .text-container:has(> .index-page) > .reader-header {
+  bible-reader .text-container:has(> .index-page) > .reader-header,
+  bible-reader .index-page > :is(.mat-drawer, .mat-drawer-backdrop) {
     display: none;
   }
 }

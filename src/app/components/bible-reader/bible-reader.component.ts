@@ -795,6 +795,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.autoScrollService.stop()
     if (bookId === PASTORAL_INDEX_BOOK.id) {
       void this.router.navigate(["/indice"])
+      // Already there, partway down: the index opens at its top.
+      if (this.indexPage && isPlatformBrowser(this.platformId)) {
+        window.scrollTo({ top: 0, behavior: "instant" })
+      }
       return
     }
     const book = this.bookService.findBook(bookId)
@@ -1053,12 +1057,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   ): void {
     // Paged view lays the text out anew and a verse link moves it, so those
     // still reveal it. Otherwise it's in place, and the reader may have scrolled.
+    // The index is never slid in: the transform would make its container, not
+    // the viewport, the home of its fixed letter bar while it runs.
     const alreadyShown =
-      !!this.endPrerenderHold &&
-      !verseStart &&
-      this.effectiveViewMode === "scrolling" &&
-      !this.isNavigatingForwards &&
-      !this.isNavigatingBackwards
+      !!this.indexPage ||
+      (!!this.endPrerenderHold &&
+        !verseStart &&
+        this.effectiveViewMode === "scrolling" &&
+        !this.isNavigatingForwards &&
+        !this.isNavigatingBackwards)
 
     if (!alreadyShown) this.resetContainerForRepaint()
     this.slideOut = undefined

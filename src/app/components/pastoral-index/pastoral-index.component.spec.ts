@@ -1429,6 +1429,25 @@ describe("PastoralIndexComponent", () => {
       })
     }
 
+    // Tab from the header of a theme still gliding in: it will never open.
+    it("lets go of a theme tabbed away from before it opens", async () => {
+      const fixture = await openGliding()
+      glideSpy()
+      const state = TestBed.inject(PastoralIndexState)
+
+      await tapGliding(fixture, "abel")
+      expect(state.slug()).toBe("abel")
+      ;(fixture.nativeElement as HTMLElement)
+        .querySelector("#tema-abel mat-expansion-panel-header")
+        ?.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "Tab", bubbles: true }),
+        )
+      await wait(20)
+
+      expect(state.slug()).toBeNull()
+      expect(TestBed.inject(Location).path()).toBe("/indice")
+    })
+
     it("stops when the page goes away", async () => {
       const fixture = await openGliding()
       const glide = glideSpy()

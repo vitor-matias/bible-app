@@ -900,7 +900,18 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       if (on?.closest(".letter-bar, .letters")) return
       // The page is the reader's now: no settling back once the panels end.
       this.scrollTarget = null
-      stop(!on?.closest("mat-expansion-panel-header"))
+      const onHeader = !!on?.closest("mat-expansion-panel-header")
+      stop(!onHeader)
+      // Tabbed away from a theme not yet open: it never will, so the address
+      // and the reader's header must not claim it.
+      if (
+        onHeader &&
+        this.pendingOpen &&
+        event instanceof KeyboardEvent &&
+        event.key === "Tab"
+      ) {
+        this.closeTheme()
+      }
     }
     let start: number | null = null
     const step = (now: number) => {
