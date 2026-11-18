@@ -53,6 +53,7 @@ import { BackButtonService } from "../../services/back-button.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { REVERT_STATE } from "../../services/depth-location-strategy"
 import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
@@ -984,7 +985,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           this.bookService.getUrlAbrv(this.book),
           this.bookService.getChapterUrlSegment(this.chapterNumber),
         ],
-        { replaceUrl: true },
+        // On the web the failed page has an entry of its own (the apps replace
+        // on chapter steps): back to the one before it, not a second copy.
+        {
+          replaceUrl: true,
+          ...(!this.replaceChapterHistory && { state: REVERT_STATE }),
+        },
       )
     }
     console.error(error)
