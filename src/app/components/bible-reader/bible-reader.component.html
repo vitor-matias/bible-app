@@ -1,14 +1,15 @@
 @if (book) {
 <div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()"
   (swipeMove)="onSwipeMove($event)" (swipeCancel)="onSwipeCancel()" (textSizeChange)="onTextSizeChange($event)">
-  <header class="reader-header" [book]="book" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
+  <header class="reader-header" [book]="indexPage ? indexBook() : book"
+    [indexShareText]="indexPage ? indexShareText() : null" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
     [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize($event)"
     (decreaseFontSizeEvent)="onDecreaseFontSize($event)" (resetFontSizeEvent)="onResetFontSize()" [textSize]="textSize"
     [canGoPrevious]="canGoPrevious" [canGoNext]="canGoNext"
     (previous)="stepBackward()" (next)="stepForward()" (selectPassage)="goToPassage($event)"></header>
-  <mat-drawer-container class="bookSelectorContainer" #container>
+  <mat-drawer-container class="bookSelectorContainer" [class.index-page]="indexPage" #container>
     @if (books.length) {
     <!-- Modal while open: it holds the focus over the text. -->
     <mat-drawer class="bookSelector" mode="over" position="start" #bookDrawer closed role="dialog"
@@ -64,11 +65,13 @@
           </span>
         </a>
         }
-        <div #bookBlock class="bookBlock" [ngClass]="{'largeBook': book.id==='about'}"
+        <!-- Not .bookBlock for the index: none of the running text's measure or type. -->
+        <div #bookBlock [class.bookBlock]="!indexPage" [class.index-block]="indexPage"
+          [class.largeBook]="book.id === 'about'"
           [class.paged-view]="effectiveViewMode === 'paged'">
           @if (chapter) {
           <div pinch-to-zoom class="chapterBlock" [appCopyReference]="{ book: book, chapter: chapterNumber }">
-            @if(book.id !== 'about'){
+            @if(!isPage){
             @if (isIntroChapter) {
             <book-intro [introduction]="book.introduction || []"></book-intro>
             } @else {
@@ -79,6 +82,9 @@
             }
             @if (book.id==='about') {
             <about></about>
+            }
+            @if (indexPage) {
+            <ng-container *ngComponentOutlet="indexPage" />
             }
           </div>
           }
@@ -95,7 +101,7 @@
         }
       </div>
 
-      @if (book.id !== 'about' && chapter) {
+      @if (!isPage && chapter) {
       <div class="copyright-footer" [class.fixed-footer]="effectiveViewMode === 'paged'">
         <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
         <span class="center copyright-details">
@@ -104,7 +110,7 @@
       </div>
       }
 
-      @if (book.id !== 'about' && chapter) {
+      @if (!isPage && chapter) {
       <!-- Floating navigation: real links in scrolling mode, for crawlers. -->
       @if (canGoPrevious) {
       @if (effectiveViewMode === 'scrolling') {

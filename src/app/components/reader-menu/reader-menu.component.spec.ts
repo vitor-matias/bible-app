@@ -11,7 +11,7 @@ import { ReaderMenuComponent } from "./reader-menu.component"
   template: `
     <button type="button" [matMenuTriggerFor]="menu.menu">Menu</button>
     <reader-menu #menu="readerMenu" [viewMode]="viewMode()" [canShare]="canShare()" [shareText]="shareText()"
-      [autoScrollControlsVisible]="autoScroll()" [textSize]="textSize()"
+      [autoScrollControlsVisible]="autoScroll()" [textSize]="textSize()" [alignText]="alignText()"
       (increaseFontSize)="increases.set(increases() + 1)"
       (decreaseFontSize)="decreases.set(decreases() + 1)"
       (toggleAutoScrollControls)="toggles.set(toggles() + 1)" />
@@ -22,6 +22,7 @@ class HostComponent {
   readonly viewMode = signal<"scrolling" | "paged" | null>(null)
   readonly autoScroll = signal<boolean | null>(null)
   readonly textSize = signal<TextSize | null>(null)
+  readonly alignText = signal(false)
   readonly canShare = signal(false)
   readonly shareText = signal("")
   readonly increases = signal(0)
@@ -51,6 +52,31 @@ describe("ReaderMenuComponent", () => {
       document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
     ).map((item) => item.getAttribute("aria-label") ?? item.textContent ?? "")
   }
+
+  const alignButton = () =>
+    document.querySelector(
+      '[aria-label^="Justificado"], [aria-label^="Alinhado"]',
+    )
+
+  it("offers the text alignment with a view mode, or when asked for", () => {
+    open("scrolling", null)
+    expect(alignButton()).not.toBeNull()
+    TestBed.resetTestingModule()
+
+    open(null, null)
+    expect(alignButton()).toBeNull()
+    TestBed.resetTestingModule()
+
+    const fixture = TestBed.createComponent(HostComponent)
+    fixture.componentInstance.alignText.set(true)
+    fixture.detectChanges()
+    fixture.debugElement
+      .query(By.directive(MatMenuTrigger))
+      .injector.get(MatMenuTrigger)
+      .openMenu()
+    fixture.detectChanges()
+    expect(alignButton()).not.toBeNull()
+  })
 
   // The pastoral index: no chapter to page through or scroll on its own.
   it("leaves out a chapter's own controls on a page without them", () => {

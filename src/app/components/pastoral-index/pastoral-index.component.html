@@ -1,28 +1,10 @@
-@if (!native) {
-<div class="toolbar-wrapper">
-  <mat-toolbar class="index-toolbar">
-    <div class="content">
-      <button mat-flat-button type="button" aria-label="Menu" class="button actionButton backButton menuButton" [matMenuTriggerFor]="pageMenu.menu"
-        (menuOpened)="pageMenu.opened(); backButton.changed()" (menuClosed)="backButton.changed()">
-        <mat-icon>menu</mat-icon>
-      </button>
-      <!-- The reader's menu, less what only a chapter has: auto-scroll and the
-           view mode. -->
-      <reader-menu #pageMenu="readerMenu" [canShare]="canShare" [version]="version()" [textSize]="textSizeState()"
-        (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
-        (bookmarks)="openBookmarks()" (share)="share()" (about)="openAbout()"
-        (reportProblem)="reportProblem()" />
-      <span class="toolbar-title">Índice Bíblico-Pastoral</span>
-      <a mat-flat-button routerLink="/search" aria-label="Pesquisar" class="button actionButton searchButton">
-        <mat-icon>search</mat-icon>
-      </a>
-    </div>
-  </mat-toolbar>
-</div>
+@if (!hosted) {
+<!-- The apps draw their own bars; the page still needs its heading. Hosted,
+     the reader's header has it, in the reader's main. -->
+<h1 class="visually-hidden">Índice Bíblico-Pastoral</h1>
 }
 
-<main class="book-index-container">
-  <h1 class="visually-hidden">Índice Bíblico-Pastoral</h1>
+<div class="book-index-container" [attr.role]="hosted ? null : 'main'">
   <!-- As the printed edition opens the index. In the apps results take the
        screen's place, as a native search's do. -->
   @if (!native || !query()) {
@@ -83,7 +65,8 @@
     }
   </nav>
   </div>
-  <mat-accordion displayMode="flat" [multi]="wide()" unifiedGestures fontSizeContext="reader" (textSizeChange)="textSizeState.set($event)">
+  <!-- Hosted, the reader's text container already sizes the text: not twice. -->
+  <mat-accordion displayMode="flat" [multi]="wide()" [unifiedGestures]="!hosted" fontSizeContext="reader" (textSizeChange)="textSizeState.set($event)">
     @for (group of groups(); track group.letter) {
     <section class="letter" [id]="'letra-' + group.letter">
     <!-- Focusable, for the letter shortcuts to leave the keyboard here. -->
@@ -142,4 +125,4 @@
     </p>
     }
   </mat-accordion>
-</main>
+</div>

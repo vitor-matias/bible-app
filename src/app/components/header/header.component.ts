@@ -29,6 +29,10 @@ import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
 import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
+import {
+  indexBookmarkLabel,
+  isIndexBookmark,
+} from "../../pastoral-index-bookmarks"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
@@ -56,7 +60,6 @@ import {
 } from "../../utils/passage-label"
 import { buildPassagePicker } from "../../utils/passage-picker"
 import { PSALMS_BOOK_ID } from "../../utils/psalms"
-
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import {
   MENU_BUTTON,
@@ -106,16 +109,23 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** For the native toolbar's arrows; the web page has its own. */
   readonly canGoPrevious = input(false)
   readonly canGoNext = input(false)
+  /** What sharing the index says, naming the theme open; its own page knows it. */
+  readonly indexShareText = input<string | null>(null)
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
   labelFading = false
 
+  /** The Índice Bíblico-Pastoral, or a theme of it: no chapters, no view mode. */
+  get isIndex(): boolean {
+    return isIndexBookmark(this.book().id)
+  }
+
   /** Accessible name for the h1, whose visible label cycles on the home page. */
   get headingLabel(): string {
     const book = this.book()
     if (!book) return ""
-    if (book.id === "about") return book.name
+    if (book.id === "about" || this.isIndex) return book.name
     // A standalone introduction is already named after itself.
     if (book.introSlug) return book.name
     const chapterNumber = this.chapterNumber()
@@ -309,11 +319,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   openReportProblem() {
-    const book = this.book()
+    const open = this.book()
     const chapterNumber = this.chapterNumber()
-    if (!book || chapterNumber == null) {
+    if (!open || chapterNumber == null) {
       return
     }
+    // A theme is reported by its title ("Amor"), as the report's subject reads
+    // the book's name; the pill keeps the index's.
+    const label = this.isIndex ? indexBookmarkLabel(open.id) : undefined
+    const book = label ? { ...open, name: label, shortName: label } : open
     if (this.native) {
       this.nativeReport.open(book, chapterNumber)
       return
@@ -379,6 +393,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   shareText(): string {
     const book = this.book()
     if (!book || book.id === "about") return "Leia a Bíblia nesta app."
+    if (this.isIndex) return this.indexShareText() ?? book.name
     const search = typeof window === "undefined" ? "" : window.location.search
     return sharedPassage(book, this.chapterNumber(), search)
   }

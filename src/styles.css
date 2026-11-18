@@ -506,6 +506,41 @@ bible-reader .mat-drawer-content {
   overflow-x: hidden !important;
 }
 
+/* The index in the reader scrolls the window, which its sticky bars and
+   letter bar are built on (PastoralIndexComponent): no scroller of the
+   reader's around it, and the book list and its backdrop pinned to the
+   viewport under the header, as on any other page. Here, not in the reader's
+   stylesheet, which is at its size budget. */
+bible-reader .bookSelectorContainer.index-page {
+  height: auto;
+  overflow: visible;
+}
+
+bible-reader .index-page > .mat-drawer-content {
+  height: auto;
+  overflow: visible !important;
+}
+
+bible-reader .index-page > :is(.mat-drawer, .mat-drawer-backdrop) {
+  position: fixed;
+  top: var(--app-header-height);
+  height: calc(100dvh - var(--app-header-height));
+}
+
+/* The window scrolls the index: the drawer open, the page stays put behind it. */
+html:has(bible-reader .index-page > .mat-drawer-opened) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
+/* A printed index is its themes alone. */
+@media print {
+  bible-reader .text-container:has(> .index-page) > .reader-header,
+  bible-reader .index-page > :is(.mat-drawer, .mat-drawer-backdrop) {
+    display: none;
+  }
+}
+
 .bookSelector .mat-drawer-inner-container {
   scrollbar-gutter: stable;
   overscroll-behavior: none;
