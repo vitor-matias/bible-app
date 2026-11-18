@@ -350,6 +350,9 @@ export class BibleReferenceService {
       const s = (m.index ?? 0) + innerOffset
       const e = s + gs.tail.length
       if (overlaps(s, e)) continue
+      // "…(v.13-48); 2) as boas obras": a ")" that closes no "(" ends a list
+      // marker, not a chapter; "(Sl 103; 104)" closes one.
+      if (text[e] === ")" && !this.insideParens(text, s)) continue
 
       const book = bookBefore(s) ?? currentBook?.trim()
       if (!book) continue // no context: skip
@@ -366,6 +369,16 @@ export class BibleReferenceService {
   }
 
   // ---- helpers --------------------------------------------------------------
+
+  /** Whether a "(" before `index` is still open there. */
+  private insideParens(text: string, index: number): boolean {
+    let depth = 0
+    for (const ch of text.slice(0, index)) {
+      if (ch === "(") depth++
+      else if (ch === ")" && depth > 0) depth--
+    }
+    return depth > 0
+  }
 
   /**
    * More verses of a chapter, added to `verses`; returns the text they take.
