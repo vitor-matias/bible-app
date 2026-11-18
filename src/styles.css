@@ -561,6 +561,12 @@ html:has(bible-reader .index-page > .mat-drawer-opened) {
   overscroll-behavior: none;
 }
 
+/* The drawer's close button (menu_open). The Material theme is light only:
+   its icon colour, a dark brown, was 1.8:1 on the dark drawer. */
+.dark-theme .bookSelector .dismiss-button {
+  --mat-icon-button-icon-color: var(--text-color);
+}
+
 /* Apply focus color via supported Material theming tokens on the host elements */
 /* Using body selector to ensure CSS custom property specificity overrides Material's dynamically injected styles */
 body .mat-mdc-form-field {
