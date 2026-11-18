@@ -319,7 +319,6 @@ export class SearchComponent {
             void this.onSearchSubmit(action.text)
           if (action.id === "back") this.location.back()
         })
-      this.syncNativeChrome()
     }
 
     // Share-target launches arrive as /search?q=, and so does Back from a
@@ -336,6 +335,9 @@ export class SearchComponent {
         const back = this.cameBack
         this.cameBack = false
         if (back && this.restore(sharedQuery)) return
+        // In the native field from the start: Android raises the keyboard
+        // over an empty one, and this search may wait for the book list.
+        this.syncNativeChrome(sharedQuery)
         // On a cold start a reference finds no book until the list has loaded.
         const generation = this.searchGeneration
         void this.bookService
@@ -351,6 +353,8 @@ export class SearchComponent {
           })
       },
     )
+    // A query in the URL has shown the native field already.
+    if (!this.lastSharedQuery) this.syncNativeChrome()
   }
 
   ngOnDestroy(): void {
@@ -564,12 +568,12 @@ export class SearchComponent {
   }
 
   /** Shows the native search field, holding the current query. */
-  private syncNativeChrome(): void {
+  private syncNativeChrome(query = this.searchTerm): void {
     if (!this.native) return
     this.nativeChrome.show({
       mode: "search",
       themeMode: this.themeService.currentMode,
-      query: this.searchTerm,
+      query,
     })
   }
 
