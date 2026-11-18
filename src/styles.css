@@ -465,6 +465,21 @@ bible-reader .books-loading {
     margin-bottom: calc(108px + var(--app-inset-bottom));
     pointer-events: auto;
   }
+
+  /* The auto-scroll controls take the foot of the screen, centred, 16px up
+     and 48px tall (auto-scroll-controls.component.css): at 320 px they
+     covered the arrows' corners, at 393 px they ran beside them. The arrows,
+     and a toast above them, go 20px higher while they show. */
+  body:has(.auto-scroll-controls)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(72px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(128px + var(--app-inset-bottom));
+  }
 }
 
 /* The snackbar's action ("OK", "Fechar"). Its label is a span, which the

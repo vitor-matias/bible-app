@@ -95,6 +95,30 @@ describe("global styles", () => {
       document.body.classList.add("native-chrome")
       expect(getComputedStyle(openToast()).marginBottom).toBe("108px")
     })
+
+    // The auto-scroll controls, centred at the foot, covered the arrows'
+    // corners at 320 px and ran beside them at 393.
+    describe("with the auto-scroll controls showing", () => {
+      let controls: HTMLElement
+
+      beforeEach(() => {
+        arrow.classList.add("prev-chapter")
+        controls = document.createElement("div")
+        controls.className = "auto-scroll-controls"
+        document.body.append(controls)
+      })
+
+      afterEach(() => controls.remove())
+
+      it("lifts the arrows above them", () => {
+        // 16px up and 48px tall, as the controls are, and 8px apart.
+        expect(getComputedStyle(arrow).bottom).toBe("172px")
+      })
+
+      it("lifts a toast above the lifted arrows", () => {
+        expect(getComputedStyle(openToast()).marginBottom).toBe("228px")
+      })
+    })
   })
 
   // In the light theme the action ("OK", "Fechar") was black on the dark
