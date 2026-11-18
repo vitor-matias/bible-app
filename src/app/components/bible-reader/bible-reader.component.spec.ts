@@ -855,6 +855,17 @@ describe("BibleReaderComponent", () => {
       expect(snackBarSpy.open).not.toHaveBeenCalled()
     })
 
+    // Offline, from the app shell, the tab kept «Bíblia Sagrada Online — …».
+    it("names the chapter asked for in the tab", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(seoServiceSpy.updateForChapter).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "gen" }),
+        1,
+      )
+    })
+
     it("loads the chapter again, at the verse asked for, on «Tentar novamente»", async () => {
       fixture.detectChanges()
       await fixture.whenStable()
