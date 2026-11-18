@@ -121,6 +121,10 @@ contract is the `NativeChromePlugin` interface in that service file.
   itself: on iOS floating above the sheet, or at its foot once it fills the screen; on Android
   under its title. The bars
   float without changing the web view's safe area, so hiding them never changes layout.
+  On the web, CDK overlays are top-layer popovers stacked in the order shown: the notes
+  sheet raises "Voltar para …" over itself (`ToastService.bringToFront`, which also moves
+  it last in the DOM); under any other overlay's backdrop, which takes its taps, the
+  toast's content fades (`styles.css`).
 - **Body classes.** `NativeShellService` adds `platform-ios` / `platform-android` and
   `NativeChromeService.init` adds `native-chrome`. Keep platform-only CSS under those
   (`.platform-ios.native-chrome ...`); iOS-only effects such as backdrop-blur edge fades
@@ -152,6 +156,11 @@ topmost one before it navigates (`AppComponent.handleBackButton`). On the websit
   (a failed chapter reverted) first goes back over the panel entry, closing the panel,
   then replaces the page's own entry (without the panel flag). A reload with the entry
   on top leaves it at start.
+- A chapter that fails to load reverts to the one shown. On the web the reader marks
+  that navigation with `REVERT_STATE`: when the failed page was pushed from the shown
+  chapter's address, the strategy goes back to that entry (over a panel's too) as an app
+  step, so the history ends as before the attempt. The apps replace on chapter steps
+  and revert with a plain replace.
 - The app's own steps back go through `stepBack()`; `isAppPop(event)` marks their pop, which
   then reaches neither the router nor `closeTopmost` (only the reader's Back closes a
   panel). Panels closed for a page's new address are those open then; one opened right
