@@ -467,6 +467,19 @@ bible-reader .books-loading {
   }
 }
 
+/* A toast under an overlay shown after it (a dialog, a menu, the bookmarks),
+   whose backdrop takes its taps: faded, so it doesn't look tappable. Overlays
+   follow the order they were shown, which ToastService.bringToFront keeps for
+   the toast it raises over the notes. Its content only: the text beneath
+   showed through a faded toast. */
+.cdk-overlay-popover:has(.mat-mdc-snack-bar-container):has(
+    ~ .cdk-overlay-popover > .cdk-overlay-backdrop-showing
+  )
+  .mdc-snackbar__surface
+  > * {
+  opacity: 0.4;
+}
+
 /* The snackbar's action ("OK", "Fechar"). Its label is a span, which the
    span rule above paints the text colour: black on the dark snackbar in the
    light theme. */
