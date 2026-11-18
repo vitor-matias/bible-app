@@ -28,8 +28,6 @@ import {
 import { MatFormFieldModule } from "@angular/material/form-field"
 import { MatIconModule } from "@angular/material/icon"
 import { MatInputModule } from "@angular/material/input"
-import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
-import { MatToolbarModule } from "@angular/material/toolbar"
 import {
   ActivatedRoute,
   NavigationEnd,
@@ -80,10 +78,8 @@ import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
-import {
-  MENU_BUTTON,
-  ReaderMenuComponent,
-} from "../reader-menu/reader-menu.component"
+import { HeaderComponent } from "../header/header.component"
+import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.component"
@@ -167,15 +163,13 @@ function notedVerses(ref: BibleReference, after?: string): string | null {
   selector: "pastoral-index",
   imports: [
     RouterLink,
-    MatToolbarModule,
     MatButtonModule,
     MatRippleModule,
     MatIconModule,
     MatExpansionModule,
     MatFormFieldModule,
     MatInputModule,
-    MatMenuModule,
-    ReaderMenuComponent,
+    HeaderComponent,
     UnifiedGesturesDirective,
     AlphabeticalScrollBarComponent,
     FastScrollerComponent,
@@ -216,17 +210,6 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private location = inject(Location)
   private destroyRef = inject(DestroyRef)
   private injector = inject(Injector)
-  private menuTrigger = viewChild(MatMenuTrigger)
-  // The page's menu, as the reader's header does with its own.
-  private unregisterBackCloser = this.backButton.register(
-    () => {
-      const trigger = this.menuTrigger()
-      if (!trigger?.menuOpen) return false
-      trigger.closeMenu()
-      return true
-    },
-    () => !!this.menuTrigger()?.menuOpen,
-  )
   /** The native apps draw this page's toolbar. */
   readonly native = this.nativeChrome.enabled
   /** Material's list and fast scroller, where iOS has its section index. */
@@ -373,7 +356,11 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     })
   }
 
-  readonly indexTitle = PASTORAL_INDEX_BOOK.name
+  /** What the header shows: the index, or the theme open, as ribbons go by it. */
+  readonly headerBook = computed<Book>(() => ({
+    ...PASTORAL_INDEX_BOOK,
+    id: indexBookmarkId(this.slug()),
+  }))
 
   /** The reader's book list, as the passage button opens it there. */
   openBookSelector(): void {
@@ -390,6 +377,12 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       ref.close()
       this.goToPassage(bookId)
     })
+  }
+
+  /** The header's menu and the book list: the About page, or a book. */
+  onSelectPassage({ bookId, chapter }: { bookId: string; chapter?: number }) {
+    if (bookId === "about") this.openAbout()
+    else this.goToPassage(bookId, chapter)
   }
 
   openAbout(): void {
@@ -624,12 +617,11 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.unregisterBackCloser()
     if (this.native) this.nativeChrome.hide()
   }
 
   /** A book chosen in the picker, as the reader goes to one: the index itself opens at its top. */
-  private goToPassage(bookId: string, chapter?: number): void {
+  goToPassage(bookId: string, chapter?: number): void {
     if (bookId === PASTORAL_INDEX_BOOK.id) {
       this.expand(null)
       window.scrollTo({ top: 0, behavior: "instant" })

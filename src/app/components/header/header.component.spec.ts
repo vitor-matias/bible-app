@@ -1067,6 +1067,26 @@ describe("HeaderComponent", () => {
       chapterCount: 1,
     }
 
+    // The Índice Bíblico-Pastoral, or a theme of it, is a page: no chapters.
+    it("names the index plainly, with no chapter button", () => {
+      fixture.componentRef.setInput("book", {
+        id: "indice/amor",
+        abrv: "Índice",
+        name: "Índice Bíblico-Pastoral",
+        shortName: "Índice Bíblico-Pastoral",
+        chapterCount: 0,
+      })
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+
+      const heading = (fixture.nativeElement as HTMLElement).querySelector(
+        "h1",
+      ) as HTMLElement
+      expect(heading.getAttribute("aria-label")).toBe("Índice Bíblico-Pastoral")
+      expect(heading.querySelectorAll("mat-button-toggle").length).toBe(1)
+      expect(component.shareText()).toBe("Índice Bíblico-Pastoral")
+    })
+
     // The audit's complaint: with two stacked labels crossfading, both stayed
     // in the DOM, so the page h1 read "<title> Escolher Livro" — words no page
     // text repeats.

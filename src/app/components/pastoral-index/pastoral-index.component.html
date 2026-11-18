@@ -1,30 +1,10 @@
 @if (!native) {
-<div class="toolbar-wrapper">
-  <mat-toolbar class="index-toolbar">
-    <div class="content">
-      <button mat-flat-button type="button" aria-label="Menu" class="button actionButton backButton menuButton" [matMenuTriggerFor]="pageMenu.menu"
-        (menuOpened)="pageMenu.opened(); backButton.changed()" (menuClosed)="backButton.changed()">
-        <mat-icon>menu</mat-icon>
-      </button>
-      <!-- The reader's menu, less what only a chapter has: auto-scroll and the
-           view mode. -->
-      <reader-menu #pageMenu="readerMenu" [canShare]="canShare" [version]="version()" [textSize]="textSizeState()"
-        (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
-        (bookmarks)="openBookmarks()" (share)="share()" (about)="openAbout()"
-        (reportProblem)="reportProblem()" />
-      <button type="button" class="toolbar-title" aria-label="Escolher livro" (click)="openBookSelector()">
-        {{ indexTitle }}
-      </button>
-      <a mat-flat-button routerLink="/search" aria-label="Pesquisar" class="button actionButton searchButton">
-        <mat-icon>search</mat-icon>
-      </a>
-    </div>
-  </mat-toolbar>
-</div>
+<header [book]="headerBook()" [chapterNumber]="1" [textSize]="textSizeState()"
+  (openBookSelector)="openBookSelector()" (selectPassage)="onSelectPassage($event)"
+  (increaseFontSizeEvent)="increaseFontSize($event)" (decreaseFontSizeEvent)="decreaseFontSize($event)"></header>
 }
 
 <main class="book-index-container">
-  <h1 class="visually-hidden">Índice Bíblico-Pastoral</h1>
   <!-- As the printed edition opens the index. In the apps results take the
        screen's place, as a native search's do. -->
   @if (!native || !query()) {
