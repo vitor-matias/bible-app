@@ -2395,6 +2395,8 @@ describe("SearchComponent in the iOS app", () => {
   }
   let location: SpyObj<Location>
   let apiService: SpyObj<BibleApiService>
+  let bookService: SpyObj<BookService>
+  let route: { queryParamMap: Observable<ParamMap> }
 
   beforeEach(async () => {
     actions = new Subject()
@@ -2412,16 +2414,18 @@ describe("SearchComponent in the iOS app", () => {
     )
     const referenceService = createSpyObj("BibleReferenceService", ["extract"])
     referenceService.extract.mockReturnValue([])
-    const bookService = Object.assign(
+    bookService = Object.assign(
       createSpyObj<BookService>("BookService", [
         "findBook",
         "findBookById",
         "findTypedBook",
         "getUrlAbrv",
         "getChapterUrlSegment",
+        "initializeBooks",
       ]),
       { books$: of([{ id: "mat" }]) },
     )
+    route = { queryParamMap: of(convertToParamMap({})) }
     bookService.findBookById.mockReturnValue({
       abrv: "Mt",
       shortName: "Mateus",
@@ -2456,10 +2460,7 @@ describe("SearchComponent in the iOS app", () => {
           },
         },
         { provide: AnalyticsService, useValue: analytics },
-        {
-          provide: ActivatedRoute,
-          useValue: { queryParamMap: of(convertToParamMap({})) },
-        },
+        { provide: ActivatedRoute, useValue: route },
         {
           provide: SeoService,
           useValue: {
@@ -2487,6 +2488,20 @@ describe("SearchComponent in the iOS app", () => {
       themeMode: "dark",
       query: "",
     })
+  })
+
+  // Android raises the keyboard only over an empty field (Search.kt). On a
+  // cold share the search waits for the book list, so the field opened empty.
+  it("opens a shared query in the native field before searching it", () => {
+    fixture.destroy()
+    nativeChrome.show.mockClear()
+    route.queryParamMap = of(convertToParamMap({ q: "amai-vos" }))
+    bookService.initializeBooks.mockReturnValue(new Promise(() => {}))
+    TestBed.createComponent(SearchComponent).detectChanges()
+
+    expect(nativeChrome.show.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ mode: "search", query: "amai-vos" }),
+    )
   })
 
   it("searches what is typed in the native field, and keeps it there", async () => {
