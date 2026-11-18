@@ -78,6 +78,7 @@ import { ToastService } from "../../services/toast.service"
 import { buildPassagePicker } from "../../utils/passage-picker"
 import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
+import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import {
   MENU_BUTTON,
@@ -369,6 +370,25 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       restoreFocus: MENU_BUTTON,
       width: "90%",
       maxWidth: "500px",
+    })
+  }
+
+  readonly indexTitle = PASTORAL_INDEX_BOOK.name
+
+  /** The reader's book list, as the passage button opens it there. */
+  openBookSelector(): void {
+    const ref = this.dialog.open(BookSelectorComponent, {
+      ariaModal: true,
+      restoreFocus: true,
+      width: "90%",
+      maxWidth: "500px",
+      maxHeight: "80vh",
+    })
+    ref.componentRef?.setInput("books", this.bookService.getBooks())
+    ref.componentRef?.setInput("selectedBookId", PASTORAL_INDEX_BOOK.id)
+    ref.componentInstance.submitData.subscribe(({ bookId }) => {
+      ref.close()
+      this.goToPassage(bookId)
     })
   }
 
