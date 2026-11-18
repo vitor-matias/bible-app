@@ -776,7 +776,22 @@ describe("HeaderComponent", () => {
       component.openReportProblem()
 
       expect(dialogSpy.open.mock.lastCall?.[1]?.data).toEqual({
-        book: expect.objectContaining({ id: "indice/amor" }),
+        book: expect.objectContaining({
+          id: "indice/amor",
+          shortName: "Amor",
+        }),
+        chapter: 1,
+      })
+    })
+
+    it("reports the index itself by its own name", async () => {
+      await openMenuOn("indice")
+      component = fixture.componentInstance
+
+      component.openReportProblem()
+
+      expect(dialogSpy.open.mock.lastCall?.[1]?.data).toEqual({
+        book: expect.objectContaining({ shortName: "Índice" }),
         chapter: 1,
       })
     })

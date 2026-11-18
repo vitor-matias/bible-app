@@ -29,7 +29,10 @@ import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
 import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
-import { isIndexBookmark } from "../../pastoral-index-bookmarks"
+import {
+  indexBookmarkLabel,
+  isIndexBookmark,
+} from "../../pastoral-index-bookmarks"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BackButtonService } from "../../services/back-button.service"
 import { BookService } from "../../services/book.service"
@@ -316,11 +319,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   openReportProblem() {
-    const book = this.book()
+    const open = this.book()
     const chapterNumber = this.chapterNumber()
-    if (!book || chapterNumber == null) {
+    if (!open || chapterNumber == null) {
       return
     }
+    // A theme is reported by its title ("Amor"), as the report's subject reads
+    // the book's name; the pill keeps the index's.
+    const label = this.isIndex ? indexBookmarkLabel(open.id) : undefined
+    const book = label ? { ...open, name: label, shortName: label } : open
     if (this.native) {
       this.nativeReport.open(book, chapterNumber)
       return
