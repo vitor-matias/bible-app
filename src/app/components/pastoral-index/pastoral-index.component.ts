@@ -37,7 +37,7 @@ import {
   RouterLink,
 } from "@angular/router"
 import { animationFrameScheduler, fromEvent } from "rxjs"
-import { auditTime, map, takeUntil } from "rxjs/operators"
+import { auditTime, map } from "rxjs/operators"
 import { PASTORAL_INDEX_BOOK } from "../../bible-canon"
 import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import {
@@ -76,7 +76,10 @@ import { ToastService } from "../../services/toast.service"
 import { buildPassagePicker } from "../../utils/passage-picker"
 import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
-import { BookSelectorComponent } from "../book-selector/book-selector.component"
+import {
+  BOOK_DRAWER_CONFIG,
+  BookDrawerComponent,
+} from "../book-drawer/book-drawer.component"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { HeaderComponent } from "../header/header.component"
 import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
@@ -370,23 +373,15 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
 
   /** The reader's book list, as the passage button opens it there. */
   openBookSelector(): void {
-    const ref = this.dialog.open(BookSelectorComponent, {
-      ariaModal: true,
-      ariaLabel: "Livros",
-      restoreFocus: true,
-      width: "90%",
-      maxWidth: "500px",
-      maxHeight: "80vh",
-    })
-    // The list may still be loading, or load again, while the dialog is open.
-    this.bookService.books$
-      .pipe(takeUntil(ref.afterClosed()))
-      .subscribe((books) => ref.componentRef?.setInput("books", books))
-    ref.componentRef?.setInput("selectedBookId", PASTORAL_INDEX_BOOK.id)
-    ref.componentInstance.submitData.subscribe(({ bookId }) => {
-      ref.close()
-      this.goToPassage(bookId)
-    })
+    this.dialog
+      .open<BookDrawerComponent, unknown, string>(
+        BookDrawerComponent,
+        BOOK_DRAWER_CONFIG(PASTORAL_INDEX_BOOK.id),
+      )
+      .afterClosed()
+      .subscribe((bookId) => {
+        if (bookId) this.goToPassage(bookId)
+      })
   }
 
   /** The header's menu and the book list: the About page, or a book. */

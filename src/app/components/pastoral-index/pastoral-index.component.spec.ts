@@ -36,7 +36,7 @@ import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
-import { BookSelectorComponent } from "../book-selector/book-selector.component"
+import { BookDrawerComponent } from "../book-drawer/book-drawer.component"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { HeaderComponent } from "../header/header.component"
 import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
@@ -476,16 +476,12 @@ describe("PastoralIndexComponent", () => {
     })
 
     // The page's bar is the reader's header, whose passage button opens the books.
-    it("opens the book list from the title, and goes to the book picked", async () => {
+    it("opens the book drawer from the title, and goes to the book picked", async () => {
       const fixture = await open()
-      const submitData = new Subject<{ bookId: string }>()
-      const ref = {
-        componentRef: { setInput: vi.fn() },
-        componentInstance: { submitData },
-        afterClosed: () => new Subject<void>(),
-        close: vi.fn(),
-      }
-      dialog.open.mockReturnValue(ref as unknown as MatDialogRef<unknown>)
+      const closed = new Subject<string | undefined>()
+      dialog.open.mockReturnValue({
+        afterClosed: () => closed,
+      } as unknown as MatDialogRef<unknown>)
       const navigate = vi
         .spyOn(TestBed.inject(Router), "navigate")
         .mockResolvedValue(true)
@@ -493,21 +489,31 @@ describe("PastoralIndexComponent", () => {
       fixture.debugElement
         .query(By.directive(HeaderComponent))
         .componentInstance.openBookSelector.emit({ open: true })
-      expect(dialog.open.mock.calls[0][0]).toBe(BookSelectorComponent)
-      expect(dialog.open.mock.calls[0][1]?.ariaLabel).toBe("Livros")
-      expect(ref.componentRef.setInput).toHaveBeenCalledWith("books", CANON)
-      expect(ref.componentRef.setInput).toHaveBeenCalledWith(
-        "selectedBookId",
-        "indice",
+      expect(dialog.open.mock.calls[0][0]).toBe(BookDrawerComponent)
+      expect(dialog.open.mock.calls[0][1]).toEqual(
+        expect.objectContaining({ ariaLabel: "Livros" }),
       )
 
-      submitData.next({ bookId: CANON[0].id })
-      expect(ref.close).toHaveBeenCalled()
+      closed.next(CANON[0].id)
       expect(navigate).toHaveBeenCalledWith([
         "/",
         CANON[0].abrv.replace(" ", "").toLowerCase(),
         "1",
       ])
+    })
+
+    it("stays on the page when the drawer closes with no book", async () => {
+      const fixture = await open()
+      const closed = new Subject<string | undefined>()
+      dialog.open.mockReturnValue({
+        afterClosed: () => closed,
+      } as unknown as MatDialogRef<unknown>)
+      const navigate = vi.spyOn(TestBed.inject(Router), "navigate")
+
+      fixture.componentInstance.openBookSelector()
+      closed.next(undefined)
+
+      expect(navigate).not.toHaveBeenCalled()
     })
 
     it("keeps a heading where the apps draw the bars", async () => {

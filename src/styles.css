@@ -506,6 +506,28 @@ bible-reader .mat-drawer-content {
   overflow-x: hidden !important;
 }
 
+/* The book list opened on a page with no drawer of its own (the index): a panel
+   sliding in from the left, as the reader's drawer does. */
+.book-drawer-panel .mat-mdc-dialog-surface {
+  border-radius: 0;
+}
+
+.book-drawer-panel .mat-mdc-dialog-container {
+  animation: book-drawer-in 0.2s ease-out;
+}
+
+@keyframes book-drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-drawer-panel .mat-mdc-dialog-container {
+    animation: none;
+  }
+}
+
 .bookSelector .mat-drawer-inner-container {
   scrollbar-gutter: stable;
   overscroll-behavior: none;
