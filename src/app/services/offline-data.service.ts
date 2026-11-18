@@ -48,6 +48,12 @@ export class OfflineDataService implements OnDestroy {
   private introsIncomplete = false
   /** Torn down: a late failure or a refresh in flight must not arm another retry. */
   private destroyed = false
+  /**
+   * Counts removals of the stored Bible. A download, a retry or a load that
+   * began under an earlier count belongs to text the reader has since removed:
+   * it writes nothing and asks for nothing more.
+   */
+  private removalEpoch = 0
 
   /**
    * Fetches all books and chapters into IndexedDB for offline usage.
@@ -59,12 +65,15 @@ export class OfflineDataService implements OnDestroy {
     // Joining a run that is ending must not cancel the retry it just armed.
     if (this.preloadPromise) return this.preloadPromise
     clearTimeout(this.retryTimer)
-    this.preloadPromise = this.runPreload(source)
-      .then((failed) => this.scheduleRetry(failed, source))
+    const epoch = this.removalEpoch
+    const run: Promise<void> = this.runPreload(source, epoch)
+      .then((failed) => this.scheduleRetry(failed, source, epoch))
       .finally(() => {
-        this.preloadPromise = null
+        // Not a newer run's promise, which a removal may have let start.
+        if (this.preloadPromise === run) this.preloadPromise = null
       })
-    return this.preloadPromise
+    this.preloadPromise = run
+    return run
   }
 
   ngOnDestroy(): void {
@@ -73,23 +82,34 @@ export class OfflineDataService implements OnDestroy {
   }
 
   /** A failed download is tried again while the app stays open, less and less often. */
-  private scheduleRetry(failed: boolean, source: "standalone" | "study"): void {
+  private scheduleRetry(
+    failed: boolean,
+    source: "standalone" | "study",
+    epoch: number,
+  ): void {
+    if (epoch !== this.removalEpoch) return
     if (!failed || this.storageFailed) {
       this.retryDelayMs = PRELOAD_RETRY_BASE_MS
       return
     }
-    this.armRetry(this.retryDelayMs, source)
+    this.armRetry(this.retryDelayMs, source, epoch)
     this.retryDelayMs = Math.min(this.retryDelayMs * 2, PRELOAD_RETRY_MAX_MS)
   }
 
-  private armRetry(delayMs: number, source: "standalone" | "study"): void {
-    if (this.destroyed) return
+  private armRetry(
+    delayMs: number,
+    source: "standalone" | "study",
+    epoch: number,
+  ): void {
+    if (this.destroyed || epoch !== this.removalEpoch) return
     this.retryTimer = setTimeout(async () => {
       // In the background the listener can miss a reconnect: ask, and while
       // offline keep asking.
       await this.networkService.refresh()
-      if (this.destroyed) return
-      if (this.networkService.isOffline) this.armRetry(delayMs, source)
+      // The Bible may have been removed while that was asked: the text it
+      // would fetch again is the text the reader just let go of.
+      if (this.destroyed || epoch !== this.removalEpoch) return
+      if (this.networkService.isOffline) this.armRetry(delayMs, source, epoch)
       else void this.preloadAllBooksAndChapters(source)
     }, delayMs)
   }
@@ -111,7 +131,11 @@ export class OfflineDataService implements OnDestroy {
   }
 
   /** Resolves to whether a download failed, and so is worth retrying. */
-  private async runPreload(source: "standalone" | "study"): Promise<boolean> {
+  private async runPreload(
+    source: "standalone" | "study",
+    epoch: number,
+  ): Promise<boolean> {
+    const removed = () => epoch !== this.removalEpoch
     // Until the next launch: each try would download the Bible again.
     if (typeof window === "undefined" || this.storageFailed) return false
 
@@ -123,6 +147,9 @@ export class OfflineDataService implements OnDestroy {
     // only while the records are there; a store that can't be read leaves
     // them the last word, or every launch would download the Bible again.
     await this.ensureCacheLoaded()
+    // Removed meanwhile: the flags are gone with the text, and reading them
+    // now would take the Bible for one still to download.
+    if (removed()) return false
     const records = this.cachedBooks
     const holds = (intro: boolean) =>
       records
@@ -166,11 +193,13 @@ export class OfflineDataService implements OnDestroy {
         failed = true
         console.error("Failed to preload books for offline use", error)
       }
+      if (removed()) return false
       // Not retried if storing fails (setCachedBooks): it would download
       // the Bible again.
       if (books) {
         try {
           await this.setCachedBooks(books)
+          if (removed()) return false
           this.trackBooksCachedEvent(source)
         } catch (error) {
           console.error("Failed to preload books for offline use", error)
@@ -181,7 +210,9 @@ export class OfflineDataService implements OnDestroy {
     // preloadGroupIntros logs instead of throwing, so a bad /intros response
     // never masks a successful books preload.
     if (!introsAlreadyCached || isExpired) {
-      this.introsIncomplete = !(await this.preloadGroupIntros())
+      const complete = await this.preloadGroupIntros(epoch)
+      if (removed()) return false
+      this.introsIncomplete = !complete
       failed = this.introsIncomplete || failed
     }
     return failed
@@ -206,10 +237,19 @@ export class OfflineDataService implements OnDestroy {
    * installed app stores it by design and fetches it again on its next start.
    */
   async removeStoredBible(): Promise<void> {
-    // A failed download's retry still waiting would fetch the Bible again, a
-    // few MB nobody asked for after the reader was told the text was removed.
+    // Whatever download or retry is under way, or waiting, belongs to the text
+    // being removed: a few MB fetched again, or written back over the clear,
+    // after the reader was told it was gone. Counted first, so everything
+    // that checks the count from here on drops what it was doing.
+    this.removalEpoch++
     clearTimeout(this.retryTimer)
     this.retryDelayMs = PRELOAD_RETRY_BASE_MS
+    this.introsIncomplete = false
+    // Not the old run: asked again, a download starts afresh.
+    this.preloadPromise = null
+    // Before the clear as well as after: what is read meanwhile is not the
+    // Bible being removed.
+    this.cachedBooks = null
     await this.databaseService.clear("books")
     this.cachedBooks = null
     const storage = safeLocalStorage()
@@ -228,11 +268,13 @@ export class OfflineDataService implements OnDestroy {
    * slug, same shape as BookService.toIntroBook()) for offline /intro pages.
    * Resolves to whether every one of them was fetched.
    */
-  private async preloadGroupIntros(): Promise<boolean> {
+  private async preloadGroupIntros(epoch: number): Promise<boolean> {
+    const removed = () => epoch !== this.removalEpoch
     try {
       const summaries = await this.fetch<IntroSummary[]>(
         `${this.apiBase}/intros`,
       )
+      if (removed()) return true
       // allSettled: one failing slug must not discard the rest.
       const results = await Promise.allSettled(
         summaries.map((summary) =>
@@ -241,6 +283,8 @@ export class OfflineDataService implements OnDestroy {
           ),
         ),
       )
+      // Nothing to record about text that has been removed.
+      if (removed()) return true
       const fulfilled = results.filter(
         (result): result is PromiseFulfilledResult<GroupIntro> =>
           result.status === "fulfilled",
@@ -258,6 +302,7 @@ export class OfflineDataService implements OnDestroy {
         // Intro-only write: must not mark the (possibly never-fetched) books
         // as cached and fresh.
         await this.setCachedBooks(introBooks, { markBooksReady: false })
+        if (removed()) return true
       }
 
       const failedCount = results.length - fulfilled.length
@@ -288,8 +333,12 @@ export class OfflineDataService implements OnDestroy {
     books: Book[],
     { markBooksReady = true }: { markBooksReady?: boolean } = {},
   ): Promise<void> {
+    // A write begun before the stored Bible was removed is dropped: it would
+    // put the text back over the clear.
+    const epoch = this.removalEpoch
     // Merge into whatever IndexedDB already holds; the load never rejects.
     await this.ensureCacheLoaded()
+    if (epoch !== this.removalEpoch) return
 
     const existingBooks = this.cachedBooks ?? []
     this.cachedBooks = [
@@ -302,6 +351,9 @@ export class OfflineDataService implements OnDestroy {
 
     try {
       await this.saveBooksToIndexedDb(this.cachedBooks)
+      // Removed while it was written: the clear follows it, and no flag may
+      // vouch for text that is going.
+      if (epoch !== this.removalEpoch) return
       // The store now holds current-shape records even if the migration
       // failed; a stale key would make the next launch wipe them.
       storage?.setItem(this.cacheSchemaKey, this.cacheSchemaVersion.toString())
@@ -428,7 +480,10 @@ export class OfflineDataService implements OnDestroy {
   }
 
   private async loadBooksFromIndexedDb(): Promise<void> {
+    const epoch = this.removalEpoch
     const records = await this.databaseService.getAll<Book>("books")
+    // Removed while it was read: what was read is gone.
+    if (epoch !== this.removalEpoch) return
     // Cache the empty result too so repeat callers don't re-hit IndexedDB.
     this.cachedBooks = records ?? []
   }
