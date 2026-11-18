@@ -761,6 +761,56 @@ describe("VerseComponent", () => {
       expect(Math.abs(wrapper.right - line.left)).toBeLessThan(0.5)
     })
 
+    // Sl 23,2: the line's band stood a pixel above and below the number's,
+    // with a rounded notch between them, and a wrapped line's band overlapped
+    // the next one's, darker where the translucent colour was laid twice.
+    it("should paint a poetry line's band level with its number's and its lines edge to edge", async () => {
+      const host = fixture.nativeElement as HTMLElement
+      const reader = document.createElement("div")
+      reader.className = "bookBlock"
+      reader.style.width = "200px"
+      host.before(reader)
+      reader.append(host)
+      setData(
+        fixture,
+        makeVerse({
+          number: 2,
+          // As the API serves it: an empty element left first.
+          text: [
+            { type: "quote", text: "\u200b", identLevel: 1 },
+            { type: "text", text: "Em verdes prados me faz descansar" },
+            {
+              type: "quote",
+              text: "e conduz-me às águas refrescantes.",
+              identLevel: 2,
+            },
+          ],
+        }),
+      )
+      await document.fonts.load('20px "Literata Variable"')
+      highlightHost()
+
+      const number = (
+        host.querySelector(".quoteVerseNumber") as HTMLElement
+      ).getBoundingClientRect()
+      const run = Array.from(
+        host.querySelectorAll(".quoteLineWrapper .verseRun"),
+      ).find((r) => r.textContent?.startsWith("Em verdes")) as HTMLElement
+      const lines = Array.from(run.getClientRects())
+      const radius = getComputedStyle(run).borderTopLeftRadius
+      reader.replaceWith(host)
+
+      expect(lines.length).toBeGreaterThan(1)
+      // Within half a pixel (it was a whole one): the test page sets the text
+      // half a pixel shorter than the app does.
+      expect(Math.abs(lines[0].top - number.top)).toBeLessThan(0.6)
+      expect(Math.abs(lines[0].bottom - number.bottom)).toBeLessThan(0.6)
+      expect(radius).toBe("0px")
+      for (let i = 1; i < lines.length; i++) {
+        expect(Math.abs(lines[i].top - lines[i - 1].bottom)).toBeLessThan(0.6)
+      }
+    })
+
     function withFootnote(): HTMLElement {
       setData(
         fixture,
