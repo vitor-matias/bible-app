@@ -2,8 +2,6 @@ import { BreakpointObserver } from "@angular/cdk/layout"
 import { Location } from "@angular/common"
 import { provideLocationMocks } from "@angular/common/testing"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
-import { MatBottomSheet } from "@angular/material/bottom-sheet"
-import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import { By } from "@angular/platform-browser"
 import {
   ActivatedRoute,
@@ -17,8 +15,6 @@ import { RouterTestingHarness } from "@angular/router/testing"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
-import { AppPromoService } from "../../services/app-promo.service"
-import { BackButtonService } from "../../services/back-button.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
 import { BookmarkService } from "../../services/bookmark.service"
@@ -29,18 +25,13 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
+import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { PreferencesService } from "../../services/preferences.service"
-import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
-import { BookDrawerComponent } from "../book-drawer/book-drawer.component"
-import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
-import { HeaderComponent } from "../header/header.component"
-import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
-import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { PastoralIndexComponent } from "./pastoral-index.component"
 import entries from "./pastoral-index.data.json"
 
@@ -70,13 +61,10 @@ describe("PastoralIndexComponent", () => {
   let toast: SpyObj<ToastService>
   let onboarding: SpyObj<OnboardingService>
   let bookmarks: BehaviorSubject<Bookmark[]>
-  let bottomSheet: SpyObj<MatBottomSheet>
-  let dialog: SpyObj<MatDialog>
   let nativeBookmarks: SpyObj<NativeBookmarksService>
   let analyticsOn: boolean
   let nativeReport: SpyObj<NativeReportService>
   let haptics: SpyObj<HapticsService>
-  let backButton: SpyObj<BackButtonService>
   let themes: {
     currentMode: string
     toggleTheme: ReturnType<typeof vi.fn>
@@ -102,6 +90,7 @@ describe("PastoralIndexComponent", () => {
     desktop = false,
     animated = false,
     android = false,
+    hosted = false,
   ) {
     wide = new BehaviorSubject({ matches: desktop })
     // A tap opens its theme at once; "scrolling to a theme" animates.
@@ -113,18 +102,10 @@ describe("PastoralIndexComponent", () => {
     toast = createSpyObj("ToastService", ["showReturnToIndex"])
     onboarding = createSpyObj("OnboardingService", ["open"])
     bookmarks = new BehaviorSubject<Bookmark[]>([])
-    bottomSheet = createSpyObj("MatBottomSheet", ["open"])
-    dialog = createSpyObj("MatDialog", ["open"])
     nativeBookmarks = createSpyObj("NativeBookmarksService", ["open"])
     analyticsOn = true
     nativeReport = createSpyObj("NativeReportService", ["open"])
     haptics = createSpyObj("HapticsService", ["selection"])
-    backButton = createSpyObj("BackButtonService", [
-      "closeOnBack",
-      "register",
-      "changed",
-    ])
-    backButton.register.mockReturnValue(() => {})
     themes = { currentMode: "light", toggleTheme: vi.fn(), setTheme: vi.fn() }
     actions = new Subject()
     chrome = {
@@ -142,7 +123,14 @@ describe("PastoralIndexComponent", () => {
       imports: [PastoralIndexComponent],
       providers: [
         provideRouter([]),
-        { provide: ActivatedRoute, useValue: { paramMap: params } },
+        {
+          provide: ActivatedRoute,
+          useValue: {
+            paramMap: params,
+            // The reader's route, on the web: { path: "indice", data: { index: true } }.
+            snapshot: { data: hosted ? { index: true } : {} },
+          },
+        },
         { provide: SeoService, useValue: seo },
         { provide: ToastService, useValue: toast },
         { provide: NativeChromeService, useValue: chrome },
@@ -158,12 +146,9 @@ describe("PastoralIndexComponent", () => {
               ),
           },
         },
-        { provide: MatBottomSheet, useValue: bottomSheet },
-        { provide: MatDialog, useValue: dialog },
         { provide: NativeBookmarksService, useValue: nativeBookmarks },
         { provide: NativeReportService, useValue: nativeReport },
         { provide: HapticsService, useValue: haptics },
-        { provide: BackButtonService, useValue: backButton },
         {
           provide: AnalyticsService,
           useValue: {
@@ -177,15 +162,6 @@ describe("PastoralIndexComponent", () => {
             getDisplayVersion: () =>
               Promise.resolve({ release: "1.0.0", build: "abc123" }),
           },
-        },
-        {
-          provide: PwaInstallService,
-          useValue: { canPromptInstall$: of(true) },
-        },
-        // No store app here: the menu's store link is the header's to test.
-        {
-          provide: AppPromoService,
-          useValue: { deviceStore: () => null, markSeen: vi.fn() },
         },
         { provide: BreakpointObserver, useValue: { observe: () => wide } },
         {
@@ -438,247 +414,90 @@ describe("PastoralIndexComponent", () => {
     expect(font("mat-panel-title")).toContain("Literata")
   })
 
-  describe("the hamburger menu", () => {
-    /** The menu's items, in its overlay, by label. */
-    async function openMenu(fixture: ComponentFixture<PastoralIndexComponent>) {
-      fixture.nativeElement.querySelector('[aria-label="Menu"]').click()
-      await fixture.whenStable()
-      fixture.detectChanges()
-      return (label: string) =>
-        [...document.querySelectorAll<HTMLElement>("[mat-menu-item]")].find(
-          (item) => item.textContent?.includes(label),
-        )
-    }
+  describe("hosted by the reader, on the web", () => {
+    /** A text size the reader chose, at 150%. */
+    const enlarged = () =>
+      vi.spyOn(PreferencesService.prototype, "getFontSize").mockReturnValue(150)
 
-    it("takes the back button's place in the toolbar", async () => {
-      const fixture = await open()
-      const toolbar = fixture.nativeElement.querySelector("header")
-
-      expect(toolbar.querySelector('[aria-label="Voltar"]')).toBeNull()
-      expect(toolbar.querySelector('[aria-label="Menu"]')).not.toBeNull()
-      expect(toolbar.querySelector('[aria-label="Pesquisar"]')).not.toBeNull()
-    })
-
-    // As the reader's: the back button closes it, the browser's on the website.
-    it("closes on the back button, which hears it open and close", async () => {
-      const fixture = await open()
-      const [closer, isOpen] = backButton.register.mock.lastCall ?? []
-      expect(isOpen?.()).toBe(false)
-      expect(closer?.()).toBe(false)
-
-      await openMenu(fixture)
-      expect(backButton.changed).toHaveBeenCalledTimes(1)
-      expect(isOpen?.()).toBe(true)
-
-      expect(closer?.()).toBe(true)
-      expect(isOpen?.()).toBe(false)
-      expect(backButton.changed).toHaveBeenCalledTimes(2)
-    })
-
-    // The page's bar is the reader's header, whose passage button opens the books.
-    it("opens the book drawer from the title, and goes to the book picked", async () => {
-      const fixture = await open()
-      const closed = new Subject<string | undefined>()
-      dialog.open.mockReturnValue({
-        afterClosed: () => closed,
-      } as unknown as MatDialogRef<unknown>)
-      const navigate = vi
-        .spyOn(TestBed.inject(Router), "navigate")
-        .mockResolvedValue(true)
-
-      fixture.debugElement
-        .query(By.directive(HeaderComponent))
-        .componentInstance.openBookSelector.emit({ open: true })
-      expect(dialog.open.mock.calls[0][0]).toBe(BookDrawerComponent)
-      expect(dialog.open.mock.calls[0][1]).toEqual(
-        expect.objectContaining({ ariaLabel: "Livros" }),
-      )
-
-      closed.next(CANON[0].id)
-      expect(navigate).toHaveBeenCalledWith([
-        "/",
-        CANON[0].abrv.replace(" ", "").toLowerCase(),
-        "1",
-      ])
-    })
-
-    it("stays on the page when the drawer closes with no book", async () => {
-      const fixture = await open()
-      const closed = new Subject<string | undefined>()
-      dialog.open.mockReturnValue({
-        afterClosed: () => closed,
-      } as unknown as MatDialogRef<unknown>)
-      const navigate = vi.spyOn(TestBed.inject(Router), "navigate")
-
-      fixture.componentInstance.openBookSelector()
-      closed.next(undefined)
-
-      expect(navigate).not.toHaveBeenCalled()
-    })
-
-    it("keeps a heading where the apps draw the bars", async () => {
-      const fixture = await open(undefined, true)
-      const el: HTMLElement = fixture.nativeElement
+    it("leaves the header, the heading and the main landmark to the reader", async () => {
+      const el: HTMLElement = (
+        await open(undefined, false, false, false, false, false, true)
+      ).nativeElement
 
       expect(el.querySelector("header")).toBeNull()
-      expect(el.querySelector("h1")?.textContent).toBe(
-        "Índice Bíblico-Pastoral",
-      )
+      expect(el.querySelector("h1")).toBeNull()
+      expect(el.querySelector('[role="main"], main')).toBeNull()
+      expect(el.querySelector("mat-accordion")).not.toBeNull()
     })
 
-    it("shares the theme open, by its title", async () => {
-      const fixture = await open("amor")
-      const header = fixture.debugElement.query(By.directive(HeaderComponent))
-
-      expect(header.componentInstance.shareText()).toBe(
-        "Ler Amor no Índice Bíblico-Pastoral.",
+    it("tells the reader's header the theme open, as it changes", async () => {
+      const fixture = await open(
+        "amor",
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
       )
+      const state = TestBed.inject(PastoralIndexState)
+      expect(state.slug()).toBe("amor")
+      expect(seo.updateForPastoralIndex).toHaveBeenLastCalledWith("Amor")
+
+      await tap(fixture, "amor")
+      expect(state.slug()).toBeNull()
+      await tap(fixture, "abel")
+      expect(state.slug()).toBe("abel")
+
+      fixture.destroy()
+      expect(state.slug()).toBeNull()
     })
 
-    it("is the reader's, less auto-scroll and the view mode", async () => {
-      const fixture = await open()
-      await openMenu(fixture)
-      const labels = [
-        ...document.querySelectorAll(".mat-mdc-menu-panel [mat-menu-item]"),
-      ].map(
-        (item) =>
-          item.getAttribute("aria-label") ??
-          [...item.querySelectorAll("span")]
-            .map((span) => span.textContent?.trim())
-            .filter(Boolean)
-            .at(-1),
-      )
+    it("names no theme for an address without one", async () => {
+      vi.spyOn(Router.prototype, "navigate").mockResolvedValue(true)
+      await open("nao-existe", false, false, false, false, false, true)
 
-      expect(labels).toEqual([
-        "Tema: Claro",
-        "Diminuir texto",
-        "Aumentar texto",
-        "Marcadores",
-        typeof navigator.share === "function" ? "Partilhar" : "Copiar ligação",
-        "Instalar a app",
-        "Como usar a app",
-        "Sobre a Bíblia",
-        "Reportar erro",
-        expect.stringContaining("Política de Privacidade"),
-      ])
-      expect(document.querySelector(".menu-version")?.textContent).toContain(
-        "1.0.0 · abc123",
-      )
+      expect(TestBed.inject(PastoralIndexState).slug()).toBeNull()
     })
 
-    it("changes the reader's text size here too", async () => {
-      const fixture = await open()
-      const preferences = TestBed.inject(PreferencesService)
-      const before = preferences.getFontSize("reader")
-      const accordion = fixture.nativeElement.querySelector("mat-accordion")
-      const start = Number.parseFloat(accordion.style.fontSize) || 100
-      await openMenu(fixture)
+    // The reader's text container sizes the text around the page already.
+    it("sizes its text by the reader's alone, not twice", async () => {
+      enlarged()
+      const fixture = await open(
+        undefined,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+      )
+      const accordion: HTMLElement =
+        fixture.nativeElement.querySelector("mat-accordion")
 
-      ;(
-        document.querySelector('[aria-label="Aumentar texto"]') as HTMLElement
-      ).click()
+      expect(accordion.style.fontSize).toBe("")
+      expect(fixture.componentInstance.textSizeState()).toBeNull()
+    })
 
-      expect(Number.parseFloat(accordion.style.fontSize)).toBeGreaterThan(start)
-      // The menu stays open, as the text changes behind it.
+    it("sizes its own text where it is the page", async () => {
+      enlarged()
+      const fixture = await open(undefined, true)
+
       expect(
-        document.querySelector('[aria-label="Diminuir texto"]'),
-      ).not.toBeNull()
-      if (before === null) preferences.clearFontSize("reader")
-      else preferences.setFontSize(before, "reader")
+        fixture.nativeElement.querySelector("mat-accordion").style.fontSize,
+      ).toBe("150%")
+      expect(fixture.componentInstance.textSizeState()?.percent).toBe(150)
     })
+  })
 
-    it("reports a problem on the theme open", async () => {
-      const fixture = await open("amor")
-      const item = await openMenu(fixture)
+  // The apps draw the bars, over a page that has no header of its own.
+  it("keeps a heading and the main landmark where the apps draw the bars", async () => {
+    const fixture = await open(undefined, true)
+    const el: HTMLElement = fixture.nativeElement
 
-      item("Reportar erro")?.click()
-
-      expect(dialog.open).toHaveBeenCalledWith(
-        ReportProblemComponent,
-        expect.objectContaining({
-          data: {
-            book: expect.objectContaining({
-              id: "indice/amor",
-            }),
-            chapter: 1,
-          },
-          ariaModal: true,
-        }),
-      )
-    })
-
-    it("offers reporting only where analytics carries the report", async () => {
-      const fixture = await open()
-      analyticsOn = false
-      const item = await openMenu(fixture)
-
-      expect(item("Reportar erro")).toBeUndefined()
-    })
-
-    it("opens the ribbons on the theme open, or else on the index", async () => {
-      const fixture = await open("amor")
-      const item = await openMenu(fixture)
-      item("Marcadores")?.click()
-      expect(bottomSheet.open).toHaveBeenLastCalledWith(
-        BookmarkSelectorComponent,
-        expect.objectContaining({
-          data: { bookId: "indice/amor", chapter: 1 },
-          ariaLabel: "Marcadores",
-          ariaModal: true,
-          // The menu entry is gone when it closes: back to the menu button.
-          restoreFocus: MENU_BUTTON,
-        }),
-      )
-      expect(
-        (fixture.nativeElement as HTMLElement).querySelector(MENU_BUTTON)
-          ?.ariaLabel,
-      ).toBe("Menu")
-
-      params.next(convertToParamMap({}))
-      fixture.componentInstance.openBookmarks()
-      expect(bottomSheet.open).toHaveBeenLastCalledWith(
-        BookmarkSelectorComponent,
-        expect.objectContaining({ data: { bookId: "indice", chapter: 1 } }),
-      )
-    })
-
-    it("cycles the theme and stays open", async () => {
-      const fixture = await open()
-      await openMenu(fixture)
-      const button = () =>
-        document.querySelector<HTMLElement>(
-          '.menu-control[aria-label^="Tema:"]',
-        )
-
-      expect(button()?.getAttribute("aria-label")).toBe("Tema: Claro")
-      button()?.click()
-
-      expect(themes.toggleTheme).toHaveBeenCalled()
-      expect(button()).not.toBeNull()
-    })
-
-    it("opens the help and the About page", async () => {
-      const fixture = await open()
-      const navigate = vi
-        .spyOn(TestBed.inject(Router), "navigate")
-        .mockResolvedValue(true)
-      const item = await openMenu(fixture)
-
-      item("Como usar a app")?.click()
-      expect(onboarding.open).toHaveBeenCalledWith("menu", MENU_BUTTON)
-
-      fixture.componentInstance.openAbout()
-      expect(navigate).toHaveBeenCalledWith(["/", "sobre", 1])
-    })
-
-    it("links the privacy policy, in a new tab", async () => {
-      const fixture = await open()
-      const item = await openMenu(fixture)
-
-      const privacy = item("Política de Privacidade")
-      expect(privacy?.getAttribute("target")).toBe("_blank")
-      expect(privacy?.getAttribute("href")).toContain("politica-de-privacidade")
-    })
+    expect(el.querySelector("header")).toBeNull()
+    expect(el.querySelector("h1")?.textContent).toBe("Índice Bíblico-Pastoral")
+    expect(el.querySelector('[role="main"]')).not.toBeNull()
   })
 
   describe("ribbons on a theme", () => {
@@ -703,7 +522,6 @@ describe("PastoralIndexComponent", () => {
       fixture.componentInstance.openBookmarks()
 
       expect(nativeBookmarks.open).toHaveBeenCalledWith("indice/amor", 1)
-      expect(bottomSheet.open).not.toHaveBeenCalled()
     })
 
     it("shows the ribbon on the theme's title, even closed", async () => {
@@ -2244,14 +2062,13 @@ describe("PastoralIndexComponent", () => {
       )
     })
 
-    it("reports a problem in the native form, not the dialog", async () => {
+    it("reports a problem in the native form", async () => {
       await open("amor", true)
       actions.next({ id: "report" })
       expect(nativeReport.open).toHaveBeenCalledWith(
         expect.objectContaining({ id: "indice/amor", name: "Amor" }),
         1,
       )
-      expect(dialog.open).not.toHaveBeenCalled()
     })
 
     it("opens help, About and the privacy policy from the menu", async () => {

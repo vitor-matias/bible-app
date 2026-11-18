@@ -1,4 +1,5 @@
 import {
+  booleanAttribute,
   Directive,
   ElementRef,
   inject,
@@ -117,12 +118,21 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
   private readonly boundTouchEnd = this.onTouchEnd.bind(this)
   private readonly boundTouchCancel = this.onTouchCancel.bind(this)
   readonly fontSizeContext = input<string>()
+  /**
+   * `[unifiedGestures]="false"`: off, for text inside another element that
+   * already has the directive (it would size it twice). Read once, at init.
+   */
+  readonly enabled = input(true, {
+    alias: "unifiedGestures",
+    transform: booleanAttribute,
+  })
 
   constructor() {
     this.currentFontSize = this.BASE_FONT_SIZE
   }
 
   ngOnInit() {
+    if (!this.enabled()) return
     const element = this.el.nativeElement
     const size = startingFontSize(
       this.preferencesService.getFontSize(this.getFontSizeContext()),

@@ -726,6 +726,92 @@ describe("HeaderComponent", () => {
     })
   })
 
+  // The index has no pages to turn nor text to scroll by itself.
+  describe("the menu on the Índice Bíblico-Pastoral", () => {
+    const openMenuOn = async (id: string) => {
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", {
+        id,
+        name: id,
+        shortName: id,
+        abrv: id,
+        chapterCount: 50,
+      })
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.componentRef.setInput("viewMode", "scrolling")
+      fixture.detectChanges()
+      await fixture.whenStable()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const viewModeToggle = () =>
+      document.querySelector('[aria-label^="Texto contínuo"]')
+    const autoScrollItem = () =>
+      Array.from(
+        document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
+      ).find((item) => item.textContent?.includes("deslocamento automático"))
+
+    it("offers neither the view mode nor auto-scroll on a theme", async () => {
+      await openMenuOn("indice/amor")
+
+      expect(viewModeToggle()).toBeNull()
+      expect(autoScrollItem()).toBeUndefined()
+    })
+
+    it("offers both on a book", async () => {
+      await openMenuOn("gen")
+
+      expect(viewModeToggle()).not.toBeNull()
+      expect(autoScrollItem()).toBeDefined()
+    })
+
+    it("reports a problem on the theme open", async () => {
+      await openMenuOn("indice/amor")
+      component = fixture.componentInstance
+
+      component.openReportProblem()
+
+      expect(dialogSpy.open.mock.lastCall?.[1]?.data).toEqual({
+        book: expect.objectContaining({ id: "indice/amor" }),
+        chapter: 1,
+      })
+    })
+
+    it("hangs and finds its ribbon on the theme open", async () => {
+      bookmarkServiceSpy.getBookmark.mockClear()
+      await openMenuOn("indice/amor")
+      component = fixture.componentInstance
+
+      expect(bookmarkServiceSpy.getBookmark).toHaveBeenCalledWith(
+        "indice/amor",
+        1,
+      )
+      component.openBookmarkSelector()
+
+      expect(bottomSheetSpy.open.mock.lastCall?.[1]?.data).toEqual({
+        bookId: "indice/amor",
+        chapter: 1,
+      })
+    })
+
+    it("shares the words the reader gives it, else the index's name", async () => {
+      await openMenuOn("indice/amor")
+      component = fixture.componentInstance
+      expect(component.shareText()).toBe("indice/amor")
+
+      fixture.componentRef.setInput(
+        "indexShareText",
+        "Ler Amor no Índice Bíblico-Pastoral.",
+      )
+
+      expect(component.shareText()).toBe("Ler Amor no Índice Bíblico-Pastoral.")
+    })
+  })
+
   // One button in the menu's row of icons cycles through the three themes.
   describe("the theme in the menu", () => {
     const trigger = () =>

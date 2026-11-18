@@ -1,14 +1,10 @@
-@if (!native) {
-<header [book]="headerBook()" [chapterNumber]="1" [textSize]="textSizeState()"
-  [indexShareText]="shareText()"
-  (openBookSelector)="openBookSelector()" (selectPassage)="onSelectPassage($event)"
-  (increaseFontSizeEvent)="increaseFontSize($event)" (decreaseFontSizeEvent)="decreaseFontSize($event)"></header>
-} @else {
-<!-- The apps draw their own bars; the page still needs its heading. -->
+@if (!hosted) {
+<!-- The apps draw their own bars; the page still needs its heading. Hosted,
+     the reader's header has it, in the reader's main. -->
 <h1 class="visually-hidden">Índice Bíblico-Pastoral</h1>
 }
 
-<main class="book-index-container">
+<div class="book-index-container" [attr.role]="hosted ? null : 'main'">
   <!-- As the printed edition opens the index. In the apps results take the
        screen's place, as a native search's do. -->
   @if (!native || !query()) {
@@ -69,7 +65,8 @@
     }
   </nav>
   </div>
-  <mat-accordion displayMode="flat" [multi]="wide()" unifiedGestures fontSizeContext="reader" (textSizeChange)="textSizeState.set($event)">
+  <!-- Hosted, the reader's text container already sizes the text: not twice. -->
+  <mat-accordion displayMode="flat" [multi]="wide()" [unifiedGestures]="!hosted" fontSizeContext="reader" (textSizeChange)="textSizeState.set($event)">
     @for (group of groups(); track group.letter) {
     <section class="letter" [id]="'letra-' + group.letter">
     <!-- Focusable, for the letter shortcuts to leave the keyboard here. -->
@@ -128,4 +125,4 @@
     </p>
     }
   </mat-accordion>
-</main>
+</div>

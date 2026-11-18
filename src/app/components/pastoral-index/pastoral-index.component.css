@@ -30,17 +30,7 @@
   --page-top: var(--native-chrome-top, env(safe-area-inset-top));
 }
 
-.toolbar-title {
-  /* A flex box ignores the shared rule's ellipsis, on the narrowest phones. */
-  display: block;
-}
-
 /* Material's focus state is too faint to find; the keyboard needs to see it. */
-.actionButton:focus-visible {
-  outline: 2px solid var(--cap-brown);
-  outline-offset: -4px;
-}
-
 .letters button:focus-visible,
 mat-expansion-panel-header:focus-visible {
   outline: 2px solid var(--text-color);
@@ -228,8 +218,10 @@ mat-panel-title {
 }
 
 /* As the reader does: justified lines gape once the text is this large, or
-   on a phone; the reader's own choice (TextAlignService) wins over both. */
-.large-text .entry {
+   on a phone; the reader's own choice (TextAlignService) wins over both. The
+   page's own text size, or, hosted, the reader's around it. */
+.large-text .entry,
+:host-context(.large-text) .entry {
   text-align: start;
 }
 
@@ -271,7 +263,6 @@ mat-panel-title {
 
 /* The text alone: a catechist prints a theme, filtered down to it. */
 @media print {
-  header,
   .index-intro,
   .index-tools,
   .letter-bar {

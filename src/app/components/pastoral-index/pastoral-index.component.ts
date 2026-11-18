@@ -17,10 +17,8 @@ import {
   viewChild,
 } from "@angular/core"
 import { takeUntilDestroyed, toSignal } from "@angular/core/rxjs-interop"
-import { MatBottomSheet } from "@angular/material/bottom-sheet"
 import { MatButtonModule } from "@angular/material/button"
 import { MatRippleModule } from "@angular/material/core"
-import { MatDialog } from "@angular/material/dialog"
 import {
   MatExpansionModule,
   type MatExpansionPanel,
@@ -49,7 +47,6 @@ import {
   indexBookmarkId,
 } from "../../pastoral-index-bookmarks"
 import { AnalyticsService } from "../../services/analytics.service"
-import { BackButtonService } from "../../services/back-button.service"
 import {
   type BibleReference,
   BibleReferenceService,
@@ -70,20 +67,13 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
+import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { SeoService } from "../../services/seo.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { buildPassagePicker } from "../../utils/passage-picker"
 import { leftToTheBrowser } from "../../utils/platform"
 import { foldText } from "../../utils/text-search"
-import {
-  BOOK_DRAWER_CONFIG,
-  BookDrawerComponent,
-} from "../book-drawer/book-drawer.component"
-import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
-import { HeaderComponent } from "../header/header.component"
-import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
-import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 import { AlphabeticalScrollBarComponent } from "./alphabetical-scroll-bar.component"
 import { FastScrollerComponent } from "./fast-scroller.component"
@@ -172,7 +162,6 @@ function notedVerses(ref: BibleReference, after?: string): string | null {
     MatExpansionModule,
     MatFormFieldModule,
     MatInputModule,
-    HeaderComponent,
     UnifiedGesturesDirective,
     AlphabeticalScrollBarComponent,
     FastScrollerComponent,
@@ -203,12 +192,15 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private nativeBookmarks = inject(NativeBookmarksService)
   private nativeReport = inject(NativeReportService)
   private haptics = inject(HapticsService)
-  private bottomSheet = inject(MatBottomSheet)
-  protected readonly backButton = inject(BackButtonService)
-  private dialog = inject(MatDialog)
+  private indexState = inject(PastoralIndexState)
   private buildVersion = inject(BuildVersionService)
   readonly analytics = inject(AnalyticsService)
   private route = inject(ActivatedRoute)
+  /**
+   * On the web the reader hosts the page, as it does About: its header (with
+   * the page's h1), drawer and text size are the page's. The apps route here.
+   */
+  readonly hosted = this.route.snapshot.data["index"] === true
   private router = inject(Router)
   private location = inject(Location)
   private destroyRef = inject(DestroyRef)
@@ -252,8 +244,6 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   /** In the apps, whether the shell's filter field is showing. */
   private filterOpen = signal(false)
   readonly ribbonColor = ribbonColor
-  readonly canShare =
-    typeof navigator !== "undefined" && typeof navigator.share === "function"
   /** Small print under the menu's last item; null until it is known. */
   readonly version = signal<DisplayVersion | null>(null)
 
@@ -281,20 +271,14 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     return (spokenRibbonName(color) ?? color).toLocaleLowerCase("pt")
   }
 
-  /** The reader's ribbons, on the theme open, or the index when none is. */
+  /**
+   * The apps' bars: the reader's ribbons, on the theme open, or the index when
+   * none is. On the web the reader's header has these, and sharing and reports.
+   */
   openBookmarks(): void {
-    const bookId = indexBookmarkId(this.slug())
-    if (this.native) {
-      this.nativeBookmarks.open(bookId, INDEX_BOOKMARK_CHAPTER)
-      return
-    }
-    this.backButton.closeOnBack(
-      this.bottomSheet.open(BookmarkSelectorComponent, {
-        data: { bookId, chapter: INDEX_BOOKMARK_CHAPTER },
-        ariaLabel: "Marcadores",
-        ariaModal: true,
-        restoreFocus: MENU_BUTTON,
-      }),
+    this.nativeBookmarks.open(
+      indexBookmarkId(this.slug()),
+      INDEX_BOOKMARK_CHAPTER,
     )
   }
 
@@ -310,31 +294,20 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     this.textSize()?.resetFontSize()
   }
 
-  /** What sharing says: the theme open, if any. */
-  readonly shareText = computed(() => {
-    const entry = this.entry()
-    return entry
-      ? `Ler ${entry.title} no Índice Bíblico-Pastoral.`
-      : "Ler o Índice Bíblico-Pastoral."
-  })
-
   async share(): Promise<void> {
     const entry = this.entry()
     const title = "Bíblia Sagrada"
-    const text = this.shareText()
-    const url = shareableUrl(window.location)
+    const text = entry
+      ? `Ler ${entry.title} no Índice Bíblico-Pastoral.`
+      : "Ler o Índice Bíblico-Pastoral."
     try {
-      if (this.native) {
-        const shared = await this.nativeChrome.share({
-          title,
-          text,
-          url,
-          linkTitle: document.title || title,
-        })
-        if (!shared) return
-      } else {
-        await navigator.share({ title, text, url })
-      }
+      const shared = await this.nativeChrome.share({
+        title,
+        text,
+        url: shareableUrl(window.location),
+        linkTitle: document.title || title,
+      })
+      if (!shared) return
       void this.analytics.track("share", {
         book: indexBookmarkId(entry?.slug),
       })
@@ -352,42 +325,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
       name: title,
       shortName: title,
     }
-    if (this.native) {
-      this.nativeReport.open(book, INDEX_BOOKMARK_CHAPTER)
-      return
-    }
-    this.dialog.open(ReportProblemComponent, {
-      data: { book, chapter: INDEX_BOOKMARK_CHAPTER },
-      ariaModal: true,
-      restoreFocus: MENU_BUTTON,
-      width: "90%",
-      maxWidth: "500px",
-    })
-  }
-
-  /** What the header shows: the index, or the theme open, as ribbons go by it. */
-  readonly headerBook = computed<Book>(() => ({
-    ...PASTORAL_INDEX_BOOK,
-    id: indexBookmarkId(this.slug()),
-  }))
-
-  /** The reader's book list, as the passage button opens it there. */
-  openBookSelector(): void {
-    this.dialog
-      .open<BookDrawerComponent, unknown, string>(
-        BookDrawerComponent,
-        BOOK_DRAWER_CONFIG(PASTORAL_INDEX_BOOK.id),
-      )
-      .afterClosed()
-      .subscribe((bookId) => {
-        if (bookId) this.goToPassage(bookId)
-      })
-  }
-
-  /** The header's menu and the book list: the About page, or a book. */
-  onSelectPassage({ bookId, chapter }: { bookId: string; chapter?: number }) {
-    if (bookId === "about") this.openAbout()
-    else this.goToPassage(bookId, chapter)
+    this.nativeReport.open(book, INDEX_BOOKMARK_CHAPTER)
   }
 
   openAbout(): void {
@@ -435,7 +373,10 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   }
 
   constructor() {
-    this.destroyRef.onDestroy(() => this.stopGlide?.(false))
+    this.destroyRef.onDestroy(() => {
+      this.stopGlide?.(false)
+      this.indexState.slug.set(null)
+    })
     if (this.native) {
       // The bars are a book's, the index being one in the book lists: what
       // they show follows the theme open, its ribbon and the filter.
@@ -626,7 +567,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   }
 
   /** A book chosen in the picker, as the reader goes to one: the index itself opens at its top. */
-  goToPassage(bookId: string, chapter?: number): void {
+  private goToPassage(bookId: string, chapter?: number): void {
     if (bookId === PASTORAL_INDEX_BOOK.id) {
       this.expand(null)
       window.scrollTo({ top: 0, behavior: "instant" })
@@ -864,6 +805,8 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     this.slug.set(slug)
     this.expandedSlug.set(this.pendingOpen === slug && slug ? null : slug)
     const entry = this.entry()
+    // For the reader's header: the ribbon, share text and report of the theme.
+    this.indexState.slug.set(entry?.slug ?? null)
     if (slug && !entry) {
       void this.router.navigate(["/indice"], { replaceUrl: true })
       return

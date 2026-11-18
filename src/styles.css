@@ -506,25 +506,31 @@ bible-reader .mat-drawer-content {
   overflow-x: hidden !important;
 }
 
-/* The book list opened on a page with no drawer of its own (the index): a panel
-   sliding in from the left, as the reader's drawer does. */
-.book-drawer-panel .mat-mdc-dialog-surface {
-  border-radius: 0;
+/* The index in the reader scrolls the window, which its sticky bars and
+   letter bar are built on (PastoralIndexComponent): no scroller of the
+   reader's around it, and the book list and its backdrop pinned to the
+   viewport under the header, as on any other page. Here, not in the reader's
+   stylesheet, which is at its size budget. */
+bible-reader .bookSelectorContainer.index-page {
+  height: auto;
+  overflow: visible;
 }
 
-.book-drawer-panel .mat-mdc-dialog-container {
-  animation: book-drawer-in 0.2s ease-out;
+bible-reader .index-page > .mat-drawer-content {
+  height: auto;
+  overflow: visible !important;
 }
 
-@keyframes book-drawer-in {
-  from {
-    transform: translateX(-100%);
-  }
+bible-reader .index-page > :is(.mat-drawer, .mat-drawer-backdrop) {
+  position: fixed;
+  top: var(--app-header-height);
+  height: calc(100dvh - var(--app-header-height));
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .book-drawer-panel .mat-mdc-dialog-container {
-    animation: none;
+/* A printed index is its themes alone. */
+@media print {
+  bible-reader .text-container:has(> .index-page) > .reader-header {
+    display: none;
   }
 }
 
