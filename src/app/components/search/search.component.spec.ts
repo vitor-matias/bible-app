@@ -389,7 +389,7 @@ describe("SearchComponent", () => {
       it("offers a book by its name", () => {
         bookService.findBook.mockReturnValue(john)
         component.onTyping("João")
-        expect(component.passageSuggestion?.label).toBe(
+        expect(component.passageSuggestions[0]?.label).toBe(
           "Abrir Evangelho segundo São João",
         )
       })
@@ -415,7 +415,7 @@ describe("SearchComponent", () => {
           expect(apiService.search).toHaveBeenCalledTimes(1)
           expect(apiService.search).toHaveBeenCalledWith("sabedoria", 1)
           expect(router.navigate).not.toHaveBeenCalled()
-          expect(component.passageSuggestion?.label).toBe(
+          expect(component.passageSuggestions[0]?.label).toBe(
             "Abrir Livro da Sabedoria",
           )
         })
@@ -459,7 +459,9 @@ describe("SearchComponent", () => {
           abrv: "Sl",
         } as Book)
         component.onTyping("Sl 94")
-        expect(component.passageSuggestion?.label).toBe("Escolher o Salmo 94")
+        expect(component.passageSuggestions[0]?.label).toBe(
+          "Escolher o Salmo 94",
+        )
       })
 
       // Before, "Escolher o Salmo 94" stayed above the two psalms it offered.
@@ -483,7 +485,7 @@ describe("SearchComponent", () => {
         fixture.detectChanges()
 
         expect(component.psalmChoice?.length).toBe(2)
-        expect(component.passageSuggestion).toBeNull()
+        expect(component.passageSuggestions).toEqual([])
         expect(host().querySelector(".passage-suggestion")).toBeNull()
       })
 
@@ -491,7 +493,7 @@ describe("SearchComponent", () => {
       it("says it is searching until the search runs", async () => {
         vi.useFakeTimers()
         component.onTyping("pastor")
-        expect(component.passageSuggestion).toBeNull()
+        expect(component.passageSuggestions).toEqual([])
         expect(host().textContent).toContain("A procurar…")
 
         await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
@@ -504,7 +506,7 @@ describe("SearchComponent", () => {
         component.onTyping("pastor")
         component.onTyping("")
         expect(component.pendingSearch).toBe(false)
-        expect(component.passageSuggestion).toBeNull()
+        expect(component.passageSuggestions).toEqual([])
         expect(host().textContent).toContain("Por exemplo: Jo 3,16")
       })
     })
@@ -1147,7 +1149,7 @@ describe("SearchComponent", () => {
       bookService.findBook.mockReturnValue(about)
 
       component.onTyping("1 Xy 13,4")
-      expect(component.passageSuggestion).toBeNull()
+      expect(component.passageSuggestions).toEqual([])
 
       void component.onSearchSubmit("1 Xy 13,4")
       await vi.advanceTimersByTimeAsync(0)
@@ -1171,12 +1173,62 @@ describe("SearchComponent", () => {
       apiService.getVerse.mockReturnValue(of({} as Verse))
 
       component.onTyping("1 Co 13,4")
-      expect(component.passageSuggestion?.label).toBe("Abrir 1 Coríntios 13,4")
+      expect(component.passageSuggestions[0]?.label).toBe(
+        "Abrir 1 Coríntios 13,4",
+      )
       await component.onSearchSubmit("1 Co 13,4")
 
       expect(router.navigate).toHaveBeenCalledWith(["/", "1co", 13], {
         queryParams: { verseStart: 4 },
       })
+    })
+
+    // «Jo 3,16, 1Cor13,4» offered «Abrir João 3,16» alone.
+    it("offers each passage named, in order, up to three", async () => {
+      const corinthians: Book = {
+        id: "1co",
+        abrv: "1Cor",
+        shortName: "1 Coríntios",
+        name: "Primeira Carta aos Coríntios",
+        chapterCount: 16,
+      }
+      const cor = { ...reference("1Cor", 13, 4), match: "1Cor13,4" }
+      referenceService.extract.mockImplementation((text: string) =>
+        text === "1Cor13,4"
+          ? [cor]
+          : [
+              reference("Jo", 3, 16),
+              cor,
+              // "; 4,1" borrows the book before it.
+              { ...reference("1Cor", 4, 1), match: "4,1" },
+              reference("Jo", 2, 1),
+            ],
+      )
+      bookService.findBook.mockImplementation((text: string) =>
+        text === "1Cor" ? corinthians : john,
+      )
+      apiService.getVerse.mockReturnValue(of({} as Verse))
+
+      component.onTyping("Jo 3,16, 1Cor13,4; 4,1; Jo 2,1")
+      fixture.detectChanges()
+      const offers = Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLButtonElement>("button.passage-suggestion"),
+      )
+      expect(offers.map((offer) => offer.textContent?.trim())).toEqual([
+        expect.stringContaining("Abrir João 3,16"),
+        expect.stringContaining("Abrir 1 Coríntios 13,4"),
+        expect.stringContaining("Abrir 1 Coríntios 4,1"),
+      ])
+      expect(component.passageSuggestions[2].query).toBe("1Cor 4,1")
+
+      offers[1].click()
+      await vi.waitFor(() =>
+        expect(router.navigate).toHaveBeenCalledWith(["/", "1co", 13], {
+          queryParams: { verseStart: 4 },
+        }),
+      )
     })
 
     // The missal's "Lc 15, 1-3. 11-32" opened at verse 1 and marked it alone.
@@ -1201,7 +1253,7 @@ describe("SearchComponent", () => {
         apiService.getVerse.mockReturnValue(of({} as Verse))
 
         component.onTyping(query)
-        expect(component.passageSuggestion?.label).toBe(label)
+        expect(component.passageSuggestions[0]?.label).toBe(label)
         await component.onSearchSubmit(query)
         expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 15], {
           queryParams,
@@ -1245,7 +1297,7 @@ describe("SearchComponent", () => {
       bookService.findBook.mockReturnValue(john)
 
       component.onTyping("Jo 99")
-      expect(component.passageSuggestion).toBeNull()
+      expect(component.passageSuggestions).toEqual([])
       expect(component.pendingSearch).toBe(false)
 
       await component.onSearchSubmit("Jo 99")
