@@ -333,6 +333,21 @@ h3:not(:first-child) {
   border-bottom-right-radius: 0;
 }
 
+/* A poetry line's band is its line, as the number's box is: the prose
+   padding ran past it, so the band stood out above the number's and the
+   lines of a wrapped verse overlapped, darker where they did. Literata's
+   text is 1.488em tall; a hair under it, a rounding leaves no gap. */
+:host(.verse-highlight) .quoteLineWrapper .verseRun {
+  padding-block: calc((1lh - 1.48em) / 2);
+}
+
+/* Square where it meets the number's box, or a notch shows between them.
+   Not just the next run: the source can put an empty one first (Sl 23,2). */
+:host(.verse-highlight) .quoteVerseNumber ~ .verseRun {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
 :host(.verse-highlight) .quoteVerseNumber .verseNumber,
 :host(.verse-highlight) .quoteVerseNumber .footnoteIndicator {
   background-color: transparent;

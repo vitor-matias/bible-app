@@ -1,6 +1,6 @@
 import { Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
-import { MatButton } from "@angular/material/button"
+import { MatButton, MatIconButton } from "@angular/material/button"
 import { MatSnackBar } from "@angular/material/snack-bar"
 import { provideNoopAnimations } from "@angular/platform-browser/animations"
 import { page } from "vitest/browser"
@@ -94,6 +94,30 @@ describe("global styles", () => {
     it("leaves it in place in the apps, which draw no arrows of their own", () => {
       document.body.classList.add("native-chrome")
       expect(getComputedStyle(openToast()).marginBottom).toBe("108px")
+    })
+
+    // The auto-scroll controls, centred at the foot, covered the arrows'
+    // corners at 320 px and ran beside them at 393.
+    describe("with the auto-scroll controls showing", () => {
+      let controls: HTMLElement
+
+      beforeEach(() => {
+        arrow.classList.add("prev-chapter")
+        controls = document.createElement("div")
+        controls.className = "auto-scroll-controls"
+        document.body.append(controls)
+      })
+
+      afterEach(() => controls.remove())
+
+      it("lifts the arrows above them", () => {
+        // 16px up and 48px tall, as the controls are, and 8px apart.
+        expect(getComputedStyle(arrow).bottom).toBe("172px")
+      })
+
+      it("lifts a toast above the lifted arrows", () => {
+        expect(getComputedStyle(openToast()).marginBottom).toBe("228px")
+      })
     })
   })
 
@@ -471,6 +495,38 @@ describe("global styles", () => {
 
     it("keeps to the safe area on the web", async () => {
       expect((await insetsAt(900, false)).text).toEqual([0, 60])
+    })
+  })
+
+  // The book drawer's close button (menu_open) kept the light-only theme's
+  // dark brown icon colour: 1.8:1 on the dark drawer.
+  describe("the book drawer's close button in the dark theme", () => {
+    // The theme's colour, which specs don't load (custom-theme.scss).
+    @Component({
+      imports: [MatIconButton],
+      template: `<div class="bookSelector" style="--mat-sys-on-surface-variant: #4f453d; background-color: var(--card-background)">
+        <button type="button" matIconButton class="dismiss-button" aria-label="Fechar">x</button>
+      </div>`,
+    })
+    class DrawerHostComponent {}
+
+    afterEach(() => document.documentElement.classList.remove("dark-theme"))
+
+    it("has an icon as legible as the drawer's other icons", () => {
+      document.documentElement.classList.add("dark-theme")
+      const fixture = TestBed.createComponent(DrawerHostComponent)
+      fixture.detectChanges()
+      const drawer = fixture.nativeElement.querySelector(
+        ".bookSelector",
+      ) as HTMLElement
+      const button = drawer.querySelector("button") as HTMLElement
+
+      expect(
+        contrastRatio(
+          getComputedStyle(button).color,
+          getComputedStyle(drawer).backgroundColor,
+        ),
+      ).toBeGreaterThanOrEqual(3)
     })
   })
 

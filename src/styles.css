@@ -527,6 +527,34 @@ bible-reader .books-loading {
     margin-bottom: calc(108px + var(--app-inset-bottom));
     pointer-events: auto;
   }
+
+  /* The auto-scroll controls take the foot of the screen, centred, 16px up
+     and 48px tall (auto-scroll-controls.component.css): at 320 px they
+     covered the arrows' corners, at 393 px they ran beside them. The arrows,
+     and a toast above them, go 20px higher while they show. */
+  body:has(.auto-scroll-controls)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(72px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(128px + var(--app-inset-bottom));
+  }
+}
+
+/* A toast under an overlay shown after it (a dialog, a menu, the bookmarks),
+   whose backdrop takes its taps: faded, so it doesn't look tappable. Overlays
+   follow the order they were shown, which ToastService.bringToFront keeps for
+   the toast it raises over the notes. Its content only: the text beneath
+   showed through a faded toast. */
+.cdk-overlay-popover:has(.mat-mdc-snack-bar-container):has(
+    ~ .cdk-overlay-popover > .cdk-overlay-backdrop-showing
+  )
+  .mdc-snackbar__surface
+  > * {
+  opacity: 0.4;
 }
 
 /* The snackbar's action ("OK", "Fechar"). Its label is a span, which the
@@ -606,6 +634,12 @@ html:has(bible-reader .index-page > .mat-drawer-opened) {
 .bookSelector .mat-drawer-inner-container {
   scrollbar-gutter: stable;
   overscroll-behavior: none;
+}
+
+/* The drawer's close button (menu_open). The Material theme is light only:
+   its icon colour, a dark brown, was 1.8:1 on the dark drawer. */
+.dark-theme .bookSelector .dismiss-button {
+  --mat-icon-button-icon-color: var(--text-color);
 }
 
 /* Apply focus color via supported Material theming tokens on the host elements */

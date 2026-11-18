@@ -35,6 +35,7 @@ import { BackButtonService } from "../../services/back-button.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { REVERT_STATE } from "../../services/depth-location-strategy"
 import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
@@ -57,6 +58,8 @@ class IndexPageStub {}
 
 /** A step to the next or previous chapter: reading on keeps the way back. */
 const STEP = { info: CHAPTER_STEP }
+/** A failed chapter going back to the one shown (DepthLocationStrategy). */
+const REVERT = { replaceUrl: true, state: REVERT_STATE }
 
 /**
  * Study mode measures the real window, which the runner cannot resize, so the
@@ -958,6 +961,17 @@ describe("BibleReaderComponent", () => {
         "Não foi possível carregar o capítulo",
       )
       expect(snackBarSpy.open).not.toHaveBeenCalled()
+    })
+
+    // Offline, from the app shell, the tab kept «Bíblia Sagrada Online — …».
+    it("names the chapter asked for in the tab", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(seoServiceSpy.updateForChapter).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "gen" }),
+        1,
+      )
     })
 
     it("loads the chapter again, at the verse asked for, on «Tentar novamente»", async () => {
@@ -4096,7 +4110,7 @@ describe("BibleReaderComponent", () => {
       expect(snackBarSpy.open).toHaveBeenCalled()
       expect(routerSpy.navigate).toHaveBeenCalledWith(
         ["/", expect.anything(), "1"],
-        { replaceUrl: true },
+        REVERT,
       )
     })
 
@@ -4747,15 +4761,43 @@ describe("BibleReaderComponent", () => {
       component.getChapter(4)
       await vi.advanceTimersByTimeAsync(0)
 
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"], {
-        replaceUrl: true,
-      })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "3"],
+        REVERT,
+      )
       expect(el.style.opacity).not.toBe("0")
       expect(snackBarSpy.open).toHaveBeenCalledWith(
         "Não foi possível carregar o capítulo. Tente novamente.",
         "OK",
         { duration: 4000 },
       )
+    })
+
+    // The apps replace on chapter steps: the failed chapter's entry is the
+    // shown one's, so it is replaced as before.
+    it("reverts a failed chapter with a plain replace in the native apps", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
+      component.book = mockBooks[0] as unknown as Book
+      component.bookContainer = {
+        nativeElement: document.createElement("div"),
+      } as unknown as ElementRef
+      apiServiceSpy.getChapter.mockReturnValueOnce(
+        of({ bookId: "gen", number: 3, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(3)
+      routerSpy.navigate.mockClear()
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("Not found")),
+      )
+
+      component.getChapter(4)
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"], {
+        replaceUrl: true,
+      })
     })
 
     // Génesis 5's text stayed on screen labelled João 5; from Génesis 50 the
@@ -4786,9 +4828,7 @@ describe("BibleReaderComponent", () => {
       )
 
       expect(component.book.id).toBe("gen")
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "gen", "1"], {
-        replaceUrl: true,
-      })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "gen", "1"], REVERT)
       expect(component.chaptersWithIntro.some((c) => c.number === 0)).toBe(
         false,
       )
@@ -4828,9 +4868,10 @@ describe("BibleReaderComponent", () => {
 
       expect(component.book.id).toBe("gen")
       expect(component.chapterNumber).toBe(5)
-      expect(routerSpy.navigate).toHaveBeenLastCalledWith(["/", "gen", "5"], {
-        replaceUrl: true,
-      })
+      expect(routerSpy.navigate).toHaveBeenLastCalledWith(
+        ["/", "gen", "5"],
+        REVERT,
+      )
     })
 
     it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", async () => {
@@ -4855,9 +4896,10 @@ describe("BibleReaderComponent", () => {
 
       component.getChapter(2)
       await vi.advanceTimersByTimeAsync(0)
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"], {
-        replaceUrl: true,
-      })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        REVERT,
+      )
       expect(el.style.opacity).not.toBe("0")
       expect(snackBarSpy.open).toHaveBeenCalledWith(
         "Sem ligação. Este capítulo ainda não está disponível offline.",

@@ -587,7 +587,9 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   followCitation(event: MouseEvent, slug: string): void {
     // A new tab or window: the page stays here, with nothing to go back to.
     if (leftToTheBrowser(event)) return
-    this.toast.showReturnToIndex(slug)
+    // Back to the address the reader was on: on a wide screen every theme is
+    // open, and the citation may sit in another than the one there.
+    this.toast.showReturnToIndex(this.slug() ?? slug)
   }
 
   /** The phone's scroll bar measures itself, so never in a prerender. */

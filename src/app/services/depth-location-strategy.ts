@@ -27,6 +27,17 @@ export function pageDepth(state: unknown): number {
   return historyDepth(state) - (isPanelEntry(state) ? 1 : 0)
 }
 
+/**
+ * Router `state` of a navigation back to the page shown when the page asked
+ * for failed to load: when that page was opened from the one shown, the
+ * history steps back to it instead of replacing the failed page's entry.
+ */
+export const REVERT_STATE = { appRevert: true }
+
+function isRevert(state: unknown): boolean {
+  return (state as { appRevert?: unknown } | null)?.appRevert === true
+}
+
 let panelPop: ((state: unknown) => boolean) | null = null
 let closePanels: (() => void) | null = null
 let pendingAppPops = 0
@@ -86,6 +97,8 @@ export function setPanelPopFilter(
 @Injectable()
 export class DepthLocationStrategy extends PathLocationStrategy {
   private readonly platform = inject(PlatformLocation)
+  /** The address the last page pushed was opened from, and that page's depth. */
+  private pushedFrom?: { path: string; depth: number }
 
   override onPopState(fn: LocationChangeListener): void {
     super.onPopState((event) => {
@@ -106,6 +119,7 @@ export class DepthLocationStrategy extends PathLocationStrategy {
     queryParams: string,
   ): void {
     const current = this.platform.getState()
+    this.pushedFrom = { path: this.path(), depth: pageDepth(current) + 1 }
     // A page opened from a panel takes the panel's entry, already one deeper:
     // Back from it returns to the page under the panel, not to the panel.
     if (isPanelEntry(current)) {
@@ -138,24 +152,34 @@ export class DepthLocationStrategy extends PathLocationStrategy {
         (queryParams && !queryParams.startsWith("?") ? "?" : "") +
         queryParams,
     ).replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i, "")
+    // A page that failed to load, reverted to the one it was opened from
+    // (REVERT_STATE): the history goes back to that page's entry, as it was
+    // before the attempt. Replaced, the same chapter came twice, and Back
+    // seemed to do nothing.
+    const reverting =
+      isRevert(state) &&
+      this.pushedFrom?.depth === pageDepth(current) &&
+      this.pushedFrom.path.split("?")[0] === external.split("?")[0]
     // Another page in place of the one under a panel (a chapter that failed to
     // load, reverted): the panel's entry goes first, as Back would close the
     // panel, and the page's own entry takes the new address. Left on the
     // panel's entry, it put the page before it a step back.
-    if (isPanelEntry(current) && external !== this.path()) {
+    const overPanel = isPanelEntry(current) && external !== this.path()
+    const steps = (reverting ? 1 : 0) + (overPanel ? 1 : 0)
+    if (steps > 0) {
       // The panels open now go with it; one opened from here on (the linked
       // notes) stays, and takes an entry of its own.
-      closePanels?.()
+      if (overPanel) closePanels?.()
       const stop = this.platform.onPopState(() => {
         stop()
         super.replaceState(
-          withDepth(state, historyDepth(current) - 1),
+          withDepth(state, historyDepth(current) - steps),
           title,
           url,
           queryParams,
         )
       })
-      stepBack(() => this.platform.back())
+      stepBack(() => this.platform.historyGo?.(-steps))
       return
     }
     const next = withDepth(state, historyDepth(current))
@@ -172,8 +196,13 @@ export class DepthLocationStrategy extends PathLocationStrategy {
 /** The state with this depth, and never a panel's flag: only replaceState
  *  keeps that, on the panel's own entry. */
 function withDepth(state: unknown, appDepth: number): object {
-  const { appPanel: _, ...rest } = (
-    state && typeof state === "object" ? state : {}
-  ) as { appPanel?: unknown }
+  const {
+    appPanel: _,
+    appRevert: __,
+    ...rest
+  } = (state && typeof state === "object" ? state : {}) as {
+    appPanel?: unknown
+    appRevert?: unknown
+  }
   return { ...rest, appDepth }
 }
