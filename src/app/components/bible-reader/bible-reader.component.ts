@@ -956,6 +956,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.chapter = undefined
       this.chapterUnavailable = true
       this.retryChapterLoad = retry
+      // The tab names it too, not the app shell's generic title (offline, a
+      // chapter never downloaded).
+      this.seoService.updateForChapter(this.book, chapter)
     }
     this.cdr.markForCheck()
     // Or the URL coming back here would read as a chapter still to load.
