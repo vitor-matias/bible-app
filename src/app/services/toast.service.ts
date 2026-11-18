@@ -69,6 +69,9 @@ export class ToastService {
       ?.closest<HTMLElement>("[popover]")
     if (!popover?.matches(":popover-open")) return
     popover.hidePopover()
+    // Last among the overlays too, so that their order is the stacking order
+    // that styles.css reads to fade a toast under another's backdrop.
+    popover.parentElement?.append(popover)
     popover.showPopover()
   }
 

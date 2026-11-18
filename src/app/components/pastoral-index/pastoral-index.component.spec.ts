@@ -652,6 +652,20 @@ describe("PastoralIndexComponent", () => {
     expect(toast.showReturnToIndex).toHaveBeenCalledWith("abba")
   })
 
+  // Every theme is open on a wide screen: «Voltar» went to the citation's
+  // theme (/indice/abba), not the address the reader was on.
+  it("offers the way back to the theme in the address, from another's citation", async () => {
+    const fixture = await open("amor", false, false, true)
+    const el: HTMLElement = fixture.nativeElement
+    vi.spyOn(TestBed.inject(Router), "navigateByUrl").mockResolvedValue(true)
+
+    el.querySelector<HTMLElement>(
+      '#tema-abba article a[href^="/mc/14"]',
+    )?.click()
+
+    expect(toast.showReturnToIndex).toHaveBeenCalledWith("amor")
+  })
+
   for (const modifier of ["ctrlKey", "metaKey", "shiftKey", "altKey"]) {
     it(`offers no way back for a citation opened elsewhere with ${modifier}`, async () => {
       const fixture = await open("abba")

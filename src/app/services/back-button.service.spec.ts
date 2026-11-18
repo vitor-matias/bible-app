@@ -9,7 +9,7 @@ import { NavigationStart, provideRouter, Router } from "@angular/router"
 import { Subject } from "rxjs"
 import type { Mock } from "vitest"
 import { BackButtonService, type BackCloser } from "./back-button.service"
-import { DepthLocationStrategy } from "./depth-location-strategy"
+import { DepthLocationStrategy, REVERT_STATE } from "./depth-location-strategy"
 
 describe("BackButtonService", () => {
   let service: BackButtonService
@@ -356,6 +356,41 @@ describe("BackButtonService on the website", () => {
       expect(window.location.href).toContain("pagina=1")
       expect(router.url).toBe(page("1"))
     })
+
+    // ‹ › to a chapter that failed to load, reverted: its entry stayed, at
+    // the chapter before, so the chapter came twice and Back seemed to do
+    // nothing. With a panel opened meanwhile, as without.
+    for (const panel of [false, true]) {
+      it(`steps back to the chapter a failed one was opened from${panel ? ", over a panel" : ""}`, async () => {
+        const chapter = (n: number) => `${path.split("?")[0]}/capitulo-${n}`
+        await router.navigateByUrl(chapter(5))
+        await settled()
+        const before = window.navigation.currentEntry?.index
+        const state = window.history.state
+        await router.navigateByUrl(chapter(6))
+        if (panel) {
+          open = true
+          service.changed()
+          await sync()
+          expect(onPanelEntry()).toBe(true)
+        }
+
+        await router.navigateByUrl(chapter(5), {
+          replaceUrl: true,
+          state: REVERT_STATE,
+        })
+        await vi.waitFor(() =>
+          expect(window.navigation.currentEntry?.index).toBe(before),
+        )
+        await settled()
+
+        expect(open).toBe(false)
+        expect(router.url).toBe(chapter(5))
+        expect(window.location.pathname).toBe(chapter(5))
+        expect(window.history.state.appDepth).toBe(state.appDepth)
+        expect(window.history.state.appRevert).toBeUndefined()
+      })
+    }
 
     // A link's notes open on arrival (the reader's openLinkedNotes), after
     // the address drops `notes` with the drawer's state: the step back over

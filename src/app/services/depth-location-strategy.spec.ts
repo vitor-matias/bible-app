@@ -5,6 +5,8 @@ import {
   DepthLocationStrategy,
   historyDepth,
   isPanelEntry,
+  REVERT_STATE,
+  setPanelsCloser,
 } from "./depth-location-strategy"
 
 describe("DepthLocationStrategy", () => {
@@ -80,6 +82,78 @@ describe("DepthLocationStrategy", () => {
       appPanel: true,
     })
     expect(isPanelEntry(platform.getState())).toBe(true)
+  })
+
+  // ‹ › to a chapter that failed to load: the revert replaced its entry with
+  // the chapter before, which then came twice, and Back seemed to do nothing.
+  describe("a page reverted to the one it was opened from", () => {
+    const revert = (url: string) =>
+      strategy.replaceState({ ...REVERT_STATE, navigationId: 3 }, "", url, "")
+
+    afterEach(() => setPanelsCloser(null))
+
+    it("steps back to that page's entry", () => {
+      strategy.replaceState(null, "", "/mt/5", "?verseStart=3")
+      strategy.pushState({ navigationId: 2 }, "", "/mt/6", "")
+
+      revert("/mt/5")
+
+      expect(platform.pathname).toBe("/mt/5")
+      expect(platform.getState()).toEqual({ navigationId: 3, appDepth: 0 })
+      // Back from here leaves the reader: nothing before the chapter.
+      platform.back()
+      expect(platform.pathname).toBe("/mt/5")
+    })
+
+    it("steps back over a panel opened since, closing it", () => {
+      const close = vi.fn()
+      setPanelsCloser(close)
+      strategy.replaceState(null, "", "/mt/5", "")
+      strategy.pushState(null, "", "/mt/6", "")
+      platform.pushState({ appDepth: 2, appPanel: true }, "", "/mt/6")
+
+      revert("/mt/5")
+
+      expect(close).toHaveBeenCalled()
+      expect(platform.pathname).toBe("/mt/5")
+      expect(platform.getState()).toEqual({ navigationId: 3, appDepth: 0 })
+    })
+
+    // A citation from the notes takes the sheet's entry: the chapter under
+    // the sheet is the one before.
+    it("steps back to the page under the panel the page was opened from", () => {
+      strategy.replaceState(null, "", "/mt/5", "")
+      platform.pushState({ appDepth: 1, appPanel: true }, "", "/mt/5")
+      strategy.pushState(null, "", "/lc/6", "")
+
+      revert("/mt/5")
+
+      expect(platform.pathname).toBe("/mt/5")
+      expect(platform.getState()).toEqual({ navigationId: 3, appDepth: 0 })
+    })
+
+    // Back onto a chapter that failed: the page shown is ahead, not behind.
+    it("replaces the entry when the page wasn't opened from there", () => {
+      strategy.replaceState(null, "", "/mt/5", "")
+      strategy.pushState(null, "", "/mt/6", "")
+      platform.back()
+
+      revert("/mt/6")
+
+      expect(platform.pathname).toBe("/mt/6")
+      expect(platform.getState()).toEqual({ navigationId: 3, appDepth: 0 })
+    })
+
+    // The apps replace a chapter step: a plain replace stays one.
+    it("replaces the entry without the revert's state", () => {
+      strategy.replaceState(null, "", "/mt/5", "")
+      strategy.pushState(null, "", "/mt/6", "")
+
+      strategy.replaceState({ navigationId: 3 }, "", "/mt/5", "")
+
+      expect(platform.pathname).toBe("/mt/5")
+      expect(depth()).toBe(1)
+    })
   })
 
   it("reads no depth from an entry without one", () => {
