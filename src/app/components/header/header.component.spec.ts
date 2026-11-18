@@ -762,6 +762,16 @@ describe("HeaderComponent", () => {
       expect(autoScrollItem()).toBeUndefined()
     })
 
+    // The theme's text is justified or ragged like a chapter's: the choice stays.
+    it("still offers the justified/ragged choice on a theme", async () => {
+      await openMenuOn("indice/amor")
+
+      expect(
+        document.querySelector('[aria-label^="Justificado"]') ??
+          document.querySelector('[aria-label^="Alinhado"]'),
+      ).not.toBeNull()
+    })
+
     it("offers both on a book", async () => {
       await openMenuOn("gen")
 
