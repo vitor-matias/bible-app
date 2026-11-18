@@ -52,7 +52,7 @@
     "@angular/build": "^22.2.7",
     "@angular/cli": "^22.2.7",
     "@angular/compiler-cli": "^22.2.6",
-    "@biomejs/biome": "^2.6.5",
+    "@biomejs/biome": "^2.6.7",
     "@capacitor/assets": "^4.0.0",
     "@capacitor/cli": "^8.6.0",
     "@playwright/test": "^1.65.0",
