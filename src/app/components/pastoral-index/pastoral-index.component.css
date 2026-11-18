@@ -271,7 +271,7 @@ mat-panel-title {
 
 /* The text alone: a catechist prints a theme, filtered down to it. */
 @media print {
-  .toolbar-wrapper,
+  header,
   .index-intro,
   .index-tools,
   .letter-bar {

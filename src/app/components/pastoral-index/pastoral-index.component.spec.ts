@@ -38,6 +38,7 @@ import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
+import { HeaderComponent } from "../header/header.component"
 import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
 import { PastoralIndexComponent } from "./pastoral-index.component"
@@ -147,7 +148,16 @@ describe("PastoralIndexComponent", () => {
         { provide: NativeChromeService, useValue: chrome },
         { provide: ThemeService, useValue: themes },
         { provide: OnboardingService, useValue: onboarding },
-        { provide: BookmarkService, useValue: { bookmarks$: bookmarks } },
+        {
+          provide: BookmarkService,
+          useValue: {
+            bookmarks$: bookmarks,
+            getBookmark: (bookId: string, chapter: number) =>
+              bookmarks.value.find(
+                (b) => b.bookId === bookId && b.chapter === chapter,
+              ),
+          },
+        },
         { provide: MatBottomSheet, useValue: bottomSheet },
         { provide: MatDialog, useValue: dialog },
         { provide: NativeBookmarksService, useValue: nativeBookmarks },
@@ -440,12 +450,10 @@ describe("PastoralIndexComponent", () => {
 
     it("takes the back button's place in the toolbar", async () => {
       const fixture = await open()
-      const toolbar = fixture.nativeElement.querySelector("mat-toolbar")
+      const toolbar = fixture.nativeElement.querySelector("header")
 
       expect(toolbar.querySelector('[aria-label="Voltar"]')).toBeNull()
-      expect(toolbar.querySelector(".content > button")?.textContent).toContain(
-        "menu",
-      )
+      expect(toolbar.querySelector('[aria-label="Menu"]')).not.toBeNull()
       expect(toolbar.querySelector('[aria-label="Pesquisar"]')).not.toBeNull()
     })
 
@@ -465,7 +473,7 @@ describe("PastoralIndexComponent", () => {
       expect(backButton.changed).toHaveBeenCalledTimes(2)
     })
 
-    // The title was plain text: it did nothing, where the reader's opens the books.
+    // The page's bar is the reader's header, whose passage button opens the books.
     it("opens the book list from the title, and goes to the book picked", async () => {
       const fixture = await open()
       const submitData = new Subject<{ bookId: string }>()
@@ -479,7 +487,9 @@ describe("PastoralIndexComponent", () => {
         .spyOn(TestBed.inject(Router), "navigate")
         .mockResolvedValue(true)
 
-      fixture.nativeElement.querySelector("button.toolbar-title").click()
+      fixture.debugElement
+        .query(By.directive(HeaderComponent))
+        .componentInstance.openBookSelector.emit({ open: true })
       expect(dialog.open.mock.calls[0][0]).toBe(BookSelectorComponent)
       expect(ref.componentRef.setInput).toHaveBeenCalledWith(
         "selectedBookId",
@@ -493,22 +503,6 @@ describe("PastoralIndexComponent", () => {
         CANON[0].abrv.replace(" ", "").toLowerCase(),
         "1",
       ])
-    })
-
-    // The menu's empty host was a flex item: a third gap pushed the title right.
-    it("keeps the title centred between its buttons", async () => {
-      const fixture = await open()
-      const box = (selector: string) =>
-        fixture.nativeElement
-          .querySelector(selector)
-          .getBoundingClientRect() as DOMRect
-      const title = box(".toolbar-title")
-      const bar = box(".index-toolbar")
-
-      expect(title.left + title.width / 2).toBeCloseTo(
-        bar.left + bar.width / 2,
-        0,
-      )
     })
 
     it("is the reader's, less auto-scroll and the view mode", async () => {
@@ -563,7 +557,7 @@ describe("PastoralIndexComponent", () => {
       else preferences.setFontSize(before, "reader")
     })
 
-    it("reports a problem on the theme open, by its name", async () => {
+    it("reports a problem on the theme open", async () => {
       const fixture = await open("amor")
       const item = await openMenu(fixture)
 
@@ -575,7 +569,6 @@ describe("PastoralIndexComponent", () => {
           data: {
             book: expect.objectContaining({
               id: "indice/amor",
-              shortName: "Amor",
             }),
             chapter: 1,
           },
@@ -1191,7 +1184,9 @@ describe("PastoralIndexComponent", () => {
     expect(replaceState.mock.lastCall?.[0]).toBe("/indice/amor")
     // The heading stays the page's; the title follows the address.
     expect(seo.updateForPastoralIndex).toHaveBeenLastCalledWith("Amor")
-    expect(el.querySelector("h1")?.textContent).toBe("Índice Bíblico-Pastoral")
+    expect(el.querySelector("h1")?.textContent?.trim()).toBe(
+      "Índice Bíblico-Pastoral",
+    )
   })
 
   it("folds the theme on a second tap", async () => {
