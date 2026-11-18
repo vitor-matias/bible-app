@@ -22,6 +22,7 @@ import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
+  type BibleReference,
   BibleReferenceService,
   type VerseReference,
 } from "../../services/bible-reference.service"
@@ -1132,6 +1133,11 @@ describe("SearchComponent", () => {
       chapter,
       ...(verse ? { verses: [{ type: "single" as const, verse }] } : {}),
     })
+    /** What the extractor finds in each text asked about. */
+    const extracts = (found: Record<string, BibleReference[]>) =>
+      referenceService.extract.mockImplementation(
+        (text: string) => found[text] ?? [],
+      )
 
     beforeEach(() => {
       apiService.search.mockReturnValue(
@@ -1193,17 +1199,17 @@ describe("SearchComponent", () => {
         chapterCount: 16,
       }
       const cor = { ...reference("1Cor", 13, 4), match: "1Cor13,4" }
-      referenceService.extract.mockImplementation((text: string) =>
-        text === "1Cor13,4"
-          ? [cor]
-          : [
-              reference("Jo", 3, 16),
-              cor,
-              // "; 4,1" borrows the book before it.
-              { ...reference("1Cor", 4, 1), match: "4,1" },
-              reference("Jo", 2, 1),
-            ],
-      )
+      extracts({
+        "Jo 3,16, 1Cor13,4; 4,1; Jo 2,1": [
+          reference("Jo", 3, 16),
+          { ...cor, index: 9 },
+          // "; 4,1" borrows the book before it.
+          { ...reference("1Cor", 4, 1), match: "4,1", index: 19 },
+          { ...reference("Jo", 2, 1), index: 24 },
+        ],
+        "1Cor13,4": [cor],
+        "1Cor 4,1": [{ ...reference("1Cor", 4, 1), match: "1Cor 4,1" }],
+      })
       bookService.findBook.mockImplementation((text: string) =>
         text === "1Cor" ? corinthians : john,
       )
@@ -1229,6 +1235,98 @@ describe("SearchComponent", () => {
           queryParams: { verseStart: 4 },
         }),
       )
+    })
+
+    describe("among several", () => {
+      const matthew: Book = {
+        id: "mat",
+        abrv: "Mt",
+        shortName: "Mateus",
+        name: "Evangelho segundo São Mateus",
+        chapterCount: 28,
+      }
+      beforeEach(() => {
+        bookService.findBook.mockImplementation((text: string) =>
+          text === "Mt" ? matthew : john,
+        )
+        apiService.getVerse.mockReturnValue(of({} as Verse))
+      })
+      const labels = () => component.passageSuggestions.map((s) => s.label)
+
+      // «Mt 5,1; 6,1-7,3» offered chapter 6 without its verse.
+      it("opens a later range across chapters at its first verse", async () => {
+        const across = {
+          type: "crossChapterRange" as const,
+          startChapter: 6,
+          startVerse: 1,
+          endChapter: 7,
+          endVerse: 3,
+        }
+        extracts({
+          "Mt 5,1; 6,1-7,3": [
+            reference("Mt", 5, 1),
+            {
+              match: "6,1-7,3",
+              index: 8,
+              book: "Mt",
+              chapter: 6,
+              crossChapter: across,
+            },
+          ],
+          "Mt 6,1-7,3": [
+            {
+              match: "Mt 6,1-7,3",
+              index: 0,
+              book: "Mt",
+              chapter: 6,
+              crossChapter: across,
+            },
+          ],
+        })
+        component.onTyping("Mt 5,1; 6,1-7,3")
+        expect(component.passageSuggestions[1]?.query).toBe("Mt 6,1-7,3")
+
+        component.openSuggestion(component.passageSuggestions[1])
+        await vi.waitFor(() =>
+          expect(router.navigate).toHaveBeenCalledWith(["/", "mat", 6], {
+            queryParams: { verseStart: 1 },
+          }),
+        )
+      })
+
+      // «Jo 99; Mt 5,3» offered Mateus 5,3, but Return said Jo 99 doesn't exist.
+      it("offers none when the first, which Return opens, can't be", () => {
+        extracts({
+          "Jo 99; Mt 5,3": [
+            reference("Jo", 99),
+            { ...reference("Mt", 5, 3), index: 7 },
+          ],
+          "Mt 5,3": [reference("Mt", 5, 3)],
+        })
+        component.onTyping("Jo 99; Mt 5,3")
+        expect(component.passageSuggestions).toEqual([])
+      })
+
+      // «Jo 3,16; Jo 3,16» offered it twice.
+      it("offers a passage once, and the next one in its place", () => {
+        extracts({
+          "Jo 3,16; 3,16; Mt 5,3; Mt 5,4": [
+            reference("Jo", 3, 16),
+            { ...reference("Jo", 3, 16), match: "3,16", index: 9 },
+            { ...reference("Mt", 5, 3), index: 15 },
+            { ...reference("Mt", 5, 4), index: 23 },
+          ],
+          "Jo 3,16": [reference("Jo", 3, 16)],
+          "Mt 5,3": [reference("Mt", 5, 3)],
+          "Mt 5,4": [reference("Mt", 5, 4)],
+        })
+        component.onTyping("Jo 3,16; 3,16; Mt 5,3; Mt 5,4")
+        expect(labels()).toEqual([
+          "Abrir João 3,16",
+          "Abrir Mateus 5,3",
+          "Abrir Mateus 5,4",
+        ])
+      })
     })
 
     // The missal's "Lc 15, 1-3. 11-32" opened at verse 1 and marked it alone.
@@ -2331,6 +2429,29 @@ describe("SearchComponent", () => {
       expect(referenceService.extract).toHaveBeenCalledWith("Sl 95,1-2")
       expect(component.psalmChoice).toBeNull()
       expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 95], {})
+    })
+
+    // «Jo 3,16; Sl 94 (95)» offered «Escolher o Salmo 94» second.
+    it("keeps the pair in a later reference", async () => {
+      const found: Record<string, BibleReference[]> = {
+        "Sl 150; Sl 94 (95)": [
+          { match: "Sl 150", index: 0, book: "Sl", chapter: 150 },
+          { match: "Sl 94", index: 8, book: "Sl", chapter: 94 },
+        ],
+        "Sl 95": [{ match: "Sl 95", index: 0, book: "Sl", chapter: 95 }],
+      }
+      referenceService.extract.mockImplementation(
+        (text: string) => found[text] ?? [],
+      )
+      component.onTyping("Sl 150; Sl 94 (95)")
+      expect(component.passageSuggestions[1]?.label).not.toContain("Escolher")
+      expect(component.passageSuggestions[1]?.query).toBe("Sl 94 (95)")
+
+      component.openSuggestion(component.passageSuggestions[1])
+      await vi.waitFor(() =>
+        expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 95], {}),
+      )
+      expect(component.psalmChoice).toBeNull()
     })
 
     // The liturgy's Psalm 115 is the second half of this edition's 116.

@@ -7,7 +7,7 @@
   <main unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="passageSuggestions.length > 0 || themes.length > 0" #container>
 
   <!-- A typed reference, offered at once: no wait for the search. -->
-  @for (suggestion of passageSuggestions; track $index) {
+  @for (suggestion of passageSuggestions; track suggestion.label) {
     <button type="button" class="passage-suggestion" (click)="openSuggestion(suggestion)">
       <mat-icon aria-hidden="true">menu_book</mat-icon>
       <span class="passage-suggestion-label">{{ suggestion.label }}</span>

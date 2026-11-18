@@ -473,22 +473,33 @@ export class SearchComponent {
   }
 
   /**
-   * One offer per passage named, in order: the first opens the whole query,
-   * as Return does; the others their own reference ("1Cor13,4"), with the
-   * book it borrows ("1Cor 13,4; 4,1" offers "1Cor 4,1").
+   * One offer per passage named, in order, each once: the first opens the
+   * whole query, as Return does; the others their own words up to the next
+   * reference ("1Cor13,4", "Sl 94 (95)"), with the book they borrow
+   * ("1Cor 13,4; 4,1" offers "1Cor 4,1").
    */
   private suggestPassages(query: string): { label: string; query: string }[] {
-    const { target, references } = this.resolvePassage(query)
-    return [
-      target && this.suggestPassage(target, query),
-      ...references.slice(1, MAX_PASSAGES).map((ref) => {
-        const next = this.passageTarget(ref, false)
-        const own = ref.match.startsWith(ref.book)
-          ? ref.match
-          : `${ref.book} ${ref.match}`
-        return next && this.suggestPassage(next, own)
-      }),
-    ].filter((suggestion) => !!suggestion)
+    const { text, target, references } = this.resolvePassage(query)
+    const first = target && this.suggestPassage(target, query)
+    // Return opens the first: no other offer when it can't be opened.
+    if (!first) return []
+    const offers = [first]
+    for (const [i, ref] of references.entries()) {
+      if (i === 0) continue
+      if (offers.length === MAX_PASSAGES) break
+      const words = text
+        .slice(ref.index, references[i + 1]?.index)
+        .replace(/[\s;,.]+$/, "")
+      const own = ref.match.startsWith(ref.book)
+        ? words
+        : `${ref.book} ${words}`
+      const next = this.resolvePassage(own).target
+      const offer = next && this.suggestPassage(next, own)
+      if (offer && !offers.some(({ label }) => label === offer.label)) {
+        offers.push(offer)
+      }
+    }
+    return offers
   }
 
   /**
@@ -584,7 +595,7 @@ export class SearchComponent {
     return {
       book,
       chapter: ref.chapter || 1,
-      ...getVerseQueryParams(ref.verses),
+      ...getVerseQueryParams(ref.verses, ref.crossChapter),
       citedVerses: citedVerses(ref.verses),
       pairedPsalm,
     }
