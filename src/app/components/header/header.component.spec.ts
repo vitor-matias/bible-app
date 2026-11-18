@@ -1085,6 +1085,8 @@ describe("HeaderComponent", () => {
       expect(heading.getAttribute("aria-label")).toBe("Índice Bíblico-Pastoral")
       expect(heading.querySelectorAll("mat-button-toggle").length).toBe(1)
       expect(component.shareText()).toBe("Índice Bíblico-Pastoral")
+      fixture.componentRef.setInput("indexShareText", "Ler Amor no Índice.")
+      expect(component.shareText()).toBe("Ler Amor no Índice.")
     })
 
     // The audit's complaint: with two stacked labels crossfading, both stayed

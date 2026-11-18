@@ -37,7 +37,7 @@ import {
   RouterLink,
 } from "@angular/router"
 import { animationFrameScheduler, fromEvent } from "rxjs"
-import { auditTime, map } from "rxjs/operators"
+import { auditTime, map, takeUntil } from "rxjs/operators"
 import { PASTORAL_INDEX_BOOK } from "../../bible-canon"
 import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import {
@@ -307,12 +307,18 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
     this.textSize()?.resetFontSize()
   }
 
+  /** What sharing says: the theme open, if any. */
+  readonly shareText = computed(() => {
+    const entry = this.entry()
+    return entry
+      ? `Ler ${entry.title} no Índice Bíblico-Pastoral.`
+      : "Ler o Índice Bíblico-Pastoral."
+  })
+
   async share(): Promise<void> {
     const entry = this.entry()
     const title = "Bíblia Sagrada"
-    const text = entry
-      ? `Ler ${entry.title} no Índice Bíblico-Pastoral.`
-      : "Ler o Índice Bíblico-Pastoral."
+    const text = this.shareText()
     const url = shareableUrl(window.location)
     try {
       if (this.native) {
@@ -366,12 +372,16 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   openBookSelector(): void {
     const ref = this.dialog.open(BookSelectorComponent, {
       ariaModal: true,
+      ariaLabel: "Livros",
       restoreFocus: true,
       width: "90%",
       maxWidth: "500px",
       maxHeight: "80vh",
     })
-    ref.componentRef?.setInput("books", this.bookService.getBooks())
+    // The list may still be loading, or load again, while the dialog is open.
+    this.bookService.books$
+      .pipe(takeUntil(ref.afterClosed()))
+      .subscribe((books) => ref.componentRef?.setInput("books", books))
     ref.componentRef?.setInput("selectedBookId", PASTORAL_INDEX_BOOK.id)
     ref.componentInstance.submitData.subscribe(({ bookId }) => {
       ref.close()

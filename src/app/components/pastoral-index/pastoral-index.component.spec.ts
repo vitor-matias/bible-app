@@ -197,7 +197,9 @@ describe("PastoralIndexComponent", () => {
             getAboutBook: () => ({ abrv: "Sobre" }) as Book,
             findBook: (abrv: string) =>
               CANON.find(
-                (b) => b.abrv.replace(" ", "") === abrv.replace(/\s/g, ""),
+                (b) =>
+                  b.id === abrv ||
+                  b.abrv.replace(" ", "") === abrv.replace(/\s/g, ""),
               ),
             getUrlAbrv: (book: Book) =>
               book.abrv.replace(" ", "").toLowerCase(),
@@ -480,6 +482,7 @@ describe("PastoralIndexComponent", () => {
       const ref = {
         componentRef: { setInput: vi.fn() },
         componentInstance: { submitData },
+        afterClosed: () => new Subject<void>(),
         close: vi.fn(),
       }
       dialog.open.mockReturnValue(ref as unknown as MatDialogRef<unknown>)
@@ -491,18 +494,39 @@ describe("PastoralIndexComponent", () => {
         .query(By.directive(HeaderComponent))
         .componentInstance.openBookSelector.emit({ open: true })
       expect(dialog.open.mock.calls[0][0]).toBe(BookSelectorComponent)
+      expect(dialog.open.mock.calls[0][1]?.ariaLabel).toBe("Livros")
+      expect(ref.componentRef.setInput).toHaveBeenCalledWith("books", CANON)
       expect(ref.componentRef.setInput).toHaveBeenCalledWith(
         "selectedBookId",
         "indice",
       )
 
-      submitData.next({ bookId: CANON[0].abrv })
+      submitData.next({ bookId: CANON[0].id })
       expect(ref.close).toHaveBeenCalled()
       expect(navigate).toHaveBeenCalledWith([
         "/",
         CANON[0].abrv.replace(" ", "").toLowerCase(),
         "1",
       ])
+    })
+
+    it("keeps a heading where the apps draw the bars", async () => {
+      const fixture = await open(undefined, true)
+      const el: HTMLElement = fixture.nativeElement
+
+      expect(el.querySelector("header")).toBeNull()
+      expect(el.querySelector("h1")?.textContent).toBe(
+        "Índice Bíblico-Pastoral",
+      )
+    })
+
+    it("shares the theme open, by its title", async () => {
+      const fixture = await open("amor")
+      const header = fixture.debugElement.query(By.directive(HeaderComponent))
+
+      expect(header.componentInstance.shareText()).toBe(
+        "Ler Amor no Índice Bíblico-Pastoral.",
+      )
     })
 
     it("is the reader's, less auto-scroll and the view mode", async () => {

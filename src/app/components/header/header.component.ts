@@ -106,6 +106,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** For the native toolbar's arrows; the web page has its own. */
   readonly canGoPrevious = input(false)
   readonly canGoNext = input(false)
+  /** What sharing the index says, naming the theme open; its own page knows it. */
+  readonly indexShareText = input<string | null>(null)
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
@@ -384,7 +386,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   shareText(): string {
     const book = this.book()
     if (!book || book.id === "about") return "Leia a Bíblia nesta app."
-    if (this.isIndex) return book.name
+    if (this.isIndex) return this.indexShareText() ?? book.name
     const search = typeof window === "undefined" ? "" : window.location.search
     return sharedPassage(book, this.chapterNumber(), search)
   }

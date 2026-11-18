@@ -1,7 +1,11 @@
 @if (!native) {
 <header [book]="headerBook()" [chapterNumber]="1" [textSize]="textSizeState()"
+  [indexShareText]="shareText()"
   (openBookSelector)="openBookSelector()" (selectPassage)="onSelectPassage($event)"
   (increaseFontSizeEvent)="increaseFontSize($event)" (decreaseFontSizeEvent)="decreaseFontSize($event)"></header>
+} @else {
+<!-- The apps draw their own bars; the page still needs its heading. -->
+<h1 class="visually-hidden">Índice Bíblico-Pastoral</h1>
 }
 
 <main class="book-index-container">
