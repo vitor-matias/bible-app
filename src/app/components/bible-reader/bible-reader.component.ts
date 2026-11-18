@@ -1836,11 +1836,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /**
    * Notes where the reader has arrived, so the trail can lead back. The About
-   * page is the app's own copy rather than somewhere in the text, so it is
-   * not a place the trail leads back to.
+   * page and the index are the app's own pages rather than somewhere in the
+   * text, so they are not places the trail leads back to: no address of a
+   * chapter reaches them.
    */
   private recordTrail(verseStart?: Verse["number"]): void {
-    if (!this.book || this.book.id === "about") return
+    if (!this.book || this.isPage) return
 
     const urlAbrv = this.bookService.getUrlAbrv(this.book)
     const segment = this.bookService.getChapterUrlSegment(this.chapterNumber)

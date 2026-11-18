@@ -5128,6 +5128,13 @@ describe("BibleReaderComponent", () => {
         indexShareText: string | null
       }
 
+    // The trail leads back by address, and none leads to "indice/1": it would
+    // be a link in study mode's trail that opens the not-found page.
+    it("leaves no entry for itself on the reading trail", () => {
+      expect(component.trail).toEqual([])
+      expect(TestBed.inject(ReadingTrailService).entries).toEqual([])
+    })
+
     it("shows its page, with no chapter to load and no redirect", () => {
       expect(component.book.id).toBe("indice")
       expect(component.chapterNumber).toBe(1)

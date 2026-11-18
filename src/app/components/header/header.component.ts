@@ -374,7 +374,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
    * is too narrow.
    */
   get studyModeItem(): StudyModeItem | null {
-    if (this.book().id === "about") return null
+    // The app's own pages have no study layout: the item would only flip the
+    // saved choice, with nothing on screen to change.
+    if (this.book().id === "about" || this.isIndex) return null
     if (this.studyModeAvailable()) return this.studyMode() ? "on" : "off"
     return this.desktopPointer ? "narrow" : null
   }

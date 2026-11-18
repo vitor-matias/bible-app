@@ -1270,6 +1270,39 @@ describe("HeaderComponent", () => {
       expect(studyItem()).toBeUndefined()
     })
 
+    // The index is a page of its own in the reader, with no study layout: the
+    // item there only flipped the saved choice, and the reader found study mode
+    // off at their next chapter.
+    describe.each(["indice", "indice/amor"])(
+      "on the Pastoral Index (%s)",
+      (id) => {
+        const index = {
+          id,
+          name: "Índice Bíblico-Pastoral",
+          shortName: "Índice",
+          abrv: "indice",
+          chapterCount: 1,
+        }
+
+        it("is not offered", () => {
+          fixture.componentRef.setInput("studyModeAvailable", true)
+          fixture.componentRef.setInput("book", index)
+          fixture.detectChanges()
+
+          expect(studyItem()).toBeUndefined()
+        })
+
+        it("is not even explained when the window is narrow", () => {
+          fixture.componentRef.setInput("studyModeAvailable", false)
+          fixture.componentRef.setInput("book", index)
+          Object.defineProperty(component, "desktopPointer", { value: true })
+          fixture.detectChanges()
+
+          expect(studyItem()).toBeUndefined()
+        })
+      },
+    )
+
     it("offers the way back once study mode is on", () => {
       fixture.componentRef.setInput("studyModeAvailable", true)
       fixture.componentRef.setInput("studyMode", true)
