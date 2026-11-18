@@ -1,11 +1,18 @@
+import { inject } from "@angular/core"
 import { type Routes } from "@angular/router"
 import { chapterExists } from "./chapter-exists.guard"
 import { BibleReaderComponent } from "./components/bible-reader/bible-reader.component"
+import { NativeChromeService } from "./services/native-chrome.service"
 import {
   APP_STORE_URL,
   PLAY_STORE_URL,
   redirectTo,
 } from "./store-redirect.guard"
+
+const loadIndexPage = () =>
+  import("./components/pastoral-index/pastoral-index.component").then(
+    (m) => m.PastoralIndexComponent,
+  )
 
 export const routes: Routes = [
   // Explicit home route so the prerenderer can render "/" as a real page
@@ -34,19 +41,26 @@ export const routes: Routes = [
   },
   { path: "android", canActivate: [redirectTo(PLAY_STORE_URL)], children: [] },
   { path: "ios", canActivate: [redirectTo(APP_STORE_URL)], children: [] },
+  // The web hosts the index in the reader, under its header and beside its
+  // book list. The page's own chunk resolves before the reader shows, so the
+  // prerender renders the themes and the browser hydrates them (a @defer
+  // block renders only its placeholder there without incremental hydration).
+  ...["indice", "indice/:slug"].map((path) => ({
+    path,
+    component: BibleReaderComponent,
+    // Tells the page it is hosted (PastoralIndexComponent).
+    data: { index: true },
+    canMatch: [() => !inject(NativeChromeService).enabled],
+    resolve: { indexPage: loadIndexPage },
+  })),
+  // The native apps draw the page's bars themselves.
   {
     path: "indice",
-    loadComponent: () =>
-      import("./components/pastoral-index/pastoral-index.component").then(
-        (m) => m.PastoralIndexComponent,
-      ),
+    loadComponent: loadIndexPage,
   },
   {
     path: "indice/:slug",
-    loadComponent: () =>
-      import("./components/pastoral-index/pastoral-index.component").then(
-        (m) => m.PastoralIndexComponent,
-      ),
+    loadComponent: loadIndexPage,
   },
   {
     path: "minhas-notas",

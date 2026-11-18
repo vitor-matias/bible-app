@@ -1,6 +1,7 @@
-import { Location } from "@angular/common"
+import { Location, NgComponentOutlet } from "@angular/common"
 import {
   ChangeDetectorRef,
+  Component,
   ElementRef,
   NO_ERRORS_SCHEMA,
   PendingTasks,
@@ -27,6 +28,7 @@ import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, NEVER, of, Subject, throwError } from "rxjs"
 import type { Mock } from "vitest"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
+import { indexBookmarkLabel } from "../../pastoral-index-bookmarks"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
@@ -37,6 +39,7 @@ import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
+import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { ReadingTrailService } from "../../services/reading-trail.service"
 import { SeoService } from "../../services/seo.service"
@@ -47,6 +50,10 @@ import {
   BibleReaderComponent,
   RETRY_FEEDBACK_MS,
 } from "./bible-reader.component"
+
+/** The index's page, which its route resolves: a stand-in for its real one. */
+@Component({ selector: "index-page-stub", template: "Temas" })
+class IndexPageStub {}
 
 /** A step to the next or previous chapter: reading on keeps the way back. */
 const STEP = { info: CHAPTER_STEP }
@@ -193,6 +200,7 @@ describe("BibleReaderComponent", () => {
         ]),
       ),
       queryParamMap: new BehaviorSubject(new Map()),
+      snapshot: { data: {} },
     }
 
     animationServiceSpy = createSpyObj("BibleReaderAnimationService", [
@@ -5090,6 +5098,137 @@ describe("BibleReaderComponent", () => {
       component.drawerContent = new ElementRef(scroller)
       fixture.destroy()
       expect(stop).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  // On the web the reader hosts the index, as it does the About page.
+  describe("hosting the Índice Bíblico-Pastoral", () => {
+    let host: HTMLElement
+
+    beforeEach(async () => {
+      TestBed.resetTestingModule()
+      ;(routeMock as { snapshot: { data: object } }).snapshot.data = {
+        indexPage: IndexPageStub,
+      }
+      await setUpTestBed({ imports: [NgComponentOutlet, MatSidenavModule] })
+      // A <bible-reader> host, for the rules in styles.css.
+      fixture = TestBed.createComponent(BibleReaderComponent, {
+        inferTagName: true,
+      })
+      component = fixture.componentInstance
+      host = fixture.nativeElement
+      fixture.detectChanges()
+      await fixture.whenStable()
+    })
+
+    /** What the reader binds on the header (unknown here: its DOM properties). */
+    const header = () =>
+      host.querySelector("header") as unknown as {
+        book: Book
+        indexShareText: string | null
+      }
+
+    it("shows its page, with no chapter to load and no redirect", () => {
+      expect(component.book.id).toBe("indice")
+      expect(component.chapterNumber).toBe(1)
+      expect(host.querySelector("index-page-stub")?.textContent).toBe("Temas")
+      expect(apiServiceSpy.getChapter).not.toHaveBeenCalled()
+      expect(bookServiceSpy.findUrlBook).not.toHaveBeenCalled()
+      expect(routerSpy.navigate).not.toHaveBeenCalled()
+    })
+
+    it("is no passage to reopen, and leaves its title to its page", () => {
+      expect(preferencesServiceSpy.setLastBookId).not.toHaveBeenCalled()
+      expect(preferencesServiceSpy.setLastChapterNumber).not.toHaveBeenCalled()
+      expect(seoServiceSpy.updateForChapter).not.toHaveBeenCalled()
+    })
+
+    it("has no chapters to step through, nor the reading tools", () => {
+      component.viewMode = "paged"
+      // The tool is shown when asked for and the text scrolls (a derived
+      // value): the index scrolls, so only the page itself keeps it off.
+      ;(
+        component as unknown as { autoScrollControlsPreference: boolean }
+      ).autoScrollControlsPreference = true
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+
+      expect(component.effectiveViewMode).toBe("scrolling")
+      expect(component.canGoPrevious).toBe(false)
+      expect(component.canGoNext).toBe(false)
+      for (const selector of [
+        ".floating-nav-button",
+        ".chapter-card",
+        ".copyright-footer",
+        "app-auto-scroll-controls",
+      ]) {
+        expect(host.querySelector(selector)).toBeNull()
+      }
+    })
+
+    // Its sticky bars and letter bar scroll with the window.
+    it("takes its own width, in the window's scroll, the book list over it", () => {
+      expect(host.querySelector(".bookBlock")).toBeNull()
+      expect(host.querySelector(".index-block index-page-stub")).not.toBeNull()
+      const content = host.querySelector("mat-drawer-content") as HTMLElement
+      expect(getComputedStyle(content).overflowY).toBe("visible")
+      const drawer = host.querySelector("mat-drawer") as HTMLElement
+      expect(getComputedStyle(drawer).position).toBe("fixed")
+    })
+
+    it("is not slid in, as that would carry its fixed letter bar with it", () => {
+      expect(animationServiceSpy.scrollToTop).not.toHaveBeenCalled()
+      expect(
+        (host.querySelector("#bookContainer") as HTMLElement | null)?.style
+          .opacity ?? "",
+      ).toBe("")
+    })
+
+    it("opens at its top when picked from the book list, partway down", () => {
+      const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {})
+
+      component.goToPassage({ bookId: "indice" })
+
+      expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "instant" })
+    })
+
+    it("holds the window still while the book list is over it", async () => {
+      const root = document.documentElement
+      expect(getComputedStyle(root).overflow).not.toBe("hidden")
+
+      await component.bookDrawer.open()
+      expect(getComputedStyle(root).overflow).toBe("hidden")
+
+      await component.bookDrawer.close()
+      expect(getComputedStyle(root).overflow).not.toBe("hidden")
+    })
+
+    it("names the theme open in the header, for its ribbon and its share", async () => {
+      expect(header().book.id).toBe("indice")
+      expect(header().indexShareText).toBe("Ler o Índice Bíblico-Pastoral.")
+
+      TestBed.inject(PastoralIndexState).slug.set("amor")
+      await fixture.whenStable()
+
+      expect(header().book.id).toBe("indice/amor")
+      expect(indexBookmarkLabel("indice/amor")).toBe("Amor")
+      expect(header().indexShareText).toBe(
+        "Ler Amor no Índice Bíblico-Pastoral.",
+      )
+    })
+
+    it("opens the reader's book list on the index's entry", async () => {
+      TestBed.inject(PastoralIndexState).slug.set("amor")
+      await fixture.whenStable()
+
+      component.openBookDrawer({ open: true })
+      await fixture.whenStable()
+
+      expect(component.bookDrawer.opened).toBe(true)
+      const list = host.querySelector("book-selector") as unknown as {
+        selectedBookId: string
+      }
+      expect(list.selectedBookId).toBe("indice")
     })
   })
 })

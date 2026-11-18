@@ -13,6 +13,8 @@
       <mat-icon>{{ getViewModeIcon() }}</mat-icon>
     </button>
     }
+    }
+    @if (viewMode() !== null || alignText()) {
     <button type="button" mat-menu-item class="menu-control" (click)="onToggleTextAlign()" [matTooltip]="getTextAlignTooltip()" matTooltipPosition="above" [attr.aria-label]="getTextAlignTooltip()">
       <mat-icon>{{ getTextAlignIcon() }}</mat-icon>
     </button>

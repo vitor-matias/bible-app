@@ -81,6 +81,8 @@ export class ReaderMenuComponent {
   readonly shortcuts = input(false)
   /** The text's size and range, or null until it is known. */
   readonly textSize = input<TextSize | null>(null)
+  /** The justified/ragged button, for a page with no view mode that sets its text so too. */
+  readonly alignText = input(false)
   readonly atMinSize = computed(() => {
     const size = this.textSize()
     return !!size && size.percent <= size.min

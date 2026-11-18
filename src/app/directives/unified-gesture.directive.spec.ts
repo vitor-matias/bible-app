@@ -1,4 +1,4 @@
-import { ElementRef, Renderer2 } from "@angular/core"
+import { Component, ElementRef, Renderer2 } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { PreferencesService } from "../services/preferences.service"
 import { SystemTextSizeService } from "../services/system-text-size.service"
@@ -184,6 +184,41 @@ describe("UnifiedGesturesDirective", () => {
         vi.mocked(addEventListenerSpy).mock.calls[index][1],
       )
     }
+  })
+
+  // The pastoral index inside the reader, whose text container has its own:
+  // nested, the percent sizes multiplied and a pinch fired both.
+  it("does nothing switched off, as text inside another's", () => {
+    @Component({
+      imports: [UnifiedGesturesDirective],
+      template: `<p unifiedGestures fontSizeContext="reader"></p>
+        <p [unifiedGestures]="false" fontSizeContext="reader"
+          (textSizeChange)="sizes.push($event)"></p>`,
+    })
+    class Host {
+      sizes: TextSize[] = []
+    }
+    preferencesServiceSpy.getFontSize.mockReturnValue(150)
+    const addEventListener = vi.spyOn(
+      HTMLParagraphElement.prototype,
+      "addEventListener",
+    )
+    const fixture = TestBed.createComponent(Host)
+    fixture.detectChanges()
+    const [on, off] = fixture.nativeElement.querySelectorAll("p")
+
+    expect(on.style.fontSize).toBe("150%")
+    expect(off.style.fontSize).toBe("")
+    expect(off.style.touchAction).toBe("")
+    // Angular's own listener for the output aside.
+    const touchedOn = (p: HTMLElement) =>
+      addEventListener.mock.calls.some(
+        ([type], i) =>
+          addEventListener.mock.contexts[i] === p && type.startsWith("touch"),
+      )
+    expect(touchedOn(on)).toBe(true)
+    expect(touchedOn(off)).toBe(false)
+    expect(fixture.componentInstance.sizes).toEqual([])
   })
 
   describe("ngOnInit initialization", () => {

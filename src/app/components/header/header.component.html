@@ -10,8 +10,8 @@
     <mat-icon>menu</mat-icon>
   </button>
   <reader-menu #readerMenu="readerMenu" [canShare]="canShare" [shareText]="shareText()" [version]="version"
-    [viewMode]="book().id === 'about' ? null : viewMode()"
-    [autoScrollControlsVisible]="autoScrollControlsVisible()" [textSize]="textSize()"
+    [viewMode]="book().id === 'about' || isIndex ? null : viewMode()"
+    [alignText]="isIndex" [autoScrollControlsVisible]="isIndex ? null : autoScrollControlsVisible()" [textSize]="textSize()"
     [studyMode]="studyModeItem" [shortcuts]="shortcutsItem"
     (decreaseFontSize)="decreaseFontSize()" (increaseFontSize)="increaseFontSize()"
     (toggleViewMode)="toggleViewMode.emit()" (bookmarks)="openBookmarkSelector()"
@@ -79,7 +79,7 @@
         </mat-button-toggle>
 
         <!-- Standalone introductions have no chapters to pick. -->
-        @if(book().id !== 'about' && !book().introSlug){
+        @if(book().id !== 'about' && !book().introSlug && !isIndex){
         <mat-button-toggle #chapterToggle mat-flat-button matTooltip="Escolher capítulo"
           class="bookSelectorButtonContent" [aria-label]="chapterButtonName"
           (click)="showChapterSelector(); chapterToggle.checked = false">

@@ -16,6 +16,14 @@
     padding-right: 24px;
   }
 
+  /* Set in the themes' two columns, to the same width as the list under it. */
+  :host(:not(.native)) .index-intro {
+    max-width: none;
+    margin: 1.5rem 0 1.25rem;
+    column-count: 2;
+    column-gap: 2rem;
+  }
+
   :host(:not(.native)) .letters,
   :host(:not(.native)) .letters:focus-within {
     position: static;
