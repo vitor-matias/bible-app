@@ -55,6 +55,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  border: 0;
+  cursor: pointer;
 }
 
 .actionButton {

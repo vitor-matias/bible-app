@@ -3,7 +3,7 @@ import { Location } from "@angular/common"
 import { provideLocationMocks } from "@angular/common/testing"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatBottomSheet } from "@angular/material/bottom-sheet"
-import { MatDialog } from "@angular/material/dialog"
+import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import { By } from "@angular/platform-browser"
 import {
   ActivatedRoute,
@@ -36,6 +36,7 @@ import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { forceColors, systemColor } from "../../testing/forced-colors"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
+import { BookSelectorComponent } from "../book-selector/book-selector.component"
 import { BookmarkSelectorComponent } from "../bookmark-selector/bookmark-selector.component"
 import { MENU_BUTTON } from "../reader-menu/reader-menu.component"
 import { ReportProblemComponent } from "../report-problem/report-problem.component"
@@ -462,6 +463,36 @@ describe("PastoralIndexComponent", () => {
       expect(closer?.()).toBe(true)
       expect(isOpen?.()).toBe(false)
       expect(backButton.changed).toHaveBeenCalledTimes(2)
+    })
+
+    // The title was plain text: it did nothing, where the reader's opens the books.
+    it("opens the book list from the title, and goes to the book picked", async () => {
+      const fixture = await open()
+      const submitData = new Subject<{ bookId: string }>()
+      const ref = {
+        componentRef: { setInput: vi.fn() },
+        componentInstance: { submitData },
+        close: vi.fn(),
+      }
+      dialog.open.mockReturnValue(ref as unknown as MatDialogRef<unknown>)
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
+
+      fixture.nativeElement.querySelector("button.toolbar-title").click()
+      expect(dialog.open.mock.calls[0][0]).toBe(BookSelectorComponent)
+      expect(ref.componentRef.setInput).toHaveBeenCalledWith(
+        "selectedBookId",
+        "indice",
+      )
+
+      submitData.next({ bookId: CANON[0].abrv })
+      expect(ref.close).toHaveBeenCalled()
+      expect(navigate).toHaveBeenCalledWith([
+        "/",
+        CANON[0].abrv.replace(" ", "").toLowerCase(),
+        "1",
+      ])
     })
 
     // The menu's empty host was a flex item: a third gap pushed the title right.
