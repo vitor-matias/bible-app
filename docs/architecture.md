@@ -131,6 +131,37 @@ contract is the `NativeChromePlugin` interface in that service file.
 - Platform guides: [ios.md](ios.md) and [android.md](android.md). iOS follows Apple's
   HIG (bars are monochrome; no glass in the content layer); Android follows Material 3.
 
+## Back closes panels first
+
+`BackButtonService` holds the open panels (book drawer, menus, bottom sheets via
+`closeOnBack`; dialogs through `MatDialog.openDialogs`). Android's back button closes the
+topmost one before it navigates (`AppComponent.handleBackButton`). On the website
+(`closeOnBrowserBack`, never in the apps) the browser's Back does the same:
+
+- While any panel is open, the history has one extra entry on top, at the same address,
+  with `appPanel: true` in its state. Back leaves it; the `popstate` closes the topmost
+  panel. `DepthLocationStrategy.onPopState` keeps that pop (between a panel entry and its page,
+  the same address and one level beneath) from `Location`, so neither the router nor Material's
+  `closeOnNavigation` sees it. The router would otherwise navigate where a page wrote the
+  address itself (`Location.go`/`replaceState`: the index's themes, the reader's `notes`)
+  and its own URL is behind, rebuilding the index or re-scrolling the reader.
+- When the last panel closes any other way (✕, Esc, backdrop), the service goes back
+  over that entry, so no stray entry is left. It waits for a navigation in progress:
+  `DepthLocationStrategy` makes a page opened from a panel *replace* the panel's entry,
+  a `replaceState` at the same address keeps the flag, and one to another address
+  (a failed chapter reverted) first goes back over the panel entry, closing the panel,
+  then replaces the page's own entry (without the panel flag). A reload with the entry
+  on top leaves it at start.
+- The app's own steps back go through `stepBack()`; `isAppPop(event)` marks their pop, which
+  then reaches neither the router nor `closeTopmost` (only the reader's Back closes a
+  panel). Panels closed for a page's new address are those open then; one opened right
+  after (the linked notes) keeps its own new entry.
+- A panel tells the service when it opens or closes (`changed()`, synced after the
+  current task so the drawer switching from books to chapters doesn't count) and passes
+  `isOpen` to `register`. A new panel needs both, or Back navigates past it.
+- Material's dialogs and sheets also close themselves on any `popstate`
+  (`closeOnNavigation`), so a Back with several open closes those together.
+
 ## Production versus the preview deployment
 
 `vercel.json` configures the preview (test) deployment only. It rewrites unknown paths to

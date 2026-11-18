@@ -394,6 +394,67 @@ describe("ToastService", () => {
           expect(router.url).toBe("/gn/4")
         })
 
+        // On the website a verse's notes sheet keeps an entry of its own on
+        // top (BackButtonService), which the reference's page takes over: the
+        // way back counted from that entry, went there anew instead of back,
+        // and Back afterwards returned to the reference.
+        it("steps back over a notes sheet's entry to the page", async () => {
+          toast = create(false, true)
+          router = TestBed.inject(Router)
+          platform = TestBed.inject(PlatformLocation) as MockPlatformLocation
+          router.initialNavigation()
+          await router.navigateByUrl("/gn/4")
+          await router.navigateByUrl("/gn/5")
+          const page = depth() ?? 0
+          platform.pushState(
+            {
+              ...(platform.getState() as object),
+              appDepth: page + 1,
+              appPanel: true,
+            },
+            "",
+            platform.url,
+          )
+          toast.showReturn({ bookId: "gen", chapterNumber: 5, number: 1 })
+          await router.navigateByUrl("/jo/1?verseStart=1&verseEnd=3")
+          expect(depth()).toBe(page + 1)
+
+          returnSnack().returnUrl()
+          await settle()
+
+          expect(router.url).toBe("/gn/5?verseStart=1&highlight=false")
+          expect(depth()).toBe(page)
+          TestBed.inject(Location).back()
+          await settle()
+          expect(router.url).toBe("/gn/4")
+        })
+
+        // A citation with notes= opens the notes on the reference's page after
+        // the way back shows: «Voltar» counted the sheet's entry as a page,
+        // went there anew over it, and Back afterwards returned to the reference.
+        it("steps back over a sheet opened on the reference's page", async () => {
+          await followFrom("/gn/5")
+          const reference = depth() ?? 0
+          platform.pushState(
+            {
+              ...(platform.getState() as object),
+              appDepth: reference + 1,
+              appPanel: true,
+            },
+            "",
+            platform.url,
+          )
+
+          returnSnack().returnUrl()
+          await settle()
+
+          expect(router.url).toBe("/gn/5?verseStart=1&highlight=false")
+          expect(depth()).toBe(reference - 1)
+          TestBed.inject(Location).back()
+          await settle()
+          expect(router.url).toBe("/gn/4")
+        })
+
         it("goes there anew once the reader has read on", async () => {
           await followFrom("/gn/5")
           await router.navigateByUrl("/jo/2")

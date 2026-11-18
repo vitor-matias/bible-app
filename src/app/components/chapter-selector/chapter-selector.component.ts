@@ -4,6 +4,7 @@ import {
   afterNextRender,
   ChangeDetectionStrategy,
   Component,
+  computed,
   ElementRef,
   Injector,
   inject,
@@ -50,6 +51,16 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
   /** The highlighted chapter: follows the input, and a tap moves it at once. */
   protected readonly highlighted = linkedSignal(() => this.selectedChapter())
 
+  /** The chapter last focused, which keeps the list's one tab stop. */
+  protected readonly focused = linkedSignal(() => this.highlighted())
+  protected readonly tabStop = computed(() => {
+    const chapters = this.chapters()
+    const focused = this.focused()
+    return chapters.some((chapter) => chapter.number === focused)
+      ? focused
+      : chapters[0]?.number
+  })
+
   readonly submitData = output<{
     chapterNumber: Chapter["number"]
   }>()
@@ -75,6 +86,36 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
 
   onKeyPress(event: KeyboardEvent, id: Chapter["number"]): void {
     this.submit(id)
+  }
+
+  /** A list, one chapter per row: Up and Left go back one, Down and Right on. */
+  moveFocus(event: KeyboardEvent): void {
+    const buttons: HTMLElement[] = Array.from(
+      this.elementRef.nativeElement.querySelectorAll(".chapterSelectorButton"),
+    )
+    const index = buttons.indexOf(event.target as HTMLElement)
+    // Alt+←/→ are the browser's Back and Forward, ⌘+arrows macOS's own.
+    if (index === -1 || event.altKey || event.ctrlKey || event.metaKey) return
+    const target = (<Record<string, number>>{
+      ArrowUp: index - 1,
+      ArrowLeft: index - 1,
+      ArrowDown: index + 1,
+      ArrowRight: index + 1,
+      Home: 0,
+      End: buttons.length - 1,
+    })[event.key]
+    if (target === undefined) return
+    event.preventDefault()
+    const nextIndex = Math.max(0, Math.min(target, buttons.length - 1))
+    const next = buttons[nextIndex]
+    // At once, not at the next check: a Tab right after leaves from here.
+    buttons[index].tabIndex = -1
+    next.tabIndex = 0
+    next.focus()
+    // Also where the focus stays (an end of the list), after a chapter load
+    // moved the tab stop to the chapter now read: one stop, not two.
+    const chapter = this.chapters()[nextIndex]
+    if (chapter) this.focused.set(chapter.number)
   }
 
   getChapterDisplay(chapter: Chapter): string {

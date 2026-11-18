@@ -11,6 +11,8 @@
     <button type="button" mat-menu-item class="menu-control" (click)="toggleViewMode.emit()" [matTooltip]="getViewModeTooltip()" matTooltipPosition="above" [attr.aria-label]="getViewModeTooltip()">
       <mat-icon>{{ getViewModeIcon() }}</mat-icon>
     </button>
+    }
+    @if ((viewMode() !== null || alignText()) && !cardsView()) {
     <button type="button" mat-menu-item class="menu-control" (click)="onToggleTextAlign()" [matTooltip]="getTextAlignTooltip()" matTooltipPosition="above" [attr.aria-label]="getTextAlignTooltip()">
       <mat-icon>{{ getTextAlignIcon() }}</mat-icon>
     </button>
@@ -22,9 +24,6 @@
     </button>
     <button type="button" mat-menu-item class="menu-control" (click)="!atMaxSize() && increaseFontSize.emit()" [disabled]="atMaxSize()" disabledInteractive matTooltip="Aumentar texto" matTooltipPosition="above" aria-label="Aumentar texto">
       <mat-icon>text_increase</mat-icon>
-    </button>
-    <button type="button" mat-menu-item class="menu-control" (click)="resetFontSize.emit()" matTooltip="Repor tamanho do texto" matTooltipPosition="above" aria-label="Repor tamanho do texto">
-      <mat-icon>format_size</mat-icon>
     </button>
   </div>
   <mat-divider></mat-divider>

@@ -20,3 +20,10 @@ export function systemColor(name: string): string {
   probe.remove()
   return color
 }
+
+/** Emulates `prefers-contrast: more` (iOS Increase Contrast), or ends it. */
+export async function moreContrast(active: boolean): Promise<void> {
+  await cdp().send("Emulation.setEmulatedMedia", {
+    features: active ? [{ name: "prefers-contrast", value: "more" }] : [],
+  })
+}

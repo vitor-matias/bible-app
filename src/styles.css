@@ -506,6 +506,41 @@ bible-reader .mat-drawer-content {
   overflow-x: hidden !important;
 }
 
+/* The index in the reader scrolls the window, which its sticky bars and
+   letter bar are built on (PastoralIndexComponent): no scroller of the
+   reader's around it, and the book list and its backdrop pinned to the
+   viewport under the header, as on any other page. Here, not in the reader's
+   stylesheet, which is at its size budget. */
+bible-reader .bookSelectorContainer.index-page {
+  height: auto;
+  overflow: visible;
+}
+
+bible-reader .index-page > .mat-drawer-content {
+  height: auto;
+  overflow: visible !important;
+}
+
+bible-reader .index-page > :is(.mat-drawer, .mat-drawer-backdrop) {
+  position: fixed;
+  top: var(--app-header-height);
+  height: calc(100dvh - var(--app-header-height));
+}
+
+/* The window scrolls the index: the drawer open, the page stays put behind it. */
+html:has(bible-reader .index-page > .mat-drawer-opened) {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
+/* A printed index is its themes alone. */
+@media print {
+  bible-reader .text-container:has(> .index-page) > .reader-header,
+  bible-reader .index-page > :is(.mat-drawer, .mat-drawer-backdrop) {
+    display: none;
+  }
+}
+
 .bookSelector .mat-drawer-inner-container {
   scrollbar-gutter: stable;
   overscroll-behavior: none;
@@ -874,4 +909,47 @@ html.no-scrollbar::-webkit-scrollbar {
    last lines can scroll clear of it. */
 html:has(mat-snack-bar-container) .footnotes-container {
   padding-bottom: 72px;
+}
+
+/* More contrast asked for: iOS Increase Contrast, macOS Increase contrast,
+   Windows contrast themes short of forced colours. Tiles that are only a tint
+   away from their surface get an edge, and faint captions, hints and
+   placeholders the text's own colour, in either theme. */
+@media (prefers-contrast: more) {
+  :root,
+  .dark-theme,
+  .platform-ios.native-chrome {
+    --mat-form-field-hint-text-color: var(--text-color);
+    --mat-form-field-filled-input-text-placeholder-color: var(--text-color);
+    --mat-form-field-outlined-input-text-placeholder-color: var(--text-color);
+    --mat-select-placeholder-text-color: var(--text-color);
+    --mat-expansion-header-indicator-color: var(--text-color);
+  }
+
+  ::placeholder {
+    color: var(--text-color) !important;
+    opacity: 0.85 !important;
+  }
+
+  :is(chapter-selector .chapterSelectorButton, book-selector .bookSelectorButton, book-index .group li a) {
+    box-shadow: inset 0 0 0 1px var(--text-color);
+  }
+
+  :is(
+      book-index .intro-text,
+      pastoral-index .index-intro,
+      pastoral-index .letter > h2,
+      app-search :is(.empty-state, .empty-state-icon, .loading, .results-count, .results-hint, .psalm-note),
+      app-bookmark-selector .ribbon-hint,
+      .mat-mdc-menu-panel :is(.menu-version, .open-in-new-icon),
+      .onboarding-dialog .note
+    ) {
+    color: var(--text-color) !important;
+    opacity: 1 !important;
+  }
+
+  /* The chapter arrows rest at 60% until hovered. */
+  bible-reader .floating-nav-button {
+    opacity: 1 !important;
+  }
 }

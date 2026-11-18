@@ -4,6 +4,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  computed,
   ElementRef,
   HostListener,
   Injector,
@@ -12,6 +13,7 @@ import {
   type OnInit,
   PendingTasks,
   PLATFORM_ID,
+  type Type,
   ViewChild,
 } from "@angular/core"
 import { toObservable } from "@angular/core/rxjs-interop"
@@ -41,6 +43,10 @@ import {
   type TextSize,
   UnifiedGesturesDirective,
 } from "../../directives/unified-gesture.directive"
+import {
+  indexBookmarkId,
+  indexBookmarkLabel,
+} from "../../pastoral-index-bookmarks"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BackButtonService } from "../../services/back-button.service"
@@ -51,6 +57,7 @@ import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
+import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
@@ -124,6 +131,33 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private networkService = inject(NetworkService)
   private seoService = inject(SeoService)
   private pwaInstallService = inject(PwaInstallService)
+  private indexState = inject(PastoralIndexState)
+
+  /**
+   * The Índice Bíblico-Pastoral's page, on the web, where the reader hosts it
+   * as it does the About page: resolved by its route, so it stays in its own
+   * chunk and still renders while prerendering.
+   */
+  readonly indexPage: Type<unknown> | undefined =
+    this.route.snapshot.data["indexPage"]
+
+  /** The index as the header names it: the theme open, for its ribbon and share. */
+  readonly indexBook = computed<Book>(() => ({
+    ...PASTORAL_INDEX_BOOK,
+    id: indexBookmarkId(this.indexState.slug()),
+  }))
+
+  readonly indexShareText = computed(() => {
+    const { id } = this.indexBook()
+    return id === PASTORAL_INDEX_BOOK.id
+      ? "Ler o Índice Bíblico-Pastoral."
+      : `Ler ${indexBookmarkLabel(id)} no Índice Bíblico-Pastoral.`
+  })
+
+  /** A page of the app's own (About, the index), not a book's chapter. */
+  get isPage(): boolean {
+    return this.book?.id === "about" || !!this.indexPage
+  }
 
   private destroy$ = new Subject<void>()
   private chapterSubscription?: Subscription
@@ -156,16 +190,19 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private bottomSheet = inject(MatBottomSheet)
   private nativeFootnotes = inject(NativeFootnotesService)
   private location = inject(Location)
-  private backButton = inject(BackButtonService)
+  protected readonly backButton = inject(BackButtonService)
   /** The verses a link asked to open the notes of, until the chapter is here. */
   private linkedNotes: string | null = null
   private dismissLinkedNotes?: () => void
   private stopTrackingScroll?: () => void
-  private unregisterBackCloser = inject(BackButtonService).register(() => {
-    if (!this.bookDrawer?.opened) return false
-    this.bookDrawer.close()
-    return true
-  })
+  private unregisterBackCloser = this.backButton.register(
+    () => {
+      if (!this.bookDrawer?.opened) return false
+      this.bookDrawer.close()
+      return true
+    },
+    () => !!this.bookDrawer?.opened,
+  )
 
   @ViewChild("bookDrawer")
   bookDrawer!: MatDrawer
@@ -244,23 +281,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   get effectiveViewMode(): "scrolling" | "paged" {
     // The cards ride on the vertical scroller, so they displace paged columns.
-    return this.book?.id === "about" || this.showCards
-      ? "scrolling"
-      : this.viewMode
+    return this.isPage || this.showCards ? "scrolling" : this.viewMode
   }
 
   /**
    * Where the card view can show at all: it is built around thumb-flicking a
-   * phone, and it deals out verses — which the About page and an introduction
-   * (prose, not verses) do not have.
+   * phone, and it deals out verses — which the app's own pages (About, the
+   * index) and an introduction (prose, not verses) do not have.
    */
   get cardsViewAvailable(): boolean {
-    return (
-      this.isMobile &&
-      !!this.book &&
-      this.book.id !== "about" &&
-      !this.isIntroChapter
-    )
+    return this.isMobile && !!this.book && !this.isPage && !this.isIntroChapter
   }
 
   /**
@@ -384,6 +414,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         this.books = books
         this.cdr.markForCheck()
       })
+
+    // Its page needs neither the books nor a route to read: it is all here.
+    if (this.indexPage) {
+      this.book = PASTORAL_INDEX_BOOK
+      this.getChapter(1)
+      return
+    }
+
     this.bookService.booksUnavailable$
       .pipe(takeUntil(this.destroy$))
       .subscribe((unavailable) => {
@@ -686,7 +724,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** Whether stepping back goes anywhere: the previous page, else chapter. */
   get canGoPrevious(): boolean {
-    if (this.book?.id === "about" || !this.chapter) return false
+    if (this.isPage || !this.chapter) return false
     return (
       this.chapter.number > this.minChapter ||
       (this.effectiveViewMode === "paged" && !this.isFirstPage)
@@ -704,9 +742,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    * chapter's top, where the bars always show.
    */
   get introCard(): boolean {
-    return (
-      this.book?.id !== "about" && this.chapterNumber === 1 && this.hasIntro
-    )
+    return !this.isPage && this.chapterNumber === 1 && this.hasIntro
   }
 
   /** The introduction card's title: "Introdução ao Livro do Génesis". */
@@ -715,7 +751,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   get canGoNext(): boolean {
-    if (this.book?.id === "about" || !this.chapter) return false
+    if (this.isPage || !this.chapter) return false
     return (
       this.chapter.number < this.book.chapterCount ||
       (this.effectiveViewMode === "paged" && !this.isLastPage)
@@ -832,6 +868,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.autoScrollService.stop()
     if (bookId === PASTORAL_INDEX_BOOK.id) {
       void this.router.navigate(["/indice"])
+      // Already there, partway down: the index opens at its top.
+      if (this.indexPage && isPlatformBrowser(this.platformId)) {
+        window.scrollTo({ top: 0, behavior: "instant" })
+      }
       return
     }
     const book = this.bookService.findBook(bookId)
@@ -879,12 +919,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         if (isCurrent()) work()
       })
 
-    // The About page is local content with no chapter behind it.
-    if (this.book.id === "about") {
+    // The app's own pages are local content with no chapter behind them.
+    if (this.isPage) {
       this.chapterSubscription?.unsubscribe()
       finalize(() =>
         this.applyChapter(
-          { bookId: "about", number: 1 },
+          { bookId: this.book.id, number: 1 },
           chapter,
           verseStart,
           verseEnd,
@@ -1090,12 +1130,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   ): void {
     // Paged view lays the text out anew and a verse link moves it, so those
     // still reveal it. Otherwise it's in place, and the reader may have scrolled.
+    // The index is never slid in: the transform would make its container, not
+    // the viewport, the home of its fixed letter bar while it runs.
     const alreadyShown =
-      !!this.endPrerenderHold &&
-      !verseStart &&
-      this.effectiveViewMode === "scrolling" &&
-      !this.isNavigatingForwards &&
-      !this.isNavigatingBackwards
+      !!this.indexPage ||
+      (!!this.endPrerenderHold &&
+        !verseStart &&
+        this.effectiveViewMode === "scrolling" &&
+        !this.isNavigatingForwards &&
+        !this.isNavigatingBackwards)
 
     if (!alreadyShown) this.resetContainerForRepaint()
     this.slideOut = undefined
@@ -1119,11 +1162,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.rebuildChapterLinks()
     this.animationService.cancelPendingRealign()
 
-    this.seoService.updateForChapter(
-      this.book,
-      this.chapterNumber,
-      this.chapter,
-    )
+    // The index's page says what it shows itself: the theme open.
+    if (!this.indexPage) {
+      this.seoService.updateForChapter(
+        this.book,
+        this.chapterNumber,
+        this.chapter,
+      )
+    }
 
     // Its finger's events end with the verse it came down on.
     this.pagedNav?.releaseDrag()
@@ -1153,8 +1199,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
 
     // Not the About page shown for want of the books: the passage saved is
-    // the one to open once they load.
-    if (!this.booksUnavailable) {
+    // the one to open once they load. Nor the index: it is no passage.
+    if (!this.booksUnavailable && !this.indexPage) {
       this.preferencesService.setLastBookId(this.book.id)
       this.preferencesService.setLastChapterNumber(this.chapterNumber)
     }

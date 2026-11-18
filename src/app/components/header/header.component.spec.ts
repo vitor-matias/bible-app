@@ -84,7 +84,11 @@ describe("HeaderComponent", () => {
     bottomSheetSpy.open.mockReturnValue(
       bookmarkSheetRef as unknown as ReturnType<MatBottomSheet["open"]>,
     )
-    dialogSpy = createSpyObj("MatDialog", ["open"])
+    // The back button reads the open dialogs, before any panel of its own.
+    dialogSpy = createSpyObj<MatDialog>("MatDialog", ["open"], {
+      openDialogs: [],
+      afterOpened: new Subject(),
+    })
     analyticsServiceSpy = createSpyObj("AnalyticsService", [
       "track",
       "areAnalyticsAvailable",
@@ -286,16 +290,6 @@ describe("HeaderComponent", () => {
     )
   })
 
-  it("resets the text size from the web menu's control", () => {
-    const resets = vi.fn()
-    component.resetFontSizeEvent.subscribe(resets)
-    fixture.debugElement
-      .query(By.directive(ReaderMenuComponent))
-      .componentInstance.resetFontSize.emit()
-
-    expect(resets).toHaveBeenCalledTimes(1)
-  })
-
   it("keeps the search button while offline", () => {
     isOfflineSubject.next(true)
     fixture.detectChanges()
@@ -405,11 +399,13 @@ describe("HeaderComponent", () => {
     })
 
     it("dismisses the bookmark sheet it opened", () => {
+      // The service wraps the ref's dismiss to hear every way it closes.
+      const { dismiss } = bookmarkSheetRef
       fixture.componentRef.setInput("chapterNumber", 1)
       component.openBookmarkSelector()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(true)
-      expect(bookmarkSheetRef.dismiss).toHaveBeenCalled()
+      expect(dismiss).toHaveBeenCalled()
 
       bookmarkSheetDismissed.next()
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
@@ -425,6 +421,32 @@ describe("HeaderComponent", () => {
       fixture.destroy()
 
       expect(TestBed.inject(BackButtonService).closeTopmost()).toBe(false)
+    })
+
+    // The website's Back left the page and closed the menu on the way.
+    it("closes the open menu on the browser's Back, on the website", async () => {
+      vi.useFakeTimers()
+      Object.assign(routerSpy, {
+        events: new Subject(),
+        currentNavigation: () => null,
+      })
+      TestBed.inject(BackButtonService).closeOnBrowserBack()
+      const trigger = menuTrigger()
+      const popped = () =>
+        new Promise((resolve) =>
+          window.addEventListener("popstate", resolve, { once: true }),
+        )
+
+      trigger.openMenu()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(window.history.state?.appPanel).toBe(true)
+
+      const back = popped()
+      window.history.back()
+      await back
+      expect(trigger.menuOpen).toBe(false)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(window.history.state?.appPanel).not.toBe(true)
     })
   })
 
@@ -725,6 +747,117 @@ describe("HeaderComponent", () => {
       fixture.detectChanges()
 
       expect(document.querySelector(".menu-version")).toBeNull()
+    })
+  })
+
+  // The index has no pages to turn nor text to scroll by itself.
+  describe("the menu on the Índice Bíblico-Pastoral", () => {
+    const openMenuOn = async (id: string) => {
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", {
+        id,
+        name: id,
+        shortName: id,
+        abrv: id,
+        chapterCount: 50,
+      })
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.componentRef.setInput("viewMode", "scrolling")
+      fixture.detectChanges()
+      await fixture.whenStable()
+      fixture.debugElement
+        .query(By.directive(MatMenuTrigger))
+        .injector.get(MatMenuTrigger)
+        .openMenu()
+      fixture.detectChanges()
+    }
+
+    const viewModeToggle = () =>
+      document.querySelector('[aria-label^="Texto contínuo"]')
+    const autoScrollItem = () =>
+      Array.from(
+        document.querySelectorAll(".mat-mdc-menu-panel .mat-mdc-menu-item"),
+      ).find((item) => item.textContent?.includes("deslocamento automático"))
+
+    it("offers neither the view mode nor auto-scroll on a theme", async () => {
+      await openMenuOn("indice/amor")
+
+      expect(viewModeToggle()).toBeNull()
+      expect(autoScrollItem()).toBeUndefined()
+    })
+
+    // The theme's text is justified or ragged like a chapter's: the choice stays.
+    it("still offers the justified/ragged choice on a theme", async () => {
+      await openMenuOn("indice/amor")
+
+      expect(
+        document.querySelector('[aria-label^="Justificado"]') ??
+          document.querySelector('[aria-label^="Alinhado"]'),
+      ).not.toBeNull()
+    })
+
+    it("offers both on a book", async () => {
+      await openMenuOn("gen")
+
+      expect(viewModeToggle()).not.toBeNull()
+      expect(autoScrollItem()).toBeDefined()
+    })
+
+    it("reports a problem on the theme open", async () => {
+      await openMenuOn("indice/amor")
+      component = fixture.componentInstance
+
+      component.openReportProblem()
+
+      expect(dialogSpy.open.mock.lastCall?.[1]?.data).toEqual({
+        book: expect.objectContaining({
+          id: "indice/amor",
+          shortName: "Amor",
+        }),
+        chapter: 1,
+      })
+    })
+
+    it("reports the index itself by its own name", async () => {
+      await openMenuOn("indice")
+      component = fixture.componentInstance
+
+      component.openReportProblem()
+
+      expect(dialogSpy.open.mock.lastCall?.[1]?.data).toEqual({
+        book: expect.objectContaining({ shortName: "Índice" }),
+        chapter: 1,
+      })
+    })
+
+    it("hangs and finds its ribbon on the theme open", async () => {
+      bookmarkServiceSpy.getBookmark.mockClear()
+      await openMenuOn("indice/amor")
+      component = fixture.componentInstance
+
+      expect(bookmarkServiceSpy.getBookmark).toHaveBeenCalledWith(
+        "indice/amor",
+        1,
+      )
+      component.openBookmarkSelector()
+
+      expect(bottomSheetSpy.open.mock.lastCall?.[1]?.data).toEqual({
+        bookId: "indice/amor",
+        chapter: 1,
+      })
+    })
+
+    it("shares the words the reader gives it, else the index's name", async () => {
+      await openMenuOn("indice/amor")
+      component = fixture.componentInstance
+      expect(component.shareText()).toBe("indice/amor")
+
+      fixture.componentRef.setInput(
+        "indexShareText",
+        "Ler Amor no Índice Bíblico-Pastoral.",
+      )
+
+      expect(component.shareText()).toBe("Ler Amor no Índice Bíblico-Pastoral.")
     })
   })
 
@@ -1068,6 +1201,28 @@ describe("HeaderComponent", () => {
       abrv: "Sobre",
       chapterCount: 1,
     }
+
+    // The Índice Bíblico-Pastoral, or a theme of it, is a page: no chapters.
+    it("names the index plainly, with no chapter button", () => {
+      fixture.componentRef.setInput("book", {
+        id: "indice/amor",
+        abrv: "Índice",
+        name: "Índice Bíblico-Pastoral",
+        shortName: "Índice Bíblico-Pastoral",
+        chapterCount: 0,
+      })
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+
+      const heading = (fixture.nativeElement as HTMLElement).querySelector(
+        "h1",
+      ) as HTMLElement
+      expect(heading.getAttribute("aria-label")).toBe("Índice Bíblico-Pastoral")
+      expect(heading.querySelectorAll("mat-button-toggle").length).toBe(1)
+      expect(component.shareText()).toBe("Índice Bíblico-Pastoral")
+      fixture.componentRef.setInput("indexShareText", "Ler Amor no Índice.")
+      expect(component.shareText()).toBe("Ler Amor no Índice.")
+    })
 
     // The audit's complaint: with two stacked labels crossfading, both stayed
     // in the DOM, so the page h1 read "<title> Escolher Livro" — words no page
