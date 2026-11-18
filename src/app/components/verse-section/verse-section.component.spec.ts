@@ -266,6 +266,40 @@ describe("VerseSectionComponent", () => {
       expect(box.width).toBeCloseTo(800, 0)
     })
 
+    // Below the largest sizes the number could still leave it a few words:
+    // «O BOM / PASTOR» on lines of its own beside it at 170% on a phone.
+    describe("where the number leaves it a few words' width", () => {
+      function besideNumber(numberWidth: number) {
+        const host = fixture.nativeElement as HTMLElement
+        const container = document.createElement("div")
+        container.style.cssText = "width: 400px; font-size: 20px"
+        const number = document.createElement("div")
+        number.style.cssText = `float: left; width: ${numberWidth}px; height: 40px`
+        host.before(container)
+        container.append(number, host)
+
+        const heading = render({ changeLine: false, beside: true })
+        const box = heading.getBoundingClientRect()
+        const numberBox = number.getBoundingClientRect()
+        container.replaceWith(host)
+        return { box, numberBox }
+      }
+
+      it("goes below the number when less than 8 ems are left", () => {
+        const { box, numberBox } = besideNumber(250)
+
+        expect(box.top).toBeGreaterThanOrEqual(numberBox.bottom)
+        expect(box.right).toBeLessThanOrEqual(400 + numberBox.left)
+      })
+
+      it("stays beside it with room for them", () => {
+        const { box, numberBox } = besideNumber(150)
+
+        expect(box.top).toBeLessThan(numberBox.bottom)
+        expect(box.left).toBeGreaterThanOrEqual(numberBox.right)
+      })
+    })
+
     it("leaves a heading that runs into the text inline, with no break before it", () => {
       fixture.componentRef.setInput("changeLine", true)
       setData(
