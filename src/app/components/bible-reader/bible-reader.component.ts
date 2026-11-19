@@ -252,10 +252,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private readerMovedAt = 0
 
   /**
-   * The verse +365 reads now: marked, and brought into view when it isn't
-   * comfortably on screen, unless the reader moved the text themselves in
-   * the last FOLLOW_PAUSE_MS: they're looking elsewhere, and following
-   * resumes after that.
+   * The verse +365 reads now: marked, and kept in the middle of the screen
+   * (smoothly, unless motion is reduced), unless the reader moved the text
+   * themselves in the last FOLLOW_PAUSE_MS: they're looking elsewhere, and
+   * following resumes after that. In pages, turned to when it starts on
+   * another one.
    */
   onReadingVerse(verse: number | null): void {
     this.readingVerse.set(verse)
@@ -286,15 +287,20 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const content = this.drawerContentRef?.nativeElement
     if (!content) return
     const view = content.getBoundingClientRect()
-    // What the +365 card covers isn't on screen.
+    // What the +365 card covers isn't on screen: centre in what's left.
     const card = document
       .querySelector(".audio-player")
       ?.getBoundingClientRect()
     const coversText = card && card.left < box.right && card.right > box.left
     const bottom = coversText ? Math.min(view.bottom, card.top) : view.bottom
-    // Comfortably in view: its start below the top, two lines above the bottom.
-    if (box.top >= view.top && box.top <= bottom - 64) return
-    content.scrollBy({ top: box.top - (view.top + view.height / 4), behavior })
+    const visible = bottom - view.top
+    // The verse's middle to the middle of the screen; a verse too tall for
+    // that is started near the top instead, so its beginning shows.
+    const offset =
+      box.height > visible * 0.8
+        ? box.top - (view.top + 16)
+        : (box.top + box.bottom) / 2 - (view.top + visible / 2)
+    if (Math.abs(offset) > 2) content.scrollBy({ top: offset, behavior })
   }
 
   @HostListener("wheel")

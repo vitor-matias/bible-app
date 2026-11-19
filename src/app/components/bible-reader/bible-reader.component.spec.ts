@@ -2121,6 +2121,12 @@ describe("BibleReaderComponent", () => {
       fixture.detectChanges()
       expect(verse(2).classList).toContain("verse-reading")
       expect(scrollBy).toHaveBeenCalledTimes(1)
+      // Smoothly, its middle to the middle of the reading area.
+      const view = content.getBoundingClientRect()
+      expect(scrollBy).toHaveBeenLastCalledWith({
+        top: 5020 - (view.top + view.height / 2),
+        behavior: "smooth",
+      })
 
       component.noteReaderMoved()
       component.onReadingVerse(3)
