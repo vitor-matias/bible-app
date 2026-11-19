@@ -59,6 +59,22 @@ function swallowNextClick(): void {
   )
 }
 
+/**
+ * How to remove a ribbon with the pointers there are, not only the primary
+ * one: a tablet with a mouse, or a laptop with a touch screen, takes both.
+ */
+function removeHint(view: Window | null): string {
+  const has = (query: string) => !!view?.matchMedia?.(query).matches
+  const mouse = has("(any-pointer: fine)")
+  const touch = has("(any-pointer: coarse)")
+  if (mouse && touch) {
+    return "Mantenha premido ou clique com o botão direito num marcador para o remover."
+  }
+  return mouse
+    ? "Clique com o botão direito num marcador para o remover."
+    : "Mantenha premido um marcador para o remover."
+}
+
 /** The removal offered, once made, as its undo. */
 interface RemoveOffer {
   bookmark: Bookmark
@@ -90,12 +106,8 @@ export class BookmarkSelectorComponent implements OnInit {
 
   ribbons: RibbonState[] = []
 
-  /** How to remove a ribbon with the pointer at hand: a mouse has no long press. */
-  readonly removeHint = inject(DOCUMENT).defaultView?.matchMedia?.(
-    "(pointer: fine)",
-  ).matches
-    ? "Clique com o botão direito num marcador para o remover."
-    : "Mantenha premido um marcador para o remover."
+  /** A mouse has no long press: it removes by right-click. */
+  readonly removeHint = removeHint(inject(DOCUMENT).defaultView)
 
   move?: MoveOffer
   removed?: RemoveOffer
