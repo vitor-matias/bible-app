@@ -1,4 +1,10 @@
+/* The reader's ‹ › arrows' colours (bible-reader.component.css): their
+   highlight for the controls' surfaces, their brown for what's on them.
+   Scrolling and «Ouvir» share them; only the big «Ouvir» card is solid. */
 .auto-scroll-controls {
+  --ink: var(--cap-brown);
+  --glass: color-mix(in srgb, var(--highlight-color) 90%, transparent);
+  --muted: color-mix(in srgb, var(--ink) 65%, transparent);
   position: fixed;
   bottom: calc(24px + var(--app-inset-bottom));
   z-index: 100;
@@ -9,19 +15,26 @@
   font-family: "Roboto", sans-serif;
 }
 
+/* The see-through pill: auto-scroll's speed, and «Ouvir» tucked away. */
+:is(.auto-scroll-speed, .audio-mini) {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  background-color: color-mix(in srgb, var(--glass) 60%, transparent);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
 .auto-scroll-speed {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border-radius: 999px;
-  background-color: var(--card-background);
   font-size: 13px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .auto-scroll-speed .mat-icon {
-  color: var(--text-color);
+  color: var(--ink);
 }
 
 .floating-nav-button {
@@ -50,20 +63,12 @@
     right: calc(16px + var(--app-inset-right));
   }
 }
-/* «Ouvir»: one card in the auto-scroll controls' own look: the speed
-   pill's surface, icons and shadow, the same round play button, the same
-   85% opacity. Its height is --audio-card-height (styles.css), which also
-   sets the room the reader keeps clear under it: the rows below add up to
-   exactly that. */
+/* «Ouvir»: one frosted card, like the iOS app's glass bars. Its height is
+   --audio-card-height (styles.css), which also sets the room the reader keeps
+   clear under it: the rows below add up to exactly that. */
+/* The reader's ‹ › arrows' colours (bible-reader.component.css): their
+   highlight for the card (and its pill), their brown for what's on it. */
 .auto-scroll-controls.audio {
-  --ink: var(--text-color);
-  --muted: color-mix(in srgb, var(--ink) 60%, transparent);
-}
-
-/* Only the small controls are see-through: the card is solid, its play
-   button too, so nothing behind it shows through its time and slider. */
-.auto-scroll-controls.audio:has(.audio-player),
-.audio-player .floating-nav-button {
   opacity: 1;
 }
 
@@ -75,10 +80,23 @@
   width: min(360px, calc(100vw - 16px));
   height: var(--audio-card-height);
   padding: 8px 10px 6px;
-  border-radius: 24px;
-  background-color: var(--card-background);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  background-color: var(--glass);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.18),
+    0 1px 3px rgba(0, 0, 0, 0.12);
   color: var(--ink);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .audio-player {
+    --glass: var(--highlight-color);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
 
 .audio-caption {
@@ -144,8 +162,7 @@
   --mat-icon-button-state-layer-size: 40px;
 }
 
-/* The play button keeps the arrows' brown, as in the auto-scroll controls. */
-.audio-buttons button:not(.audio-toggle) .mat-icon {
+.audio-buttons .mat-icon {
   color: var(--ink);
 }
 
@@ -168,6 +185,39 @@
   display: flex;
 }
 
+/* Every play button, scrolling or listening: the controls' brown, round,
+   with their highlight on it (over the arrows' look it would otherwise
+   take as a .floating-nav-button). */
+.auto-scroll-controls .auto-scroll-toggle {
+  --mat-fab-container-color: var(--ink);
+  --mat-fab-foreground-color: var(--highlight-color);
+  /* Mini FABs read their own tokens. */
+  --mat-fab-small-container-color: var(--ink);
+  --mat-fab-small-foreground-color: var(--highlight-color);
+  --mat-fab-container-shape: 50%;
+  border-radius: 50%;
+  background-color: var(--ink);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.auto-scroll-controls .auto-scroll-toggle .mat-icon {
+  /* Solid ▶ and ❚❚: the outlined set draws them hollow. */
+  font-variation-settings: "FILL" 1;
+  color: var(--highlight-color);
+}
+
+/* The card's, the one solid thing in it, a size up. */
+.audio-player .audio-toggle {
+  width: 44px;
+  height: 44px;
+}
+
+.audio-player .audio-toggle .mat-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+}
+
 /* Narrowest phones (320px): a little less air between the controls. */
 @media (max-width: 359px) {
   .audio-player {
@@ -181,6 +231,28 @@
   .audio-transport {
     gap: 0;
   }
+}
+
+/* Dark: the same card the other way round, warm and dark with cream on it. */
+:host-context(.dark-theme) .auto-scroll-controls {
+  --ink: #ecdcc6;
+  --glass: color-mix(in srgb, #2b2119 88%, transparent);
+}
+
+:host-context(.dark-theme) :is(.audio-player, .audio-mini, .auto-scroll-speed) {
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+:host-context(.dark-theme) .auto-scroll-controls .auto-scroll-toggle {
+  --mat-fab-foreground-color: #2b2119;
+  --mat-fab-small-foreground-color: #2b2119;
+}
+
+:host-context(.dark-theme) .auto-scroll-controls .auto-scroll-toggle .mat-icon {
+  color: #2b2119;
 }
 
 /* Dragged on a desktop: where the reader put it. */
@@ -223,10 +295,27 @@
   color: var(--ink);
 }
 
-/* Tucked away: the auto-scroll controls' own layout, the play button
-   beside a speed pill that holds the «show» button. */
+/* Tucked away: play and «show» in a small, see-through pill where the card
+   was, faded like the auto-scroll control and clear on hover. */
+.auto-scroll-controls.audio:has(.audio-mini) {
+  opacity: 0.85;
+  transition: opacity 0.3s;
+}
+
+@media (hover: hover) {
+  .auto-scroll-controls.audio:has(.audio-mini):hover {
+    opacity: 1;
+  }
+}
+
 .audio-mini {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
+  padding: 4px;
+}
+
+.audio-mini .audio-toggle {
+  width: 40px;
+  height: 40px;
 }

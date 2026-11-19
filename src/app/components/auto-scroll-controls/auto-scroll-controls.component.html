@@ -4,17 +4,15 @@
   @if (audioMode() && player.collapsed()) {
   <!-- Tucked away: still playing, still reading along; the card a tap away. -->
   <div class="audio-mini">
-    <button class="position-relative floating-nav-button auto-scroll-toggle audio-toggle" type="button" mat-mini-fab
+    <button class="auto-scroll-toggle audio-toggle" type="button" mat-mini-fab
       [attr.aria-label]="playingThis() ? 'Pausar o +365' : 'Ouvir o +365'" [attr.aria-pressed]="playingThis()"
       [disabled]="!entry()" (click)="toggleAudio()">
       <mat-icon>{{ playingThis() ? 'pause' : 'play_arrow' }}</mat-icon>
     </button>
-    <div class="auto-scroll-speed">
-      <button type="button" mat-icon-button class="audio-expand" aria-label="Mostrar o leitor do +365"
-        (click)="player.collapsed.set(false)">
-        <mat-icon>expand_less</mat-icon>
-      </button>
-    </div>
+    <button type="button" mat-icon-button class="audio-expand" aria-label="Mostrar o leitor do +365"
+      (click)="player.collapsed.set(false)">
+      <mat-icon>expand_less</mat-icon>
+    </button>
   </div>
   } @else if (audioMode()) {
   <!-- On a desktop: dragged by anything but its controls, its width resized
@@ -50,7 +48,7 @@
           (click)="player.skip(-10)">
           <mat-icon>replay_10</mat-icon>
         </button>
-        <button class="position-relative floating-nav-button auto-scroll-toggle audio-toggle" type="button" mat-mini-fab
+        <button class="auto-scroll-toggle audio-toggle" type="button" mat-fab
           [attr.aria-label]="playingThis() ? 'Pausar o +365' : 'Ouvir o +365'" [attr.aria-pressed]="playingThis()"
           [disabled]="!entry()" (click)="toggleAudio()">
           <mat-icon>{{ playingThis() ? 'pause' : 'play_arrow' }}</mat-icon>
