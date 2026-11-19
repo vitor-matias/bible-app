@@ -644,6 +644,19 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         expect(Math.abs(page.scrollTop - 162.5)).toBeLessThanOrEqual(1.5)
       })
 
+      it("reads below a card dragged up over the text's top", async () => {
+        await playAt(67)
+        // The card over the page's top 106px: the area is 130.25 to 275.75.
+        vi.spyOn(
+          find(".audio-player") as HTMLElement,
+          "getBoundingClientRect",
+        ).mockReturnValue(new DOMRect(0, 0, 300, 106))
+        // Verse 2 (200px) is taller than the area: its reading line, 300px
+        // into the text, eases to the area's top.
+        vi.advanceTimersByTime(4000)
+        expect(Math.abs(page.scrollTop - 169.75)).toBeLessThanOrEqual(1.5)
+      })
+
       it("keeps following through keys on the card's own controls", async () => {
         await playAt(67)
         toggle()?.dispatchEvent(
@@ -770,6 +783,96 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(inner.top).toBeGreaterThanOrEqual(box.top)
       expect(inner.bottom).toBeLessThanOrEqual(box.bottom)
     }
+  })
+
+  describe("on a desktop", () => {
+    let desktop: boolean
+    beforeEach(() => {
+      desktop = true
+      localStorage.removeItem("audioCardPosition")
+      localStorage.removeItem("audioCardWidth")
+      vi.spyOn(window, "matchMedia").mockImplementation(
+        (query: string) =>
+          ({
+            matches: query.includes("pointer: fine") ? desktop : false,
+            media: query,
+            addEventListener: () => {},
+            removeEventListener: () => {},
+          }) as unknown as MediaQueryList,
+      )
+    })
+    afterEach(() => {
+      localStorage.removeItem("audioCardPosition")
+      localStorage.removeItem("audioCardWidth")
+    })
+    const container = () => find(".auto-scroll-controls") as HTMLElement
+    const drag = (from: Element, to: [number, number]) => {
+      const box = from.getBoundingClientRect()
+      const at = (x: number, y: number) => ({
+        bubbles: true,
+        clientX: x,
+        clientY: y,
+        button: 0,
+      })
+      from.dispatchEvent(
+        new PointerEvent("pointerdown", at(box.left + 20, box.top + 5)),
+      )
+      window.dispatchEvent(new PointerEvent("pointermove", at(...to)))
+      window.dispatchEvent(new PointerEvent("pointerup", at(...to)))
+      fixture.detectChanges()
+    }
+
+    it("is dragged by its body, kept inside the window, and remembered", async () => {
+      await listen()
+      const caption = find(".audio-caption") as Element
+      // The grab point (20px in, 5px down the caption) follows the pointer.
+      const grabbed = caption.getBoundingClientRect()
+      const corner = container().getBoundingClientRect()
+      const left = Math.round(300 - (grabbed.left + 20 - corner.left))
+      const top = Math.round(200 - (grabbed.top + 5 - corner.top))
+      drag(caption, [300, 200])
+      expect(container().style.left).toBe(`${left}px`)
+      expect(container().style.top).toBe(`${top}px`)
+      expect(
+        JSON.parse(localStorage.getItem("audioCardPosition") ?? ""),
+      ).toEqual({ left, top })
+
+      drag(find(".audio-caption") as Element, [-500, -500])
+      expect(container().style.left).toBe("8px")
+      expect(container().style.top).toBe("8px")
+    })
+
+    it("isn't dragged by its controls", async () => {
+      await listen()
+      drag(toggle() as Element, [300, 200])
+      expect(container().style.left).toBe("")
+    })
+
+    it("docks again on a double-click on its caption", async () => {
+      await listen()
+      drag(find(".audio-caption") as Element, [300, 200])
+      find(".audio-caption")?.dispatchEvent(new MouseEvent("dblclick"))
+      fixture.detectChanges()
+      expect(container().style.left).toBe("")
+      expect(localStorage.getItem("audioCardPosition")).toBeNull()
+    })
+
+    it("comes back at the width the reader gave it", async () => {
+      localStorage.setItem("audioCardWidth", "520")
+      // Read when the control is made: make it again.
+      fixture = TestBed.createComponent(AutoScrollControlsComponent)
+      await listen()
+      expect((find(".audio-player") as HTMLElement).style.width).toBe("520px")
+    })
+
+    it("stays put on a phone", async () => {
+      desktop = false
+      localStorage.setItem("audioCardPosition", '{"left":40,"top":40}')
+      fixture = TestBed.createComponent(AutoScrollControlsComponent)
+      await listen()
+      expect(find(".audio-player")?.classList).not.toContain("movable")
+      expect(container().style.left).toBe("")
+    })
   })
 
   describe("in the paged view", () => {

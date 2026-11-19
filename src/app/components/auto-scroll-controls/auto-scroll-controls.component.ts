@@ -46,6 +46,9 @@ const SPEED_LIMIT_TOLERANCE = 0.001
  * touches the area's upper edge.
  */
 const READING_AREA = 0.75
+/** Where a desktop reader dragged the card, and the width they gave it. */
+const POSITION_KEY = "audioCardPosition"
+const WIDTH_KEY = "audioCardWidth"
 const GLIDE_SECONDS = 0.5
 
 /** 63 → "1:03", 3723 → "62:03"; never below "0:00", as lengths not yet known read 0. */
@@ -328,9 +331,14 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const text = this.lineHeightElement()?.getBoundingClientRect()
     const covers =
       card && text && card.left < text.right && card.right > text.left
-    const bottom = covers ? Math.min(view.bottom, card.top) : view.bottom
-    const margin = ((bottom - view.top) * (1 - READING_AREA)) / 2
-    const area = { top: view.top + margin, bottom: bottom - margin }
+    // The card covers the text's bottom, or, dragged up on a desktop, its top.
+    const cardBelow = card && card.top + card.bottom > view.top + view.bottom
+    const top =
+      covers && !cardBelow ? Math.max(view.top, card.bottom) : view.top
+    const bottom =
+      covers && cardBelow ? Math.min(view.bottom, card.top) : view.bottom
+    const margin = ((bottom - top) * (1 - READING_AREA)) / 2
+    const area = { top: top + margin, bottom: bottom - margin }
     const { box, point } = reading
     const fits = box.height <= area.bottom - area.top
     // What goes to the upper edge: the verse's top, or the line being read.
@@ -356,6 +364,147 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     page.scrollTop = wanted
     // Kept for the next frame, as scrollTop takes whole device pixels.
     this.glideCarry = wanted - page.scrollTop
+  }
+
+  /** A desktop: a wide window and a mouse or trackpad, to drag and resize with. */
+  protected readonly desktop = signal(false)
+  /** Where the card was dragged to (its container's corner); null: docked. */
+  private readonly position = signal<{ left: number; top: number } | null>(
+    this.stored(POSITION_KEY),
+  )
+  protected readonly cardWidth = signal<number | null>(this.stored(WIDTH_KEY))
+  /** Where the card sits now: dragged, on a desktop, in «Ouvir». */
+  protected readonly placed = computed(() =>
+    this.desktop() && this.audioMode() ? this.position() : null,
+  )
+
+  private stored<T>(key: string): T | null {
+    try {
+      const value = localStorage.getItem(key)
+      return value ? (JSON.parse(value) as T) : null
+    } catch {
+      return null
+    }
+  }
+
+  private store(key: string, value: unknown): void {
+    try {
+      if (value === null) localStorage.removeItem(key)
+      else localStorage.setItem(key, JSON.stringify(value))
+    } catch {
+      // Not kept: the card goes back to its corner next time.
+    }
+  }
+
+  /** Drags the card by anything but its controls, within the window. */
+  protected startDrag(event: PointerEvent): void {
+    const card = event.currentTarget as HTMLElement
+    const target = event.target as Element
+    const box = card.getBoundingClientRect()
+    // The browser's own resize corner, bottom right, isn't a drag.
+    const corner =
+      event.clientX > box.right - 18 && event.clientY > box.bottom - 18
+    if (
+      !this.desktop() ||
+      event.button !== 0 ||
+      corner ||
+      target.closest("button, input, mat-slider")
+    ) {
+      return
+    }
+    event.preventDefault()
+    const container = card.parentElement as HTMLElement
+    const start = container.getBoundingClientRect()
+    const grab = { x: event.clientX - start.left, y: event.clientY - start.top }
+    const move = (moved: PointerEvent) =>
+      this.position.set(
+        this.withinWindow(
+          moved.clientX - grab.x,
+          moved.clientY - grab.y,
+          start.width,
+          start.height,
+        ),
+      )
+    const drop = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", drop)
+      this.store(POSITION_KEY, this.position())
+    }
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", drop)
+  }
+
+  private withinWindow(
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+  ) {
+    return {
+      left: Math.round(
+        Math.min(Math.max(8, left), window.innerWidth - width - 8),
+      ),
+      top: Math.round(
+        Math.min(Math.max(8, top), window.innerHeight - height - 8),
+      ),
+    }
+  }
+
+  /** Back to its corner, at its usual width. */
+  protected dock(): void {
+    this.position.set(null)
+    this.cardWidth.set(null)
+    this.store(POSITION_KEY, null)
+    this.store(WIDTH_KEY, null)
+  }
+
+  /** Follows the window being resized, and the card being resized. */
+  private watchDesktop(): void {
+    const query = window.matchMedia?.("(min-width: 769px) and (pointer: fine)")
+    if (!query) return
+    const update = () => this.desktop.set(query.matches)
+    update()
+    query.addEventListener("change", update)
+    // A dragged card stays inside a window made smaller.
+    const keepInside = () => {
+      const at = this.position()
+      const card = this.host.nativeElement.querySelector(".audio-player")
+      if (!at || !card) return
+      const box = card.getBoundingClientRect()
+      this.position.set(
+        this.withinWindow(at.left, at.top, box.width, box.height),
+      )
+    }
+    window.addEventListener("resize", keepInside)
+    // The width the reader gives it from the resize corner, remembered.
+    const resized =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(([entry]) => {
+            const card = entry.target as HTMLElement
+            const width = Math.round(card.getBoundingClientRect().width)
+            if (
+              !this.desktop() ||
+              !card.style.width ||
+              width === this.cardWidth()
+            ) {
+              return
+            }
+            this.cardWidth.set(width)
+            this.store(WIDTH_KEY, width)
+          })
+    const watched = new MutationObserver(() => {
+      const card = this.host.nativeElement.querySelector(".audio-player")
+      resized?.disconnect()
+      if (card) resized?.observe(card)
+    })
+    watched.observe(this.host.nativeElement, { childList: true, subtree: true })
+    this.destroyRef.onDestroy(() => {
+      query.removeEventListener("change", update)
+      window.removeEventListener("resize", keepInside)
+      resized?.disconnect()
+      watched.disconnect()
+    })
   }
 
   /** Asks the reader for a page: the next one, or the one a verse starts on. */
@@ -461,6 +610,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.followEnd()
     this.watchReader()
+    if (typeof window !== "undefined" && !this.native) this.watchDesktop()
     if (!this.native) return
     this.nativeChrome.actions$
       .pipe(takeUntilDestroyed(this.destroyRef))

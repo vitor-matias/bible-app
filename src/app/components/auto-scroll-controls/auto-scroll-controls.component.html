@@ -1,8 +1,12 @@
 @if (!native && (audioMode() || !paged())) {
-<div class="auto-scroll-controls" [class.audio]="audioMode()">
+<div class="auto-scroll-controls" [class.audio]="audioMode()" [class.placed]="!!placed()"
+  [style.left.px]="placed()?.left" [style.top.px]="placed()?.top">
   @if (audioMode()) {
-  <div class="audio-player" role="group" aria-label="+365">
-    <div class="audio-caption">{{ bookName() }} {{ chapter() }}</div>
+  <!-- On a desktop: dragged by anything but its controls, its width resized
+       from the corner, both remembered; a double-click on the caption docks it. -->
+  <div class="audio-player" role="group" aria-label="+365" [class.movable]="desktop()"
+    [style.width.px]="desktop() ? cardWidth() : null" (pointerdown)="startDrag($event)">
+    <div class="audio-caption" (dblclick)="dock()">{{ bookName() }} {{ chapter() }}</div>
     <div class="audio-progress">
       <!-- The slider says these to screen readers, in words. -->
       <span class="audio-time" aria-hidden="true">{{ elapsed() }}</span>

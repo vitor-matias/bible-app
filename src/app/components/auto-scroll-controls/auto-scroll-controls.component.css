@@ -208,3 +208,45 @@
     gap: 0;
   }
 }
+
+/* Dark: the same card the other way round, warm and dark with cream on it. */
+:host-context(.dark-theme) .audio-player {
+  --ink: #ecdcc6;
+  --glass: color-mix(in srgb, #2b2119 88%, transparent);
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+:host-context(.dark-theme) .audio-player .audio-toggle {
+  --mat-fab-foreground-color: #2b2119;
+}
+
+:host-context(.dark-theme) .audio-player .audio-toggle .mat-icon {
+  color: #2b2119;
+}
+
+/* Dragged on a desktop: where the reader put it. */
+.auto-scroll-controls.placed {
+  right: auto;
+  bottom: auto;
+  transform: none;
+}
+
+/* A desktop: dragged by its body, widened or narrowed from its corner. */
+.audio-player.movable {
+  overflow: hidden;
+  resize: horizontal;
+  min-width: 300px;
+  max-width: 640px;
+  cursor: grab;
+}
+
+.audio-player.movable:active {
+  cursor: grabbing;
+}
+
+.audio-player.movable :is(button, mat-slider) {
+  cursor: pointer;
+}
