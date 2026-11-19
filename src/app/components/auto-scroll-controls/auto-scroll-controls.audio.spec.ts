@@ -552,6 +552,15 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(audio().src).toBe(`${day3.url}#t=56.5`)
     })
 
+    it("doesn't flash the card while looking up after a chapter without one", async () => {
+      render("exo", 7)
+      await answer(null, 7)
+      render("exo", 8)
+      expect(find(".audio-player")).toBeNull()
+      await answer(null, 8)
+      expect(find(".audio-player")).toBeNull()
+    })
+
     it("shows nothing where no episode reads the chapter", async () => {
       render("exo", 7)
       await answer(null, 7)

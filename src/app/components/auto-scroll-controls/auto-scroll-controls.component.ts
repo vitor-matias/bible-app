@@ -8,6 +8,7 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   NgZone,
   OnDestroy,
   OnInit,
@@ -21,7 +22,10 @@ import { MatSliderModule } from "@angular/material/slider"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
-import { PodcastPlayerService } from "../../services/podcast-player.service"
+import {
+  type ChapterEpisode,
+  PodcastPlayerService,
+} from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 
 /**
@@ -73,10 +77,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   atEnd = false
 
   private readonly episodes = rxResource({
+    // The apps' native bar has no +365 mode yet: nothing would show it.
     params: () => {
       const bookId = this.bookId()
       const chapter = this.chapter()
-      return bookId && chapter ? { bookId, chapter } : undefined
+      return bookId && chapter && !this.native ? { bookId, chapter } : undefined
     },
     stream: ({ params }) =>
       this.player.episodesFor(params.bookId, params.chapter),
@@ -86,15 +91,35 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   protected readonly entry = computed(() => this.episodes.value()?.[0])
 
   /**
+   * The episode the last finished lookup found, kept through the next one:
+   * the card only waits for a chapter's lookup where it was already showing,
+   * so a chapter without an episode doesn't flash it (and re-lay the pages
+   * out twice, as the reader makes room for it).
+   */
+  private readonly lastSettledEntry = linkedSignal<
+    { loading: boolean; entry: ChapterEpisode | undefined },
+    ChapterEpisode | undefined
+  >({
+    source: () => ({
+      loading: this.episodes.isLoading(),
+      entry: this.entry(),
+    }),
+    computation: (now, before) => (now.loading ? before?.value : now.entry),
+  })
+
+  /**
    * Playing +365 rather than scrolling: with an episode to play, or while
    * the next chapter's is still being looked up (the card waits, disabled,
    * rather than flashing the scroll buttons for the round trip).
    */
-  protected readonly audioMode = computed(
-    () =>
+  protected readonly audioMode = computed(() => {
+    // Read first, always: a linkedSignal only keeps what it was last read as.
+    const settled = this.lastSettledEntry()
+    return (
       (this.player.mode() === "audio" || this.paged()) &&
-      (!!this.entry() || this.episodes.isLoading()),
-  )
+      (!!this.entry() || (this.episodes.isLoading() && !!settled))
+    )
+  })
 
   protected readonly playingThis = computed(() => {
     const entry = this.entry()

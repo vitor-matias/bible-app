@@ -1,5 +1,8 @@
 import { provideHttpClient } from "@angular/common/http"
-import { provideHttpClientTesting } from "@angular/common/http/testing"
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from "@angular/common/http/testing"
 import { ChangeDetectorRef } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatButtonModule } from "@angular/material/button"
@@ -381,6 +384,14 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   })
 
   const lastState = () => lastCall(vi.mocked(nativeChrome.setAutoScroll))[0]
+
+  // The apps' native bar has no +365 mode: a lookup would be wasted.
+  it("looks up no +365 episode", () => {
+    fixture.componentRef.setInput("bookId", "gen")
+    fixture.componentRef.setInput("chapter", 30)
+    fixture.detectChanges()
+    TestBed.inject(HttpTestingController).expectNone(() => true)
+  })
 
   it("draws no web controls; the toolbar shows them", () => {
     expect(
