@@ -95,6 +95,10 @@ export class PodcastPlayerService {
       // Reloading also replaces the fragment of a stream still loading, which
       // would otherwise win over a later chapter's start of zero.
       audio.src = streamUrl(episode)
+      // A new source resets the element's length and place without saying so:
+      // the last episode's would otherwise stand until this one's load.
+      this.duration.set(0)
+      this.position.set(episode.start ?? 0)
     }
     this.play(audio, episode)
   }
@@ -106,10 +110,12 @@ export class PodcastPlayerService {
     if (!audio || !current) return
     // Before the stream loads, currentTime reads 0, not the chapter's start
     // its fragment will seek to; what is written here then wins over that.
+    // A skip already asked for still reads back from currentTime, so taps
+    // add up: 56.5, 66.5, 76.5.
     const from =
       audio.readyState >= HTMLMediaElement.HAVE_METADATA
         ? audio.currentTime
-        : (current.start ?? 0)
+        : Math.max(current.start ?? 0, audio.currentTime)
     audio.currentTime = this.withinChapter(from + seconds)
   }
 
@@ -218,7 +224,12 @@ export class PodcastPlayerService {
     })
     // A move or a new speed changes when the end comes: time it afresh.
     audio.addEventListener("seeking", () => this.clearEndTimer())
-    audio.addEventListener("ratechange", () => this.clearEndTimer())
+    audio.addEventListener("ratechange", () => {
+      this.clearEndTimer()
+      // A new speed brings the end sooner or later: time it at once, as the
+      // next timeupdate may only come after it.
+      this.guardChapter(audio)
+    })
     audio.addEventListener("timeupdate", () => {
       this.position.set(audio.currentTime)
       this.guardChapter(audio)

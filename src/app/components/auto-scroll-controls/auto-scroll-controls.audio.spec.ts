@@ -71,16 +71,25 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       ],
     })
     http = TestBed.inject(HttpTestingController)
-    // No real stream: playing just reports it started.
+    // No real stream: playing and pausing report it, and paused follows them,
+    // so an assertion on paused fails when a pause goes missing.
+    const sounding = new WeakSet<HTMLMediaElement>()
+    vi.spyOn(HTMLMediaElement.prototype, "paused", "get").mockImplementation(
+      function (this: HTMLMediaElement) {
+        return !sounding.has(this)
+      },
+    )
     play = vi
       .spyOn(HTMLMediaElement.prototype, "play")
       .mockImplementation(function (this: HTMLMediaElement) {
+        sounding.add(this)
         this.dispatchEvent(new Event("play"))
         return Promise.resolve()
       })
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (
       this: HTMLMediaElement,
     ) {
+      sounding.delete(this)
       this.dispatchEvent(new Event("pause"))
     })
     fixture = TestBed.createComponent(AutoScrollControlsComponent)
@@ -437,6 +446,77 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     stream.dispatchEvent(new Event("timeupdate"))
     fixture.detectChanges()
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+  })
+
+  it("shows a chapter not in the player at its start, not another's progress", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    stream.currentTime = 200
+    stream.dispatchEvent(new Event("timeupdate"))
+
+    render("exo", 6)
+    await answer(
+      [
+        {
+          ...day3,
+          url: "https://anchor.fm/s/x/podcast/play/9.m4a",
+          start: 10,
+          end: 100,
+        },
+      ],
+      6,
+    )
+    expect(find(".audio-time")?.textContent?.trim()).toBe("0:00")
+    expect(
+      (find('input[aria-label="Posição no +365"]') as HTMLInputElement | null)
+        ?.value,
+    ).toBe("10")
+  })
+
+  it("forgets the last episode's length when another loads", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    Object.defineProperty(stream, "duration", {
+      value: 1103,
+      configurable: true,
+    })
+    stream.dispatchEvent(new Event("durationchange"))
+
+    render("exo", 6)
+    await answer(
+      [{ ...day3, url: "https://anchor.fm/s/x/podcast/play/9.m4a", end: null }],
+      6,
+    )
+    tap(toggle())
+    expect(
+      (find('input[aria-label="Posição no +365"]') as HTMLInputElement | null)
+        ?.disabled,
+    ).toBe(true)
+  })
+
+  it("adds up skips made before the stream loads", async () => {
+    await listen()
+    tap(toggle())
+    tap(byLabel("Avançar 10 segundos"))
+    tap(byLabel("Avançar 10 segundos"))
+    expect(audio().currentTime).toBe(76.5)
+  })
+
+  it("times the chapter's end again when the speed changes near it", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    vi.useFakeTimers()
+    stream.currentTime = 280.6
+    stream.dispatchEvent(new Event("timeupdate"))
+    tap(byLabel("Aumentar velocidade do +365"))
+    stream.currentTime = 280.79
+    await vi.advanceTimersByTimeAsync(300)
+    fixture.detectChanges()
+    expect(stream.paused).toBe(true)
+    expect(stream.currentTime).toBe(280.8)
   })
 
   // The reader keeps --audio-card-height clear under the card (styles.css):

@@ -147,15 +147,16 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   protected readonly dragging = signal(false)
   private heldAt = 0
 
-  // Pinned to the chapter's span while playback runs on before or past it.
-  protected readonly sliderValue = computed(() =>
-    this.dragging()
-      ? this.heldAt
-      : Math.min(
-          this.chapterEnd(),
-          Math.max(this.chapterStart(), this.player.position()),
-        ),
-  )
+  // Pinned to the chapter's span while playback runs on before or past it;
+  // at its start while the player holds another chapter's episode.
+  protected readonly sliderValue = computed(() => {
+    if (this.dragging()) return this.heldAt
+    if (!this.loaded()) return this.chapterStart()
+    return Math.min(
+      this.chapterEnd(),
+      Math.max(this.chapterStart(), this.player.position()),
+    )
+  })
 
   protected holdSlider(): void {
     this.heldAt = this.player.position()
