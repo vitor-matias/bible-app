@@ -448,6 +448,27 @@ describe("OfflineDataService", () => {
       })
     })
 
+    // The panel asks for the books when the reader chose a download in it:
+    // analytics tells the two ways of getting here apart by this.
+    it("reports where the download was asked for", async () => {
+      const analyticsService = TestBed.inject(AnalyticsService)
+
+      const promise = service.preloadAllBooksAndChapters("study")
+      await flushMicrotasks()
+
+      httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+      await flushIntros()
+      await promise
+
+      expect(analyticsService.track).toHaveBeenCalledWith("pwa_books_cached", {
+        source: "study",
+      })
+      expect(analyticsService.track).not.toHaveBeenCalledWith(
+        "pwa_books_cached",
+        { source: "standalone" },
+      )
+    })
+
     it("shares one in-flight run between concurrent callers", async () => {
       const first = service.preloadAllBooksAndChapters()
       const second = service.preloadAllBooksAndChapters()
@@ -672,6 +693,144 @@ describe("OfflineDataService", () => {
       await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
       httpMock.expectOne("v1/intros").flush([])
       await vi.advanceTimersByTimeAsync(50)
+    })
+
+    // The study panel offers to remove the Bible it downloaded: a retry armed
+    // by a failed introduction would then fetch it all again, unasked.
+    it("does not download again after the stored Bible is removed", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+      databaseService.getAll.mockResolvedValue(mockBooks)
+      void service.preloadAllBooksAndChapters("study")
+      await vi.advanceTimersByTimeAsync(0)
+      httpMock.expectOne("v1/intros").error(new ProgressEvent("error"))
+      await vi.advanceTimersByTimeAsync(0)
+
+      await service.removeStoredBible()
+      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 2)
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectNone("v1/intros")
+    })
+
+    // The Bible removed while a download is under way: whatever it was doing,
+    // nothing it does afterwards may bring the text back.
+    describe("when the stored Bible is removed while a download is under way", () => {
+      // Books stored, introductions failing: the retry that the panel's
+      // download leaves armed, with the removal then on offer.
+      const failIntrosOnce = async () => {
+        vi.useFakeTimers()
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        mockLocalStorage._storage["booksCacheReady"] = "true"
+        mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+        databaseService.getAll.mockResolvedValue(mockBooks)
+        void service.preloadAllBooksAndChapters("study")
+        await vi.advanceTimersByTimeAsync(0)
+        httpMock.expectOne("v1/intros").error(new ProgressEvent("error"))
+        await vi.advanceTimersByTimeAsync(0)
+      }
+      const nothingAsked = () => {
+        httpMock.expectNone("v1/books?withChapters=true")
+        httpMock.expectNone("v1/intros")
+      }
+
+      it("arms no further retry for a retry that is already running", async () => {
+        await failIntrosOnce()
+        await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+        const running = httpMock.expectOne("v1/intros")
+
+        await service.removeStoredBible()
+        running.error(new ProgressEvent("error"))
+        await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS * 4)
+
+        nothingAsked()
+      })
+
+      it("downloads nothing when the retry's timer had already fired", async () => {
+        await failIntrosOnce()
+        let reconnected!: () => void
+        networkService.refresh.mockImplementation(
+          () => new Promise<void>((resolve) => (reconnected = resolve)),
+        )
+        await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+
+        await service.removeStoredBible()
+        reconnected()
+        await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+
+        nothingAsked()
+      })
+
+      it("writes nothing back when the download finishes after the removal", async () => {
+        await failIntrosOnce()
+        await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
+        httpMock.expectOne("v1/intros").flush([{ slug: "reis", name: "REIS" }])
+        await vi.advanceTimersByTimeAsync(0)
+        const intro = httpMock.expectOne("v1/intros/reis")
+
+        await service.removeStoredBible()
+        databaseService.clearAndPutAll.mockClear()
+        intro.flush({ slug: "reis", name: "REIS", introduction: [] })
+        await vi.advanceTimersByTimeAsync(50)
+
+        expect(databaseService.clearAndPutAll).not.toHaveBeenCalled()
+        expect(mockLocalStorage._storage["booksCacheReady"]).toBeUndefined()
+        expect(
+          mockLocalStorage._storage["groupIntrosCacheReady"],
+        ).toBeUndefined()
+      })
+
+      it("drops a write that began before the removal, and its flags", async () => {
+        let release!: (books: Book[]) => void
+        databaseService.getAll.mockReturnValueOnce(
+          new Promise<Book[]>((resolve) => (release = resolve)),
+        )
+        const write = service.setCachedBooks(mockBooks)
+        await service.removeStoredBible()
+        databaseService.clearAndPutAll.mockClear()
+
+        release([])
+        await write
+
+        expect(databaseService.clearAndPutAll).not.toHaveBeenCalled()
+        expect(mockLocalStorage._storage["booksCacheReady"]).toBeUndefined()
+      })
+
+      it("does not keep what a read that began before the removal brings back", async () => {
+        let release!: (books: Book[]) => void
+        databaseService.getAll
+          .mockReturnValueOnce(
+            new Promise<Book[]>((resolve) => (release = resolve)),
+          )
+          .mockResolvedValue([])
+        const read = service.getCachedBooksAsync()
+        // Let it reach IndexedDB: a read that starts after the clear finds
+        // nothing, which is not the race.
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        await service.removeStoredBible()
+
+        release(mockBooks)
+        await read
+
+        expect(await service.getCachedBooksAsync()).toEqual([])
+      })
+
+      it("starts a download of its own when asked again, not joining the old run", async () => {
+        vi.useFakeTimers()
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        databaseService.getAll.mockResolvedValue([])
+        void service.preloadAllBooksAndChapters("study")
+        await vi.advanceTimersByTimeAsync(0)
+        expect(httpMock.match("v1/books?withChapters=true")).toHaveLength(1)
+
+        await service.removeStoredBible()
+        void service.preloadAllBooksAndChapters("study")
+        await vi.advanceTimersByTimeAsync(0)
+
+        expect(httpMock.match("v1/books?withChapters=true")).toHaveLength(1)
+      })
     })
 
     // A caller joining between the retry's arming and the run's end cleared
@@ -1287,6 +1446,53 @@ describe("OfflineDataService", () => {
       expect(
         mockLocalStorage._storage["booksCacheSchemaVersion"],
       ).toBeUndefined()
+    })
+  })
+
+  describe("the stored Bible, to ask about and to remove", () => {
+    it("is stored only once the books have been cached", async () => {
+      expect(await service.isBibleStored()).toBe(false)
+
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+
+      expect(await service.isBibleStored()).toBe(true)
+    })
+
+    // The preload judges readiness from the records when the flag cannot be
+    // kept; asking in the flag's terms made a download that had worked look as
+    // if it had not, and "Citado em" refused to look.
+    it("is judged from the stored books when localStorage is unusable", async () => {
+      const unusable = mockLocalStorage as unknown as Record<string, unknown>
+      unusable["getItem"] = undefined
+      unusable["setItem"] = undefined
+      expect(await service.isBibleStored()).toBe(false)
+
+      await service.setCachedBooks(mockBooks)
+
+      expect(await service.isBibleStored()).toBe(true)
+    })
+
+    it("can be removed, with every flag that vouched for it", async () => {
+      mockLocalStorage._storage["booksCacheReady"] = "true"
+      mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+      mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+
+      await service.removeStoredBible()
+
+      expect(databaseService.clear).toHaveBeenCalledWith("books")
+      expect(await service.isBibleStored()).toBe(false)
+      expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBeUndefined()
+      expect(mockLocalStorage._storage["booksCacheTimestamp"]).toBeUndefined()
+    })
+
+    it("stops serving books it has dropped", async () => {
+      await service.setCachedBooks(mockBooks)
+      expect((await service.getCachedBooksAsync()).length).toBeGreaterThan(0)
+      databaseService.getAll.mockResolvedValue([])
+
+      await service.removeStoredBible()
+
+      expect(await service.getCachedBooksAsync()).toEqual([])
     })
   })
 

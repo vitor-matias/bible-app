@@ -6,7 +6,7 @@ import { provideNoopAnimations } from "@angular/platform-browser/animations"
 import { page } from "vitest/browser"
 import { RIBBON_COLORS } from "./services/bookmark-ribbons.service"
 import { contrastRatio } from "./testing/contrast"
-import { moreContrast } from "./testing/forced-colors"
+import { moreContrast, printMedia } from "./testing/forced-colors"
 
 // Rules in src/styles.css that reach across components.
 describe("global styles", () => {
@@ -836,6 +836,39 @@ describe("global styles", () => {
     it("leaves the look as it was otherwise", () => {
       expect(style(".chapterSelectorButton").boxShadow).toBe("none")
       expect(style("input", "::placeholder").color).not.toBe(textColor())
+    })
+  })
+
+  // The paper is made white to print, and the ink has to follow: the dark
+  // theme's is white, and a page that paints nothing of its own (search, About,
+  // not-found) came out white on white.
+  describe("a page printed from the dark theme", () => {
+    let wasDark: boolean
+
+    beforeEach(() => {
+      wasDark = document.documentElement.classList.contains("dark-theme")
+      // The body fades between themes: read at once, its colour is the old one.
+      document.body.style.transition = "none"
+      document.documentElement.classList.add("dark-theme")
+    })
+
+    afterEach(async () => {
+      await printMedia(false)
+      document.body.style.transition = ""
+      document.documentElement.classList.toggle("dark-theme", wasDark)
+    })
+
+    it("is black ink on white paper", async () => {
+      await printMedia(true)
+
+      expect(getComputedStyle(document.documentElement).backgroundColor).toBe(
+        "rgb(255, 255, 255)",
+      )
+      expect(getComputedStyle(document.body).color).toBe("rgb(0, 0, 0)")
+    })
+
+    it("is left as the theme has it on screen", () => {
+      expect(getComputedStyle(document.body).color).toBe("rgb(255, 255, 255)")
     })
   })
 })

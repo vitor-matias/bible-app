@@ -1,0 +1,256 @@
+/* The toolbar matches the book index and the reader's own. */
+.toolbar-wrapper {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+:host .notes-toolbar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  background-color: var(--cap-brown);
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: 0;
+  padding-right: 0;
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  box-sizing: border-box;
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 8px;
+  box-sizing: border-box;
+  height: 56px;
+}
+
+.toolbar-title {
+  font-family: Roboto, sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  background-color: antiquewhite;
+  color: var(--cap-brown);
+  margin: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: 9999px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.actionButton {
+  background-color: antiquewhite;
+  color: var(--cap-brown);
+  min-width: 48px;
+  height: 40px;
+  padding: 0;
+}
+
+.actionButton mat-icon {
+  color: var(--cap-brown);
+}
+
+.mat-mdc-unelevated-button > .mat-icon {
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.button:not([disabled]) {
+  background-color: antiquewhite;
+  font-size: large;
+}
+
+.backButton {
+  margin-right: 8px;
+}
+
+.notes-page {
+  display: block;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 8px 16px 4rem;
+  box-sizing: border-box;
+  color: var(--text-color);
+  font-family: sans-serif;
+}
+
+.intro {
+  margin: 1rem 0;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--text-color) 80%, transparent);
+}
+
+.warning {
+  margin: 0 0 1rem;
+  padding: 10px 12px;
+  border: 1px solid currentColor;
+  border-left-width: 4px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actions button,
+.danger button {
+  color: var(--text-color);
+}
+
+.status {
+  min-height: 1.5em;
+  margin: 12px 0 0;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0 8px;
+}
+
+.filters label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filters select {
+  min-height: 40px;
+  padding: 0 8px;
+  font: inherit;
+  color: var(--text-color);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--text-color) 40%, transparent);
+  border-radius: 6px;
+}
+
+.count {
+  margin: 8px 0 16px;
+  color: color-mix(in srgb, var(--text-color) 75%, transparent);
+}
+
+.entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.entry {
+  padding: 14px 0;
+  border-top: 1px solid color-mix(in srgb, var(--text-color) 20%, transparent);
+  break-inside: avoid;
+}
+
+.entry-ref {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+}
+
+.entry-ref a {
+  color: inherit;
+}
+
+.entry-mark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+/* The swatch is for the eye; the words beside it are for everyone. */
+.entry-mark .mark-swatch {
+  cursor: default;
+  flex: none;
+}
+
+.entry-quote {
+  margin: 0 0 8px;
+  padding-left: 12px;
+  border-left: 3px solid color-mix(in srgb, var(--text-color) 30%, transparent);
+  font-family: "PT Serif", serif;
+  line-height: 1.5;
+}
+
+.entry-title {
+  margin: 0 0 4px;
+  font-weight: bold;
+}
+
+.entry-text {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.empty {
+  margin: 1.5rem 0;
+  line-height: 1.5;
+}
+
+.danger {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in srgb, var(--text-color) 20%, transparent);
+}
+
+.danger .delete {
+  margin-right: 8px;
+}
+
+.print-title,
+.print-footer {
+  display: none;
+}
+
+@media print {
+  :host {
+    display: block;
+    color: #000;
+    background: #fff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .notes-page {
+    max-width: none;
+    padding: 0;
+    color: #000;
+  }
+
+  .print-title {
+    display: block;
+    margin: 0 0 12px;
+  }
+
+  .print-footer {
+    display: block;
+    margin-top: 24px;
+    font-size: 0.85rem;
+  }
+
+  .entry {
+    border-color: #999;
+  }
+
+  .entry-ref a {
+    text-decoration: none;
+  }
+
+  .entry-quote {
+    border-color: #999;
+  }
+}
