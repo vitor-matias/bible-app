@@ -104,9 +104,8 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     }
     // The pages change size with no window resize too: the apps' bars take
     // another height after a rotation, and as they hide.
-    this.resizeObserver = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect
-      const size = `${width}x${height}`
+    this.resizeObserver = new ResizeObserver(() => {
+      const size = this.size()
       if (this.observedSize !== undefined && size !== this.observedSize) {
         this.onWindowResize()
       }
@@ -118,10 +117,20 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   /**
    * A resize is under way: the layout no longer matches the anchor's page.
    * Read off the pending timer rather than kept as a flag, which a throw in
-   * the restore would leave set, and the anchor never noted again.
+   * the restore would leave set, and the anchor never noted again. Or the
+   * pages changed size and the observer is yet to say so: a layout read
+   * before the next frame sends the browser's clamping scroll ahead of it.
    */
   private get resizing(): boolean {
-    return this.resizeTimeout !== undefined
+    return (
+      this.resizeTimeout !== undefined ||
+      (this.observedSize !== undefined && this.size() !== this.observedSize)
+    )
+  }
+
+  /** The pages' size, "WxH". */
+  private size(): string {
+    return `${this.container.clientWidth}x${this.container.clientHeight}`
   }
 
   private get container(): HTMLElement {

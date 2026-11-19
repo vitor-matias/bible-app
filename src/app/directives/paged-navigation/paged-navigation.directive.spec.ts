@@ -936,6 +936,27 @@ describe("PagedNavigationDirective across a resize", () => {
     }
   })
 
+  // Taller pages are fewer: the browser clamps the scroll back, and a layout
+  // read before the next frame sends that scroll ahead of the observer,
+  // which would note the clamped page's verse as the reader's.
+  it("keeps the verse when the clamp's scroll comes before the observer", async () => {
+    // Halfway: past the end of the text at three times the height.
+    const halfway = Math.floor(container.scrollWidth / 400) * 200
+    container.scrollLeft = halfway
+    await settle()
+    const first = firstVerseOnScreen()
+    expect(first, "a verse starts on the page halfway").toBeDefined()
+    if (!first) return
+
+    host.height.set(300)
+    fixture.detectChanges()
+    expect(container.scrollLeft, "clamped").toBeLessThan(halfway)
+    host.nav.onScroll()
+    await settle()
+
+    expect(startsOnScreen(first), `verse ${first.id} on screen`).toBe(true)
+  })
+
   // A page that one verse fills was found again by where the verse starts:
   // the reader went back to its first page.
   it("keeps the place inside a verse longer than a page", async () => {
