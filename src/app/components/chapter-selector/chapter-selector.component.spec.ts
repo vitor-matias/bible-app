@@ -92,6 +92,24 @@ describe("ChapterSelectorComponent", () => {
     expect(rows[1].querySelector(".number-wrapper")).toBeTruthy()
   })
 
+  // «5 - 2. Jesus Revela a Sua Divindade»: the title's outline number read as
+  // a second chapter number.
+  it("shows the chapter number once, the title without its outline number", () => {
+    fixture.componentRef.setInput("chapters", [
+      { bookId: "JHN", number: 5, title: "2. Jesus Revela a Sua Divindade" },
+      { bookId: "JHN", number: 6, title: "3 Reis. Um título" },
+    ])
+    fixture.detectChanges()
+
+    const rows = [
+      ...fixture.nativeElement.querySelectorAll(".chapterSelectorButton"),
+    ].map((row: HTMLElement) => row.textContent?.replace(/\s+/g, " ").trim())
+    expect(rows).toEqual([
+      "5 - Jesus Revela a Sua Divindade",
+      "6 - 3 Reis. Um título",
+    ])
+  })
+
   // The other half of the deferral: skipping the scroll on the server must not
   // mean skipping it in the browser. Without this the spec above would pass for
   // an implementation that never scrolls at all.
