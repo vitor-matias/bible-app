@@ -190,6 +190,30 @@ which checkout that server runs from: `lsof -p <pid> | grep cwd`.
   with CoreText (`CTFontCreateUIFontForLanguage(.system, 13)`, within 1 pt of the
   simulator).
 
+## Universal Links
+
+Tapping a `https://biblia.capuchinhos.org` link opens the app, which routes it from
+`appUrlOpen` like Android's App Links. Three things have to agree:
+
+- **The site:** `public/.well-known/apple-app-site-association`, served as
+  `application/json`. It has no extension, so nginx needs telling:
+  `location = /.well-known/apple-app-site-association { default_type application/json; }`.
+  Check it with
+  `curl -sI https://biblia.capuchinhos.org/.well-known/apple-app-site-association`, and
+  what devices actually get (Apple's CDN caches it for up to a day) with
+  `curl -s https://app-site-association.cdn-apple.com/a/v1/biblia.capuchinhos.org`.
+- **The App Store profile:** Associated Domains enabled on the `org.capuchinhos.biblia`
+  App ID, in a profile made after that, in `IOS_PROFILE_BASE64`. `sign-ipa.sh` fails the
+  build if the profile doesn't allow it.
+- **The build:** `sign-ipa.sh` grants the entitlement. There is no `App.entitlements`:
+  the archive is built unsigned, and a Debug build (`org.capuchinhos.biblia.dev`) is
+  deliberately left without Universal Links, so it needs no capability on its team.
+
+A device fetches the file when the app is installed or updated, so install an update
+over the existing app to test a change. Deleting the app first isn't needed, and wipes
+its locally stored bookmarks. Links only open the app from a tap in another site or app, not from a link
+within the same domain or one typed into Safari's address bar.
+
 ## Safari and WebKit
 
 - **Block boxes inside the inline verse text are misplaced in CSS columns.** Safari

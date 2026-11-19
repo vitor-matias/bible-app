@@ -1,0 +1,13 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["H98M8CU87M.org.capuchinhos.biblia"],
+        "components": [
+          { "/": "/v1/*", "exclude": true },
+          { "/": "/*" }
+        ]
+      }
+    ]
+  }
+}
