@@ -60,6 +60,13 @@
   --muted: color-mix(in srgb, var(--ink) 60%, transparent);
 }
 
+/* Only the small controls are see-through: the card is solid, its play
+   button too, so nothing behind it shows through its time and slider. */
+.auto-scroll-controls.audio:has(.audio-player),
+.audio-player .floating-nav-button {
+  opacity: 1;
+}
+
 .audio-player {
   position: relative;
   box-sizing: border-box;
