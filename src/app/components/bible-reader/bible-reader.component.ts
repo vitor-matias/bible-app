@@ -61,6 +61,10 @@ import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
+import {
+  FOLLOW_PAUSE_MS,
+  SCROLL_KEYS,
+} from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
@@ -76,20 +80,6 @@ import { VerseComponent } from "../verse/verse.component"
 
 /** How long «A tentar…» shows at least: offline, a retry fails at once, unseen. */
 export const RETRY_FEEDBACK_MS = 1000
-
-/** How long read-along waits after the reader scrolls before following again. */
-export const FOLLOW_PAUSE_MS = 6000
-const SCROLL_KEYS = new Set([
-  "ArrowUp",
-  "ArrowDown",
-  "PageUp",
-  "PageDown",
-  "Home",
-  "End",
-  " ",
-  "ArrowLeft",
-  "ArrowRight",
-])
 
 @Component({
   selector: "bible-reader",
@@ -252,55 +242,32 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private readerMovedAt = 0
 
   /**
-   * The verse +365 reads now: marked, and kept in the middle of the screen
-   * (smoothly, unless motion is reduced), unless the reader moved the text
-   * themselves in the last FOLLOW_PAUSE_MS: they're looking elsewhere, and
-   * following resumes after that. In pages, turned to when it starts on
-   * another one.
+   * The verse +365 reads now: marked. In pages, turned to when it starts on
+   * another page, unless the reader turned pages themselves in the last
+   * FOLLOW_PAUSE_MS. (Scrolling, the control glides the text along itself.)
    */
   onReadingVerse(verse: number | null): void {
     this.readingVerse.set(verse)
-    if (verse === null || Date.now() - this.readerMovedAt < FOLLOW_PAUSE_MS) {
+    if (
+      verse === null ||
+      this.effectiveViewMode !== "paged" ||
+      Date.now() - this.readerMovedAt < FOLLOW_PAUSE_MS
+    ) {
       return
     }
     const element = this.bookBlock?.nativeElement.querySelector(
       `[id="${verse}"]`,
     ) as HTMLElement | null
-    if (element) this.followReading(element)
-  }
-
-  private followReading(verse: HTMLElement): void {
-    const behavior: ScrollBehavior = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches
-      ? "auto"
-      : "smooth"
-    const box = verse.getBoundingClientRect()
-    if (this.effectiveViewMode === "paged") {
-      // Starting on another page: turn to it. A verse that runs on to the
-      // next page spans both columns, so only where it starts counts.
-      if (box.left < 0 || box.left >= window.innerWidth) {
-        this.pagedNav?.scrollToPage(verse, behavior)
-      }
-      return
+    if (!element) return
+    // A verse that runs on to the next page spans both columns: only where
+    // it starts counts.
+    const { left } = element.getBoundingClientRect()
+    if (left < 0 || left >= window.innerWidth) {
+      const reduced = window.matchMedia?.(
+        "(prefers-reduced-motion: reduce)",
+      ).matches
+      this.pagedNav?.scrollToPage(element, reduced ? "auto" : "smooth")
     }
-    const content = this.drawerContentRef?.nativeElement
-    if (!content) return
-    const view = content.getBoundingClientRect()
-    // What the +365 card covers isn't on screen: centre in what's left.
-    const card = document
-      .querySelector(".audio-player")
-      ?.getBoundingClientRect()
-    const coversText = card && card.left < box.right && card.right > box.left
-    const bottom = coversText ? Math.min(view.bottom, card.top) : view.bottom
-    const visible = bottom - view.top
-    // The verse's middle to the middle of the screen; a verse too tall for
-    // that is started near the top instead, so its beginning shows.
-    const offset =
-      box.height > visible * 0.8
-        ? box.top - (view.top + 16)
-        : (box.top + box.bottom) / 2 - (view.top + visible / 2)
-    if (Math.abs(offset) > 2) content.scrollBy({ top: offset, behavior })
   }
 
   @HostListener("wheel")

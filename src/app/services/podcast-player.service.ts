@@ -19,6 +19,21 @@ export interface ChapterEpisode {
 
 const RATES = [0.75, 1, 1.25, 1.5, 2]
 
+/** How long read-along leaves the text alone after the reader moves it. */
+export const FOLLOW_PAUSE_MS = 6000
+/** Keys that move the text: read-along leaves it alone after them. */
+export const SCROLL_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+  " ",
+  "ArrowLeft",
+  "ArrowRight",
+])
+
 /**
  * Where the <audio> loads an episode from. A media fragment makes the browser
  * start at the chapter once the stream loads. (public/app-worker.js keeps the
@@ -196,6 +211,11 @@ export class PodcastPlayerService {
     const within = this.withinChapter(seconds)
     this.audio.currentTime = within
     this.position.set(within)
+  }
+
+  /** Where the stream is right now, finer than position's timeupdates. */
+  now(): number {
+    return this.audio?.currentTime ?? this.position()
   }
 
   pause(): void {

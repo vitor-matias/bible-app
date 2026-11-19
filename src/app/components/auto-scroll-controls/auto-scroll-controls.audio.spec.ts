@@ -573,6 +573,71 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(read.filter((verse) => verse !== null)).toEqual([1, 2, 3])
     })
 
+    describe("glide", () => {
+      let page: HTMLElement
+
+      // A 300px window on three 200px verses; nothing covers it.
+      beforeEach(() => {
+        page = document.createElement("div")
+        page.style.cssText =
+          "position:fixed;top:0;left:0;width:300px;height:300px;overflow:auto"
+        const text = document.createElement("div")
+        for (const number of [1, 2, 3]) {
+          const verse = document.createElement("div")
+          verse.id = String(number)
+          verse.style.height = "200px"
+          text.append(verse)
+        }
+        page.append(
+          text,
+          Object.assign(document.createElement("div"), {
+            style: "height:600px",
+          }),
+        )
+        document.body.append(page)
+        fixture.componentRef.setInput("scrollElement", page)
+        fixture.componentRef.setInput("lineHeightElement", text)
+      })
+      afterEach(() => page.remove())
+
+      const playAt = async (seconds: number) => {
+        await listen([{ ...withVerses, end: 76 }])
+        vi.useFakeTimers({
+          toFake: ["requestAnimationFrame", "cancelAnimationFrame", "Date"],
+        })
+        tap(toggle())
+        audio().currentTime = seconds
+      }
+
+      it("drifts the text so the reading sits mid-screen, a little each frame", async () => {
+        // Half through verse 2 (64 to 70 s): 300px into the text, to sit at 150.
+        await playAt(67)
+        vi.advanceTimersByTime(100)
+        const early = page.scrollTop
+        expect(early).toBeGreaterThan(0)
+        expect(early).toBeLessThan(40)
+        vi.advanceTimersByTime(4000)
+        expect(page.scrollTop).toBeGreaterThan(130)
+        expect(page.scrollTop).toBeLessThanOrEqual(151)
+      })
+
+      it("leaves the text alone for a while after the reader moves it", async () => {
+        await playAt(67)
+        page.dispatchEvent(new WheelEvent("wheel"))
+        vi.advanceTimersByTime(4000)
+        expect(page.scrollTop).toBe(0)
+        vi.advanceTimersByTime(4000)
+        expect(page.scrollTop).toBeGreaterThan(0)
+      })
+
+      it("doesn't glide the pages", async () => {
+        fixture.componentRef.setInput("paged", true)
+        await playAt(67)
+        vi.advanceTimersByTime(2000)
+        expect(page.scrollTop).toBe(0)
+      })
+    })
+
     it("says nothing for a chapter whose episode isn't in the player", async () => {
       await listen([withVerses])
       tap(toggle())

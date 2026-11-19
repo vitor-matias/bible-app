@@ -2085,7 +2085,8 @@ describe("BibleReaderComponent", () => {
       component = fixture.componentInstance
     })
 
-    it("marks the verse +365 reads, follows it, and leaves a reader who scrolled be", () => {
+    // The control glides the text along; the reader only marks the verse.
+    it("marks the verse +365 reads, and only that one", () => {
       fixture.detectChanges()
       component.books = [component.book]
       component.chapter = {
@@ -2106,34 +2107,19 @@ describe("BibleReaderComponent", () => {
       const content = fixture.nativeElement.querySelector(
         "mat-drawer-content",
       ) as HTMLElement
-      const scrollBy = vi
-        .spyOn(content, "scrollBy")
-        .mockImplementation(() => {})
-      // Both verses far below the screen.
-      vi.spyOn(verse(2), "getBoundingClientRect").mockReturnValue(
-        new DOMRect(0, 5000, 300, 40),
-      )
-      vi.spyOn(verse(3), "getBoundingClientRect").mockReturnValue(
-        new DOMRect(0, 6000, 300, 40),
-      )
+      const scrollBy = vi.spyOn(content, "scrollBy")
 
       component.onReadingVerse(2)
       fixture.detectChanges()
       expect(verse(2).classList).toContain("verse-reading")
-      expect(scrollBy).toHaveBeenCalledTimes(1)
-      // Smoothly, its middle to the middle of the reading area.
-      const view = content.getBoundingClientRect()
-      expect(scrollBy).toHaveBeenLastCalledWith({
-        top: 5020 - (view.top + view.height / 2),
-        behavior: "smooth",
-      })
-
-      component.noteReaderMoved()
       component.onReadingVerse(3)
       fixture.detectChanges()
       expect(verse(3).classList).toContain("verse-reading")
       expect(verse(2).classList).not.toContain("verse-reading")
-      expect(scrollBy).toHaveBeenCalledTimes(1)
+      component.onReadingVerse(null)
+      fixture.detectChanges()
+      expect(fixture.nativeElement.querySelector(".verse-reading")).toBeNull()
+      expect(scrollBy).not.toHaveBeenCalled()
     })
 
     it("gets the chapter on screen, not the book coming", () => {

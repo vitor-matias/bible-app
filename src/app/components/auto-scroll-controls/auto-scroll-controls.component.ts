@@ -5,6 +5,7 @@ import {
   Component,
   computed,
   DestroyRef,
+  ElementRef,
   effect,
   inject,
   input,
@@ -25,7 +26,9 @@ import { AutoScrollService } from "../../services/auto-scroll.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import {
   type ChapterEpisode,
+  FOLLOW_PAUSE_MS,
   PodcastPlayerService,
+  SCROLL_KEYS,
 } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 
@@ -35,6 +38,13 @@ import { PreferencesService } from "../../services/preferences.service"
  * above it, which left − enabled there. The nearest steps are 0.03 apart.
  */
 const SPEED_LIMIT_TOLERANCE = 0.001
+
+/**
+ * Read-along's glide: each frame the text moves this share of the way, per
+ * second, toward keeping the reading in the middle. Long, so the text drifts
+ * with the voice rather than stepping verse by verse.
+ */
+const GLIDE_SECONDS = 1.2
 
 /** 63 → "1:03", 3723 → "62:03"; never below "0:00", as lengths not yet known read 0. */
 const clock = (seconds: number): string => {
@@ -140,6 +150,15 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   )
 
   constructor() {
+    // Scrolling, the text glides along with the reading while it plays.
+    effect(() => {
+      const glide =
+        !this.native &&
+        !this.paged() &&
+        this.playingThis() &&
+        !!this.entry()?.verses
+      untracked(() => (glide ? this.startGlide() : this.stopGlide()))
+    })
     effect(() => {
       const verse = this.verseNow()
       untracked(() => this.readingVerse.emit(verse))
@@ -222,6 +241,102 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     return verse
   })
 
+  private readonly host = inject(ElementRef<HTMLElement>)
+  private glideFrame?: number
+  private glideAt?: number
+  /** What the last frames asked of scrollTop and the browser rounded away. */
+  private glideCarry = 0
+  private readerMovedAt = 0
+
+  private startGlide(): void {
+    if (this.glideFrame !== undefined) return
+    this.glideAt = undefined
+    this.glideCarry = 0
+    const reduced = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")
+      .matches
+    const frame = (now: number) => {
+      this.glideFrame = requestAnimationFrame(frame)
+      const seconds =
+        this.glideAt === undefined
+          ? 0
+          : Math.min(0.1, (now - this.glideAt) / 1000)
+      this.glideAt = now
+      this.glide(seconds, reduced)
+    }
+    this.glideFrame = requestAnimationFrame(frame)
+  }
+
+  private stopGlide(): void {
+    if (this.glideFrame !== undefined) cancelAnimationFrame(this.glideFrame)
+    this.glideFrame = undefined
+  }
+
+  /**
+   * Where on screen the reading is: as far through the verse being read
+   * (from its top to its bottom) as the audio is through its time.
+   */
+  private readingPoint(): number | undefined {
+    const entry = this.entry()
+    const verses = entry?.verses
+    const page = this.scrollElement()
+    if (!entry || !verses || !page) return undefined
+    const now = this.player.now()
+    let current = -1
+    while (current + 1 < verses.length && verses[current + 1][1] <= now) {
+      current++
+    }
+    if (current < 0) return undefined
+    const [number, start] = verses[current]
+    const next = verses[current + 1]?.[1] ?? entry.end ?? start
+    const through =
+      next > start ? Math.min(1, (now - start) / (next - start)) : 1
+    const box = page.querySelector(`[id="${number}"]`)?.getBoundingClientRect()
+    return box && box.top + through * box.height
+  }
+
+  /**
+   * One frame of read-along: the text moves a little toward keeping the
+   * reading in the middle of what's on screen (above the card, where it
+   * covers the text), so it drifts up with the voice. With reduced motion
+   * it stays still, and jumps only once the reading nears an edge. Left
+   * alone for FOLLOW_PAUSE_MS after the reader moves the text themselves.
+   */
+  private glide(seconds: number, reduced: boolean): void {
+    if (Date.now() - this.readerMovedAt < FOLLOW_PAUSE_MS) return
+    const page = this.scrollElement()
+    const point = this.readingPoint()
+    if (!page || point === undefined) return
+    const view = page.getBoundingClientRect()
+    const card = this.host.nativeElement
+      .querySelector(".audio-player")
+      ?.getBoundingClientRect()
+    const text = this.lineHeightElement()?.getBoundingClientRect()
+    const covers =
+      card && text && card.left < text.right && card.right > text.left
+    const bottom = covers ? Math.min(view.bottom, card.top) : view.bottom
+    const offset = point - (view.top + bottom) / 2
+    if (reduced) {
+      if (Math.abs(offset) > (bottom - view.top) / 4) page.scrollTop += offset
+      return
+    }
+    const wanted =
+      page.scrollTop +
+      offset * (1 - Math.exp(-seconds / GLIDE_SECONDS)) +
+      this.glideCarry
+    page.scrollTop = wanted
+    // Kept for the next frame, as scrollTop takes whole device pixels.
+    this.glideCarry = wanted - page.scrollTop
+  }
+
+  /** The reader moving the text: read-along stands back for a while. */
+  private noteReaderMoved = () => {
+    this.readerMovedAt = Date.now()
+  }
+
+  private noteReaderKey = (event: KeyboardEvent) => {
+    if (SCROLL_KEYS.has(event.key)) this.noteReaderMoved()
+  }
+
   /** Tells the reader which verse to mark and keep in view. */
   readonly readingVerse = output<number | null>()
 
@@ -249,6 +364,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.followEnd()
+    this.watchReader()
     if (!this.native) return
     this.nativeChrome.actions$
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -262,6 +378,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     // Hidden from the menu, the controls take what they started with them.
+    this.stopGlide()
     this.player.pause()
     this.stopAutoScroll()
     if (this.native) this.nativeChrome.setAutoScroll(null)
@@ -356,6 +473,24 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.destroyRef.onDestroy(() => {
       element.removeEventListener("scroll", update)
       resize?.disconnect()
+    })
+  }
+
+  /** Notes the reader's own wheel, drag and scroll keys, for read-along. */
+  private watchReader(): void {
+    const element = this.scrollElement()
+    if (!element || this.native) return
+    this.ngZone.runOutsideAngular(() => {
+      element.addEventListener("wheel", this.noteReaderMoved, { passive: true })
+      element.addEventListener("touchmove", this.noteReaderMoved, {
+        passive: true,
+      })
+      window.addEventListener("keydown", this.noteReaderKey)
+    })
+    this.destroyRef.onDestroy(() => {
+      element.removeEventListener("wheel", this.noteReaderMoved)
+      element.removeEventListener("touchmove", this.noteReaderMoved)
+      window.removeEventListener("keydown", this.noteReaderKey)
     })
   }
 
