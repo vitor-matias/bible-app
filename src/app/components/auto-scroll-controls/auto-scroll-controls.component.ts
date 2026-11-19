@@ -373,13 +373,18 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     if (Date.now() - this.turnedAt < 1200) return
     const reading = this.reading()
     if (!reading) return
+    // The page is what its container shows: from 768px it is narrower than
+    // the window, and the next page's first column starts inside it.
+    const shown = (
+      reading.verse.closest(".paged-view-container") ?? document.documentElement
+    ).getBoundingClientRect()
     let before = 0
     let here = 0
     let after = 0
     for (const part of Array.from(reading.verse.getClientRects())) {
       if (part.width <= 0 || part.height <= 0) continue
-      if (part.right <= 0) before += part.height
-      else if (part.left >= window.innerWidth) after += part.height
+      if (part.right <= shown.left) before += part.height
+      else if (part.left >= shown.right) after += part.height
       else here += part.height
     }
     if (after === 0) return
@@ -403,7 +408,23 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   private noteReaderKey = (event: KeyboardEvent) => {
-    if (SCROLL_KEYS.has(event.key)) this.noteReaderMoved()
+    // Keys on the card's own controls (Space on play, arrows on the slider),
+    // in a field or over a dialog don't move the text.
+    const target = event.target as HTMLElement | null
+    if (
+      !SCROLL_KEYS.has(event.key) ||
+      this.host.nativeElement.contains(target) ||
+      target?.isContentEditable ||
+      target?.closest("input, textarea, select, .cdk-overlay-container")
+    ) {
+      return
+    }
+    this.noteReaderMoved()
+  }
+
+  /** A press on the scroller itself is its scrollbar: the reader scrolling. */
+  private noteScrollbar = (event: PointerEvent) => {
+    if (event.target === event.currentTarget) this.noteReaderMoved()
   }
 
   /** The ‹ › arrows turn pages and chapters: the reader's own move too. */
@@ -562,8 +583,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       })
       window.addEventListener("keydown", this.noteReaderKey)
       document.addEventListener("pointerdown", this.noteArrowTap)
+      element.addEventListener("pointerdown", this.noteScrollbar)
     })
     this.destroyRef.onDestroy(() => {
+      element.removeEventListener("pointerdown", this.noteScrollbar)
       element.removeEventListener("wheel", this.noteReaderMoved)
       element.removeEventListener("touchmove", this.noteReaderMoved)
       window.removeEventListener("keydown", this.noteReaderKey)

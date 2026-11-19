@@ -644,6 +644,25 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         expect(Math.abs(page.scrollTop - 162.5)).toBeLessThanOrEqual(1.5)
       })
 
+      it("keeps following through keys on the card's own controls", async () => {
+        await playAt(67)
+        toggle()?.dispatchEvent(
+          new KeyboardEvent("keydown", { key: " ", bubbles: true }),
+        )
+        find('input[aria-label="Posição no +365"]')?.dispatchEvent(
+          new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+        )
+        vi.advanceTimersByTime(4000)
+        expect(page.scrollTop).toBeGreaterThan(100)
+      })
+
+      it("stands back when the reader takes the scrollbar", async () => {
+        await playAt(67)
+        page.dispatchEvent(new PointerEvent("pointerdown"))
+        vi.advanceTimersByTime(4000)
+        expect(page.scrollTop).toBe(0)
+      })
+
       describe("in pages", () => {
         let turns: ("next" | HTMLElement)[]
         // Verse 2 as column fragments: `here` px on this page, `after` on the next.
@@ -689,6 +708,28 @@ describe("AutoScrollControlsComponent +365 mode", () => {
           await playAt(64.5)
           vi.advanceTimersByTime(200)
           expect(turns).toEqual([verse])
+        })
+
+        it("counts the page as its container shows it, not the window", async () => {
+          // A 400px-wide page container: a fragment at 450px is the next page.
+          const container = document.createElement("div")
+          container.className = "paged-view-container"
+          container.style.cssText =
+            "position:fixed;left:0;top:0;width:400px;height:10px"
+          const verse = page.querySelector('[id="2"]') as HTMLElement
+          verse.before(container)
+          container.append(verse)
+          vi.spyOn(verse, "getClientRects").mockReturnValue([
+            new DOMRect(10, 0, 200, 100),
+            new DOMRect(450, 0, 200, 100),
+          ] as unknown as DOMRectList)
+          try {
+            await playAt(67.2)
+            vi.advanceTimersByTime(200)
+            expect(turns).toEqual(["next"])
+          } finally {
+            container.remove()
+          }
         })
 
         it("doesn't turn while the verse is all on this page", async () => {

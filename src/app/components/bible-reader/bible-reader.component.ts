@@ -1297,6 +1297,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   toggleAutoScrollControlsVisibility(): void {
     this.showAutoScrollControls = !this.showAutoScrollControls
+    // The control gone, nothing says which verse is read any more.
+    if (!this.showAutoScrollControls) this.readingVerse.set(null)
     this.autoScrollControlsPreference = this.showAutoScrollControls
     this.preferencesService.setAutoScrollControlsVisible(
       this.showAutoScrollControls,
@@ -1315,6 +1317,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     })
 
     this.showAutoScrollControls = this.autoScrollControlsShown()
+    if (!this.showAutoScrollControls) this.readingVerse.set(null)
     this.cdr.markForCheck()
     if (this.viewMode === "paged") this.autoScrollService.stop()
     // The verse being read stays on screen, once the new layout is in.

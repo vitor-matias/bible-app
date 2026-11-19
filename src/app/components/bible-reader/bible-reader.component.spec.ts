@@ -2120,6 +2120,14 @@ describe("BibleReaderComponent", () => {
       fixture.detectChanges()
       expect(fixture.nativeElement.querySelector(".verse-reading")).toBeNull()
       expect(scrollBy).not.toHaveBeenCalled()
+
+      // Hiding the control takes the mark with it.
+      component.showAutoScrollControls = true
+      component.onReadingVerse(2)
+      component.toggleAutoScrollControlsVisibility()
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      expect(fixture.nativeElement.querySelector(".verse-reading")).toBeNull()
     })
 
     it("turns the pages read-along asks for, in pages only", () => {
