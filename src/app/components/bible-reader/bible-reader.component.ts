@@ -61,10 +61,6 @@ import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
-import {
-  FOLLOW_PAUSE_MS,
-  SCROLL_KEYS,
-} from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
@@ -238,54 +234,25 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** The verse +365 is reading, marked and kept in view (read-along). */
   protected readonly readingVerse = signal<number | null>(null)
-  /** When the reader last scrolled or turned a page themselves. */
-  private readerMovedAt = 0
-
-  /**
-   * The verse +365 reads now: marked. In pages, turned to when it starts on
-   * another page, unless the reader turned pages themselves in the last
-   * FOLLOW_PAUSE_MS. (Scrolling, the control glides the text along itself.)
-   */
+  /** The verse +365 reads now, marked (read-along). */
   onReadingVerse(verse: number | null): void {
     this.readingVerse.set(verse)
-    if (
-      verse === null ||
-      this.effectiveViewMode !== "paged" ||
-      Date.now() - this.readerMovedAt < FOLLOW_PAUSE_MS
-    ) {
+  }
+
+  /**
+   * Read-along in pages: the control asks for the next page once the reading
+   * leaves this one, or for the page a verse starts on.
+   */
+  onPageTurn(target: "next" | HTMLElement): void {
+    if (this.effectiveViewMode !== "paged") return
+    if (target === "next") {
+      this.pagedNav?.nextPage()
       return
     }
-    const element = this.bookBlock?.nativeElement.querySelector(
-      `[id="${verse}"]`,
-    ) as HTMLElement | null
-    if (!element) return
-    // A verse that runs on to the next page spans both columns: only where
-    // it starts counts.
-    const { left } = element.getBoundingClientRect()
-    if (left < 0 || left >= window.innerWidth) {
-      const reduced = window.matchMedia?.(
-        "(prefers-reduced-motion: reduce)",
-      ).matches
-      this.pagedNav?.scrollToPage(element, reduced ? "auto" : "smooth")
-    }
-  }
-
-  @HostListener("wheel")
-  @HostListener("touchmove")
-  noteReaderMoved(): void {
-    this.readerMovedAt = Date.now()
-  }
-
-  @HostListener("window:keydown", ["$event"])
-  noteReaderKey(event: KeyboardEvent): void {
-    if (SCROLL_KEYS.has(event.key)) this.noteReaderMoved()
-  }
-
-  @HostListener("pointerdown", ["$event"])
-  notePageTurn(event: PointerEvent): void {
-    // The ‹ › arrows turn pages and chapters; the +365 card is not the text.
-    const target = event.target as Element | null
-    if (target?.closest(".floating-nav-button")) this.noteReaderMoved()
+    const reduced = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches
+    this.pagedNav?.scrollToPage(target, reduced ? "auto" : "smooth")
   }
 
   /** A book's short name, "Génesis", for the +365 card's caption. */

@@ -2122,6 +2122,21 @@ describe("BibleReaderComponent", () => {
       expect(scrollBy).not.toHaveBeenCalled()
     })
 
+    it("turns the pages read-along asks for, in pages only", () => {
+      const pagedNav = { nextPage: vi.fn(), scrollToPage: vi.fn() }
+      Object.defineProperty(component, "pagedNav", { value: pagedNav })
+      const verse = document.createElement("div")
+
+      component.onPageTurn("next")
+      expect(pagedNav.nextPage).not.toHaveBeenCalled()
+
+      component.viewMode = "paged"
+      component.onPageTurn("next")
+      component.onPageTurn(verse)
+      expect(pagedNav.nextPage).toHaveBeenCalledTimes(1)
+      expect(pagedNav.scrollToPage).toHaveBeenCalledWith(verse, "smooth")
+    })
+
     it("gets the chapter on screen, not the book coming", () => {
       fixture.detectChanges()
       component.books = [component.book]

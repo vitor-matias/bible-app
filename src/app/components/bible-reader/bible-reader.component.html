@@ -129,7 +129,7 @@
       <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
         [bookId]="chapter.bookId" [chapter]="chapter.number"
         [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'"
-        (readingVerse)="onReadingVerse($event)">
+        (readingVerse)="onReadingVerse($event)" (pageTurn)="onPageTurn($event)">
       </app-auto-scroll-controls>
       }
       @if (canGoNext) {

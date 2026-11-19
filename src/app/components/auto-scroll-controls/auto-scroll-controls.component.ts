@@ -40,11 +40,13 @@ import { PreferencesService } from "../../services/preferences.service"
 const SPEED_LIMIT_TOLERANCE = 0.001
 
 /**
- * Read-along's glide: each frame the text moves this share of the way, per
- * second, toward keeping the reading in the middle. Long, so the text drifts
- * with the voice rather than stepping verse by verse.
+ * Read-along keeps the verse being read inside the middle READING_AREA of
+ * the screen (what isn't under the card); once it isn't, the text eases up,
+ * closing this share of the distance per second, until the verse's top
+ * touches the area's upper edge.
  */
-const GLIDE_SECONDS = 1.2
+const READING_AREA = 0.75
+const GLIDE_SECONDS = 0.5
 
 /** 63 → "1:03", 3723 → "62:03"; never below "0:00", as lengths not yet known read 0. */
 const clock = (seconds: number): string => {
@@ -150,13 +152,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   )
 
   constructor() {
-    // Scrolling, the text glides along with the reading while it plays.
+    // While it plays, the text follows the reading: eased up when scrolling,
+    // turned page by page when paged.
     effect(() => {
-      const glide =
-        !this.native &&
-        !this.paged() &&
-        this.playingThis() &&
-        !!this.entry()?.verses
+      const glide = !this.native && this.playingThis() && !!this.entry()?.verses
       untracked(() => (glide ? this.startGlide() : this.stopGlide()))
     })
     effect(() => {
@@ -269,13 +268,16 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   private stopGlide(): void {
     if (this.glideFrame !== undefined) cancelAnimationFrame(this.glideFrame)
     this.glideFrame = undefined
+    this.settling = false
   }
 
   /**
-   * Where on screen the reading is: as far through the verse being read
-   * (from its top to its bottom) as the audio is through its time.
+   * The verse being read, where it is on screen, and how far through it the
+   * reading is (as far through its box as the audio is through its time).
    */
-  private readingPoint(): number | undefined {
+  private reading():
+    | { verse: Element; box: DOMRect; point: number; through: number }
+    | undefined {
     const entry = this.entry()
     const verses = entry?.verses
     const page = this.scrollElement()
@@ -290,22 +292,35 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const next = verses[current + 1]?.[1] ?? entry.end ?? start
     const through =
       next > start ? Math.min(1, (now - start) / (next - start)) : 1
-    const box = page.querySelector(`[id="${number}"]`)?.getBoundingClientRect()
-    return box && box.top + through * box.height
+    const verse = page.querySelector(`[id="${number}"]`)
+    if (!verse) return undefined
+    const box = verse.getBoundingClientRect()
+    return { verse, box, point: box.top + through * box.height, through }
   }
 
+  /** Easing the text up toward the reading area's upper edge. */
+  private settling = false
+
   /**
-   * One frame of read-along: the text moves a little toward keeping the
-   * reading in the middle of what's on screen (above the card, where it
-   * covers the text), so it drifts up with the voice. With reduced motion
-   * it stays still, and jumps only once the reading nears an edge. Left
-   * alone for FOLLOW_PAUSE_MS after the reader moves the text themselves.
+   * One frame of read-along. A verse wholly inside the reading area: the
+   * text stays still. Once it isn't, the text eases up until the verse's
+   * top touches the area's upper edge, and rests again. A verse taller than
+   * the area goes by the line being read instead. With reduced motion the
+   * text jumps there. Left alone for FOLLOW_PAUSE_MS after the reader moves
+   * the text themselves.
    */
   private glide(seconds: number, reduced: boolean): void {
-    if (Date.now() - this.readerMovedAt < FOLLOW_PAUSE_MS) return
+    if (Date.now() - this.readerMovedAt < FOLLOW_PAUSE_MS) {
+      this.settling = false
+      return
+    }
+    if (this.paged()) {
+      this.turnPages()
+      return
+    }
     const page = this.scrollElement()
-    const point = this.readingPoint()
-    if (!page || point === undefined) return
+    const reading = this.reading()
+    if (!page || !reading) return
     const view = page.getBoundingClientRect()
     const card = this.host.nativeElement
       .querySelector(".audio-player")
@@ -314,9 +329,24 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const covers =
       card && text && card.left < text.right && card.right > text.left
     const bottom = covers ? Math.min(view.bottom, card.top) : view.bottom
-    const offset = point - (view.top + bottom) / 2
-    if (reduced) {
-      if (Math.abs(offset) > (bottom - view.top) / 4) page.scrollTop += offset
+    const margin = ((bottom - view.top) * (1 - READING_AREA)) / 2
+    const area = { top: view.top + margin, bottom: bottom - margin }
+    const { box, point } = reading
+    const fits = box.height <= area.bottom - area.top
+    // What goes to the upper edge: the verse's top, or the line being read.
+    const lead = fits ? box.top : point
+    if (!this.settling) {
+      const inside = fits
+        ? box.top >= area.top && box.bottom <= area.bottom
+        : point >= area.top && point <= area.bottom
+      if (inside) return
+      this.settling = true
+    }
+    const offset = lead - area.top
+    if (Math.abs(offset) < 1 || reduced) {
+      if (reduced) page.scrollTop += offset
+      this.settling = false
+      this.glideCarry = 0
       return
     }
     const wanted =
@@ -328,6 +358,45 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.glideCarry = wanted - page.scrollTop
   }
 
+  /** Asks the reader for a page: the next one, or the one a verse starts on. */
+  readonly pageTurn = output<"next" | HTMLElement>()
+  private turnedAt = 0
+
+  /**
+   * Read-along in pages. A verse running on to the next page: turned once
+   * the reading is past the share of it on this page (a verse 40% here turns
+   * 40% of the way through its reading). A verse starting on a later page:
+   * turned to at once.
+   */
+  private turnPages(): void {
+    // A turn still sliding moves every column: measure once it's done.
+    if (Date.now() - this.turnedAt < 1200) return
+    const reading = this.reading()
+    if (!reading) return
+    let before = 0
+    let here = 0
+    let after = 0
+    for (const part of Array.from(reading.verse.getClientRects())) {
+      if (part.width <= 0 || part.height <= 0) continue
+      if (part.right <= 0) before += part.height
+      else if (part.left >= window.innerWidth) after += part.height
+      else here += part.height
+    }
+    if (after === 0) return
+    if (here === 0) {
+      if (before === 0) this.turn(reading.verse as HTMLElement)
+      return
+    }
+    if (reading.through >= (before + here) / (before + here + after)) {
+      this.turn("next")
+    }
+  }
+
+  private turn(target: "next" | HTMLElement): void {
+    this.turnedAt = Date.now()
+    this.pageTurn.emit(target)
+  }
+
   /** The reader moving the text: read-along stands back for a while. */
   private noteReaderMoved = () => {
     this.readerMovedAt = Date.now()
@@ -335,6 +404,12 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   private noteReaderKey = (event: KeyboardEvent) => {
     if (SCROLL_KEYS.has(event.key)) this.noteReaderMoved()
+  }
+
+  /** The ‹ › arrows turn pages and chapters: the reader's own move too. */
+  private noteArrowTap = (event: PointerEvent) => {
+    const target = event.target as Element | null
+    if (target?.closest(".floating-nav-button")) this.noteReaderMoved()
   }
 
   /** Tells the reader which verse to mark and keep in view. */
@@ -486,11 +561,13 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         passive: true,
       })
       window.addEventListener("keydown", this.noteReaderKey)
+      document.addEventListener("pointerdown", this.noteArrowTap)
     })
     this.destroyRef.onDestroy(() => {
       element.removeEventListener("wheel", this.noteReaderMoved)
       element.removeEventListener("touchmove", this.noteReaderMoved)
       window.removeEventListener("keydown", this.noteReaderKey)
+      document.removeEventListener("pointerdown", this.noteArrowTap)
     })
   }
 

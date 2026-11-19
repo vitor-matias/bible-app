@@ -609,16 +609,30 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         audio().currentTime = seconds
       }
 
-      it("drifts the text so the reading sits mid-screen, a little each frame", async () => {
-        // Half through verse 2 (64 to 70 s): 300px into the text, to sit at 150.
+      // The reading area: the middle 75% of 300px, from 37.5 to 262.5.
+      it("leaves the text still while the verse is wholly in the reading area", async () => {
+        page.querySelectorAll<HTMLElement>("[id]").forEach((verse) => {
+          verse.style.height = "100px"
+        })
+        // Half through verse 2, at 100 to 200px: inside the area.
+        await playAt(67)
+        vi.advanceTimersByTime(3000)
+        expect(page.scrollTop).toBe(0)
+      })
+
+      it("eases a verse that leaves the area up to its top edge, then rests", async () => {
+        // Verse 2 at 200 to 400px runs out of the area: its top goes to 37.5.
         await playAt(67)
         vi.advanceTimersByTime(100)
         const early = page.scrollTop
         expect(early).toBeGreaterThan(0)
-        expect(early).toBeLessThan(40)
+        expect(early).toBeLessThan(60)
         vi.advanceTimersByTime(4000)
-        expect(page.scrollTop).toBeGreaterThan(130)
-        expect(page.scrollTop).toBeLessThanOrEqual(151)
+        // Whole pixels, and it rests within one of the edge.
+        expect(Math.abs(page.scrollTop - 162.5)).toBeLessThanOrEqual(1.5)
+        const rested = page.scrollTop
+        vi.advanceTimersByTime(2000)
+        expect(page.scrollTop).toBe(rested)
       })
 
       it("leaves the text alone for a while after the reader moves it", async () => {
@@ -626,15 +640,63 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         page.dispatchEvent(new WheelEvent("wheel"))
         vi.advanceTimersByTime(4000)
         expect(page.scrollTop).toBe(0)
-        vi.advanceTimersByTime(4000)
-        expect(page.scrollTop).toBeGreaterThan(0)
+        vi.advanceTimersByTime(6000)
+        expect(Math.abs(page.scrollTop - 162.5)).toBeLessThanOrEqual(1.5)
       })
 
-      it("doesn't glide the pages", async () => {
-        fixture.componentRef.setInput("paged", true)
-        await playAt(67)
-        vi.advanceTimersByTime(2000)
-        expect(page.scrollTop).toBe(0)
+      describe("in pages", () => {
+        let turns: ("next" | HTMLElement)[]
+        // Verse 2 as column fragments: `here` px on this page, `after` on the next.
+        const split = (here: number, after: number) => {
+          const verse = page.querySelector('[id="2"]') as HTMLElement
+          const parts = [
+            new DOMRect(10, 0, 200, here),
+            ...(after
+              ? [new DOMRect(window.innerWidth + 10, 0, 200, after)]
+              : []),
+          ]
+          vi.spyOn(verse, "getClientRects").mockReturnValue(
+            parts as unknown as DOMRectList,
+          )
+          return verse
+        }
+
+        beforeEach(() => {
+          fixture.componentRef.setInput("paged", true)
+          turns = []
+          fixture.componentInstance.pageTurn.subscribe((to) => turns.push(to))
+        })
+
+        it("doesn't glide the pages", async () => {
+          await playAt(67)
+          vi.advanceTimersByTime(2000)
+          expect(page.scrollTop).toBe(0)
+        })
+
+        it("turns once the reading is past the verse's share of this page", async () => {
+          split(100, 100)
+          // Verse 2 reads from 64 to 70: half of it is here, so 67 is the turn.
+          await playAt(66.4)
+          vi.advanceTimersByTime(200)
+          expect(turns).toEqual([])
+          audio().currentTime = 67.2
+          vi.advanceTimersByTime(200)
+          expect(turns).toEqual(["next"])
+        })
+
+        it("turns to a verse that starts on a later page at once", async () => {
+          const verse = split(0, 100)
+          await playAt(64.5)
+          vi.advanceTimersByTime(200)
+          expect(turns).toEqual([verse])
+        })
+
+        it("doesn't turn while the verse is all on this page", async () => {
+          split(200, 0)
+          await playAt(69.9)
+          vi.advanceTimersByTime(500)
+          expect(turns).toEqual([])
+        })
       })
     })
 
