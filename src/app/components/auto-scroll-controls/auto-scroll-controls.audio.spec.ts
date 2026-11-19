@@ -159,6 +159,9 @@ describe("AutoScrollControlsComponent +365 mode", () => {
 
     tap(toggle())
     const stream = audio()
+    Object.defineProperty(stream, "readyState", {
+      value: HTMLMediaElement.HAVE_METADATA,
+    })
     stream.currentTime = 100
     tap(byLabel("Avançar 10 segundos"))
     expect(stream.currentTime).toBe(110)
@@ -251,5 +254,39 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     await fixture.whenStable()
     fixture.detectChanges()
     expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+  })
+
+  it("resumes, not restarts, when paused while the stream still loads", async () => {
+    let reject: (error: unknown) => void = () => {}
+    play.mockImplementation(function (this: HTMLMediaElement) {
+      this.dispatchEvent(new Event("play"))
+      return new Promise<void>((_, no) => {
+        reject = no
+      })
+    })
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      reject(new DOMException("", "AbortError"))
+      this.dispatchEvent(new Event("pause"))
+    })
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    tap(toggle())
+    await fixture.whenStable()
+    fixture.detectChanges()
+    expect(byLabel("Avançar 10 segundos")?.disabled).toBe(false)
+
+    stream.src = "about:blank"
+    tap(toggle())
+    expect(stream.src).toBe("about:blank")
+  })
+
+  it("skips from the chapter's start while the stream still loads", async () => {
+    await listen()
+    tap(toggle())
+    tap(byLabel("Avançar 10 segundos"))
+    expect(audio().currentTime).toBe(66.5)
   })
 })

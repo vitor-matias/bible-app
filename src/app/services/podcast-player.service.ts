@@ -85,8 +85,15 @@ export class PodcastPlayerService {
   /** Moves the playing episode back (negative) or forward, in seconds. */
   skip(seconds: number): void {
     const audio = this.audio
-    if (!audio || !this.current()) return
-    audio.currentTime = Math.max(0, audio.currentTime + seconds)
+    const current = this.current()
+    if (!audio || !current) return
+    // Before the stream loads, currentTime reads 0, not the chapter's start
+    // its fragment will seek to; what is written here then wins over that.
+    const from =
+      audio.readyState >= HTMLMediaElement.HAVE_METADATA
+        ? audio.currentTime
+        : (current.start ?? 0)
+    audio.currentTime = Math.max(0, from + seconds)
   }
 
   readonly canSlower = () => this.rate() > RATES[0]
@@ -109,9 +116,12 @@ export class PodcastPlayerService {
   }
 
   private play(audio: HTMLAudioElement, episode: ChapterEpisode): void {
-    audio.play().catch(() => {
-      // Only this entry's failure: switching streams aborts the last play().
-      if (this.isCurrent(episode)) this.forget()
+    audio.play().catch((error: unknown) => {
+      // A pause, or a new stream, aborts a play() still loading: that is no
+      // failure (a broken load fires "error"). Nor is another entry's.
+      const aborted =
+        error instanceof DOMException && error.name === "AbortError"
+      if (!aborted && this.isCurrent(episode)) this.forget()
     })
   }
 

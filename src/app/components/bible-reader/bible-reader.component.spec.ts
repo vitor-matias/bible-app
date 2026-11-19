@@ -2076,6 +2076,36 @@ describe("BibleReaderComponent", () => {
     expect(main[0].querySelector(".bookBlock")).not.toBeNull()
   })
 
+  // The book changes as soon as the route does, the chapter only once it loads.
+  describe("the floating control", () => {
+    beforeEach(async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ imports: [MatSidenavModule] })
+      fixture = TestBed.createComponent(BibleReaderComponent)
+      component = fixture.componentInstance
+    })
+
+    it("gets the chapter on screen, not the book coming", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.showAutoScrollControls = true
+      component.chapter = { bookId: "gen", number: 3, verses: [] } as Chapter
+      component.chapterNumber = 3
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      component.book = { ...component.book, id: "exo" } as Book
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+
+      const controls = fixture.nativeElement.querySelector(
+        "app-auto-scroll-controls",
+      ) as { bookId?: string; chapter?: number } | null
+      expect(controls).not.toBeNull()
+      expect(controls?.bookId).toBe("gen")
+      expect(controls?.chapter).toBe(3)
+    })
+  })
+
   describe("Drawer Actions", () => {
     beforeEach(() => {
       fixture.detectChanges()
