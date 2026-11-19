@@ -361,10 +361,44 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     fixture.detectChanges()
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
 
+    // Played on with no timeupdate yet, as between two of them.
+    stream.currentTime = 280.79
     await vi.advanceTimersByTimeAsync(100)
     fixture.detectChanges()
     expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
     expect(stream.currentTime).toBe(280.8)
+  })
+
+  it("plays the rest of the chapter when the stream stalls near its end", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    vi.useFakeTimers()
+    stream.currentTime = 280.6
+    stream.dispatchEvent(new Event("timeupdate"))
+    // Stalled: the clock runs, the stream doesn't.
+    await vi.advanceTimersByTimeAsync(400)
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    expect(stream.currentTime).toBe(280.6)
+
+    stream.currentTime = 280.79
+    await vi.advanceTimersByTimeAsync(400)
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+    expect(stream.currentTime).toBe(280.8)
+  })
+
+  it("keeps the card, disabled, while the next chapter's episode is looked up", async () => {
+    await listen()
+    render("exo", 6)
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+    expect(toggle()?.disabled).toBe(true)
+    expect(find(".audio-caption")?.textContent?.trim()).toBe("+365")
+
+    await answer([genesis6], 6)
+    expect(toggle()?.disabled).toBe(false)
+    expect(find(".audio-caption")?.textContent?.trim()).toBe("+365 · Dia 3")
   })
 
   it("keeps back and forward inside the chapter", async () => {

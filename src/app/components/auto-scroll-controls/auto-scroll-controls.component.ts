@@ -81,9 +81,15 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   /** What «Ouvir» controls: the earliest +365 episode that reads the chapter. */
   protected readonly entry = computed(() => this.episodes.value()?.[0])
 
-  /** Playing +365 rather than scrolling: only with an episode to play. */
+  /**
+   * Playing +365 rather than scrolling: with an episode to play, or while
+   * the next chapter's is still being looked up (the card waits, disabled,
+   * rather than flashing the scroll buttons for the round trip).
+   */
   protected readonly audioMode = computed(
-    () => this.player.mode() === "audio" && !!this.entry(),
+    () =>
+      this.player.mode() === "audio" &&
+      (!!this.entry() || this.episodes.isLoading()),
   )
 
   protected readonly playingThis = computed(() => {

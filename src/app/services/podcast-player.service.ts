@@ -148,6 +148,12 @@ export class PodcastPlayerService {
     this.clearEndTimer()
     const end = this.current()?.end
     if (end == null) return
+    // Short of the end (the stream stalled, or the timer ran early): time the
+    // rest again rather than cut it off.
+    if (audio.currentTime < end - 0.02) {
+      this.guardChapter(audio)
+      return
+    }
     audio.pause()
     audio.currentTime = end
     this.position.set(end)
