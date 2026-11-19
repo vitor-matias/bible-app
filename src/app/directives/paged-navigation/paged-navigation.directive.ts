@@ -91,6 +91,29 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private anchor?: PageAnchor
   private anchorTimeout?: number
   private readonly platformId = inject(PLATFORM_ID)
+  private resizeObserver?: ResizeObserver
+  /** The pages' size as last seen, "WxH". */
+  private observedSize?: string
+
+  constructor() {
+    if (
+      !isPlatformBrowser(this.platformId) ||
+      typeof ResizeObserver === "undefined"
+    ) {
+      return
+    }
+    // The pages change size with no window resize too: the apps' bars take
+    // another height after a rotation, and as they hide.
+    this.resizeObserver = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      const size = `${width}x${height}`
+      if (this.observedSize !== undefined && size !== this.observedSize) {
+        this.onWindowResize()
+      }
+      this.observedSize = size
+    })
+    this.resizeObserver.observe(this.container)
+  }
 
   /**
    * A resize is under way: the layout no longer matches the anchor's page.
@@ -140,6 +163,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     clearTimeout(this.anchorTimeout)
     if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
     this.mutationObserver?.disconnect()
+    this.resizeObserver?.disconnect()
     this.drag = undefined
     this.removeSpacer()
   }
