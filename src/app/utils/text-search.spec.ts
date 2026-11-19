@@ -135,7 +135,21 @@ describe("text search", () => {
         "Senhor",
         "senhora",
       ])
-      expect(marked("o senhorio da terra", "senhor")).toEqual([])
+      expect(marked("Exterminei os amorreus, que eram altos", "amor")).toEqual([
+        "amor",
+      ])
+    })
+
+    // Searching runs on a pause in typing: «miseric» found verses, and their
+    // words only began with it.
+    it("the start of words for a query typed halfway", () => {
+      expect(marked("Tende misericórdia de mim", "miseric")).toEqual([
+        "miseric",
+      ])
+      expect(marked("Abraão e Sara, em Jerusalém", "abra jerusal")).toEqual([
+        "Abra",
+        "Jerusal",
+      ])
     })
 
     it("each word, not the whole phrase", () => {

@@ -91,9 +91,12 @@ export function indexOfWord(folded: string, word: string, from = 0): number {
  * `text` split into runs, the words of the query marked whole, accents and
  * case aside, and their plurals and feminines with them ("pai" marks "pais",
  * "senhor" "senhores"), but not longer words that merely begin with them:
- * "amor" left "amor" marked inside "amorreus". Words of two letters ("de",
- * "os") are marked only when the query has no longer ones: they hide inside
- * most words.
+ * "amor" left "amor" marked inside "amorreus". Where a word of the query
+ * stands nowhere whole, the starts of words it matched are marked instead:
+ * the search matches by word start, so a query typed halfway ("miseric") or
+ * a verse with only "amorreus" never shows without a mark. Words of two
+ * letters ("de", "os") are marked only when the query has no longer ones:
+ * they hide inside most words.
  */
 export function highlightWords(text: string, query: string): TextSegment[] {
   const words = searchWords(query)
@@ -105,6 +108,8 @@ export function highlightWords(text: string, query: string): TextSegment[] {
   const { folded, origin } = foldWithOrigin(text)
   const ranges: [number, number][] = []
   for (const word of marked) {
+    const whole: [number, number][] = []
+    const starts: [number, number][] = []
     for (
       let at = indexOfWord(folded, word);
       at !== -1;
@@ -113,8 +118,10 @@ export function highlightWords(text: string, query: string): TextSegment[] {
       const end =
         at + (/^[\p{L}\p{N}]*/u.exec(folded.slice(at))?.[0].length ?? 0)
       if (/^(s|es|a|as|os)?$/.test(folded.slice(at + word.length, end)))
-        ranges.push([origin[at], origin[end]])
+        whole.push([origin[at], origin[end]])
+      starts.push([origin[at], origin[at + word.length]])
     }
+    ranges.push(...(whole.length ? whole : starts))
   }
   if (!ranges.length) return [{ text, highlight: false }]
 
