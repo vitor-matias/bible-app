@@ -50,7 +50,9 @@
     right: calc(16px + var(--app-inset-right));
   }
 }
-/* «Ouvir»: one frosted card, like the iOS app's glass bars. */
+/* «Ouvir»: one frosted card, like the iOS app's glass bars. Its height is
+   --audio-card-height (styles.css), which also sets the room the reader keeps
+   clear under it: the rows below add up to exactly that. */
 .auto-scroll-controls.audio {
   opacity: 1;
 }
@@ -59,9 +61,12 @@
   --glass: color-mix(in srgb, var(--card-background) 88%, transparent);
   --muted: color-mix(in srgb, var(--text-color) 58%, transparent);
   box-sizing: border-box;
-  width: min(340px, calc(100vw - 32px));
-  padding: 10px 14px 6px;
-  border-radius: 22px;
+  display: grid;
+  grid-template-rows: 14px 32px 1fr;
+  width: min(360px, calc(100vw - 16px));
+  height: var(--audio-card-height);
+  padding: 8px 10px 6px;
+  border-radius: 20px;
   border: 1px solid color-mix(in srgb, var(--text-color) 10%, transparent);
   background-color: var(--glass);
   backdrop-filter: blur(20px) saturate(1.6);
@@ -81,16 +86,42 @@
 }
 
 .audio-caption {
+  overflow: hidden;
   font-size: 12px;
   font-weight: 500;
+  line-height: 14px;
   letter-spacing: 0.02em;
   color: var(--muted);
   text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Elapsed, the slider, what's left: one line, as in a phone's media player. */
+.audio-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.audio-time {
+  flex: none;
+  min-width: 34px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.audio-time:last-child {
+  text-align: end;
 }
 
 .audio-position {
-  display: block;
-  margin: 0 -8px;
+  flex: 1;
+  min-width: 0;
+  /* Material draws it 48px tall: overlap the rows around it, not push them. */
+  margin: -7px 0;
   --mat-slider-active-track-color: var(--text-color);
   --mat-slider-inactive-track-color: var(--text-color);
   --mat-slider-inactive-track-opacity: 0.18;
@@ -109,20 +140,12 @@
   --mat-slider-handle-width: 14px;
 }
 
-.audio-times {
-  display: flex;
-  justify-content: space-between;
-  margin-top: -14px;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--muted);
-}
-
 .audio-buttons {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  margin-top: 2px;
+  /* Material's icon buttons, a size down: six of them fit a 320px screen. */
+  --mat-icon-button-state-layer-size: 40px;
 }
 
 .audio-buttons .mat-icon {
@@ -140,7 +163,7 @@
 .audio-transport {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px;
 }
 
 .audio-rate {
@@ -153,17 +176,32 @@
   --mat-fab-container-color: var(--text-color);
   --mat-fab-foreground-color: var(--background-color);
   --mat-fab-container-shape: 50%;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  width: 52px;
-  height: 52px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
 }
 
 .audio-player .audio-toggle .mat-icon {
   /* Solid ▶ and ❚❚: the outlined set draws them hollow. */
   font-variation-settings: "FILL" 1;
   color: var(--background-color);
-  font-size: 30px;
-  width: 30px;
-  height: 30px;
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+}
+
+/* Narrowest phones (320px): a little less air between the controls. */
+@media (max-width: 359px) {
+  .audio-player {
+    padding-inline: 6px;
+  }
+
+  .audio-buttons {
+    --mat-icon-button-state-layer-size: 36px;
+  }
+
+  .audio-transport {
+    gap: 0;
+  }
 }

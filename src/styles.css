@@ -482,13 +482,18 @@ bible-reader .books-loading {
   }
 }
 
-/* The «Ouvir» card (auto-scroll-controls.component.css) is about 133px
-   tall, 16px up on a phone and 24px elsewhere. The text keeps 165px clear
-   under it in both views: past the last line when scrolling, off the bottom
-   of the columns when paged. On a phone the ‹ › arrows, and a toast above
-   them, go over it. */
+/* The «Ouvir» card (auto-scroll-controls.component.css) is
+   --audio-card-height tall, 16px up on a phone and 24px elsewhere. While it
+   shows, everything below keeps clear of it, from that one height: the text
+   (room after the last line when scrolling, shorter columns when paged), the
+   pages' copyright line just above it, and on a phone the ‹ › arrows and a
+   toast above them. */
+:root {
+  --audio-card-height: 106px;
+}
+
 body:has(.audio-player) {
-  --audio-card-room: calc(165px + var(--app-inset-bottom));
+  --audio-card-room: calc(var(--audio-card-height) + 32px + var(--app-inset-bottom));
 }
 
 body:has(.audio-player) .mat-drawer-content:not(:has(.paged-view-container)) {
@@ -502,22 +507,20 @@ body:has(.audio-player) .paged-view-container {
   );
 }
 
-/* The pages' fixed copyright line keeps the room the columns leave it, now
-   just above the card instead of under it. */
 body:has(.audio-player) .fixed-footer {
-  bottom: calc(151px + var(--app-inset-bottom));
+  bottom: calc(var(--audio-card-height) + 18px + var(--app-inset-bottom));
 }
 
 @media (max-width: 768px) {
   body:has(.audio-player)
     .floating-nav-button:is(.prev-chapter, .next-chapter) {
-    bottom: calc(157px + var(--app-inset-bottom));
+    bottom: calc(var(--audio-card-height) + 24px + var(--app-inset-bottom));
   }
 
   body:not(.native-chrome):has(.audio-player)
     .cdk-overlay-pane
     .mat-mdc-snack-bar-container {
-    margin-bottom: calc(213px + var(--app-inset-bottom));
+    margin-bottom: calc(var(--audio-card-height) + 80px + var(--app-inset-bottom));
   }
 }
 

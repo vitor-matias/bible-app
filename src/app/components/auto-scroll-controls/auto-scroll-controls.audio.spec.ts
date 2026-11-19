@@ -439,6 +439,27 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
   })
 
+  // The reader keeps --audio-card-height clear under the card (styles.css):
+  // its rows must fit that height, or the text's last lines go under them.
+  it("fits its rows inside --audio-card-height", async () => {
+    await listen()
+    const card = find(".audio-player") as HTMLElement
+    const height = Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue(
+        "--audio-card-height",
+      ),
+    )
+    const box = card.getBoundingClientRect()
+    expect(box.height).toBe(height)
+    for (const part of card.querySelectorAll<HTMLElement>(
+      "button, .audio-caption, .audio-time",
+    )) {
+      const inner = part.getBoundingClientRect()
+      expect(inner.top).toBeGreaterThanOrEqual(box.top)
+      expect(inner.bottom).toBeLessThanOrEqual(box.bottom)
+    }
+  })
+
   describe("in the paged view", () => {
     beforeEach(() => fixture.componentRef.setInput("paged", true))
 
