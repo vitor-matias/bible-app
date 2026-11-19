@@ -60,6 +60,8 @@ const GLIDE_MAX_SPEED = 45
 const GLIDE_ACCEL = 45
 /** The slowest it goes on the way in, so the last pixels don't creep. */
 const GLIDE_MIN_SPEED = 8
+/** How long the text rests after landing before another ease may start. */
+const GLIDE_REST_MS = 3000
 
 /** 63 → "1:03", 3723 → "62:03"; never below "0:00", as lengths not yet known read 0. */
 const clock = (seconds: number): string => {
@@ -285,6 +287,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     if (this.glideFrame !== undefined) cancelAnimationFrame(this.glideFrame)
     this.glideFrame = undefined
     this.settling = false
+    this.landingAt = undefined
   }
 
   /**
@@ -316,6 +319,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   /** Easing the text up toward the reading area's upper edge. */
   private settling = false
+  /** Where the text lands once its slowdown has begun (a scrollTop). */
+  private landingAt?: number
+  /** When it last came to rest, to rest a while before setting off again. */
+  private landedAt = 0
 
   /**
    * One frame of read-along. A verse wholly inside the reading area: the
@@ -328,6 +335,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   private glide(seconds: number, reduced: boolean): void {
     if (Date.now() - this.readerMovedAt < FOLLOW_PAUSE_MS) {
       this.settling = false
+      this.landingAt = undefined
       return
     }
     if (this.paged()) {
@@ -357,26 +365,42 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     // What goes to the upper edge: the verse's top, or the line being read.
     const lead = fits ? box.top : point
     if (!this.settling) {
+      // Rested a while after landing before it may set off again.
+      if (Date.now() - this.landedAt < GLIDE_REST_MS) return
       const inside = fits
         ? box.top >= area.top && box.bottom <= area.bottom
         : point >= area.top && point <= area.bottom
       if (inside) return
       this.settling = true
     }
-    const offset = lead - area.top
+    // Landing, it goes where it was headed, whatever the reading does since.
+    const offset =
+      this.landingAt === undefined
+        ? lead - area.top
+        : this.landingAt - page.scrollTop
     if (Math.abs(offset) < 1 || reduced) {
       if (reduced) page.scrollTop += offset
       this.settling = false
+      this.landingAt = undefined
+      this.landedAt = Date.now()
       this.glideCarry = 0
       this.glideSpeed = 0
       return
     }
-    const aim =
+    let aim =
       Math.sign(offset) *
       Math.min(
         Math.max(Math.abs(offset) / GLIDE_SECONDS, GLIDE_MIN_SPEED),
         GLIDE_MAX_SPEED,
       )
+    if (this.landingAt !== undefined) {
+      // Slowing down only: never faster than it goes now.
+      aim =
+        Math.sign(offset) * Math.min(Math.abs(aim), Math.abs(this.glideSpeed))
+    } else if (Math.abs(aim) < Math.abs(this.glideSpeed)) {
+      // The slowdown begins: from here it lands, on this spot.
+      this.landingAt = page.scrollTop + offset
+    }
     const change = GLIDE_ACCEL * seconds
     this.glideSpeed += Math.min(
       change,

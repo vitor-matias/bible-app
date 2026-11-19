@@ -640,6 +640,31 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         expect(page.scrollTop).toBe(rested)
       })
 
+      it("once slowing down, lands where it was headed and rests, whatever the reading does", async () => {
+        await playAt(67)
+        // Into its slowdown, 45px short of 162.5.
+        vi.advanceTimersByTime(3600)
+        const a = page.scrollTop
+        vi.advanceTimersByTime(250)
+        const before = page.scrollTop - a
+        // The reading moves on to verse 3, 200px further down.
+        audio().currentTime = 71
+        vi.advanceTimersByTime(250)
+        const after = page.scrollTop - (a + before)
+        expect(after).toBeLessThanOrEqual(before + 1)
+        // It lands where it was headed: still from there, half a second on.
+        let landed = Number.NaN
+        for (let waited = 0; waited < 6000; waited += 500) {
+          landed = page.scrollTop
+          vi.advanceTimersByTime(500)
+          if (page.scrollTop === landed) break
+        }
+        expect(Math.abs(landed - 162.5)).toBeLessThanOrEqual(1.5)
+        // Then still for a while (3 s), though verse 3 runs out of the area.
+        vi.advanceTimersByTime(2000)
+        expect(page.scrollTop).toBe(landed)
+      })
+
       it("leaves the text alone for a while after the reader moves it", async () => {
         await playAt(67)
         page.dispatchEvent(new WheelEvent("wheel"))
