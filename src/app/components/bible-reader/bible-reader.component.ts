@@ -60,8 +60,10 @@ import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { PwaInstallService } from "../../services/pwa-install.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
+import { isMobileDevice } from "../../utils/mobile-device"
 import { introductionTitle, passageLabel } from "../../utils/passage-label"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
@@ -71,6 +73,22 @@ import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.c
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { HeaderComponent } from "../header/header.component"
 import { VerseComponent } from "../verse/verse.component"
+import { endOfBookLabel } from "../verse-cards/verse-cards"
+import { VerseCardsComponent } from "../verse-cards/verse-cards.component"
+
+/**
+ * In the card view every verse has a resting position of its own: the top of
+ * its card. Aiming a deep link there, rather than centring the verse's text,
+ * lands the scroller exactly on a snap point instead of between two — where
+ * mandatory snapping settles on whichever is nearer, which can be the next
+ * verse — and shows a verse taller than the screen from its first line.
+ *
+ * A jump rather than the smooth scroll the running text gets: gliding there
+ * would flick through every full-screen verse on the way.
+ */
+const scrollCardIntoView = (element: HTMLElement): void => {
+  ;(element.closest("article") ?? element).scrollIntoView({ block: "start" })
+}
 
 /** How long «A tentar…» shows at least: offline, a retry fails at once, unseen. */
 export const RETRY_FEEDBACK_MS = 1000
@@ -98,6 +116,7 @@ export const RETRY_FEEDBACK_MS = 1000
     AutoScrollControlsComponent,
     BookIntroComponent,
     RouterLink,
+    VerseCardsComponent,
   ],
 })
 export class BibleReaderComponent implements OnInit, OnDestroy {
@@ -112,6 +131,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private analyticsService = inject(AnalyticsService)
   private networkService = inject(NetworkService)
   private seoService = inject(SeoService)
+  private pwaInstallService = inject(PwaInstallService)
   private indexState = inject(PastoralIndexState)
 
   /**
@@ -162,7 +182,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     return (
       this.chapterCards &&
       !!this.chapter &&
-      this.effectiveViewMode === "scrolling"
+      this.effectiveViewMode === "scrolling" &&
+      // The card view has stops of its own; these would be extra snap items.
+      !this.showCards
     )
   }
   private toast = inject(ToastService)
@@ -238,6 +260,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   showAutoScrollControls = false
   private autoScrollControlsPreference = false
   viewMode: "scrolling" | "paged" = "scrolling"
+  /** The reader turned on BibleScroll, the experimental one-verse-per-card view. */
+  cardsView = false
+  private isMobile = false
 
   isNavigatingForwards = false
   isNavigatingBackwards = false
@@ -256,7 +281,53 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   isLastPage = false
 
   get effectiveViewMode(): "scrolling" | "paged" {
-    return this.isPage ? "scrolling" : this.viewMode
+    // The cards ride on the vertical scroller, so they displace paged columns.
+    return this.isPage || this.showCards ? "scrolling" : this.viewMode
+  }
+
+  /**
+   * Where the card view can show at all: it is built around thumb-flicking a
+   * phone, and it deals out verses — which the app's own pages (About, the
+   * index) and an introduction (prose, not verses) do not have.
+   */
+  get cardsViewAvailable(): boolean {
+    return this.isMobile && !!this.book && !this.isPage && !this.isIntroChapter
+  }
+
+  /**
+   * What lies past the last verse, for the card view's closing stop: scrolling
+   * onto it moves on to that chapter. Nothing past the last chapter of a book.
+   */
+  get nextChapterLabel(): string | undefined {
+    return this.book && this.chapterNumber < this.book.chapterCount
+      ? passageLabel(this.book, this.chapterNumber + 1)
+      : undefined
+  }
+
+  /**
+   * The same, the other way: scrolling up past the first verse goes back a
+   * chapter. It stops at chapter 1 rather than running on into the
+   * introduction, which is prose and would drop the reader out of the cards.
+   */
+  get previousChapterLabel(): string | undefined {
+    return this.book && this.chapterNumber > 1
+      ? passageLabel(this.book, this.chapterNumber - 1)
+      : undefined
+  }
+
+  /** Closes the book under the last verse of its last chapter. */
+  get endOfBookLabel(): string | undefined {
+    return this.book && this.chapterNumber === this.book.chapterCount
+      ? endOfBookLabel(this.book)
+      : undefined
+  }
+
+  /**
+   * The preference survives where the view cannot show (a desktop, an
+   * introduction) and simply takes effect again where it can.
+   */
+  get showCards(): boolean {
+    return this.cardsView && this.cardsViewAvailable
   }
 
   /** Whether this book has an introduction to read, loaded or not yet fetched. */
@@ -331,6 +402,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     }
 
     this.viewMode = this.preferencesService.getViewMode()
+    this.cardsView = this.preferencesService.getCardsView()
+    this.isMobile = isMobileDevice(this.pwaInstallService)
 
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
@@ -1112,10 +1185,19 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges()
 
     if (verseStart) {
+      // Nothing scrolls to a verse the chapter has no card for (a link past
+      // its last verse): the view would stay on the leading stop.
+      if (this.showCards) this.restOnCard("first")
       this.scrollToVerse(verseStart, verseEnd, highlight)
-    } else if (!alreadyShown) {
+    } else if (this.showCards || !alreadyShown) {
+      // The card view places itself — on the hydrated first page too, whose
+      // prerendered text the cards replace — and keeps the scroller away from
+      // the service: its smooth scroll to the very top would run back through
+      // every card of the new chapter and come to rest on the leading stop,
+      // which asks for the chapter before this one.
+      if (this.showCards) this.restOnCard(startAtBottom ? "last" : "first")
       this.animationService.scrollToTop(
-        this.drawerContent?.nativeElement,
+        this.showCards ? undefined : this.drawerContent?.nativeElement,
         this.bookContainer?.nativeElement,
         this.effectiveViewMode,
         startAtBottom,
@@ -1201,7 +1283,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       false,
       this.effectiveViewMode === "paged" && pagedNav
         ? (element) => pagedNav.scrollToPage(element)
-        : undefined,
+        : this.showCards
+          ? scrollCardIntoView
+          : undefined,
     )
   }
 
@@ -1336,6 +1420,58 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       verses.find(startShowing) ??
       verses.find((verse) => Array.from(verse.getClientRects()).some(showing))
     )
+  }
+
+  onToggleCardsView(): void {
+    this.cardsView = !this.cardsView
+    this.preferencesService.setCardsView(this.cardsView)
+
+    void this.analyticsService.track("biblescroll_toggle", {
+      enabled: this.cardsView,
+      book: this.book?.id,
+      chapter: this.chapterNumber,
+    })
+
+    // Auto-scroll would fight the snapping, one verse per swipe.
+    this.autoScrollService.stop()
+    // detectChanges rather than markForCheck: the scroller below has to be
+    // measured against the layout it is switching to.
+    this.cdr.detectChanges()
+    // Either layout starts from its beginning: a scroll offset means nothing
+    // once the content under it has been replaced.
+    if (this.showCards) {
+      this.restOnCard("first")
+    } else {
+      this.drawerContent?.nativeElement.scrollTo({ top: 0 })
+    }
+  }
+
+  /**
+   * Rests the card view on the chapter's first verse — or its last, when the
+   * reader came to it backwards, so that reading on upwards is continuous.
+   * Never on scroll offset 0: from chapter 2 on that is the leading stop, and
+   * resting there goes back a chapter. Instant and synchronous on purpose: it
+   * has to be in place before the stops' observers take their first reading.
+   */
+  private restOnCard(edge: "first" | "last"): void {
+    const cards = this.bookBlock?.nativeElement.querySelectorAll("article")
+    const card = edge === "first" ? cards?.[0] : cards?.[cards.length - 1]
+
+    // A touch fling still in flight would carry on to the offset it was
+    // heading for in the previous chapter, straight over this placement. A
+    // scroller that cannot scroll has its animations cancelled, but only if
+    // the compositor gets to see it that way — hence the two frames.
+    const scroller = this.drawerContent?.nativeElement
+    if (scroller && isPlatformBrowser(this.platformId)) {
+      scroller.style.overflowY = "hidden"
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          scroller.style.overflowY = ""
+        }),
+      )
+    }
+
+    card?.scrollIntoView({ block: "start" })
   }
 
   @HostListener("window:keydown", ["$event"])

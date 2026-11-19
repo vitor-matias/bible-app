@@ -110,6 +110,10 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
 
     if (this.viewMode() !== "paged") {
       this.removeSpacer()
+      // Armed by a backward chapter change in paged mode; left set, it would
+      // throw the reader to the last page on the first content change after
+      // coming back from the cards or the running text.
+      this._stayAtEnd = false
       this.onScroll()
       return
     }

@@ -55,6 +55,7 @@ export class PreferencesService {
     THEME: "theme",
     FONT_SIZE_PREFIX: "fontSize",
     VIEW_MODE: "viewMode",
+    CARDS_VIEW: "cardsView",
     ONBOARDING_SEEN: "onboardingSeen",
     APP_PROMO_SEEN: "appPromoSeen",
     NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
@@ -145,6 +146,15 @@ export class PreferencesService {
 
   setViewMode(mode: "scrolling" | "paged"): void {
     this.write(this.KEYS.VIEW_MODE, mode)
+  }
+
+  /** BibleScroll, the experimental one-verse-per-card view, layered over the view mode. */
+  getCardsView(): boolean {
+    return this.read(this.KEYS.CARDS_VIEW) === "true"
+  }
+
+  setCardsView(enabled: boolean): void {
+    this.write(this.KEYS.CARDS_VIEW, enabled.toString())
   }
 
   /**

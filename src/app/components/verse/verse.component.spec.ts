@@ -93,6 +93,29 @@ describe("VerseComponent", () => {
       expect(component.chapterNumberDisplayIndex).toBe(-1)
     })
 
+    // Text before verse 1 opens the chapter, and so carries its number —
+    // except where the host shows verses on their own (BibleScroll's cards).
+    it("draws the chapter number beside text in verse 0, unless the host declines it", () => {
+      const opening = makeVerse({
+        number: 0,
+        chapterNumber: 119,
+        text: [{ type: "text", text: "Alef" }],
+      })
+      setData(fixture, opening)
+      fixture.detectChanges()
+      expect(
+        fixture.nativeElement.querySelector(".chapterNumber")?.textContent,
+      ).toContain("119")
+
+      fixture.componentRef.setInput("showChapterNumber", false)
+      setData(fixture, { ...opening })
+      fixture.detectChanges()
+
+      expect(component.chapterNumberDisplayIndex).toBe(-1)
+      expect(fixture.nativeElement.querySelector(".chapterNumber")).toBeNull()
+      expect(fixture.nativeElement.textContent).toContain("Alef")
+    })
+
     it("should target s2 section index for verse 0 with s2 section", () => {
       setData(
         fixture,
