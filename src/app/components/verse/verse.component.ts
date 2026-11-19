@@ -363,13 +363,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     return text.type === "quote" ? text.identLevel : 0
   }
 
-  /** Space on the verse's text opens its notes, where the text does. */
-  onTextSpace(event: Event): void {
-    if (!this.notesOnText) return
-    event.preventDefault()
-    this.toggleFootnotes(event)
-  }
-
   toggleFootnotes(event?: Event): void {
     const footnotes = this.data().text.filter((t) => t.type === "footnote")
     if (footnotes.length === 0) return

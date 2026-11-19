@@ -564,22 +564,10 @@ describe("VerseComponent", () => {
     })
   })
 
-  describe("a11y — text body tabindex and role", () => {
-    it("should not render tabindex or role on text span when verse has no footnotes", () => {
-      setData(
-        fixture,
-        makeVerse({
-          text: [{ type: "text", text: "plain" }],
-        }),
-      )
-      fixture.detectChanges()
-      const interactive = fixture.nativeElement.querySelectorAll(
-        ".interactive[tabindex='0'][role='button']",
-      )
-      expect(interactive.length).toBe(0)
-    })
-
-    it("should render tabindex and role on text span when verse has footnotes", () => {
+  // Each verse with notes was two tab stops, the marker and the text, both
+  // opening the same notes: about 200 per chapter.
+  describe("a11y — one tab stop per verse with notes", () => {
+    it("is the notes marker; the text is not focusable nor a button", () => {
       setData(
         fixture,
         makeVerse({
@@ -590,35 +578,15 @@ describe("VerseComponent", () => {
         }),
       )
       fixture.detectChanges()
-      const interactive = fixture.nativeElement.querySelectorAll(
-        ".interactive[tabindex='0'][role='button']",
+      const host = fixture.nativeElement as HTMLElement
+      const stops = host.querySelectorAll("[tabindex='0']")
+
+      expect(stops.length).toBe(1)
+      expect(stops[0].getAttribute("aria-label")).toBe("Notas do versículo 1")
+      expect(host.querySelectorAll("[role='button']").length).toBe(1)
+      expect(host.querySelector(".interactive")?.hasAttribute("tabindex")).toBe(
+        false,
       )
-      expect(interactive.length).toBeGreaterThan(0)
-    })
-
-    // Tabbing onto a verse showed nothing: the text had outline: none, so a
-    // keyboard user couldn't tell which verse had the focus.
-    it("shows where the keyboard's focus is on the text", () => {
-      setData(
-        fixture,
-        makeVerse({
-          text: [
-            { type: "text", text: "verse text" },
-            { type: "footnote", text: "note", reference: "a" },
-          ],
-        }),
-      )
-      fixture.detectChanges()
-      const text = fixture.nativeElement.querySelector(
-        ".interactive[role='button']",
-      ) as HTMLElement
-
-      text.focus()
-
-      expect(text.matches(":focus-visible")).toBe(true)
-      const style = getComputedStyle(text)
-      expect(style.outlineStyle).toBe("solid")
-      expect(style.outlineColor).toBe(style.color)
     })
   })
 
@@ -1037,7 +1005,6 @@ describe("VerseComponent", () => {
       text().click()
 
       expect(mockBottomSheet.open).toHaveBeenCalled()
-      expect(text().getAttribute("role")).toBe("button")
     })
 
     // The marker was a 13x16 px target for a mouse.

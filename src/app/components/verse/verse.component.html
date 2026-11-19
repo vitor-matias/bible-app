@@ -54,7 +54,10 @@
             <ng-container *ngTemplateOutlet="copySpace"></ng-container>
           </span>
         }
-        <span class="verseRun" [attr.tabindex]="notesOnText ? 0 : null" [attr.role]="notesOnText ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="notesOnText ? toggleFootnotes($event) : null" (keydown.enter)="notesOnText ? toggleFootnotes($event) : null" (keydown.space)="onTextSpace($event)">{{ text.text }}</span>
+        <!-- A tap on the text opens the notes too, a bigger target than the
+             marker; the marker alone is the tab stop and the button a screen
+             reader announces, so a chapter isn't two stops per note. -->
+        <span class="verseRun" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="notesOnText ? toggleFootnotes($event) : null">{{ text.text }}</span>
       }
 
       <!-- References -->
