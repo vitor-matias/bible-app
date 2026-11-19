@@ -489,9 +489,39 @@ describe("BookmarkSelectorComponent", () => {
     const hint = (): HTMLElement | null =>
       fixture.nativeElement.querySelector(".ribbon-hint")
 
-    it("shows while a ribbon marks a passage", () => {
+    /** Renders the sheet with these pointers, as (any-pointer: …) sees them. */
+    function withPointers(...pointers: ("fine" | "coarse")[]): void {
+      vi.spyOn(window, "matchMedia").mockImplementation(
+        (query) =>
+          ({
+            matches: pointers.some((p) => query === `(any-pointer: ${p})`),
+          }) as MediaQueryList,
+      )
+      fixture = TestBed.createComponent(BookmarkSelectorComponent)
+      fixture.detectChanges()
+    }
+
+    // A mouse has no long press: it removes by right-click.
+    it("tells a mouse to right-click while a ribbon marks a passage", () => {
+      withPointers("fine")
+      expect(hint()?.textContent).toContain(
+        "Clique com o botão direito num marcador para o remover.",
+      )
+    })
+
+    it("tells a finger to hold", () => {
+      withPointers("coarse")
       expect(hint()?.textContent).toContain(
         "Mantenha premido um marcador para o remover.",
+      )
+    })
+
+    // A tablet with a mouse, or a touch-screen laptop: the primary pointer
+    // alone gave one of them a way that did nothing.
+    it("tells both ways when there are both a mouse and a finger", () => {
+      withPointers("coarse", "fine")
+      expect(hint()?.textContent).toContain(
+        "Mantenha premido ou clique com o botão direito num marcador para o remover.",
       )
     })
 

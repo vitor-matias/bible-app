@@ -60,7 +60,7 @@
         @if (i === unnumberedNotesAt) {
           <ng-container *ngTemplateOutlet="noteMark"></ng-container>
         }
-        <span class="verseRun" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="notesOnText ? toggleFootnotes($event) : null">{{ text.text }}</span>
+        <span class="verseRun" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="onTextClick($event)">{{ text.text }}</span>
       }
 
       <!-- References -->

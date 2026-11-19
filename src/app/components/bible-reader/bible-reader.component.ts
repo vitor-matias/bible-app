@@ -58,6 +58,7 @@ import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
+import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -111,6 +112,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private animationService = inject(BibleReaderAnimationService)
   private analyticsService = inject(AnalyticsService)
   private networkService = inject(NetworkService)
+  private offlineData = inject(OfflineDataService)
   private seoService = inject(SeoService)
   private indexState = inject(PastoralIndexState)
 
@@ -220,6 +222,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   booksUnavailable = false
   /** Whether to say the books are loading while there's nothing to show. */
   showLoading = false
+  /** The loading is the Bible's first download, not a read of the copy kept. */
+  firstDownload = false
   retryingBooks = false
   /** The first chapter opened could not be loaded: there is none to stay on. */
   chapterUnavailable = false
@@ -324,6 +328,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // Otherwise the page is blank until the books load, which on a first
     // launch downloads the Bible.
     this.showLoading = isPlatformBrowser(this.platformId) && !prerendered
+    this.firstDownload =
+      this.showLoading && !this.offlineData.isBibleDownloaded()
 
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()
     if (storedSpeed) {
