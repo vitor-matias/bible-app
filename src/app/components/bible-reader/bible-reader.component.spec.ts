@@ -36,6 +36,7 @@ import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
+import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
@@ -600,6 +601,30 @@ describe("BibleReaderComponent", () => {
 
       expect(notice()?.getAttribute("role")).toBe("status")
       expect(notice()?.textContent).toContain("A carregar a Bíblia…")
+    })
+
+    it("says it is downloading only on the first launch", () => {
+      vi.spyOn(
+        TestBed.inject(OfflineDataService),
+        "isBibleDownloaded",
+      ).mockReturnValue(false)
+      fixture.detectChanges()
+
+
+      expect(notice()?.textContent).toContain("cerca de 5 MB")
+    })
+
+    // A cold start read the kept copy for seconds under the download wording.
+    it("just says loading once the Bible was downloaded", () => {
+      vi.spyOn(
+        TestBed.inject(OfflineDataService),
+        "isBibleDownloaded",
+      ).mockReturnValue(true)
+      fixture.detectChanges()
+
+      expect(notice()?.textContent).toContain("A carregar a Bíblia…")
+      expect(notice()?.textContent).not.toContain("5 MB")
+      expect(notice()?.querySelector("mat-icon")).toBeNull()
     })
 
     it("leaves a prerendered page's text alone", () => {

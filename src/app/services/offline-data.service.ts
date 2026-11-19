@@ -65,6 +65,11 @@ export class OfflineDataService implements OnDestroy {
     return this.preloadPromise
   }
 
+  /** Whether the Bible was downloaded on an earlier visit, by its flag: reading the records takes a while. */
+  isBibleDownloaded(): boolean {
+    return safeLocalStorage()?.getItem(this.cacheFlagKey) === "true"
+  }
+
   ngOnDestroy(): void {
     this.destroyed = true
     clearTimeout(this.retryTimer)
