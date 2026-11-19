@@ -75,6 +75,7 @@
             @if (isIntroChapter) {
             <book-intro [introduction]="book.introduction || []"></book-intro>
             } @else {
+            <chapter-audio [bookId]="book.id" [chapter]="chapterNumber" />
             @for (verse of chapter.verses; track verse; let i = $index) {
             <verse [id]="verse.number" class="verse" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)"></verse>
             }
