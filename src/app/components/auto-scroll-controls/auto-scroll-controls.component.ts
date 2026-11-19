@@ -12,6 +12,7 @@ import {
   NgZone,
   OnDestroy,
   OnInit,
+  output,
   signal,
   untracked,
 } from "@angular/core"
@@ -139,6 +140,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   )
 
   constructor() {
+    effect(() => {
+      const verse = this.verseNow()
+      untracked(() => this.readingVerse.emit(verse))
+    })
     // Listening in pages carries on as «Ouvir» back in the scrolling view,
     // where the episode would otherwise lose its controls.
     effect(() => {
@@ -199,6 +204,26 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   /** For screen readers, into the chapter's reading: "1:03 de 3:44". */
   protected readonly spokenPosition = (seconds: number): string =>
     `${clock(seconds - this.chapterStart())} de ${clock(this.chapterEnd() - this.chapterStart())}`
+
+  /**
+   * The verse being read: the last whose start the episode has passed. Only
+   * while this chapter's own entry is in the player, as one episode reads
+   * several chapters and the player keeps it across a chapter turn.
+   */
+  protected readonly verseNow = computed(() => {
+    const verses = this.entry()?.verses
+    if (!verses || !this.loaded()) return null
+    const at = this.player.position()
+    let verse: number | null = null
+    for (const [number, start] of verses) {
+      if (start > at + 0.05) break
+      verse = number
+    }
+    return verse
+  })
+
+  /** Tells the reader which verse to mark and keep in view. */
+  readonly readingVerse = output<number | null>()
 
   /** The +365 speed in words, for screen readers: "1 vez", "1,25 vezes". */
   protected readonly rateSpoken = computed(() => {

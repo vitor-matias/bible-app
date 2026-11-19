@@ -2085,6 +2085,51 @@ describe("BibleReaderComponent", () => {
       component = fixture.componentInstance
     })
 
+    it("marks the verse +365 reads, follows it, and leaves a reader who scrolled be", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.chapter = {
+        bookId: "gen",
+        number: 3,
+        verses: [1, 2, 3].map((number) => ({
+          bookId: "gen",
+          chapterNumber: 3,
+          number,
+          text: [],
+        })),
+      } as unknown as Chapter
+      component.chapterNumber = 3
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      const verse = (number: number) =>
+        fixture.nativeElement.querySelector(`[id="${number}"]`) as HTMLElement
+      const content = fixture.nativeElement.querySelector(
+        "mat-drawer-content",
+      ) as HTMLElement
+      const scrollBy = vi
+        .spyOn(content, "scrollBy")
+        .mockImplementation(() => {})
+      // Both verses far below the screen.
+      vi.spyOn(verse(2), "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 5000, 300, 40),
+      )
+      vi.spyOn(verse(3), "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 6000, 300, 40),
+      )
+
+      component.onReadingVerse(2)
+      fixture.detectChanges()
+      expect(verse(2).classList).toContain("verse-reading")
+      expect(scrollBy).toHaveBeenCalledTimes(1)
+
+      component.noteReaderMoved()
+      component.onReadingVerse(3)
+      fixture.detectChanges()
+      expect(verse(3).classList).toContain("verse-reading")
+      expect(verse(2).classList).not.toContain("verse-reading")
+      expect(scrollBy).toHaveBeenCalledTimes(1)
+    })
+
     it("gets the chapter on screen, not the book coming", () => {
       fixture.detectChanges()
       component.books = [component.book]

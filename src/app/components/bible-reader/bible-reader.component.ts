@@ -13,6 +13,7 @@ import {
   type OnInit,
   PendingTasks,
   PLATFORM_ID,
+  signal,
   type Type,
   ViewChild,
 } from "@angular/core"
@@ -75,6 +76,20 @@ import { VerseComponent } from "../verse/verse.component"
 
 /** How long «A tentar…» shows at least: offline, a retry fails at once, unseen. */
 export const RETRY_FEEDBACK_MS = 1000
+
+/** How long read-along waits after the reader scrolls before following again. */
+export const FOLLOW_PAUSE_MS = 6000
+const SCROLL_KEYS = new Set([
+  "ArrowUp",
+  "ArrowDown",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
+  " ",
+  "ArrowLeft",
+  "ArrowRight",
+])
 
 @Component({
   selector: "bible-reader",
@@ -229,6 +244,75 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.autoScrollControlsPreference &&
       (this.viewMode === "scrolling" || !this.nativeChrome.enabled)
     )
+  }
+
+  /** The verse +365 is reading, marked and kept in view (read-along). */
+  protected readonly readingVerse = signal<number | null>(null)
+  /** When the reader last scrolled or turned a page themselves. */
+  private readerMovedAt = 0
+
+  /**
+   * The verse +365 reads now: marked, and brought into view when it isn't
+   * comfortably on screen, unless the reader moved the text themselves in
+   * the last FOLLOW_PAUSE_MS: they're looking elsewhere, and following
+   * resumes after that.
+   */
+  onReadingVerse(verse: number | null): void {
+    this.readingVerse.set(verse)
+    if (verse === null || Date.now() - this.readerMovedAt < FOLLOW_PAUSE_MS) {
+      return
+    }
+    const element = this.bookBlock?.nativeElement.querySelector(
+      `[id="${verse}"]`,
+    ) as HTMLElement | null
+    if (element) this.followReading(element)
+  }
+
+  private followReading(verse: HTMLElement): void {
+    const behavior: ScrollBehavior = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches
+      ? "auto"
+      : "smooth"
+    const box = verse.getBoundingClientRect()
+    if (this.effectiveViewMode === "paged") {
+      // Starting on another page: turn to it. A verse that runs on to the
+      // next page spans both columns, so only where it starts counts.
+      if (box.left < 0 || box.left >= window.innerWidth) {
+        this.pagedNav?.scrollToPage(verse, behavior)
+      }
+      return
+    }
+    const content = this.drawerContentRef?.nativeElement
+    if (!content) return
+    const view = content.getBoundingClientRect()
+    // What the +365 card covers isn't on screen.
+    const card = document
+      .querySelector(".audio-player")
+      ?.getBoundingClientRect()
+    const coversText = card && card.left < box.right && card.right > box.left
+    const bottom = coversText ? Math.min(view.bottom, card.top) : view.bottom
+    // Comfortably in view: its start below the top, two lines above the bottom.
+    if (box.top >= view.top && box.top <= bottom - 64) return
+    content.scrollBy({ top: box.top - (view.top + view.height / 4), behavior })
+  }
+
+  @HostListener("wheel")
+  @HostListener("touchmove")
+  noteReaderMoved(): void {
+    this.readerMovedAt = Date.now()
+  }
+
+  @HostListener("window:keydown", ["$event"])
+  noteReaderKey(event: KeyboardEvent): void {
+    if (SCROLL_KEYS.has(event.key)) this.noteReaderMoved()
+  }
+
+  @HostListener("pointerdown", ["$event"])
+  notePageTurn(event: PointerEvent): void {
+    // The ‹ › arrows turn pages and chapters; the +365 card is not the text.
+    const target = event.target as Element | null
+    if (target?.closest(".floating-nav-button")) this.noteReaderMoved()
   }
 
   /** A book's short name, "Génesis", for the +365 card's caption. */

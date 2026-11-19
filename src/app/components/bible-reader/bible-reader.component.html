@@ -76,7 +76,7 @@
             <book-intro [introduction]="book.introduction || []"></book-intro>
             } @else {
             @for (verse of chapter.verses; track verse; let i = $index) {
-            <verse [id]="verse.number" class="verse" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)"></verse>
+            <verse [id]="verse.number" class="verse" [class.verse-reading]="verse.number === readingVerse()" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)"></verse>
             }
             }
             }
@@ -128,7 +128,8 @@
       @if (showAutoScrollControls && drawerContent && bookBlock) {
       <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
         [bookId]="chapter.bookId" [chapter]="chapter.number"
-        [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'">
+        [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'"
+        (readingVerse)="onReadingVerse($event)">
       </app-auto-scroll-controls>
       }
       @if (canGoNext) {

@@ -263,13 +263,11 @@ h3:not(:first-child) {
   transition: background-color 0.4s ease;
 }
 
-:host(.verse-highlight) .verseRun,
-:host(.verse-highlight) .verseNumber,
-:host(.verse-highlight) .footnoteIndicator {
+:host(:is(.verse-highlight, .verse-reading)) :is(.verseRun, .verseNumber, .footnoteIndicator) {
   background-color: var(--verse-highlight-color);
 }
 
-:host(.verse-highlight) .verseRun {
+:host(:is(.verse-highlight, .verse-reading)) .verseRun {
   padding-block: 0.1em;
 }
 

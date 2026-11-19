@@ -13,6 +13,8 @@ export interface ChapterEpisode {
   start: number | null
   /** Seconds where it ends; null when unknown (the episode's end, then). */
   end: number | null
+  /** [verse, seconds] where each verse starts, for following the reading. */
+  verses?: [number, number][]
 }
 
 const RATES = [0.75, 1, 1.25, 1.5, 2]

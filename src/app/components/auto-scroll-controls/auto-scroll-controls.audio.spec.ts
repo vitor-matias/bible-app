@@ -539,6 +539,50 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.currentTime).toBe(280.8)
   })
 
+  describe("read-along", () => {
+    const withVerses: ChapterEpisode = {
+      ...day3,
+      verses: [
+        [1, 58],
+        [2, 64],
+        [3, 70],
+      ],
+    }
+    let read: (number | null)[]
+    const at = (seconds: number) => {
+      const stream = audio()
+      stream.currentTime = seconds
+      stream.dispatchEvent(new Event("timeupdate"))
+      fixture.detectChanges()
+    }
+
+    beforeEach(() => {
+      read = []
+      fixture.componentInstance.readingVerse.subscribe((verse) =>
+        read.push(verse),
+      )
+    })
+
+    it("tells the reader each verse as the reading reaches it", async () => {
+      await listen([withVerses])
+      tap(toggle())
+      at(57)
+      at(59)
+      at(65)
+      at(71)
+      expect(read.filter((verse) => verse !== null)).toEqual([1, 2, 3])
+    })
+
+    it("says nothing for a chapter whose episode isn't in the player", async () => {
+      await listen([withVerses])
+      tap(toggle())
+      at(65)
+      render("exo", 6)
+      await answer([{ ...withVerses, start: 280.8, end: 492.1 }], 6)
+      expect(read.at(-1)).toBeNull()
+    })
+  })
+
   // The reader keeps --audio-card-height clear under the card (styles.css):
   // its rows must fit that height, or the text's last lines go under them.
   it("fits its rows inside --audio-card-height", async () => {
