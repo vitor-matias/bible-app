@@ -61,6 +61,8 @@ export class PodcastPlayerService {
   readonly duration = signal(0)
   /** What the floating control does: scroll the text, or play +365. */
   readonly mode = signal<"scroll" | "audio">("scroll")
+  /** «Ouvir» tucked into a small pill, the card out of the text's way. */
+  readonly collapsed = signal(false)
 
   /** The episodes that read a chapter, earliest day first; [] when none. */
   episodesFor(bookId: string, chapter: number): Observable<ChapterEpisode[]> {

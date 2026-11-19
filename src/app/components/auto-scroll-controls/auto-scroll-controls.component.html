@@ -1,12 +1,29 @@
 @if (!native && (audioMode() || !paged())) {
 <div class="auto-scroll-controls" [class.audio]="audioMode()" [class.placed]="!!placed()"
   [style.left.px]="placed()?.left" [style.top.px]="placed()?.top">
-  @if (audioMode()) {
+  @if (audioMode() && player.collapsed()) {
+  <!-- Tucked away: still playing, still reading along; the card a tap away. -->
+  <div class="audio-mini">
+    <button class="auto-scroll-toggle audio-toggle" type="button" mat-mini-fab
+      [attr.aria-label]="playingThis() ? 'Pausar o +365' : 'Ouvir o +365'" [attr.aria-pressed]="playingThis()"
+      [disabled]="!entry()" (click)="toggleAudio()">
+      <mat-icon>{{ playingThis() ? 'pause' : 'play_arrow' }}</mat-icon>
+    </button>
+    <button type="button" mat-icon-button class="audio-expand" aria-label="Mostrar o leitor do +365"
+      (click)="player.collapsed.set(false)">
+      <mat-icon>expand_less</mat-icon>
+    </button>
+  </div>
+  } @else if (audioMode()) {
   <!-- On a desktop: dragged by anything but its controls, its width resized
        from the corner, both remembered; a double-click on the caption docks it. -->
   <div class="audio-player" role="group" aria-label="+365" [class.movable]="desktop()"
     [style.width.px]="desktop() ? cardWidth() : null" (pointerdown)="startDrag($event)">
     <div class="audio-caption" (dblclick)="dock()">{{ bookName() }} {{ chapter() }}</div>
+    <button type="button" mat-icon-button class="audio-collapse" aria-label="Esconder o leitor do +365"
+      (click)="player.collapsed.set(true)">
+      <mat-icon>expand_more</mat-icon>
+    </button>
     <div class="audio-progress">
       <!-- The slider says these to screen readers, in words. -->
       <span class="audio-time" aria-hidden="true">{{ elapsed() }}</span>

@@ -785,6 +785,23 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     }
   })
 
+  it("tucks into a pill that keeps playing, and comes back", async () => {
+    await listen()
+    tap(toggle())
+    tap(byLabel("Esconder o leitor do +365"))
+    expect(find(".audio-player")).toBeNull()
+    expect(find(".audio-mini")).not.toBeNull()
+    expect(audio().paused).toBe(false)
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+
+    tap(toggle())
+    expect(audio().paused).toBe(true)
+
+    tap(byLabel("Mostrar o leitor do +365"))
+    expect(find(".audio-player")).not.toBeNull()
+    expect(find(".audio-mini")).toBeNull()
+  })
+
   describe("on a desktop", () => {
     let desktop: boolean
     beforeEach(() => {

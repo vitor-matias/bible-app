@@ -53,16 +53,17 @@
 /* «Ouvir»: one frosted card, like the iOS app's glass bars. Its height is
    --audio-card-height (styles.css), which also sets the room the reader keeps
    clear under it: the rows below add up to exactly that. */
-.auto-scroll-controls.audio {
-  opacity: 1;
-}
-
 /* The reader's ‹ › arrows' colours (bible-reader.component.css): their
-   highlight for the card, their brown for what's on it. */
-.audio-player {
+   highlight for the card (and its pill), their brown for what's on it. */
+.auto-scroll-controls.audio {
   --ink: var(--cap-brown);
   --glass: color-mix(in srgb, var(--highlight-color) 90%, transparent);
   --muted: color-mix(in srgb, var(--ink) 65%, transparent);
+  opacity: 1;
+}
+
+.audio-player {
+  position: relative;
   box-sizing: border-box;
   display: grid;
   grid-template-rows: 14px 32px 1fr;
@@ -175,9 +176,12 @@
 }
 
 /* The one solid thing in the card: its brown, with the card's colour on it. */
-.audio-player .audio-toggle {
+.audio .audio-toggle {
   --mat-fab-container-color: var(--ink);
   --mat-fab-foreground-color: var(--highlight-color);
+  /* The pill's is a mini FAB, which reads its own tokens. */
+  --mat-fab-small-container-color: var(--ink);
+  --mat-fab-small-foreground-color: var(--highlight-color);
   --mat-fab-container-shape: 50%;
   width: 44px;
   height: 44px;
@@ -185,7 +189,7 @@
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
 }
 
-.audio-player .audio-toggle .mat-icon {
+.audio .audio-toggle .mat-icon {
   /* Solid ▶ and ❚❚: the outlined set draws them hollow. */
   font-variation-settings: "FILL" 1;
   color: var(--highlight-color);
@@ -210,20 +214,24 @@
 }
 
 /* Dark: the same card the other way round, warm and dark with cream on it. */
-:host-context(.dark-theme) .audio-player {
+:host-context(.dark-theme) .auto-scroll-controls.audio {
   --ink: #ecdcc6;
   --glass: color-mix(in srgb, #2b2119 88%, transparent);
+}
+
+:host-context(.dark-theme) :is(.audio-player, .audio-mini) {
   border-color: color-mix(in srgb, var(--ink) 14%, transparent);
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.45),
     0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-:host-context(.dark-theme) .audio-player .audio-toggle {
+:host-context(.dark-theme) .audio .audio-toggle {
   --mat-fab-foreground-color: #2b2119;
+  --mat-fab-small-foreground-color: #2b2119;
 }
 
-:host-context(.dark-theme) .audio-player .audio-toggle .mat-icon {
+:host-context(.dark-theme) .audio .audio-toggle .mat-icon {
   color: #2b2119;
 }
 
@@ -249,4 +257,38 @@
 
 .audio-player.movable :is(button, mat-slider) {
   cursor: pointer;
+}
+
+/* The card's hide button, in its top corner beside the caption. */
+.audio-collapse {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  --mat-icon-button-state-layer-size: 24px;
+  --mat-icon-button-icon-size: 18px;
+  padding: 3px;
+}
+
+.audio-collapse .mat-icon,
+.audio-expand .mat-icon {
+  color: var(--ink);
+}
+
+/* Tucked away: play and «show» in a small pill, where the card was. */
+.audio-mini {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  background-color: var(--glass);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.audio-mini .audio-toggle {
+  width: 40px;
+  height: 40px;
 }
