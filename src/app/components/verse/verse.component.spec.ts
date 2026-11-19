@@ -588,6 +588,36 @@ describe("VerseComponent", () => {
         false,
       )
     })
+
+    // Ester 1 opens with an unnumbered verse (the Greek addition) carrying
+    // five notes: with no number to sit beside, it had no marker, and the
+    // text was no longer a stop either.
+    it("gives an unnumbered verse with notes a marker of its own", () => {
+      setData(
+        fixture,
+        makeVerse({
+          bookId: "est",
+          number: 0,
+          verseLabel: "front",
+          text: [
+            { type: "section", tag: "s2", text: "Um sonho de Mardoqueu" },
+            { type: "paragraph", text: "\n" },
+            { type: "footnote", text: "note", reference: "A 1-11." },
+            { type: "text", text: "No segundo ano do reinado de Assuero" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      const stops = host.querySelectorAll<HTMLElement>("[tabindex='0']")
+
+      expect(stops.length).toBe(1)
+      expect(stops[0].classList).toContain("footnoteIndicator")
+      expect(stops[0].getAttribute("aria-label")).toMatch(/^Notas de .* 1$/)
+
+      stops[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+    })
   })
 
   describe("deep-link highlight", () => {

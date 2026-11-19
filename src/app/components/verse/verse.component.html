@@ -8,7 +8,7 @@
        ("13 Pois", not "13Pois"); on screen it takes no room (.copySpace). -->
   <ng-template #copySpace><span class="copySpace">{{ " " }}</span></ng-template>
   <ng-template #noteMark>
-    <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="'Notas do versículo ' + data().number"><ng-container *ngTemplateOutlet="noteIcon"></ng-container></span>
+    <span role="button" tabindex="0" (click)="toggleFootnotes($event)" (keydown.enter)="toggleFootnotes($event)" (keydown.space)="$event.preventDefault(); toggleFootnotes($event)" class="footnoteIndicator" [attr.aria-label]="notesLabel"><ng-container *ngTemplateOutlet="noteIcon"></ng-container></span>
   </ng-template>
 
   <!-- Verse Number -->
@@ -57,6 +57,9 @@
         <!-- A tap on the text opens the notes too, a bigger target than the
              marker; the marker alone is the tab stop and the button a screen
              reader announces, so a chapter isn't two stops per note. -->
+        @if (i === unnumberedNotesAt) {
+          <ng-container *ngTemplateOutlet="noteMark"></ng-container>
+        }
         <span class="verseRun" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="notesOnText ? toggleFootnotes($event) : null">{{ text.text }}</span>
       }
 

@@ -62,6 +62,17 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
    */
   notesOnText = false
 
+  /**
+   * Where an unnumbered verse with notes (Ester 1's Greek addition) shows
+   * the notes marker, which has no verse number to sit beside: its first
+   * run of text. -1 for every other verse. The marker is the one way to the
+   * notes from the keyboard, a screen reader and the native apps.
+   */
+  unnumberedNotesAt = -1
+
+  /** The marker's name: "Notas do versículo 3", or "Notas de Ester 1". */
+  notesLabel = ""
+
   /** A psalm's liturgical number, which the edition prints in parentheses. */
   liturgicalNumber: string | null = null
 
@@ -105,6 +116,19 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       this.chapterNumberDisplayIndex = this.computeChapterNumberIndex()
       this.hasFootnotes = data.text.some((t) => t.type === "footnote")
       this.notesOnText = this.hasFootnotes && !this.nativeFootnotes.enabled
+      this.unnumberedNotesAt =
+        this.hasFootnotes && data.number === 0
+          ? data.text.findIndex(
+              (t, i) =>
+                (t.type === "text" || t.type === "quote") &&
+                t.text.trim() !== "" &&
+                !this.isInSection(data.text, i),
+            )
+          : -1
+      this.notesLabel =
+        data.number > 0
+          ? `Notas do versículo ${data.number}`
+          : `Notas de ${this.nativeFootnotes.title(data)}`
       this.liturgicalNumber =
         data.bookId === PSALMS_BOOK_ID
           ? liturgicalPsalmNumber(data.chapterNumber)
