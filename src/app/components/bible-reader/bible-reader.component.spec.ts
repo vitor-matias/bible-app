@@ -2242,6 +2242,18 @@ describe("BibleReaderComponent", () => {
       expect(component.showAutoScrollControls).toBe(true)
     })
 
+    // The apps' native bar has no +365 mode: in pages it could only offer
+    // auto-scroll, and their menu can't hide it there.
+    it("keeps the apps' native bar out of the pages", () => {
+      Object.assign(TestBed.inject(NativeChromeService), { enabled: true })
+      component.toggleAutoScrollControlsVisibility()
+
+      component.onToggleViewMode()
+      expect(component.showAutoScrollControls).toBe(false)
+      component.onToggleViewMode()
+      expect(component.showAutoScrollControls).toBe(true)
+    })
+
     it("onToggleViewMode should switch back to scrolling mode", async () => {
       vi.useFakeTimers()
       component.viewMode = "paged"

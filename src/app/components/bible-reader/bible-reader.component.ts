@@ -219,6 +219,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   book!: Book
   books: Book[] = []
 
+  /**
+   * The paged view has no scrolling, but on the web the control still plays
+   * +365 there. The apps' native bar has no +365 mode yet: it stays off in
+   * pages, where it could only offer auto-scroll and the menu can't hide it.
+   */
+  private autoScrollControlsShown(): boolean {
+    return (
+      this.autoScrollControlsPreference &&
+      (this.viewMode === "scrolling" || !this.nativeChrome.enabled)
+    )
+  }
+
   /** A book's short name, "Génesis", for the +365 card's caption. */
   bookName(id: string): string {
     return this.books.find((book) => book.id === id)?.shortName ?? ""
@@ -345,8 +357,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
-    // The paged view has no scrolling, but the control still plays +365.
-    this.showAutoScrollControls = this.autoScrollControlsPreference
+    this.showAutoScrollControls = this.autoScrollControlsShown()
     this.bookService.books$
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
@@ -1279,8 +1290,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       chapter: this.chapterNumber,
     })
 
-    // The paged view has no scrolling, but the control still plays +365.
-    this.showAutoScrollControls = this.autoScrollControlsPreference
+    this.showAutoScrollControls = this.autoScrollControlsShown()
     this.cdr.markForCheck()
     if (this.viewMode === "paged") this.autoScrollService.stop()
     // The verse being read stays on screen, once the new layout is in.
