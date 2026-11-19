@@ -482,6 +482,45 @@ bible-reader .books-loading {
   }
 }
 
+/* The «Ouvir» card (auto-scroll-controls.component.css) is about 133px
+   tall, 16px up on a phone and 24px elsewhere. The text keeps 165px clear
+   under it in both views: past the last line when scrolling, off the bottom
+   of the columns when paged. On a phone the ‹ › arrows, and a toast above
+   them, go over it. */
+body:has(.audio-player) {
+  --audio-card-room: calc(165px + var(--app-inset-bottom));
+}
+
+body:has(.audio-player) .mat-drawer-content:not(:has(.paged-view-container)) {
+  padding-bottom: var(--audio-card-room);
+}
+
+body:has(.audio-player) .paged-view-container {
+  height: calc(
+    100dvh - var(--app-header-height) - var(--app-chrome-top) - 15px -
+      var(--audio-card-room)
+  );
+}
+
+/* The pages' fixed copyright line keeps the room the columns leave it, now
+   just above the card instead of under it. */
+body:has(.audio-player) .fixed-footer {
+  bottom: calc(151px + var(--app-inset-bottom));
+}
+
+@media (max-width: 768px) {
+  body:has(.audio-player)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(157px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.audio-player)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(213px + var(--app-inset-bottom));
+  }
+}
+
 /* A toast under an overlay shown after it (a dialog, a menu, the bookmarks),
    whose backdrop takes its taps: faded, so it doesn't look tappable. Overlays
    follow the order they were shown, which ToastService.bringToFront keeps for

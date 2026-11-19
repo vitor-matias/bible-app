@@ -2231,11 +2231,13 @@ describe("BibleReaderComponent", () => {
       expect(component.showAutoScrollControls).toBe(false)
     })
 
-    it("brings the auto-scroll controls back after the pages", () => {
+    // Pages don't scroll, but the control plays +365 there (its «Ouvir» only).
+    it("keeps the control through the pages, stopping the scroll", () => {
       component.toggleAutoScrollControlsVisibility()
 
       component.onToggleViewMode()
-      expect(component.showAutoScrollControls).toBe(false)
+      expect(component.showAutoScrollControls).toBe(true)
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
       component.onToggleViewMode()
       expect(component.showAutoScrollControls).toBe(true)
     })

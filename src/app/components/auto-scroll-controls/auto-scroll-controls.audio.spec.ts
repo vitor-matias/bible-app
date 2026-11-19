@@ -29,6 +29,10 @@ describe("AutoScrollControlsComponent +365 mode", () => {
   const render = (bookId: string, chapter: number) => {
     fixture.componentRef.setInput("bookId", bookId)
     fixture.componentRef.setInput("chapter", chapter)
+    fixture.componentRef.setInput(
+      "bookName",
+      bookId === "exo" ? "Êxodo" : "Génesis",
+    )
     fixture.detectChanges()
   }
   const answer = async (episodes: ChapterEpisode[] | null, chapter = 5) => {
@@ -394,11 +398,10 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     render("exo", 6)
     expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
     expect(toggle()?.disabled).toBe(true)
-    expect(find(".audio-caption")?.textContent?.trim()).toBe("+365")
+    expect(find(".audio-caption")?.textContent?.trim()).toBe("Êxodo 6")
 
     await answer([genesis6], 6)
     expect(toggle()?.disabled).toBe(false)
-    expect(find(".audio-caption")?.textContent?.trim()).toBe("+365 · Dia 3")
   })
 
   it("keeps back and forward inside the chapter", async () => {
@@ -434,6 +437,34 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     stream.dispatchEvent(new Event("timeupdate"))
     fixture.detectChanges()
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+  })
+
+  describe("in the paged view", () => {
+    beforeEach(() => fixture.componentRef.setInput("paged", true))
+
+    it("is the +365 player, with no scrolling to swap to", async () => {
+      render("exo", 5)
+      await answer([day3])
+      expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+      expect(modeToggle()).toBeNull()
+      tap(toggle())
+      expect(audio().src).toBe(`${day3.url}#t=56.5`)
+    })
+
+    it("shows nothing where no episode reads the chapter", async () => {
+      render("exo", 7)
+      await answer(null, 7)
+      expect(find(".auto-scroll-controls")).toBeNull()
+    })
+
+    it("stays «Ouvir» back in the scrolling view", async () => {
+      render("exo", 5)
+      await answer([day3])
+      tap(toggle())
+      fixture.componentRef.setInput("paged", false)
+      fixture.detectChanges()
+      expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    })
   })
 
   describe("position slider", () => {

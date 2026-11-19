@@ -218,6 +218,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   book!: Book
   books: Book[] = []
+
+  /** A book's short name, "Génesis", for the +365 card's caption. */
+  bookName(id: string): string {
+    return this.books.find((book) => book.id === id)?.shortName ?? ""
+  }
   /** The book list could not be loaded and nothing is cached. */
   booksUnavailable = false
   /** Whether to say the books are loading while there's nothing to show. */
@@ -340,8 +345,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
-    this.showAutoScrollControls =
-      this.viewMode === "scrolling" && this.autoScrollControlsPreference
+    // The paged view has no scrolling, but the control still plays +365.
+    this.showAutoScrollControls = this.autoScrollControlsPreference
     this.bookService.books$
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
@@ -1274,8 +1279,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       chapter: this.chapterNumber,
     })
 
-    this.showAutoScrollControls =
-      this.viewMode === "scrolling" && this.autoScrollControlsPreference
+    // The paged view has no scrolling, but the control still plays +365.
+    this.showAutoScrollControls = this.autoScrollControlsPreference
     this.cdr.markForCheck()
     if (this.viewMode === "paged") this.autoScrollService.stop()
     // The verse being read stays on screen, once the new layout is in.

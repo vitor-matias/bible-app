@@ -56,6 +56,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   /** The chapter shown, whose +365 episode the control can play instead. */
   readonly bookId = input<string>()
   readonly chapter = input<number>()
+  /** Its book's short name, "Génesis", for the «Ouvir» card's caption. */
+  readonly bookName = input("")
+  /** The paged view: nothing to scroll, so the control only plays +365. */
+  readonly paged = input(false)
 
   protected readonly player = inject(PodcastPlayerService)
 
@@ -88,7 +92,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
    */
   protected readonly audioMode = computed(
     () =>
-      this.player.mode() === "audio" &&
+      (this.player.mode() === "audio" || this.paged()) &&
       (!!this.entry() || this.episodes.isLoading()),
   )
 
@@ -110,6 +114,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   )
 
   constructor() {
+    // Listening in pages carries on as «Ouvir» back in the scrolling view,
+    // where the episode would otherwise lose its controls.
+    effect(() => {
+      if (this.paged()) untracked(() => this.player.mode.set("audio"))
+    })
     // Turning to another chapter stops the episode: its reading is over.
     let shown: string | undefined
     effect(() => {

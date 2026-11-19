@@ -127,7 +127,8 @@
       }
       @if (showAutoScrollControls && drawerContent && bookBlock) {
       <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
-        [bookId]="chapter.bookId" [chapter]="chapter.number">
+        [bookId]="chapter.bookId" [chapter]="chapter.number"
+        [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'">
       </app-auto-scroll-controls>
       }
       @if (canGoNext) {
