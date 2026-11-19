@@ -914,6 +914,30 @@ describe("VerseComponent", () => {
       expect(getComputedStyle(marker).paddingBottom).toBe(restingPadding)
     })
 
+    it("keeps a cross-reference link's own underline, read along or not", () => {
+      mockBibleRef.extract.mockReturnValue([
+        { book: "JHN", chapter: 1, verses: [], match: "Jo 1,1", index: 0 },
+      ] as never)
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            { type: "text", text: "plain" },
+            { type: "references", text: "Jo 1,1" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      const link = fixture.nativeElement.querySelector(
+        "a.verseRun",
+      ) as HTMLElement
+      expect(link).not.toBeNull()
+      const underline = () => getComputedStyle(link).textDecorationColor
+      expect(underline()).toBe(getComputedStyle(link).color)
+      fixture.nativeElement.classList.add("verse-reading")
+      expect(underline()).toBe(getComputedStyle(link).color)
+    })
+
     it("should wrap the space before a references block so the stroke does not break", () => {
       setData(
         fixture,

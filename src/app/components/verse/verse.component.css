@@ -271,15 +271,16 @@ h3:not(:first-child) {
   padding-block: 0.1em;
 }
 
-/* Read-along (+365): only a faint line under the verse being read. */
-.verseRun {
+/* Read-along (+365): only a faint line under the verse being read. Not on
+   cross-reference links (a.verseRun), whose own underline says "link". */
+.verseRun:not(a) {
   text-decoration: underline transparent;
   text-decoration-thickness: 0.06em;
   text-underline-offset: 0.28em;
   transition: text-decoration-color 0.4s ease;
 }
 
-:host(.verse-reading) .verseRun {
+:host(.verse-reading) .verseRun:not(a) {
   text-decoration-color: color-mix(in srgb, currentColor 28%, transparent);
 }
 
