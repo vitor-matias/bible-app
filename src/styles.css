@@ -1199,11 +1199,14 @@ html.ragged-text .footnotes-container {
   display: none;
 }
 
-/* A page printed from the dark theme should not come out as ink on black. */
+/* A page printed from the dark theme should not come out as ink on black: the
+   paper is white, so the ink the page inherits is black. The reader sets its
+   own ink and keeps its own background, which this leaves as they are. */
 @media print {
   html,
   body {
     background: #fff !important;
+    color: #000 !important;
   }
 }
 
