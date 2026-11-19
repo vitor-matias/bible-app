@@ -990,6 +990,46 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(right).toBeLessThanOrEqual(window.innerWidth - 8)
     })
 
+    it("shows a grip to drag it by, on a desktop only", async () => {
+      await listen()
+      expect(find(".audio-grip")).not.toBeNull()
+    })
+
+    it("fits narrowed to 230px", async () => {
+      localStorage.setItem("audioCardWidth", "230")
+      fixture = TestBed.createComponent(AutoScrollControlsComponent)
+      await listen()
+      const card = (
+        find(".audio-player") as HTMLElement
+      ).getBoundingClientRect()
+      expect(Math.round(card.width)).toBe(230)
+      for (const part of fixture.nativeElement.querySelectorAll(
+        ".audio-player button, .audio-time",
+      )) {
+        const box = (part as HTMLElement).getBoundingClientRect()
+        expect(box.left).toBeGreaterThanOrEqual(card.left - 0.5)
+        expect(box.right).toBeLessThanOrEqual(card.right + 0.5)
+      }
+    })
+
+    // styles.css: the pages give up room under the card only while it's docked.
+    it("takes room from the pages only while docked", async () => {
+      const pages = document.createElement("div")
+      pages.className = "paged-view-container"
+      document.body.append(pages)
+      try {
+        await listen()
+        const docked = pages.getBoundingClientRect().height
+        drag(find(".audio-caption") as Element, [300, 200])
+        const placed = pages.getBoundingClientRect().height
+        // The shortened height is the rule's; a bare div has none without it.
+        expect(docked).toBeGreaterThan(0)
+        expect(placed).toBe(0)
+      } finally {
+        pages.remove()
+      }
+    })
+
     it("isn't dragged by its controls", async () => {
       await listen()
       drag(toggle() as Element, [300, 200])
@@ -1019,6 +1059,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       fixture = TestBed.createComponent(AutoScrollControlsComponent)
       await listen()
       expect(find(".audio-player")?.classList).not.toContain("movable")
+      expect(find(".audio-grip")).toBeNull()
       expect(container().style.left).toBe("")
     })
   })

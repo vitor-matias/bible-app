@@ -19,6 +19,10 @@
        from the corner, both remembered; a double-click on the caption docks it. -->
   <div class="audio-player" role="group" aria-label="+365" [class.movable]="desktop()"
     [style.width.px]="desktop() ? cardWidth() : null" (pointerdown)="startDrag($event)">
+    @if (desktop()) {
+    <!-- What says it can be dragged: a grip, as on a window's handle. -->
+    <mat-icon class="audio-grip" aria-hidden="true" title="Arraste para mover; duplo clique para voltar ao canto">drag_indicator</mat-icon>
+    }
     <div class="audio-caption" (dblclick)="dock()">{{ bookName() }} {{ chapter() }}</div>
     <button type="button" mat-icon-button class="audio-collapse" aria-label="Esconder o leitor do +365"
       (click)="tuck(true)">

@@ -484,7 +484,8 @@ bible-reader .books-loading {
 
 /* The «Ouvir» card (auto-scroll-controls.component.css) is
    --audio-card-height tall, 16px up on a phone and 24px elsewhere. While it
-   shows, everything below keeps clear of it, from that one height: the text
+   shows there, docked (not dragged elsewhere on a desktop, nor tucked into
+   its pill), everything below keeps clear of it, from that one height: the text
    (room after the last line when scrolling, shorter columns when paged), the
    pages' copyright line just above it, and on a phone the ‹ › arrows and a
    toast above them. */
@@ -492,7 +493,7 @@ bible-reader .books-loading {
   --audio-card-height: 106px;
 }
 
-body:has(.audio-player) {
+body:has(.auto-scroll-controls:not(.placed) .audio-player) {
   --audio-card-room: calc(var(--audio-card-height) + 32px + var(--app-inset-bottom));
 }
 
@@ -501,31 +502,31 @@ body:has(.audio-player) {
    the scrolling text, at most 48rem wide and centred, clears it from 1536px;
    the pages' columns, 65% wide less 3vw a side from 1400px, from 1873px. */
 @media (max-width: 1535px) {
-  body:has(.audio-player) .mat-drawer-content:not(:has(.paged-view-container)) {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .mat-drawer-content:not(:has(.paged-view-container)) {
     padding-bottom: var(--audio-card-room);
   }
 }
 
 @media (max-width: 1872px) {
-  body:has(.audio-player) .paged-view-container {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .paged-view-container {
     height: calc(
       100dvh - var(--app-header-height) - var(--app-chrome-top) - 15px -
         var(--audio-card-room)
     );
   }
 
-  body:has(.audio-player) .fixed-footer {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .fixed-footer {
     bottom: calc(var(--audio-card-height) + 18px + var(--app-inset-bottom));
   }
 }
 
 @media (max-width: 768px) {
-  body:has(.audio-player)
+  body:has(.auto-scroll-controls:not(.placed) .audio-player)
     .floating-nav-button:is(.prev-chapter, .next-chapter) {
     bottom: calc(var(--audio-card-height) + 24px + var(--app-inset-bottom));
   }
 
-  body:not(.native-chrome):has(.audio-player)
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
     .cdk-overlay-pane
     .mat-mdc-snack-bar-container {
     margin-bottom: calc(var(--audio-card-height) + 80px + var(--app-inset-bottom));
@@ -552,12 +553,12 @@ body:has(.audio-player) {
    side), the arrows sit level with its row of buttons instead of above it:
    that row's middle is 6px of padding and half its 44px up the card. */
 @media (min-width: 520px) and (max-width: 768px) {
-  body:has(.audio-player)
+  body:has(.auto-scroll-controls:not(.placed) .audio-player)
     .floating-nav-button:is(.prev-chapter, .next-chapter) {
     bottom: calc(20px + var(--app-inset-bottom));
   }
 
-  body:not(.native-chrome):has(.audio-player)
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
     .cdk-overlay-pane
     .mat-mdc-snack-bar-container {
     margin-bottom: calc(var(--audio-card-height) + 32px + var(--app-inset-bottom));

@@ -266,13 +266,45 @@
 .audio-player.movable {
   overflow: hidden;
   resize: horizontal;
-  min-width: 300px;
+  min-width: 230px;
   max-width: 640px;
   cursor: grab;
+  container-type: inline-size;
+}
+
+/* Narrowed below 290px: everything a little closer so it still fits. */
+@container (max-width: 290px) {
+  .audio-buttons {
+    --mat-icon-button-state-layer-size: 32px;
+  }
+
+  .audio-transport {
+    gap: 0;
+  }
+
+  .audio-progress {
+    gap: 4px;
+  }
+
+  .audio-time {
+    min-width: 28px;
+    font-size: 10px;
+  }
 }
 
 .audio-player.movable:active {
   cursor: grabbing;
+}
+
+/* The grip, mirroring the hide button: top left, on the caption's line. */
+.audio-grip {
+  position: absolute;
+  top: 5px;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  color: var(--muted);
 }
 
 .audio-player.movable :is(button, mat-slider) {
