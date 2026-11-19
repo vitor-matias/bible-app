@@ -91,6 +91,9 @@ export class PodcastPlayerService {
     this.current.set(episode)
     if (loaded) {
       audio.currentTime = episode.start ?? 0
+      // The seek lands with a later timeupdate; till then the last chapter's
+      // place would show, clamped into this one's span.
+      this.position.set(episode.start ?? 0)
     } else {
       // Reloading also replaces the fragment of a stream still loading, which
       // would otherwise win over a later chapter's start of zero.

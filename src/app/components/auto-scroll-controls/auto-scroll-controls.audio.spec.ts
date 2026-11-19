@@ -224,6 +224,26 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.currentTime).toBe(280.8)
   })
 
+  it("shows the earlier chapter's start at once when moving back within the episode", async () => {
+    render("exo", 6)
+    await answer([genesis6], 6)
+    tap(modeToggle())
+    tap(toggle())
+    const stream = audio()
+    Object.defineProperty(stream, "readyState", {
+      value: HTMLMediaElement.HAVE_METADATA,
+    })
+    stream.currentTime = 450
+    stream.dispatchEvent(new Event("timeupdate"))
+
+    render("exo", 5)
+    await answer([day3])
+    tap(toggle())
+    fixture.detectChanges()
+    // No timeupdate yet: the seek hasn't landed.
+    expect(find(".audio-time")?.textContent?.trim()).toBe("0:00")
+  })
+
   it("restarts a stream still loading at the next chapter's start, even zero", async () => {
     await listen()
     tap(toggle())
