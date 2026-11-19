@@ -200,10 +200,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   protected readonly spokenPosition = (seconds: number): string =>
     `${clock(seconds - this.chapterStart())} de ${clock(this.chapterEnd() - this.chapterStart())}`
 
-  /** The +365 speed in words, for screen readers: "1,25 vezes". */
-  protected readonly rateSpoken = computed(
-    () => `${String(this.player.rate()).replace(".", ",")} vezes`,
-  )
+  /** The +365 speed in words, for screen readers: "1 vez", "1,25 vezes". */
+  protected readonly rateSpoken = computed(() => {
+    const rate = this.player.rate()
+    return `${String(rate).replace(".", ",")} ${rate === 1 ? "vez" : "vezes"}`
+  })
 
   /** Swaps scrolling and listening, stopping whichever was running. */
   toggleMode(): void {

@@ -190,7 +190,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     const slower = () => byLabel("Diminuir velocidade do +365")
     const faster = () => byLabel("Aumentar velocidade do +365")
     const label = () => find(".rate")?.textContent?.trim()
-    expect(label()).toBe("1 vezes")
+    expect(label()).toBe("1 vez")
 
     tap(faster())
     expect(audio().playbackRate).toBe(1.25)
