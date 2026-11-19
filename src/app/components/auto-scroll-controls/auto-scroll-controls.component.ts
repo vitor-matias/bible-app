@@ -240,12 +240,13 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   /**
    * The verse being read: the last whose start the episode has passed. Only
-   * while this chapter's own entry is in the player, as one episode reads
+   * while this chapter's own entry plays, as one episode reads
    * several chapters and the player keeps it across a chapter turn.
    */
   protected readonly verseNow = computed(() => {
     const verses = this.entry()?.verses
-    if (!verses || !this.loaded()) return null
+    // While it plays only: paused, or stopped at the chapter's end, no mark.
+    if (!verses || !this.playingThis()) return null
     const at = this.player.position()
     let verse: number | null = null
     for (const [number, start] of verses) {

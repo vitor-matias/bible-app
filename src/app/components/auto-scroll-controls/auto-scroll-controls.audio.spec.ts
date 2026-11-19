@@ -784,6 +784,22 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       })
     })
 
+    it("takes the mark away when paused, and at the chapter's end", async () => {
+      await listen([withVerses])
+      tap(toggle())
+      at(65)
+      expect(read.at(-1)).toBe(2)
+      tap(toggle())
+      expect(read.at(-1)).toBeNull()
+
+      tap(toggle())
+      at(71)
+      expect(read.at(-1)).toBe(3)
+      // Past the chapter's end (280.8): the player stops there.
+      at(281)
+      expect(read.at(-1)).toBeNull()
+    })
+
     it("says nothing for a chapter whose episode isn't in the player", async () => {
       await listen([withVerses])
       tap(toggle())
