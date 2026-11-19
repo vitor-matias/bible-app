@@ -352,7 +352,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   }
 
   /** Advances the scroll position by exactly one "page" width (one column + gap). */
-  nextPage(): void {
+  nextPage(behavior: ScrollBehavior = "smooth"): void {
     if (this.viewMode() !== "paged") return
     const block = this.bookBlock
     if (!this.container || !block) return
@@ -369,7 +369,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     ) {
       this.nextChapter.emit()
     } else {
-      this.turnTo(currentPageIndex + 1, advanceWidth)
+      this.turnTo(currentPageIndex + 1, advanceWidth, behavior)
     }
   }
 
@@ -447,12 +447,16 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     )
   }
 
-  private turnTo(page: number, advanceWidth: number): void {
+  private turnTo(
+    page: number,
+    advanceWidth: number,
+    behavior: ScrollBehavior = "smooth",
+  ): void {
     // Now, in the layout the page is counted in: a smooth turn on a wide
     // window takes long enough for a resize to come before it rests.
     this.noteAnchor(page)
     this.setTarget(page)
-    this.container.scrollTo({ left: page * advanceWidth, behavior: "smooth" })
+    this.container.scrollTo({ left: page * advanceWidth, behavior })
   }
 
   private setTarget(page: number | undefined): void {

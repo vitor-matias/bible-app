@@ -30,17 +30,22 @@
     <span>Marcadores</span>
   </button>
   @if (autoScrollControlsVisible() !== null) {
-  <button type="button" mat-menu-item (click)="viewMode() !== 'paged' && toggleAutoScrollControls.emit()" [disabled]="viewMode() === 'paged'" disabledInteractive>
+  <!-- Pages don't scroll: there the same control only plays +365. -->
+  @if (viewMode() === 'paged') {
+  <button type="button" mat-menu-item (click)="toggleAutoScrollControls.emit()">
+    <mat-icon>headphones</mat-icon>
+    <span>{{ autoScrollControlsVisible() ? 'Esconder o +365' : 'Mostrar o +365' }}</span>
+  </button>
+  } @else {
+  <button type="button" mat-menu-item (click)="toggleAutoScrollControls.emit()">
     <mat-icon>arrow_circle_down</mat-icon>
     <span>
       {{ autoScrollControlsVisible()
       ? 'Esconder deslocamento automático'
       : 'Mostrar deslocamento automático' }}
-      @if (viewMode() === 'paged') {
-      <small class="menu-item-note">Indisponível na vista de páginas</small>
-      }
     </span>
   </button>
+  }
   }
   @if (canShare()) {
   <button type="button" mat-menu-item (click)="share.emit()">

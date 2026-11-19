@@ -13,6 +13,7 @@ import {
   type OnInit,
   PendingTasks,
   PLATFORM_ID,
+  signal,
   type Type,
   ViewChild,
 } from "@angular/core"
@@ -218,6 +219,44 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   book!: Book
   books: Book[] = []
+
+  /**
+   * The paged view has no scrolling, but on the web the control still plays
+   * +365 there. The apps' native bar has no +365 mode yet: it stays off in
+   * pages, where it could only offer auto-scroll and the menu can't hide it.
+   */
+  private autoScrollControlsShown(): boolean {
+    return (
+      this.autoScrollControlsPreference &&
+      (this.viewMode === "scrolling" || !this.nativeChrome.enabled)
+    )
+  }
+
+  /** The verse +365 is reading, marked and kept in view (read-along). */
+  protected readonly readingVerse = signal<number | null>(null)
+  /** The verse +365 reads now, marked (read-along). */
+  onReadingVerse(verse: number | null): void {
+    this.readingVerse.set(verse)
+  }
+
+  /**
+   * Read-along in pages: the control asks for the next page once the reading
+   * leaves this one, or for the page a verse starts on.
+   */
+  onPageTurn(target: "next" | HTMLElement): void {
+    if (this.effectiveViewMode !== "paged") return
+    const behavior = window.matchMedia?.("(prefers-reduced-motion: reduce)")
+      .matches
+      ? "auto"
+      : "smooth"
+    if (target === "next") this.pagedNav?.nextPage(behavior)
+    else this.pagedNav?.scrollToPage(target, behavior)
+  }
+
+  /** A book's short name, "Génesis", for the +365 card's caption. */
+  bookName(id: string): string {
+    return this.books.find((book) => book.id === id)?.shortName ?? ""
+  }
   /** The book list could not be loaded and nothing is cached. */
   booksUnavailable = false
   /** Whether to say the books are loading while there's nothing to show. */
@@ -340,8 +379,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
-    this.showAutoScrollControls =
-      this.viewMode === "scrolling" && this.autoScrollControlsPreference
+    this.showAutoScrollControls = this.autoScrollControlsShown()
     this.bookService.books$
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
@@ -1257,6 +1295,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   toggleAutoScrollControlsVisibility(): void {
     this.showAutoScrollControls = !this.showAutoScrollControls
+    // The control gone, nothing says which verse is read any more.
+    if (!this.showAutoScrollControls) this.readingVerse.set(null)
     this.autoScrollControlsPreference = this.showAutoScrollControls
     this.preferencesService.setAutoScrollControlsVisible(
       this.showAutoScrollControls,
@@ -1274,8 +1314,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       chapter: this.chapterNumber,
     })
 
-    this.showAutoScrollControls =
-      this.viewMode === "scrolling" && this.autoScrollControlsPreference
+    this.showAutoScrollControls = this.autoScrollControlsShown()
+    if (!this.showAutoScrollControls) this.readingVerse.set(null)
     this.cdr.markForCheck()
     if (this.viewMode === "paged") this.autoScrollService.stop()
     // The verse being read stays on screen, once the new layout is in.

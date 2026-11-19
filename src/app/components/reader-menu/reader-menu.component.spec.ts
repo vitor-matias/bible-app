@@ -101,21 +101,11 @@ describe("ReaderMenuComponent", () => {
     ).find((item) => item.textContent?.includes(text)) as HTMLButtonElement
   }
 
-  it("says why auto-scroll is unavailable in the paged view", () => {
+  it("offers the +365 player in the paged view, where nothing scrolls", () => {
     open("paged", true)
-    const item = menuItem("Esconder deslocamento automático")
 
-    expect(item.textContent).toContain("Indisponível na vista de páginas")
-    // Disabled, yet still a stop for the arrow keys: its note is the only
-    // explanation, and a skipped item is never read out.
-    expect(item.getAttribute("aria-disabled")).toBe("true")
-    expect(item.disabled).toBe(false)
-    expect(item.tabIndex).toBe(0)
-  })
-
-  it("gives no reason while auto-scroll is available", () => {
-    open("scrolling", true)
-
+    expect(menuItem("Esconder o +365")).toBeTruthy()
+    expect(document.body.textContent).not.toContain("deslocamento automático")
     expect(document.body.textContent).not.toContain("Indisponível")
   })
 
@@ -155,7 +145,7 @@ describe("ReaderMenuComponent", () => {
     expect([host.increases(), host.decreases()]).toEqual([1, 1])
   })
 
-  it("toggles auto-scroll from its item, but not while the paged view disables it", () => {
+  it("toggles the control from its item in either view", () => {
     const fixture = TestBed.createComponent(HostComponent)
     fixture.componentInstance.viewMode.set("paged")
     fixture.componentInstance.autoScroll.set(true)
@@ -166,14 +156,13 @@ describe("ReaderMenuComponent", () => {
       .openMenu()
     fixture.detectChanges()
 
-    // Focusable to be read out, so the click reaches the handler.
-    menuItem("Esconder deslocamento automático").click()
-    expect(fixture.componentInstance.toggles()).toBe(0)
+    menuItem("Esconder o +365").click()
+    expect(fixture.componentInstance.toggles()).toBe(1)
 
     fixture.componentInstance.viewMode.set("scrolling")
     fixture.detectChanges()
     menuItem("Esconder deslocamento automático").click()
-    expect(fixture.componentInstance.toggles()).toBe(1)
+    expect(fixture.componentInstance.toggles()).toBe(2)
   })
 
   // Desktop browsers have no share sheet; the link is what a share would send.

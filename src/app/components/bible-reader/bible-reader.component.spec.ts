@@ -2076,6 +2076,105 @@ describe("BibleReaderComponent", () => {
     expect(main[0].querySelector(".bookBlock")).not.toBeNull()
   })
 
+  // The book changes as soon as the route does, the chapter only once it loads.
+  describe("the floating control", () => {
+    beforeEach(async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ imports: [MatSidenavModule] })
+      fixture = TestBed.createComponent(BibleReaderComponent)
+      component = fixture.componentInstance
+    })
+
+    // The control glides the text along; the reader only marks the verse.
+    it("marks the verse +365 reads, and only that one", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.chapter = {
+        bookId: "gen",
+        number: 3,
+        verses: [1, 2, 3].map((number) => ({
+          bookId: "gen",
+          chapterNumber: 3,
+          number,
+          text: [],
+        })),
+      } as unknown as Chapter
+      component.chapterNumber = 3
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      const verse = (number: number) =>
+        fixture.nativeElement.querySelector(`[id="${number}"]`) as HTMLElement
+      const content = fixture.nativeElement.querySelector(
+        "mat-drawer-content",
+      ) as HTMLElement
+      const scrollBy = vi.spyOn(content, "scrollBy")
+
+      component.onReadingVerse(2)
+      fixture.detectChanges()
+      expect(verse(2).classList).toContain("verse-reading")
+      component.onReadingVerse(3)
+      fixture.detectChanges()
+      expect(verse(3).classList).toContain("verse-reading")
+      expect(verse(2).classList).not.toContain("verse-reading")
+      component.onReadingVerse(null)
+      fixture.detectChanges()
+      expect(fixture.nativeElement.querySelector(".verse-reading")).toBeNull()
+      expect(scrollBy).not.toHaveBeenCalled()
+
+      // Hiding the control takes the mark with it.
+      component.showAutoScrollControls = true
+      component.onReadingVerse(2)
+      component.toggleAutoScrollControlsVisibility()
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      expect(fixture.nativeElement.querySelector(".verse-reading")).toBeNull()
+    })
+
+    it("turns the pages read-along asks for, in pages only", () => {
+      const pagedNav = { nextPage: vi.fn(), scrollToPage: vi.fn() }
+      Object.defineProperty(component, "pagedNav", { value: pagedNav })
+      const verse = document.createElement("div")
+
+      component.onPageTurn("next")
+      expect(pagedNav.nextPage).not.toHaveBeenCalled()
+
+      component.viewMode = "paged"
+      component.onPageTurn("next")
+      component.onPageTurn(verse)
+      expect(pagedNav.nextPage).toHaveBeenCalledWith("smooth")
+      expect(pagedNav.scrollToPage).toHaveBeenCalledWith(verse, "smooth")
+
+      // Reduced motion: both turns jump.
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList)
+      component.onPageTurn("next")
+      component.onPageTurn(verse)
+      expect(pagedNav.nextPage).toHaveBeenLastCalledWith("auto")
+      expect(pagedNav.scrollToPage).toHaveBeenLastCalledWith(verse, "auto")
+    })
+
+    it("gets the chapter on screen, not the book coming", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.showAutoScrollControls = true
+      component.chapter = { bookId: "gen", number: 3, verses: [] } as Chapter
+      component.chapterNumber = 3
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      component.book = { ...component.book, id: "exo" } as Book
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+
+      const controls = fixture.nativeElement.querySelector(
+        "app-auto-scroll-controls",
+      ) as { bookId?: string; chapter?: number } | null
+      expect(controls).not.toBeNull()
+      expect(controls?.bookId).toBe("gen")
+      expect(controls?.chapter).toBe(3)
+    })
+  })
+
   describe("Drawer Actions", () => {
     beforeEach(() => {
       fixture.detectChanges()
@@ -2201,7 +2300,21 @@ describe("BibleReaderComponent", () => {
       expect(component.showAutoScrollControls).toBe(false)
     })
 
-    it("brings the auto-scroll controls back after the pages", () => {
+    // Pages don't scroll, but the control plays +365 there (its «Ouvir» only).
+    it("keeps the control through the pages, stopping the scroll", () => {
+      component.toggleAutoScrollControlsVisibility()
+
+      component.onToggleViewMode()
+      expect(component.showAutoScrollControls).toBe(true)
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+      component.onToggleViewMode()
+      expect(component.showAutoScrollControls).toBe(true)
+    })
+
+    // The apps' native bar has no +365 mode: in pages it could only offer
+    // auto-scroll, and their menu can't hide it there.
+    it("keeps the apps' native bar out of the pages", () => {
+      Object.assign(TestBed.inject(NativeChromeService), { enabled: true })
       component.toggleAutoScrollControlsVisibility()
 
       component.onToggleViewMode()

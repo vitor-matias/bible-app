@@ -482,6 +482,89 @@ bible-reader .books-loading {
   }
 }
 
+/* The «Ouvir» card (auto-scroll-controls.component.css) is
+   --audio-card-height tall, 16px up on a phone and 24px elsewhere. While it
+   shows there, docked (not dragged elsewhere on a desktop, nor tucked into
+   its pill), everything below keeps clear of it, from that one height: the text
+   (room after the last line when scrolling, shorter columns when paged), the
+   pages' copyright line just above it, and on a phone the ‹ › arrows and a
+   toast above them. */
+:root {
+  --audio-card-height: 106px;
+}
+
+body:has(.auto-scroll-controls:not(.placed) .audio-player) {
+  --audio-card-room: calc(var(--audio-card-height) + 32px + var(--app-inset-bottom));
+}
+
+/* Only where the card would cover text. On wider screens it sits in the
+   bottom-right corner (its left edge at 100vw - 384px) beside the text:
+   the scrolling text, at most 48rem wide and centred, clears it from 1536px;
+   the pages' columns, 65% wide less 3vw a side from 1400px, from 1873px. */
+@media (max-width: 1535px) {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .mat-drawer-content:not(:has(.paged-view-container)) {
+    padding-bottom: var(--audio-card-room);
+  }
+}
+
+@media (max-width: 1872px) {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .paged-view-container {
+    height: calc(
+      100dvh - var(--app-header-height) - var(--app-chrome-top) - 15px -
+        var(--audio-card-room)
+    );
+  }
+
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .fixed-footer {
+    bottom: calc(var(--audio-card-height) + 18px + var(--app-inset-bottom));
+  }
+}
+
+@media (max-width: 768px) {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(var(--audio-card-height) + 24px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(var(--audio-card-height) + 80px + var(--app-inset-bottom));
+  }
+}
+
+/* The card tucked into its pill, small and centred: the arrows sit level
+   with it (as they do beside the card where there's room, so they stay put
+   when the card is tucked or shown), and a toast above it. */
+@media (max-width: 768px) {
+  body:has(.audio-mini)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(20px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.audio-mini)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(80px + var(--app-inset-bottom));
+  }
+}
+
+/* With room beside the card (360px, and an arrow and its margins each
+   side), the arrows sit level with its row of buttons instead of above it:
+   that row's middle is 6px of padding and half its 44px up the card. */
+@media (min-width: 520px) and (max-width: 768px) {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(20px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(var(--audio-card-height) + 32px + var(--app-inset-bottom));
+  }
+}
+
 /* A toast under an overlay shown after it (a dialog, a menu, the bookmarks),
    whose backdrop takes its taps: faded, so it doesn't look tappable. Overlays
    follow the order they were shown, which ToastService.bringToFront keeps for

@@ -5,7 +5,7 @@
             "headers": [
                 {
                     "key": "Content-Security-Policy",
-                    "value": "default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+                    "value": "default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; media-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
                 },
                 {
                     "key": "Permissions-Policy",

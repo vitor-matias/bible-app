@@ -1,3 +1,8 @@
+import { provideHttpClient } from "@angular/common/http"
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from "@angular/common/http/testing"
 import { ChangeDetectorRef } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatButtonModule } from "@angular/material/button"
@@ -37,6 +42,7 @@ describe("AutoScrollControlsComponent", () => {
       "stop",
       "updateAutoScrollSpeed",
       "getAutoScrollSpeedLabel",
+      "getAutoScrollSpeedSpokenLabel",
     ])
     // Mock getters which can't be spied directly using createSpyObj on properties
     Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
@@ -66,6 +72,8 @@ describe("AutoScrollControlsComponent", () => {
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent, MatButtonModule, MatIconModule],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: AutoScrollService, useValue: autoScrollServiceSpy },
         { provide: PreferencesService, useValue: preferencesServiceSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
@@ -347,6 +355,8 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: NativeChromeService, useValue: nativeChrome },
         { provide: AutoScrollService, useValue: autoScroll },
         {
@@ -374,6 +384,14 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
   })
 
   const lastState = () => lastCall(vi.mocked(nativeChrome.setAutoScroll))[0]
+
+  // The apps' native bar has no +365 mode: a lookup would be wasted.
+  it("looks up no +365 episode", () => {
+    fixture.componentRef.setInput("bookId", "gen")
+    fixture.componentRef.setInput("chapter", 30)
+    fixture.detectChanges()
+    TestBed.inject(HttpTestingController).expectNone(() => true)
+  })
 
   it("draws no web controls; the toolbar shows them", () => {
     expect(

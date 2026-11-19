@@ -1,20 +1,104 @@
-@if (!native) {
-<div class="auto-scroll-controls">
+@if (!native && (audioMode() || !paged())) {
+<div class="auto-scroll-controls" [class.audio]="audioMode()" [class.placed]="!!placed()"
+  [style.left.px]="placed()?.left" [style.top.px]="placed()?.top">
+  @if (audioMode() && player.collapsed()) {
+  <!-- Tucked away: still playing, still reading along; the card a tap away. -->
+  <div class="audio-mini">
+    <button class="auto-scroll-toggle audio-toggle" type="button" mat-mini-fab
+      [attr.aria-label]="playingThis() ? 'Pausar o +365' : 'Ouvir o +365'" [attr.aria-pressed]="playingThis()"
+      [disabled]="!entry()" (click)="toggleAudio()">
+      <mat-icon>{{ playingThis() ? 'pause' : 'play_arrow' }}</mat-icon>
+    </button>
+    <button type="button" mat-icon-button class="audio-expand" aria-label="Mostrar o leitor do +365"
+      (click)="tuck(false)">
+      <mat-icon>expand_less</mat-icon>
+    </button>
+  </div>
+  } @else if (audioMode()) {
+  <!-- On a desktop: dragged by anything but its controls, its width resized
+       from the corner, both remembered; a double-click on the caption docks it. -->
+  <div class="audio-player" role="group" aria-label="+365" [class.movable]="desktop()"
+    [style.width.px]="desktop() ? cardWidth() : null" (pointerdown)="startDrag($event)">
+    @if (desktop()) {
+    <!-- What says it can be dragged: a grip, as on a window's handle. -->
+    <mat-icon class="audio-grip" aria-hidden="true" title="Arraste para mover; duplo clique para voltar ao canto">drag_indicator</mat-icon>
+    }
+    <div class="audio-caption" (dblclick)="dock()">{{ bookName() }} {{ chapter() }}</div>
+    <button type="button" mat-icon-button class="audio-collapse" aria-label="Esconder o leitor do +365"
+      (click)="tuck(true)">
+      <mat-icon>expand_more</mat-icon>
+    </button>
+    <div class="audio-progress">
+      <!-- The slider says these to screen readers, in words. -->
+      <span class="audio-time" aria-hidden="true">{{ elapsed() }}</span>
+      <mat-slider class="audio-position" [min]="chapterStart()" [max]="seekable() ? chapterEnd() : chapterStart() + 1"
+        [step]="0.1" [disabled]="!seekable()" [displayWith]="spokenPosition">
+        <input matSliderThumb aria-label="Posição no +365" [value]="sliderValue()" (dragStart)="holdSlider()"
+          (dragEnd)="dragging.set(false)" (valueChange)="player.seek($event)">
+      </mat-slider>
+      <span class="audio-time" aria-hidden="true">−{{ remaining() }}</span>
+    </div>
+    <div class="audio-buttons">
+      @if (!paged()) {
+      <button type="button" mat-icon-button class="mode-toggle" aria-label="Deslocar o texto em vez de ouvir"
+        (click)="toggleMode()">
+        <mat-icon>swap_vert</mat-icon>
+      </button>
+      } @else {
+      <span></span>
+      }
+      <div class="audio-transport">
+        <button type="button" mat-icon-button class="skip-back" aria-label="Recuar 10 segundos" [disabled]="!loaded()"
+          (click)="player.skip(-10)">
+          <mat-icon>replay_10</mat-icon>
+        </button>
+        <button class="auto-scroll-toggle audio-toggle" type="button" mat-fab
+          [attr.aria-label]="playingThis() ? 'Pausar o +365' : 'Ouvir o +365'" [attr.aria-pressed]="playingThis()"
+          [disabled]="!entry()" (click)="toggleAudio()">
+          <mat-icon>{{ playingThis() ? 'pause' : 'play_arrow' }}</mat-icon>
+        </button>
+        <button type="button" mat-icon-button class="skip-forward" aria-label="Avançar 10 segundos"
+          [disabled]="!loaded()" (click)="player.skip(10)">
+          <mat-icon>forward_10</mat-icon>
+        </button>
+      </div>
+      <div class="audio-rate">
+        <button type="button" mat-icon-button aria-label="Diminuir velocidade do +365"
+          [disabled]="!player.canSlower()" (click)="player.stepRate(-1)">
+          <mat-icon>remove</mat-icon>
+        </button>
+        <!-- No number on screen, as in the iOS app: only screen readers hear it. -->
+        <span class="rate visually-hidden" aria-live="polite">{{ rateSpoken() }}</span>
+        <button type="button" mat-icon-button aria-label="Aumentar velocidade do +365"
+          [disabled]="!player.canFaster()" (click)="player.stepRate(1)">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+  } @else {
   <button class="position-relative floating-nav-button auto-scroll-toggle" type="button" mat-mini-fab
     [attr.aria-label]="autoScrollEnabled ? 'Pausar deslocamento automático' : 'Ativar deslocamento automático'"
     [attr.aria-pressed]="autoScrollEnabled" [disabled]="!autoScrollEnabled && atEnd" (click)="toggleAutoScroll()">
     <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
   </button>
   <div class="auto-scroll-speed">
+    @if (entry()) {
+    <button type="button" mat-icon-button class="mode-toggle" aria-label="Ouvir o +365 em vez de deslocar"
+      (click)="toggleMode()">
+      <mat-icon>headphones</mat-icon>
+    </button>
+    }
     <button type="button" mat-icon-button aria-label="Diminuir velocidade do deslocamento automático"
       [disabled]="!canSlower" (click)="decreaseAutoScrollSpeed()">
       <mat-icon>remove</mat-icon>
     </button>
-    <span aria-live="polite">{{ autoScrollSpeedLabel }} ln/s</span>
+    <span class="visually-hidden" aria-live="polite">{{ autoScrollSpeedSpoken }}</span>
     <button type="button" mat-icon-button aria-label="Aumentar velocidade do deslocamento automático"
       [disabled]="!canFaster" (click)="increaseAutoScrollSpeed()">
       <mat-icon>add</mat-icon>
     </button>
   </div>
+  }
 </div>
 }
