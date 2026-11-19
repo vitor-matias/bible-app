@@ -627,10 +627,10 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         vi.advanceTimersByTime(1000)
         const early = page.scrollTop
         expect(early).toBeGreaterThan(5)
-        expect(early).toBeLessThan(25)
-        // ...and never faster than 30px a second.
+        expect(early).toBeLessThan(35)
+        // ...and never faster than 45px a second.
         vi.advanceTimersByTime(2000)
-        expect(page.scrollTop - early).toBeLessThanOrEqual(61)
+        expect(page.scrollTop - early).toBeLessThanOrEqual(91)
         vi.advanceTimersByTime(20000)
         // Whole pixels, and it rests within one of the edge.
         expect(Math.abs(page.scrollTop - 162.5)).toBeLessThanOrEqual(1.5)

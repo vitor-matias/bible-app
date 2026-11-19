@@ -55,9 +55,9 @@ const WIDTH_KEY = "audioCardWidth"
  * edge (its speed the distance left over GLIDE_SECONDS): a verse's height
  * takes about the time it takes to read.
  */
-const GLIDE_SECONDS = 2.5
-const GLIDE_MAX_SPEED = 30
-const GLIDE_ACCEL = 30
+const GLIDE_SECONDS = 2
+const GLIDE_MAX_SPEED = 45
+const GLIDE_ACCEL = 45
 
 /** 63 → "1:03", 3723 → "62:03"; never below "0:00", as lengths not yet known read 0. */
 const clock = (seconds: number): string => {
