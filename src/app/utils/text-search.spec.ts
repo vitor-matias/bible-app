@@ -122,7 +122,34 @@ describe("text search", () => {
     })
 
     it("only where words begin", () => {
-      expect(marked("A Luz reluz nas luzes", "luz")).toEqual(["Luz", "luz"])
+      expect(marked("A Luz reluz nas luzes", "luz")).toEqual(["Luz", "luzes"])
+    })
+
+    // Amós 2,9 showed "amor" marked inside "amorreus".
+    it("whole words, their plurals and feminines, not longer words", () => {
+      expect(
+        marked("Exterminei os amorreus, mas o amor e os amores", "amor"),
+      ).toEqual(["amor", "amores"])
+      expect(marked("O pai e a mãe, os pais", "pai")).toEqual(["pai", "pais"])
+      expect(marked("o Senhor e a senhora", "senhor")).toEqual([
+        "Senhor",
+        "senhora",
+      ])
+      expect(marked("Exterminei os amorreus, que eram altos", "amor")).toEqual([
+        "amor",
+      ])
+    })
+
+    // Searching runs on a pause in typing: «miseric» found verses, and their
+    // words only began with it.
+    it("the start of words for a query typed halfway", () => {
+      expect(marked("Tende misericórdia de mim", "miseric")).toEqual([
+        "miseric",
+      ])
+      expect(marked("Abraão e Sara, em Jerusalém", "abra jerusal")).toEqual([
+        "Abra",
+        "Jerusal",
+      ])
     })
 
     it("each word, not the whole phrase", () => {

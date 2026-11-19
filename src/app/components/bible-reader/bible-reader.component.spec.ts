@@ -258,6 +258,19 @@ describe("BibleReaderComponent", () => {
     ).toBe("Fechar")
   })
 
+  // The icon had a card-coloured square of its own inside the button's grey
+  // focus circle.
+  it("paints no background behind the dismiss button's icon", () => {
+    fixture.detectChanges()
+    const icon = fixture.nativeElement.querySelector(
+      "button.dismiss-button mat-icon",
+    ) as HTMLElement
+    // MatIcon's own class: its module is left out of this test bed.
+    icon.classList.add("mat-icon")
+
+    expect(getComputedStyle(icon).backgroundColor).toBe("rgba(0, 0, 0, 0)")
+  })
+
   describe("ngOnInit", () => {
     it("should initialize default state from services", () => {
       fixture.detectChanges() // triggers ngOnInit

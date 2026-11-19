@@ -26,6 +26,7 @@ import {
   ribbonColor,
 } from "../../services/bookmark-ribbons.service"
 import { scrollOnDrawerOpen } from "../../utils/drawer-scroll"
+import { chapterTitle } from "../../utils/passage-label"
 
 @Component({
   selector: "chapter-selector",
@@ -121,7 +122,7 @@ export class ChapterSelectorComponent implements AfterViewInit, OnChanges {
   getChapterDisplay(chapter: Chapter): string {
     return chapter.title
       ? chapter.number > 0
-        ? ` - ${chapter.title}`
+        ? ` - ${chapterTitle(chapter.title)}`
         : chapter.title
       : ""
   }

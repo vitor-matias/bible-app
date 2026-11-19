@@ -18,7 +18,8 @@ describe("buildPassagePicker", () => {
     book("gen", {
       introduction: [{ type: "introParagraph", text: "…" } as IntroElement],
       chapters: [
-        { bookId: "gen", number: 1, title: "Criação do mundo" },
+        // The edition numbers its outline: "2. Jesus Revela…" over João 5.
+        { bookId: "gen", number: 1, title: "1. Criação do mundo" },
         { bookId: "gen", number: 2, title: "O homem" },
       ],
     }),
@@ -99,7 +100,7 @@ describe("buildPassagePicker", () => {
     ])
   })
 
-  it("lists chapters with their titles, the introduction first", () => {
+  it("lists chapters with their titles, without outline numbers, the introduction first", () => {
     expect(findBook("gen")?.chapters).toEqual([
       { number: 0, label: "", title: "Introdução", bookmark: undefined },
       {
