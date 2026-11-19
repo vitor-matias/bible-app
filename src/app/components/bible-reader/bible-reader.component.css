@@ -377,9 +377,14 @@ h6 {
     padding: 0 0 2vw;
     width: 100%;
     margin: 0 !important;
-    height: calc(100% - 78px);
-    /* Reserve space for copyright footer */
+    /* Clear of the copyright footer and the ‹ › arrows above it (100px up). */
+    height: calc(100% - 108px);
     max-width: 100%;
+  }
+
+  /* The native apps draw no arrows: room for the footer alone. */
+  :host-context(.native-chrome) .paged-view {
+    height: calc(100% - 78px);
   }
 
   /* As the scrolling text's margin. */

@@ -610,7 +610,6 @@ describe("BibleReaderComponent", () => {
       ).mockReturnValue(false)
       fixture.detectChanges()
 
-
       expect(notice()?.textContent).toContain("cerca de 5 MB")
     })
 
@@ -1869,6 +1868,41 @@ describe("BibleReaderComponent", () => {
         ) as HTMLElement
         expect(getComputedStyle(block).marginLeft).toBe("20px")
         expect(getComputedStyle(block).marginRight).toBe("20px")
+      })
+
+      // The ‹ › arrows sat over each page's last line of text.
+      it("keep a phone's last line clear of the arrows", () => {
+        pagedAt(390)
+        const host = fixture.nativeElement as HTMLElement
+        const box = (selector: string) =>
+          (host.querySelector(selector) as HTMLElement).getBoundingClientRect()
+        // The pages end at the screen's foot (the spec renders no header,
+        // so they start higher): what they keep clear below the text.
+        const kept =
+          box(".paged-view-container").bottom - box(".paged-view").bottom
+        for (const arrow of ["button.next-chapter", "button.prev-chapter"]) {
+          expect(
+            window.innerHeight - box(arrow).top,
+            arrow,
+          ).toBeLessThanOrEqual(kept)
+        }
+      })
+
+      it("keep only the footer's room in the apps, which draw no arrows", () => {
+        document.body.classList.add("native-chrome")
+        try {
+          pagedAt(390)
+          const host = fixture.nativeElement as HTMLElement
+          const box = (selector: string) =>
+            (
+              host.querySelector(selector) as HTMLElement
+            ).getBoundingClientRect()
+          expect(
+            box(".paged-view-container").bottom - box(".paged-view").bottom,
+          ).toBeCloseTo(78, 0)
+        } finally {
+          document.body.classList.remove("native-chrome")
+        }
       })
 
       it("keep a tablet's margins inside each of its two columns", () => {
