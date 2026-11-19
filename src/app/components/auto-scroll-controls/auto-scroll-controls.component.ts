@@ -5,12 +5,14 @@ import {
   Component,
   computed,
   DestroyRef,
+  effect,
   inject,
   input,
   NgZone,
   OnDestroy,
   OnInit,
   signal,
+  untracked,
 } from "@angular/core"
 import { rxResource, takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
@@ -76,30 +78,47 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       this.player.episodesFor(params.bookId, params.chapter),
   })
 
-  /** The earliest +365 episode that reads the chapter, if any does. */
-  protected readonly episode = computed(() => this.episodes.value()?.[0])
+  /**
+   * What «Ouvir» controls: the earliest +365 episode that reads the chapter,
+   * or else the one already in the player. Turning to a chapter no episode
+   * reads leaves that one playing, so it must stay within reach to pause.
+   */
+  protected readonly entry = computed(
+    () => this.episodes.value()?.[0] ?? this.player.current() ?? undefined,
+  )
 
-  /** Playing +365 rather than scrolling: only where an episode reads it. */
+  /** Playing +365 rather than scrolling: only with an episode to play. */
   protected readonly audioMode = computed(
-    () => this.player.mode() === "audio" && !!this.episode(),
+    () => this.player.mode() === "audio" && !!this.entry(),
   )
 
   protected readonly playingThis = computed(() => {
-    const episode = this.episode()
-    return !!episode && this.player.isCurrent(episode) && this.player.playing()
+    const entry = this.entry()
+    return !!entry && this.player.isCurrent(entry) && this.player.playing()
   })
 
-  /** This chapter's entry is in the player, playing or paused. */
+  /** The entry is in the player, playing or paused. */
   protected readonly loaded = computed(() => {
-    const episode = this.episode()
-    return !!episode && this.player.isCurrent(episode)
+    const entry = this.entry()
+    return !!entry && this.player.isCurrent(entry)
   })
 
   /** The slider spans the chapter's reading, not the whole episode. */
-  protected readonly chapterStart = computed(() => this.episode()?.start ?? 0)
+  protected readonly chapterStart = computed(() => this.entry()?.start ?? 0)
   protected readonly chapterEnd = computed(
-    () => this.episode()?.end ?? this.player.duration(),
+    () => this.entry()?.end ?? this.player.duration(),
   )
+
+  constructor() {
+    // «Ouvir» can return without toggleMode(): a chapter with an episode comes
+    // back (Back, «Voltar para…») after scrolling started where none was.
+    effect(() => {
+      if (!this.audioMode()) return
+      untracked(() => {
+        if (this.autoScrollEnabled) this.stopAutoScroll()
+      })
+    })
+  }
 
   /** The slider can move this chapter's episode once its span is known. */
   protected readonly seekable = computed(
@@ -146,8 +165,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   toggleAudio(): void {
-    const episode = this.episode()
-    if (episode) this.player.toggle(episode)
+    const entry = this.entry()
+    if (entry) this.player.toggle(entry)
   }
 
   ngOnInit(): void {
@@ -164,6 +183,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // Hidden from the menu, the controls take what they started with them.
+    this.player.pause()
     this.stopAutoScroll()
     if (this.native) this.nativeChrome.setAutoScroll(null)
   }

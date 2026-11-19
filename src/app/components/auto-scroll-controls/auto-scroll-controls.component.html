@@ -45,7 +45,7 @@
     <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
   </button>
   <div class="auto-scroll-speed">
-    @if (episode()) {
+    @if (entry()) {
     <button type="button" mat-icon-button class="mode-toggle" aria-label="Ouvir o +365 em vez de deslocar"
       (click)="toggleMode()">
       <mat-icon>headphones</mat-icon>

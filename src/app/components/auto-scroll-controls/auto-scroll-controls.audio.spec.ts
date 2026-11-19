@@ -293,6 +293,43 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(audio().currentTime).toBe(66.5)
   })
 
+  it("keeps a playing episode within reach in a chapter no episode reads", async () => {
+    await listen()
+    tap(toggle())
+
+    render("exo", 7)
+    await answer(null, 7)
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    tap(toggle())
+    expect(audio().paused).toBe(true)
+  })
+
+  it("pauses the episode when the controls are hidden", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    fixture.destroy()
+    expect(stream.paused).toBe(true)
+  })
+
+  it("stops scrolling when it comes back to «Ouvir» by turning chapters", async () => {
+    const autoScroll = TestBed.inject(AutoScrollService)
+    const stop = vi.spyOn(autoScroll, "stop")
+    await listen()
+    render("exo", 6)
+    await answer(null, 6)
+    expect(toggle()?.getAttribute("aria-label")).toBe(
+      "Ativar deslocamento automático",
+    )
+    autoScroll.autoScrollEnabled = true
+    stop.mockClear()
+
+    render("exo", 5)
+    await answer([day3])
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+    expect(stop).toHaveBeenCalled()
+  })
+
   describe("position slider", () => {
     const slider = () =>
       find('input[aria-label="Posição no +365"]') as HTMLInputElement | null
