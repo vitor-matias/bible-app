@@ -618,6 +618,53 @@ describe("VerseComponent", () => {
       stops[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))
       expect(mockBottomSheet.open).toHaveBeenCalled()
     })
+
+    // A line of poetry under a heading is shown, though the heading's runs
+    // are not: it had no marker.
+    it("gives the marker to a quote under a heading too", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 0,
+          verseLabel: "front",
+          text: [
+            { type: "section", tag: "s2", text: "Título" },
+            { type: "quote", text: "Linha de poesia", identLevel: 1 },
+            { type: "footnote", text: "note", reference: "a" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(
+          ".footnoteIndicator[tabindex='0']",
+        ).length,
+      ).toBe(1)
+    })
+
+    // The text takes no focus: after notes opened from it closed, the focus
+    // fell to the page's body.
+    it("returns the focus to the marker after notes opened from the text", () => {
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            { type: "text", text: "verse text" },
+            { type: "footnote", text: "note", reference: "a" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+
+      ;(host.querySelector(".interactive") as HTMLElement).click()
+      dismissed.next()
+
+      expect(document.activeElement).toBe(
+        host.querySelector(".footnoteIndicator"),
+      )
+    })
   })
 
   describe("deep-link highlight", () => {
@@ -1308,6 +1355,7 @@ describe("VerseComponent", () => {
       )
 
       const trigger = document.createElement("span")
+      trigger.tabIndex = 0
       const focusSpy = vi.spyOn(trigger, "focus").mockReturnValue(undefined)
 
       component.toggleFootnotes({ currentTarget: trigger } as unknown as Event)

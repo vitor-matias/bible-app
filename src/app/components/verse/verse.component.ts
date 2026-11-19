@@ -110,6 +110,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private readonly autoScroll = inject(AutoScrollService)
 
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef)
+
   ngOnChanges(_changes: SimpleChanges): void {
     const data = this.data()
     if (data) {
@@ -122,7 +124,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
               (t, i) =>
                 (t.type === "text" || t.type === "quote") &&
                 t.text.trim() !== "" &&
-                !this.isInSection(data.text, i),
+                // As the template: a quote shows even inside a heading's runs.
+                (!this.isInSection(data.text, i) || t.type === "quote"),
             )
           : -1
       this.notesLabel =
@@ -401,8 +404,15 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     // ourselves. We disable Material's automatic restoreFocus because its
     // .focus() scrolls the marker into view, which in paged (column) mode
     // yanks the reader back to the start of the chapter. Refocusing with
-    // preventScroll keeps a11y intact without moving the page.
-    const trigger = event?.currentTarget as HTMLElement | null
+    // preventScroll keeps a11y intact without moving the page. Opened from
+    // the text, which takes no focus, it goes to the verse's marker.
+    const opener = event?.currentTarget as HTMLElement | null
+    const trigger =
+      opener && opener.tabIndex >= 0
+        ? opener
+        : this.host.nativeElement.querySelector<HTMLElement>(
+            ".footnoteIndicator[tabindex='0']",
+          )
     const ref = this.bottomSheet.open(FootnotesBottomSheetComponent, {
       data: { footnotes, verse: this.data() },
       ariaLabel: `Notas de ${this.nativeFootnotes.title(this.data())}`,
