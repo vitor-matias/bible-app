@@ -75,7 +75,6 @@
             @if (isIntroChapter) {
             <book-intro [introduction]="book.introduction || []"></book-intro>
             } @else {
-            <chapter-audio [bookId]="book.id" [chapter]="chapterNumber" />
             @for (verse of chapter.verses; track verse; let i = $index) {
             <verse [id]="verse.number" class="verse" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)"></verse>
             }
@@ -127,7 +126,8 @@
       }
       }
       @if (showAutoScrollControls && drawerContent && bookBlock) {
-      <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock">
+      <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
+        [bookId]="book.id" [chapter]="chapterNumber">
       </app-auto-scroll-controls>
       }
       @if (canGoNext) {

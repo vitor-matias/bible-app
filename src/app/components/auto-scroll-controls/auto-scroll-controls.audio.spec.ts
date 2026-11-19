@@ -1,0 +1,255 @@
+import { provideHttpClient } from "@angular/common/http"
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from "@angular/common/http/testing"
+import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { apiBaseUrl } from "../../config"
+import { AnalyticsService } from "../../services/analytics.service"
+import { AutoScrollService } from "../../services/auto-scroll.service"
+import type { ChapterEpisode } from "../../services/podcast-player.service"
+import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
+
+const day3: ChapterEpisode = {
+  day: 3,
+  title: "Dia 3 - A Arca de Noé",
+  url: "https://anchor.fm/s/x/podcast/play/3.m4a",
+  start: 56.5,
+}
+const genesis6 = { ...day3, start: 280.8 }
+
+/** The floating control in its +365 mode: one control, scroll or listen. */
+describe("AutoScrollControlsComponent +365 mode", () => {
+  let fixture: ComponentFixture<AutoScrollControlsComponent>
+  let http: HttpTestingController
+  let play: ReturnType<typeof vi.spyOn>
+
+  // The episodes request holds the fixture unstable until answer() flushes it.
+  const render = (bookId: string, chapter: number) => {
+    fixture.componentRef.setInput("bookId", bookId)
+    fixture.componentRef.setInput("chapter", chapter)
+    fixture.detectChanges()
+  }
+  const answer = async (episodes: ChapterEpisode[] | null, chapter = 5) => {
+    const request = http.expectOne(`${apiBaseUrl}/audio/exo/${chapter}`)
+    if (episodes) request.flush({ episodes })
+    else
+      request.flush(
+        { error: "Audio not found" },
+        { status: 404, statusText: "Not Found" },
+      )
+    await fixture.whenStable()
+    fixture.detectChanges()
+  }
+  const find = (selector: string) =>
+    fixture.nativeElement.querySelector(selector) as HTMLButtonElement | null
+  const byLabel = (label: string) => find(`button[aria-label="${label}"]`)
+  const modeToggle = () => find("button.mode-toggle")
+  const toggle = () => find("button.auto-scroll-toggle")
+  const tap = (button: HTMLButtonElement | null) => {
+    button?.click()
+    fixture.detectChanges()
+  }
+  const listen = async (episodes: ChapterEpisode[] = [day3]) => {
+    render("exo", 5)
+    await answer(episodes)
+    tap(modeToggle())
+  }
+  const audio = () => play.mock.contexts.at(-1) as HTMLAudioElement
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: AnalyticsService, useValue: { track: vi.fn() } },
+      ],
+    })
+    http = TestBed.inject(HttpTestingController)
+    // No real stream: playing just reports it started.
+    play = vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockImplementation(function (this: HTMLMediaElement) {
+        this.dispatchEvent(new Event("play"))
+        return Promise.resolve()
+      })
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("pause"))
+    })
+    fixture = TestBed.createComponent(AutoScrollControlsComponent)
+  })
+
+  afterEach(() => http.verify())
+
+  it("offers no +365 mode for a chapter no episode reads", async () => {
+    render("exo", 5)
+    await answer(null)
+    expect(modeToggle()).toBeNull()
+  })
+
+  it("offers no +365 mode when the request fails", async () => {
+    render("exo", 5)
+    http
+      .expectOne(`${apiBaseUrl}/audio/exo/5`)
+      .flush("boom", { status: 500, statusText: "Server Error" })
+    await fixture.whenStable()
+    fixture.detectChanges()
+    expect(modeToggle()).toBeNull()
+  })
+
+  it("plays the episode from where the chapter starts with the same play button", async () => {
+    await listen([day3, { ...day3, day: 40 }])
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+
+    tap(toggle())
+
+    expect(play).toHaveBeenCalledTimes(1)
+    expect(audio().src).toBe(`${day3.url}#t=56.5`)
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+  })
+
+  it("plays the hardcoded Dia 1–5 chapters without asking the API", async () => {
+    render("gen", 1)
+    await fixture.whenStable()
+    fixture.detectChanges()
+    tap(modeToggle())
+    tap(toggle())
+    expect(audio().src).toMatch(/^https:\/\/anchor\.fm\/.+#t=58\.4$/)
+  })
+
+  it("pauses and resumes on the next touches", async () => {
+    await listen()
+    tap(toggle())
+    tap(toggle())
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+
+    tap(toggle())
+    expect(play).toHaveBeenCalledTimes(2)
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+  })
+
+  it("stops scrolling to listen, and pauses the episode to scroll again", async () => {
+    const autoScroll = TestBed.inject(AutoScrollService)
+    const stop = vi.spyOn(autoScroll, "stop")
+    autoScroll.autoScrollEnabled = true
+    render("exo", 5)
+    await answer([day3])
+    tap(modeToggle())
+    expect(stop).toHaveBeenCalled()
+
+    tap(toggle())
+    tap(modeToggle())
+    expect(audio().paused).toBe(true)
+    expect(toggle()?.getAttribute("aria-label")).toBe(
+      "Ativar deslocamento automático",
+    )
+  })
+
+  it("plays from the top when the episode has no start", async () => {
+    await listen([{ ...day3, start: null }])
+    tap(toggle())
+    expect(audio().src).toBe(day3.url)
+  })
+
+  it("skips 10 s back and forward once the chapter is in the player", async () => {
+    await listen()
+    expect(byLabel("Recuar 10 segundos")?.disabled).toBe(true)
+
+    tap(toggle())
+    const stream = audio()
+    stream.currentTime = 100
+    tap(byLabel("Avançar 10 segundos"))
+    expect(stream.currentTime).toBe(110)
+    tap(byLabel("Recuar 10 segundos"))
+    tap(byLabel("Recuar 10 segundos"))
+    expect(stream.currentTime).toBe(90)
+  })
+
+  it("steps the speed between 0,75× and 2× with − and +", async () => {
+    await listen()
+    tap(toggle())
+    const slower = () => byLabel("Diminuir velocidade do +365")
+    const faster = () => byLabel("Aumentar velocidade do +365")
+    const label = () => find(".rate")?.textContent?.trim()
+    expect(label()).toBe("1 vezes")
+
+    tap(faster())
+    expect(audio().playbackRate).toBe(1.25)
+    expect(label()).toBe("1,25 vezes")
+    tap(faster())
+    tap(faster())
+    expect(label()).toBe("2 vezes")
+    expect(faster()?.disabled).toBe(true)
+
+    for (let i = 0; i < 4; i++) tap(slower())
+    expect(label()).toBe("0,75 vezes")
+    expect(slower()?.disabled).toBe(true)
+  })
+
+  it("seeks within the episode for the next chapter it reads", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    // As if the stream had loaded far enough to seek.
+    Object.defineProperty(stream, "readyState", {
+      value: HTMLMediaElement.HAVE_METADATA,
+    })
+
+    render("exo", 6)
+    await answer([genesis6], 6)
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+    tap(toggle())
+
+    expect(audio()).toBe(stream)
+    expect(stream.src).toBe(`${day3.url}#t=56.5`)
+    expect(stream.currentTime).toBe(280.8)
+  })
+
+  it("restarts a stream still loading at the next chapter's start, even zero", async () => {
+    await listen()
+    tap(toggle())
+
+    render("exo", 6)
+    await answer([{ ...day3, start: null }], 6)
+    tap(toggle())
+
+    expect(audio().src).toBe(day3.url)
+  })
+
+  it("replays an ended episode from the chapter's start, not 0:00", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    stream.src = "about:blank"
+    stream.dispatchEvent(new Event("ended"))
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+
+    tap(toggle())
+    expect(stream.src).toBe(`${day3.url}#t=56.5`)
+  })
+
+  it("offers to play again, reloading, when the stream fails", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    stream.src = "about:blank"
+    stream.dispatchEvent(new Event("error"))
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+
+    tap(toggle())
+    expect(stream.src).toBe(`${day3.url}#t=56.5`)
+  })
+
+  it("offers to play again when play() is refused", async () => {
+    play.mockImplementation(() => Promise.reject(new Error("NotAllowedError")))
+    await listen()
+    tap(toggle())
+    await fixture.whenStable()
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+  })
+})

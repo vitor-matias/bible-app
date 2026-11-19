@@ -1,3 +1,5 @@
+import { provideHttpClient } from "@angular/common/http"
+import { provideHttpClientTesting } from "@angular/common/http/testing"
 import { ChangeDetectorRef } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatButtonModule } from "@angular/material/button"
@@ -37,6 +39,7 @@ describe("AutoScrollControlsComponent", () => {
       "stop",
       "updateAutoScrollSpeed",
       "getAutoScrollSpeedLabel",
+      "getAutoScrollSpeedSpokenLabel",
     ])
     // Mock getters which can't be spied directly using createSpyObj on properties
     Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
@@ -66,6 +69,8 @@ describe("AutoScrollControlsComponent", () => {
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent, MatButtonModule, MatIconModule],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: AutoScrollService, useValue: autoScrollServiceSpy },
         { provide: PreferencesService, useValue: preferencesServiceSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
@@ -347,6 +352,8 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: NativeChromeService, useValue: nativeChrome },
         { provide: AutoScrollService, useValue: autoScroll },
         {

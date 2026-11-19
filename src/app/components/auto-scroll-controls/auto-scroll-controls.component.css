@@ -24,12 +24,6 @@
   color: var(--text-color);
 }
 
-.auto-scroll-speed span {
-  min-width: 60px;
-  text-align: center;
-  font-weight: 400;
-}
-
 .floating-nav-button {
   opacity: 0.8;
   transition: opacity 0.3s;

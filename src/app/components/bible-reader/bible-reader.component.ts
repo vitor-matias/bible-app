@@ -68,7 +68,6 @@ import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
 import { BookSelectorComponent } from "../book-selector/book-selector.component"
-import { ChapterAudioComponent } from "../chapter-audio/chapter-audio.component"
 import { ChapterSelectorComponent } from "../chapter-selector/chapter-selector.component"
 import { FootnotesBottomSheetComponent } from "../footnotes-bottom-sheet/footnotes-bottom-sheet.component"
 import { HeaderComponent } from "../header/header.component"
@@ -86,7 +85,6 @@ export const RETRY_FEEDBACK_MS = 1000
   imports: [
     CommonModule,
     VerseComponent,
-    ChapterAudioComponent,
     HeaderComponent,
     BookSelectorComponent,
     MatSidenavModule,

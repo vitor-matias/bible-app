@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  computed,
   DestroyRef,
   inject,
   input,
@@ -10,12 +11,13 @@ import {
   OnDestroy,
   OnInit,
 } from "@angular/core"
-import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
+import { rxResource, takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 
 /**
@@ -41,6 +43,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   readonly scrollElement = input<HTMLElement>()
   readonly lineHeightElement = input<HTMLElement>()
+  /** The chapter shown, whose +365 episode the control can play instead. */
+  readonly bookId = input<string>()
+  readonly chapter = input<number>()
+
+  protected readonly player = inject(PodcastPlayerService)
 
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly destroyRef = inject(DestroyRef)
@@ -50,6 +57,56 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   /** The page is scrolled to its end: there's nothing left to play. */
   atEnd = false
+
+  private readonly episodes = rxResource({
+    params: () => {
+      const bookId = this.bookId()
+      const chapter = this.chapter()
+      return bookId && chapter ? { bookId, chapter } : undefined
+    },
+    stream: ({ params }) =>
+      this.player.episodesFor(params.bookId, params.chapter),
+  })
+
+  /** The earliest +365 episode that reads the chapter, if any does. */
+  protected readonly episode = computed(() => this.episodes.value()?.[0])
+
+  /** Playing +365 rather than scrolling: only where an episode reads it. */
+  protected readonly audioMode = computed(
+    () => this.player.mode() === "audio" && !!this.episode(),
+  )
+
+  protected readonly playingThis = computed(() => {
+    const episode = this.episode()
+    return !!episode && this.player.isCurrent(episode) && this.player.playing()
+  })
+
+  /** This chapter's entry is in the player, playing or paused. */
+  protected readonly loaded = computed(() => {
+    const episode = this.episode()
+    return !!episode && this.player.isCurrent(episode)
+  })
+
+  /** The +365 speed in words, for screen readers: "1,25 vezes". */
+  protected readonly rateSpoken = computed(
+    () => `${String(this.player.rate()).replace(".", ",")} vezes`,
+  )
+
+  /** Swaps scrolling and listening, stopping whichever was running. */
+  toggleMode(): void {
+    if (this.audioMode()) {
+      this.player.pause()
+      this.player.mode.set("scroll")
+    } else {
+      if (this.autoScrollEnabled) this.stopAutoScroll()
+      this.player.mode.set("audio")
+    }
+  }
+
+  toggleAudio(): void {
+    const episode = this.episode()
+    if (episode) this.player.toggle(episode)
+  }
 
   ngOnInit(): void {
     this.followEnd()
@@ -199,6 +256,13 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   get autoScrollLinesPerSecond(): number {
     return this.autoScrollService.autoScrollLinesPerSecond
+  }
+
+  /** In words, for screen readers: "1,5 linhas por segundo". */
+  get autoScrollSpeedSpoken(): string {
+    return this.autoScrollService.getAutoScrollSpeedSpokenLabel(
+      this.autoScrollLinesPerSecond,
+    )
   }
 
   get autoScrollSpeedLabel(): string {

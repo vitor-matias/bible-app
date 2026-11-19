@@ -1,20 +1,58 @@
 @if (!native) {
 <div class="auto-scroll-controls">
+  @if (audioMode()) {
+  <button class="position-relative floating-nav-button auto-scroll-toggle audio-toggle" type="button" mat-mini-fab
+    [attr.aria-label]="playingThis() ? 'Pausar o +365' : 'Ouvir o +365'" [attr.aria-pressed]="playingThis()"
+    (click)="toggleAudio()">
+    <mat-icon>{{ playingThis() ? 'pause' : 'play_arrow' }}</mat-icon>
+  </button>
+  <div class="auto-scroll-speed">
+    <button type="button" mat-icon-button class="mode-toggle" aria-label="Deslocar o texto em vez de ouvir"
+      (click)="toggleMode()">
+      <mat-icon>swap_vert</mat-icon>
+    </button>
+    <button type="button" mat-icon-button class="skip-back" aria-label="Recuar 10 segundos" [disabled]="!loaded()"
+      (click)="player.skip(-10)">
+      <mat-icon>replay_10</mat-icon>
+    </button>
+    <button type="button" mat-icon-button class="skip-forward" aria-label="Avançar 10 segundos"
+      [disabled]="!loaded()" (click)="player.skip(10)">
+      <mat-icon>forward_10</mat-icon>
+    </button>
+    <button type="button" mat-icon-button aria-label="Diminuir velocidade do +365"
+      [disabled]="!player.canSlower()" (click)="player.stepRate(-1)">
+      <mat-icon>remove</mat-icon>
+    </button>
+    <!-- No number on screen, as in the iOS app: only screen readers hear it. -->
+    <span class="rate visually-hidden" aria-live="polite">{{ rateSpoken() }}</span>
+    <button type="button" mat-icon-button aria-label="Aumentar velocidade do +365"
+      [disabled]="!player.canFaster()" (click)="player.stepRate(1)">
+      <mat-icon>add</mat-icon>
+    </button>
+  </div>
+  } @else {
   <button class="position-relative floating-nav-button auto-scroll-toggle" type="button" mat-mini-fab
     [attr.aria-label]="autoScrollEnabled ? 'Pausar deslocamento automático' : 'Ativar deslocamento automático'"
     [attr.aria-pressed]="autoScrollEnabled" [disabled]="!autoScrollEnabled && atEnd" (click)="toggleAutoScroll()">
     <mat-icon>{{ autoScrollEnabled ? 'pause' : 'play_arrow' }}</mat-icon>
   </button>
   <div class="auto-scroll-speed">
+    @if (episode()) {
+    <button type="button" mat-icon-button class="mode-toggle" aria-label="Ouvir o +365 em vez de deslocar"
+      (click)="toggleMode()">
+      <mat-icon>headphones</mat-icon>
+    </button>
+    }
     <button type="button" mat-icon-button aria-label="Diminuir velocidade do deslocamento automático"
       [disabled]="!canSlower" (click)="decreaseAutoScrollSpeed()">
       <mat-icon>remove</mat-icon>
     </button>
-    <span aria-live="polite">{{ autoScrollSpeedLabel }} ln/s</span>
+    <span class="visually-hidden" aria-live="polite">{{ autoScrollSpeedSpoken }}</span>
     <button type="button" mat-icon-button aria-label="Aumentar velocidade do deslocamento automático"
       [disabled]="!canFaster" (click)="increaseAutoScrollSpeed()">
       <mat-icon>add</mat-icon>
     </button>
   </div>
+  }
 </div>
 }

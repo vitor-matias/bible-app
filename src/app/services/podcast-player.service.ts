@@ -13,7 +13,7 @@ export interface ChapterEpisode {
   start: number | null
 }
 
-const RATES = [1, 1.25, 1.5, 2, 0.75]
+const RATES = [0.75, 1, 1.25, 1.5, 2]
 
 /**
  * Plays +365 podcast episodes (EJNS Portugal, a Bible-in-a-year reading),
@@ -29,6 +29,8 @@ export class PodcastPlayerService {
   readonly current = signal<ChapterEpisode | null>(null)
   readonly playing = signal(false)
   readonly rate = signal(1)
+  /** What the floating control does: scroll the text, or play +365. */
+  readonly mode = signal<"scroll" | "audio">("scroll")
 
   /** The episodes that read a chapter, earliest day first; [] when none. */
   episodesFor(bookId: string, chapter: number): Observable<ChapterEpisode[]> {
@@ -87,15 +89,23 @@ export class PodcastPlayerService {
     audio.currentTime = Math.max(0, audio.currentTime + seconds)
   }
 
-  /** Moves to the next playback speed, after the last back to the first. */
-  nextRate(): void {
-    const next = RATES[(RATES.indexOf(this.rate()) + 1) % RATES.length]
+  readonly canSlower = () => this.rate() > RATES[0]
+  readonly canFaster = () => this.rate() < RATES[RATES.length - 1]
+
+  /** Steps the playback speed down (-1) or up (1), within 0,75× and 2×. */
+  stepRate(direction: -1 | 1): void {
+    const index = RATES.indexOf(this.rate()) + direction
+    const next = RATES[Math.min(RATES.length - 1, Math.max(0, index))]
     this.rate.set(next)
     if (this.audio) {
       // The default survives a new src, which resets playbackRate to it.
       this.audio.defaultPlaybackRate = next
       this.audio.playbackRate = next
     }
+  }
+
+  pause(): void {
+    this.audio?.pause()
   }
 
   private play(audio: HTMLAudioElement, episode: ChapterEpisode): void {
