@@ -384,6 +384,12 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(stream.currentTime).toBe(200)
     })
 
+    it("says no negative time before an unknown end is known", async () => {
+      await listen([{ ...day3, end: null }])
+      tap(toggle())
+      expect(slider()?.getAttribute("aria-valuetext")).toBe("0:00 de 0:00")
+    })
+
     it("runs to the episode's end when the chapter's end is unknown", async () => {
       await playing({ ...day3, end: null })
       expect(slider()?.max).toBe("1103")

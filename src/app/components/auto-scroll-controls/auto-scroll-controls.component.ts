@@ -31,9 +31,9 @@ import { PreferencesService } from "../../services/preferences.service"
  */
 const SPEED_LIMIT_TOLERANCE = 0.001
 
-/** 63 → "1:03", 3723 → "62:03". */
+/** 63 → "1:03", 3723 → "62:03"; never below "0:00", as lengths not yet known read 0. */
 const clock = (seconds: number): string => {
-  const whole = Math.floor(seconds)
+  const whole = Math.max(0, Math.floor(seconds))
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`
 }
 
