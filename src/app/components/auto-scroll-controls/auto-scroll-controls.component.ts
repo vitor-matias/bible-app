@@ -1,5 +1,6 @@
 import { CommonModule } from "@angular/common"
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
@@ -7,6 +8,7 @@ import {
   DestroyRef,
   ElementRef,
   effect,
+  Injector,
   inject,
   input,
   linkedSignal,
@@ -256,7 +258,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     return verse
   })
 
-  private readonly host = inject(ElementRef<HTMLElement>)
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef)
+  private readonly injector = inject(Injector)
   private glideFrame?: number
   private glideAt?: number
   /** What the last frames asked of scrollTop and the browser rounded away. */
@@ -412,10 +415,22 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       Math.abs(this.glideSpeed * seconds) > Math.abs(offset)
         ? offset
         : this.glideSpeed * seconds
-    const wanted = page.scrollTop + step + this.glideCarry
+    // Only what the scroller can take: at its top or bottom the move is
+    // refused, and carrying that refusal over would stall the next move.
+    const limit = page.scrollHeight - page.clientHeight
+    const asked = page.scrollTop + step + this.glideCarry
+    const wanted = Math.min(limit, Math.max(0, asked))
     page.scrollTop = wanted
     // Kept for the next frame, as scrollTop takes whole device pixels.
     this.glideCarry = wanted - page.scrollTop
+    if (asked < 0 || asked > limit) {
+      // Nowhere further to go: it has landed as far as it can.
+      this.settling = false
+      this.landingAt = undefined
+      this.landedAt = Date.now()
+      this.glideCarry = 0
+      this.glideSpeed = 0
+    }
   }
 
   /** A desktop: a wide window and a mouse or trackpad, to drag and resize with. */
@@ -468,7 +483,9 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const container = card.parentElement as HTMLElement
     const start = container.getBoundingClientRect()
     const grab = { x: event.clientX - start.left, y: event.clientY - start.top }
-    const move = (moved: PointerEvent) =>
+    const pointer = event.pointerId
+    const move = (moved: PointerEvent) => {
+      if (moved.pointerId !== pointer) return
       this.position.set(
         this.withinWindow(
           moved.clientX - grab.x,
@@ -477,14 +494,28 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
           start.height,
         ),
       )
-    const drop = () => {
-      window.removeEventListener("pointermove", move)
-      window.removeEventListener("pointerup", drop)
+    }
+    // Released, cancelled (the device gone) or the control torn down: the
+    // same end, the place reached kept.
+    const end = (ended?: PointerEvent) => {
+      if (ended && ended.pointerId !== pointer) return
+      this.endDrag?.()
       this.store(POSITION_KEY, this.position())
     }
+    this.endDrag?.()
+    this.endDrag = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", end)
+      window.removeEventListener("pointercancel", end)
+      this.endDrag = undefined
+    }
     window.addEventListener("pointermove", move)
-    window.addEventListener("pointerup", drop)
+    window.addEventListener("pointerup", end)
+    window.addEventListener("pointercancel", end)
   }
+
+  /** Ends a drag under way, if any: its listeners go. */
+  private endDrag?: () => void
 
   private withinWindow(
     left: number,
@@ -500,6 +531,24 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         Math.min(Math.max(8, top), window.innerHeight - height - 8),
       ),
     }
+  }
+
+  /**
+   * Tucks the card into its pill, or brings it back. The button pressed
+   * goes with the layout it was in: focus moves to the one that replaces it,
+   * so a keyboard reader can turn straight back.
+   */
+  protected tuck(collapsed: boolean): void {
+    this.player.collapsed.set(collapsed)
+    afterNextRender(
+      () =>
+        this.host.nativeElement
+          .querySelector<HTMLElement>(
+            collapsed ? ".audio-expand" : ".audio-collapse",
+          )
+          ?.focus(),
+      { injector: this.injector },
+    )
   }
 
   /** Back to its corner, at its usual width. */
@@ -548,10 +597,14 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const watched = new MutationObserver(() => {
       const card = this.host.nativeElement.querySelector(".audio-player")
       resized?.disconnect()
-      if (card) resized?.observe(card)
+      if (!card) return
+      resized?.observe(card)
+      // Saved in a wider window, it would show off the edge: inside it.
+      keepInside()
     })
     watched.observe(this.host.nativeElement, { childList: true, subtree: true })
     this.destroyRef.onDestroy(() => {
+      this.endDrag?.()
       query.removeEventListener("change", update)
       window.removeEventListener("resize", keepInside)
       resized?.disconnect()
@@ -588,11 +641,12 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       else if (part.left >= shown.right) after += part.height
       else here += part.height
     }
-    if (after === 0) return
     if (here === 0) {
-      if (before === 0) this.turn(reading.verse as HTMLElement)
+      // Wholly on another page, after this one or (a seek back) before it.
+      if (before + after > 0) this.turn(reading.verse as HTMLElement)
       return
     }
+    if (after === 0) return
     if (reading.through >= (before + here) / (before + here + after)) {
       this.turn("next")
     }
@@ -629,7 +683,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   /** The ‹ › arrows turn pages and chapters: the reader's own move too. */
-  private noteArrowTap = (event: PointerEvent) => {
+  private noteArrowTap = (event: Event) => {
     const target = event.target as Element | null
     if (target?.closest(".floating-nav-button")) this.noteReaderMoved()
   }
@@ -784,7 +838,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         passive: true,
       })
       window.addEventListener("keydown", this.noteReaderKey)
-      document.addEventListener("pointerdown", this.noteArrowTap)
+      // A click, so Enter and Space on an arrow count as much as a tap.
+      document.addEventListener("click", this.noteArrowTap, true)
       element.addEventListener("pointerdown", this.noteScrollbar)
     })
     this.destroyRef.onDestroy(() => {
@@ -792,7 +847,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       element.removeEventListener("wheel", this.noteReaderMoved)
       element.removeEventListener("touchmove", this.noteReaderMoved)
       window.removeEventListener("keydown", this.noteReaderKey)
-      document.removeEventListener("pointerdown", this.noteArrowTap)
+      document.removeEventListener("click", this.noteArrowTap, true)
     })
   }
 

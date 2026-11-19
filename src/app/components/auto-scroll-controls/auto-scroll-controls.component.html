@@ -10,7 +10,7 @@
       <mat-icon>{{ playingThis() ? 'pause' : 'play_arrow' }}</mat-icon>
     </button>
     <button type="button" mat-icon-button class="audio-expand" aria-label="Mostrar o leitor do +365"
-      (click)="player.collapsed.set(false)">
+      (click)="tuck(false)">
       <mat-icon>expand_less</mat-icon>
     </button>
   </div>
@@ -21,7 +21,7 @@
     [style.width.px]="desktop() ? cardWidth() : null" (pointerdown)="startDrag($event)">
     <div class="audio-caption" (dblclick)="dock()">{{ bookName() }} {{ chapter() }}</div>
     <button type="button" mat-icon-button class="audio-collapse" aria-label="Esconder o leitor do +365"
-      (click)="player.collapsed.set(true)">
+      (click)="tuck(true)">
       <mat-icon>expand_more</mat-icon>
     </button>
     <div class="audio-progress">

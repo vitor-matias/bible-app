@@ -687,6 +687,34 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         expect(Math.abs(page.scrollTop - 169.75)).toBeLessThanOrEqual(1.5)
       })
 
+      it("carries no movement the top of the page refused", async () => {
+        // Verse 1 starts at the very top: above the area, with nowhere to go.
+        await playAt(58.5)
+        vi.advanceTimersByTime(2000)
+        expect(page.scrollTop).toBe(0)
+        expect(
+          Math.abs(
+            (fixture.componentInstance as unknown as { glideCarry: number })
+              .glideCarry,
+          ),
+        ).toBeLessThan(1)
+      })
+
+      it("stands back when the reader turns a page with a ‹ › arrow, by keyboard too", async () => {
+        const arrow = document.createElement("button")
+        arrow.className = "floating-nav-button next-chapter"
+        document.body.append(arrow)
+        try {
+          await playAt(67)
+          // Enter or Space on a button is a click without a pointerdown.
+          arrow.click()
+          vi.advanceTimersByTime(4000)
+          expect(page.scrollTop).toBe(0)
+        } finally {
+          arrow.remove()
+        }
+      })
+
       it("keeps following through keys on the card's own controls", async () => {
         await playAt(67)
         toggle()?.dispatchEvent(
@@ -775,6 +803,16 @@ describe("AutoScrollControlsComponent +365 mode", () => {
           }
         })
 
+        it("turns back to a verse wholly on an earlier page", async () => {
+          const verse = page.querySelector('[id="2"]') as HTMLElement
+          vi.spyOn(verse, "getClientRects").mockReturnValue([
+            new DOMRect(-600, 0, 200, 100),
+          ] as unknown as DOMRectList)
+          await playAt(65)
+          vi.advanceTimersByTime(200)
+          expect(turns).toEqual([verse])
+        })
+
         it("doesn't turn while the verse is all on this page", async () => {
           split(200, 0)
           await playAt(69.9)
@@ -848,6 +886,20 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(find(".audio-mini")).toBeNull()
   })
 
+  it("keeps focus on the toggle that replaces the one pressed", async () => {
+    await listen()
+    tap(byLabel("Esconder o leitor do +365"))
+    await fixture.whenStable()
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(
+      "Mostrar o leitor do +365",
+    )
+    tap(byLabel("Mostrar o leitor do +365"))
+    await fixture.whenStable()
+    expect(document.activeElement?.getAttribute("aria-label")).toBe(
+      "Esconder o leitor do +365",
+    )
+  })
+
   describe("on a desktop", () => {
     let desktop: boolean
     beforeEach(() => {
@@ -903,6 +955,39 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       drag(find(".audio-caption") as Element, [-500, -500])
       expect(container().style.left).toBe("8px")
       expect(container().style.top).toBe("8px")
+    })
+
+    it("stops following the pointer once the browser cancels it", async () => {
+      await listen()
+      const caption = find(".audio-caption") as Element
+      const box = caption.getBoundingClientRect()
+      const at = (x: number, y: number) => ({
+        bubbles: true,
+        clientX: x,
+        clientY: y,
+        button: 0,
+        pointerId: 7,
+      })
+      caption.dispatchEvent(
+        new PointerEvent("pointerdown", at(box.left + 20, box.top + 5)),
+      )
+      window.dispatchEvent(new PointerEvent("pointercancel", at(0, 0)))
+      window.dispatchEvent(new PointerEvent("pointermove", at(300, 200)))
+      fixture.detectChanges()
+      expect(container().style.left).toBe("")
+    })
+
+    it("brings a place saved in a wider window back inside it", async () => {
+      localStorage.setItem(
+        "audioCardPosition",
+        JSON.stringify({ left: 5000, top: 40 }),
+      )
+      fixture = TestBed.createComponent(AutoScrollControlsComponent)
+      await listen()
+      await fixture.whenStable()
+      fixture.detectChanges()
+      const right = container().getBoundingClientRect().right
+      expect(right).toBeLessThanOrEqual(window.innerWidth - 8)
     })
 
     it("isn't dragged by its controls", async () => {

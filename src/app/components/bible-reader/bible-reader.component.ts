@@ -245,14 +245,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    */
   onPageTurn(target: "next" | HTMLElement): void {
     if (this.effectiveViewMode !== "paged") return
-    if (target === "next") {
-      this.pagedNav?.nextPage()
-      return
-    }
-    const reduced = window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches
-    this.pagedNav?.scrollToPage(target, reduced ? "auto" : "smooth")
+    const behavior = window.matchMedia?.("(prefers-reduced-motion: reduce)")
+      .matches
+      ? "auto"
+      : "smooth"
+    if (target === "next") this.pagedNav?.nextPage(behavior)
+    else this.pagedNav?.scrollToPage(target, behavior)
   }
 
   /** A book's short name, "Génesis", for the +365 card's caption. */

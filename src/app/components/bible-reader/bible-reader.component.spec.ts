@@ -2141,8 +2141,17 @@ describe("BibleReaderComponent", () => {
       component.viewMode = "paged"
       component.onPageTurn("next")
       component.onPageTurn(verse)
-      expect(pagedNav.nextPage).toHaveBeenCalledTimes(1)
+      expect(pagedNav.nextPage).toHaveBeenCalledWith("smooth")
       expect(pagedNav.scrollToPage).toHaveBeenCalledWith(verse, "smooth")
+
+      // Reduced motion: both turns jump.
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList)
+      component.onPageTurn("next")
+      component.onPageTurn(verse)
+      expect(pagedNav.nextPage).toHaveBeenLastCalledWith("auto")
+      expect(pagedNav.scrollToPage).toHaveBeenLastCalledWith(verse, "auto")
     })
 
     it("gets the chapter on screen, not the book coming", () => {
