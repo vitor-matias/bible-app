@@ -623,11 +623,15 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       it("eases a verse that leaves the area up to its top edge, then rests", async () => {
         // Verse 2 at 200 to 400px runs out of the area: its top goes to 37.5.
         await playAt(67)
-        vi.advanceTimersByTime(100)
+        // Slowly: gathering speed over the first second...
+        vi.advanceTimersByTime(1000)
         const early = page.scrollTop
-        expect(early).toBeGreaterThan(0)
-        expect(early).toBeLessThan(60)
-        vi.advanceTimersByTime(4000)
+        expect(early).toBeGreaterThan(5)
+        expect(early).toBeLessThan(25)
+        // ...and never faster than 30px a second.
+        vi.advanceTimersByTime(2000)
+        expect(page.scrollTop - early).toBeLessThanOrEqual(61)
+        vi.advanceTimersByTime(20000)
         // Whole pixels, and it rests within one of the edge.
         expect(Math.abs(page.scrollTop - 162.5)).toBeLessThanOrEqual(1.5)
         const rested = page.scrollTop
@@ -640,7 +644,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         page.dispatchEvent(new WheelEvent("wheel"))
         vi.advanceTimersByTime(4000)
         expect(page.scrollTop).toBe(0)
-        vi.advanceTimersByTime(6000)
+        vi.advanceTimersByTime(26000)
         expect(Math.abs(page.scrollTop - 162.5)).toBeLessThanOrEqual(1.5)
       })
 
@@ -653,7 +657,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         ).mockReturnValue(new DOMRect(0, 0, 300, 106))
         // Verse 2 (200px) is taller than the area: its reading line, 300px
         // into the text, eases to the area's top.
-        vi.advanceTimersByTime(4000)
+        vi.advanceTimersByTime(20000)
         expect(Math.abs(page.scrollTop - 169.75)).toBeLessThanOrEqual(1.5)
       })
 
@@ -665,7 +669,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         find('input[aria-label="Posição no +365"]')?.dispatchEvent(
           new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
         )
-        vi.advanceTimersByTime(4000)
+        vi.advanceTimersByTime(8000)
         expect(page.scrollTop).toBeGreaterThan(100)
       })
 

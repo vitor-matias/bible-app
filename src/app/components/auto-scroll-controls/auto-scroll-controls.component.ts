@@ -49,7 +49,15 @@ const READING_AREA = 0.75
 /** Where a desktop reader dragged the card, and the width they gave it. */
 const POSITION_KEY = "audioCardPosition"
 const WIDTH_KEY = "audioCardWidth"
-const GLIDE_SECONDS = 0.5
+/**
+ * How the text eases up: slowly. It gathers speed gently (GLIDE_ACCEL
+ * px/s²), never passes GLIDE_MAX_SPEED px/s, and slows as it nears the
+ * edge (its speed the distance left over GLIDE_SECONDS): a verse's height
+ * takes about the time it takes to read.
+ */
+const GLIDE_SECONDS = 2.5
+const GLIDE_MAX_SPEED = 30
+const GLIDE_ACCEL = 30
 
 /** 63 → "1:03", 3723 → "62:03"; never below "0:00", as lengths not yet known read 0. */
 const clock = (seconds: number): string => {
@@ -248,12 +256,15 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   private glideAt?: number
   /** What the last frames asked of scrollTop and the browser rounded away. */
   private glideCarry = 0
+  /** The glide's speed now, px/s, gathered and shed gently. */
+  private glideSpeed = 0
   private readerMovedAt = 0
 
   private startGlide(): void {
     if (this.glideFrame !== undefined) return
     this.glideAt = undefined
     this.glideCarry = 0
+    this.glideSpeed = 0
     const reduced = !!window.matchMedia?.("(prefers-reduced-motion: reduce)")
       .matches
     const frame = (now: number) => {
@@ -355,12 +366,23 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       if (reduced) page.scrollTop += offset
       this.settling = false
       this.glideCarry = 0
+      this.glideSpeed = 0
       return
     }
-    const wanted =
-      page.scrollTop +
-      offset * (1 - Math.exp(-seconds / GLIDE_SECONDS)) +
-      this.glideCarry
+    const aim =
+      Math.sign(offset) *
+      Math.min(Math.abs(offset) / GLIDE_SECONDS, GLIDE_MAX_SPEED)
+    const change = GLIDE_ACCEL * seconds
+    this.glideSpeed += Math.min(
+      change,
+      Math.max(-change, aim - this.glideSpeed),
+    )
+    // Never past the edge.
+    const step =
+      Math.abs(this.glideSpeed * seconds) > Math.abs(offset)
+        ? offset
+        : this.glideSpeed * seconds
+    const wanted = page.scrollTop + step + this.glideCarry
     page.scrollTop = wanted
     // Kept for the next frame, as scrollTop takes whole device pixels.
     this.glideCarry = wanted - page.scrollTop
