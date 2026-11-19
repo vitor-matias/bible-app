@@ -263,12 +263,24 @@ h3:not(:first-child) {
   transition: background-color 0.4s ease;
 }
 
-:host(:is(.verse-highlight, .verse-reading)) :is(.verseRun, .verseNumber, .footnoteIndicator) {
+:host(.verse-highlight) :is(.verseRun, .verseNumber, .footnoteIndicator) {
   background-color: var(--verse-highlight-color);
 }
 
-:host(:is(.verse-highlight, .verse-reading)) .verseRun {
+:host(.verse-highlight) .verseRun {
   padding-block: 0.1em;
+}
+
+/* Read-along (+365): only a faint line under the verse being read. */
+.verseRun {
+  text-decoration: underline transparent;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.28em;
+  transition: text-decoration-color 0.4s ease;
+}
+
+:host(.verse-reading) .verseRun {
+  text-decoration-color: color-mix(in srgb, currentColor 28%, transparent);
 }
 
 /* Numbers are 65% size and top-aligned, so they need a much larger bottom
