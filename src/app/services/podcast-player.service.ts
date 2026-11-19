@@ -11,6 +11,8 @@ export interface ChapterEpisode {
   url: string
   /** Seconds where the chapter's reading starts; null plays from the top. */
   start: number | null
+  /** Seconds where it ends; null when unknown (the episode's end, then). */
+  end: number | null
 }
 
 const RATES = [0.75, 1, 1.25, 1.5, 2]
@@ -38,6 +40,9 @@ export class PodcastPlayerService {
   readonly current = signal<ChapterEpisode | null>(null)
   readonly playing = signal(false)
   readonly rate = signal(1)
+  /** Where the stream is, and how long it lasts, in seconds; 0 until known. */
+  readonly position = signal(0)
+  readonly duration = signal(0)
   /** What the floating control does: scroll the text, or play +365. */
   readonly mode = signal<"scroll" | "audio">("scroll")
 
@@ -117,6 +122,13 @@ export class PodcastPlayerService {
     }
   }
 
+  /** Moves the episode in the player to a second of it. */
+  seek(seconds: number): void {
+    if (!this.audio || !this.current()) return
+    this.audio.currentTime = seconds
+    this.position.set(seconds)
+  }
+
   pause(): void {
     this.audio?.pause()
   }
@@ -143,6 +155,13 @@ export class PodcastPlayerService {
     audio.defaultPlaybackRate = this.rate()
     audio.addEventListener("play", () => this.playing.set(true))
     audio.addEventListener("pause", () => this.playing.set(false))
+    audio.addEventListener("timeupdate", () =>
+      this.position.set(audio.currentTime),
+    )
+    // A live or unknown length reads Infinity or NaN: no position to pick.
+    audio.addEventListener("durationchange", () =>
+      this.duration.set(Number.isFinite(audio.duration) ? audio.duration : 0),
+    )
     // A stream that ended or failed is not resumed: play() would restart an
     // ended one at 0:00 and keep failing on a broken load.
     audio.addEventListener("ended", () => this.forget())

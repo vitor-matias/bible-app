@@ -1,6 +1,7 @@
 @if (!native) {
-<div class="auto-scroll-controls">
+<div class="auto-scroll-controls" [class.audio]="audioMode()">
   @if (audioMode()) {
+  <div class="audio-row">
   <button class="position-relative floating-nav-button auto-scroll-toggle audio-toggle" type="button" mat-mini-fab
     [attr.aria-label]="playingThis() ? 'Pausar o +365' : 'Ouvir o +365'" [attr.aria-pressed]="playingThis()"
     (click)="toggleAudio()">
@@ -30,6 +31,13 @@
       <mat-icon>add</mat-icon>
     </button>
   </div>
+  </div>
+  <mat-slider class="audio-position" [min]="chapterStart()" [max]="seekable() ? chapterEnd() : chapterStart() + 1" [step]="0.1" [disabled]="!seekable()"
+    [displayWith]="spokenPosition">
+    <input matSliderThumb aria-label="Posição no +365"
+      [value]="sliderValue()" (dragStart)="holdSlider()" (dragEnd)="dragging.set(false)"
+      (valueChange)="player.seek($event)">
+  </mat-slider>
   } @else {
   <button class="position-relative floating-nav-button auto-scroll-toggle" type="button" mat-mini-fab
     [attr.aria-label]="autoScrollEnabled ? 'Pausar deslocamento automático' : 'Ativar deslocamento automático'"

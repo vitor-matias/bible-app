@@ -50,3 +50,23 @@
     right: calc(16px + var(--app-inset-right));
   }
 }
+/* «Ouvir»: the buttons in a row, the episode's position slider under them. */
+.auto-scroll-controls.audio {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.audio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.audio-position {
+  margin: 6px 0 0;
+  padding-inline: 8px;
+  border-radius: 999px;
+  background-color: var(--card-background);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}

@@ -10,10 +10,12 @@ import {
   NgZone,
   OnDestroy,
   OnInit,
+  signal,
 } from "@angular/core"
 import { rxResource, takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
+import { MatSliderModule } from "@angular/material/slider"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
@@ -27,10 +29,16 @@ import { PreferencesService } from "../../services/preferences.service"
  */
 const SPEED_LIMIT_TOLERANCE = 0.001
 
+/** 63 → "1:03", 3723 → "62:03". */
+const clock = (seconds: number): string => {
+  const whole = Math.floor(seconds)
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`
+}
+
 @Component({
   selector: "app-auto-scroll-controls",
   standalone: true,
-  imports: [CommonModule, MatButtonModule, MatIconModule],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatSliderModule],
   templateUrl: "./auto-scroll-controls.component.html",
   styleUrls: ["./auto-scroll-controls.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -86,6 +94,40 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const episode = this.episode()
     return !!episode && this.player.isCurrent(episode)
   })
+
+  /** The slider spans the chapter's reading, not the whole episode. */
+  protected readonly chapterStart = computed(() => this.episode()?.start ?? 0)
+  protected readonly chapterEnd = computed(
+    () => this.episode()?.end ?? this.player.duration(),
+  )
+
+  /** The slider can move this chapter's episode once its span is known. */
+  protected readonly seekable = computed(
+    () => this.loaded() && this.chapterEnd() > this.chapterStart(),
+  )
+
+  /** Held while the thumb is dragged, so playback doesn't pull it back. */
+  protected readonly dragging = signal(false)
+  private heldAt = 0
+
+  // Pinned to the chapter's span while playback runs on before or past it.
+  protected readonly sliderValue = computed(() =>
+    this.dragging()
+      ? this.heldAt
+      : Math.min(
+          this.chapterEnd(),
+          Math.max(this.chapterStart(), this.player.position()),
+        ),
+  )
+
+  protected holdSlider(): void {
+    this.heldAt = this.player.position()
+    this.dragging.set(true)
+  }
+
+  /** For screen readers, into the chapter's reading: "1:03 de 3:44". */
+  protected readonly spokenPosition = (seconds: number): string =>
+    `${clock(seconds - this.chapterStart())} de ${clock(this.chapterEnd() - this.chapterStart())}`
 
   /** The +365 speed in words, for screen readers: "1,25 vezes". */
   protected readonly rateSpoken = computed(

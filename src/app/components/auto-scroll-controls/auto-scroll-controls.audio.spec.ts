@@ -15,8 +15,9 @@ const day3: ChapterEpisode = {
   title: "Dia 3 - A Arca de Noé",
   url: "https://anchor.fm/s/x/podcast/play/3.m4a",
   start: 56.5,
+  end: 280.8,
 }
-const genesis6 = { ...day3, start: 280.8 }
+const genesis6 = { ...day3, start: 280.8, end: 492.1 }
 
 /** The floating control in its +365 mode: one control, scroll or listen. */
 describe("AutoScrollControlsComponent +365 mode", () => {
@@ -290,5 +291,65 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     tap(toggle())
     tap(byLabel("Avançar 10 segundos"))
     expect(audio().currentTime).toBe(66.5)
+  })
+
+  describe("position slider", () => {
+    const slider = () =>
+      find('input[aria-label="Posição no +365"]') as HTMLInputElement | null
+    /** Plays the chapter and reports an episode 1103 s long. */
+    const playing = async (episode: ChapterEpisode = day3) => {
+      await listen([episode])
+      tap(toggle())
+      const stream = audio()
+      Object.defineProperty(stream, "duration", { value: 1103 })
+      stream.dispatchEvent(new Event("durationchange"))
+      fixture.detectChanges()
+      return stream
+    }
+    const at = (stream: HTMLAudioElement, seconds: number) => {
+      stream.currentTime = seconds
+      stream.dispatchEvent(new Event("timeupdate"))
+      fixture.detectChanges()
+    }
+
+    it("waits for the chapter's episode", async () => {
+      await listen()
+      expect(slider()?.disabled).toBe(true)
+    })
+
+    it("spans the chapter's reading, from its start to its end", async () => {
+      await playing()
+      expect(slider()?.disabled).toBe(false)
+      expect(slider()?.min).toBe("56.5")
+      expect(slider()?.max).toBe("280.8")
+    })
+
+    it("follows the playback, said as time into the chapter", async () => {
+      const stream = await playing()
+      at(stream, 256.5)
+      expect(slider()?.value).toBe("256.5")
+      expect(slider()?.getAttribute("aria-valuetext")).toBe("3:20 de 3:44")
+    })
+
+    it("stays at the chapter's end while the episode plays on", async () => {
+      const stream = await playing()
+      at(stream, 600)
+      expect(slider()?.value).toBe("280.8")
+    })
+
+    it("moves the episode to where it is dropped", async () => {
+      const stream = await playing()
+      const input = slider() as HTMLInputElement
+      input.value = "200"
+      input.dispatchEvent(new Event("input"))
+      input.dispatchEvent(new Event("change"))
+      fixture.detectChanges()
+      expect(stream.currentTime).toBe(200)
+    })
+
+    it("runs to the episode's end when the chapter's end is unknown", async () => {
+      await playing({ ...day3, end: null })
+      expect(slider()?.max).toBe("1103")
+    })
   })
 })

@@ -127,7 +127,7 @@
       }
       @if (showAutoScrollControls && drawerContent && bookBlock) {
       <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
-        [bookId]="chapter?.bookId" [chapter]="chapter?.number">
+        [bookId]="chapter.bookId" [chapter]="chapter.number">
       </app-auto-scroll-controls>
       }
       @if (canGoNext) {
