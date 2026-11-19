@@ -10,7 +10,7 @@ strict CSP, and two CSPs on one response would both apply.
 ## The policy
 
 ```
-default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
+default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; media-src 'self' https://anchor.fm https://d3ctxlq1ktw2nl.cloudfront.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
 ```
 
 | Directive | Allows | Why |
@@ -19,6 +19,7 @@ default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4
 | `script-src` | the bundle, one inline script by hash, Umami's `script.js` | the inline script is the theme script in `src/index.html` (dark theme before the bundle arrives). It is identical on all ~1,400 prerendered pages, so one hash covers them. Event replay is off and hydration state is a JSON data block, which CSP does not govern, so no other inline script exists and no nonce is needed. |
 | `style-src 'self' 'unsafe-inline'` | the stylesheet plus inline styles | Angular adds every component's styles as `<style>` elements at runtime, and the prerendered HTML carries `style="…"` attributes (about a hundred on a chapter page). A nonce would have to be minted per response, which static nginx and the service worker's cached `index.csr.html` cannot do, and nonces never cover attributes. Inline CSS cannot run code. |
 | `connect-src` | `/v1`, `build-info.json`, `ngsw.json`, Umami's `/api/send` | the API is relative (`v1`) on the web. |
+| `media-src` | +365 podcast episodes | the «Ouvir no +365» button streams them from the podcast's host: `anchor.fm` answers with a redirect to its CloudFront bucket, and CSP checks both. |
 | `object-src 'none'` | no plugins | |
 | `base-uri 'self'` | `<base href="/">` | stops an injected `<base>` from redirecting relative URLs. |
 | `form-action 'self'` | forms post only here | |
@@ -67,7 +68,7 @@ worker, which only fetches from the site and from Umami (tested).
 Append to `/etc/nginx/snippets/security-headers.conf`:
 
 ```nginx
-add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
+add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; media-src 'self' https://anchor.fm https://d3ctxlq1ktw2nl.cloudfront.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
 add_header Permissions-Policy "accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=(), clipboard-write=(self), screen-wake-lock=(self)" always;
 add_header Cross-Origin-Opener-Policy "same-origin" always;
 ```

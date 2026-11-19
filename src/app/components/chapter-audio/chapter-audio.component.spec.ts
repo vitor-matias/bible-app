@@ -119,6 +119,10 @@ describe("ChapterAudioComponent", () => {
     await answer([day3])
     button()?.click()
     const stream = audio()
+    // As if the stream had loaded far enough to seek.
+    Object.defineProperty(stream, "readyState", {
+      value: HTMLMediaElement.HAVE_METADATA,
+    })
 
     await render("gen", 6)
     await answer([genesis6], 6)
@@ -128,5 +132,55 @@ describe("ChapterAudioComponent", () => {
     expect(audio()).toBe(stream)
     expect(stream.src).toBe(`${day3.url}#t=56.5`)
     expect(stream.currentTime).toBe(280.8)
+  })
+
+  it("restarts a stream still loading at the next chapter's start, even zero", async () => {
+    await render("gen", 5)
+    await answer([day3])
+    button()?.click()
+
+    await render("gen", 6)
+    await answer([{ ...day3, start: null }], 6)
+    button()?.click()
+
+    expect(audio().src).toBe(day3.url)
+  })
+
+  it("replays an ended episode from the chapter's start, not 0:00", async () => {
+    await render("gen", 5)
+    await answer([day3])
+    button()?.click()
+    const stream = audio()
+    stream.src = "about:blank"
+    stream.dispatchEvent(new Event("ended"))
+    fixture.detectChanges()
+    expect(button()?.textContent).toContain("Ouvir no +365")
+
+    button()?.click()
+    expect(stream.src).toBe(`${day3.url}#t=56.5`)
+  })
+
+  it("offers to play again, reloading, when the stream fails", async () => {
+    await render("gen", 5)
+    await answer([day3])
+    button()?.click()
+    const stream = audio()
+    stream.src = "about:blank"
+    stream.dispatchEvent(new Event("error"))
+    fixture.detectChanges()
+    expect(button()?.textContent).toContain("Ouvir no +365")
+
+    button()?.click()
+    expect(stream.src).toBe(`${day3.url}#t=56.5`)
+  })
+
+  it("offers to play again when play() is refused", async () => {
+    play.mockImplementation(() => Promise.reject(new Error("NotAllowedError")))
+    await render("gen", 5)
+    await answer([day3])
+    button()?.click()
+    await fixture.whenStable()
+    fixture.detectChanges()
+    expect(button()?.textContent).toContain("Ouvir no +365")
   })
 })
