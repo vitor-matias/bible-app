@@ -19,7 +19,11 @@ const app = bootstrapApplication(AppComponent, {
     provideHydration(),
     provideRouter(routes),
     { provide: LocationStrategy, useClass: DepthLocationStrategy },
-    provideServiceWorker("ngsw-worker.js", {
+    // Angular's worker behind a wrapper that keeps it off other origins' and
+    // audio requests: see public/app-worker.js.
+    provideServiceWorker("app-worker.js", {
+      // The wrapper imports ngsw-worker.js: check both for updates, uncached.
+      updateViaCache: "none",
       enabled: isServiceWorkerEnabled(isDevMode()),
       registrationStrategy: "registerWhenStable:30000",
     }),
