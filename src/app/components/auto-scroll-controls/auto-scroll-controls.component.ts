@@ -52,12 +52,14 @@ const WIDTH_KEY = "audioCardWidth"
 /**
  * How the text eases up: slowly. It gathers speed gently (GLIDE_ACCEL
  * px/s²), never passes GLIDE_MAX_SPEED px/s, and slows as it nears the
- * edge (its speed the distance left over GLIDE_SECONDS): a verse's height
- * takes about the time it takes to read.
+ * edge (its speed the distance left over GLIDE_SECONDS, down to
+ * GLIDE_MIN_SPEED): a short, gentle landing.
  */
-const GLIDE_SECONDS = 2
+const GLIDE_SECONDS = 1
 const GLIDE_MAX_SPEED = 45
 const GLIDE_ACCEL = 45
+/** The slowest it goes on the way in, so the last pixels don't creep. */
+const GLIDE_MIN_SPEED = 8
 
 /** 63 → "1:03", 3723 → "62:03"; never below "0:00", as lengths not yet known read 0. */
 const clock = (seconds: number): string => {
@@ -371,7 +373,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     }
     const aim =
       Math.sign(offset) *
-      Math.min(Math.abs(offset) / GLIDE_SECONDS, GLIDE_MAX_SPEED)
+      Math.min(
+        Math.max(Math.abs(offset) / GLIDE_SECONDS, GLIDE_MIN_SPEED),
+        GLIDE_MAX_SPEED,
+      )
     const change = GLIDE_ACCEL * seconds
     this.glideSpeed += Math.min(
       change,
