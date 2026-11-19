@@ -489,7 +489,21 @@ describe("BookmarkSelectorComponent", () => {
     const hint = (): HTMLElement | null =>
       fixture.nativeElement.querySelector(".ribbon-hint")
 
-    it("shows while a ribbon marks a passage", () => {
+    // A mouse has no long press: it removes by right-click.
+    it("tells a mouse to right-click while a ribbon marks a passage", () => {
+      expect(matchMedia("(pointer: fine)").matches).toBe(true)
+      expect(hint()?.textContent).toContain(
+        "Clique com o botão direito num marcador para o remover.",
+      )
+    })
+
+    it("tells a finger to hold", () => {
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: false,
+      } as MediaQueryList)
+      fixture = TestBed.createComponent(BookmarkSelectorComponent)
+      fixture.detectChanges()
+
       expect(hint()?.textContent).toContain(
         "Mantenha premido um marcador para o remover.",
       )

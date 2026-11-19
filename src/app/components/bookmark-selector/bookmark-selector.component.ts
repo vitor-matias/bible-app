@@ -1,4 +1,4 @@
-import { CommonModule } from "@angular/common"
+import { CommonModule, DOCUMENT } from "@angular/common"
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -89,6 +89,13 @@ export class BookmarkSelectorComponent implements OnInit {
   readonly ribbonColor = ribbonColor
 
   ribbons: RibbonState[] = []
+
+  /** How to remove a ribbon with the pointer at hand: a mouse has no long press. */
+  readonly removeHint = inject(DOCUMENT).defaultView?.matchMedia?.(
+    "(pointer: fine)",
+  ).matches
+    ? "Clique com o botão direito num marcador para o remover."
+    : "Mantenha premido um marcador para o remover."
 
   move?: MoveOffer
   removed?: RemoveOffer
