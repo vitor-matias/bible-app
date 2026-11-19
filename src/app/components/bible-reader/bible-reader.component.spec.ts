@@ -1905,6 +1905,31 @@ describe("BibleReaderComponent", () => {
         }
       })
 
+      // The copyright shares the arrows' row there (styles.css): the iOS
+      // rule above took 78px off every Android page.
+      it("give Android's text the whole page", () => {
+        document.body.classList.add("native-chrome", "platform-android")
+        try {
+          // A <bible-reader> host, for the Android rules in styles.css.
+          fixture = TestBed.createComponent(BibleReaderComponent, {
+            inferTagName: true,
+          })
+          component = fixture.componentInstance
+          pagedAt(390)
+          const host = fixture.nativeElement as HTMLElement
+          const pages = host.querySelector(
+            ".paged-view-container",
+          ) as HTMLElement
+          // The drawer's flex column isn't rendered here: size it as it would.
+          pages.style.height = "500px"
+          expect(
+            (host.querySelector(".paged-view") as HTMLElement).offsetHeight,
+          ).toBe(500)
+        } finally {
+          document.body.classList.remove("native-chrome", "platform-android")
+        }
+      })
+
       it("keep a tablet's margins inside each of its two columns", () => {
         const { view, chapter } = pagedAt(1024)
 

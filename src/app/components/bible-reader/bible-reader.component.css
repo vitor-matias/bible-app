@@ -382,8 +382,9 @@ h6 {
     max-width: 100%;
   }
 
-  /* The native apps draw no arrows: room for the footer alone. */
-  :host-context(.native-chrome) .paged-view {
+  /* iOS draws no arrows: room for the footer alone. Android's pages are
+     laid out in styles.css, with the copyright beside its arrows. */
+  :host-context(.native-chrome:not(.platform-android)) .paged-view {
     height: calc(100% - 78px);
   }
 
