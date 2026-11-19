@@ -88,9 +88,12 @@ export function indexOfWord(folded: string, word: string, from = 0): number {
 }
 
 /**
- * `text` split into runs, the query's words marked where words begin with them,
- * accents and case aside. Words of two letters ("de", "os") are marked only
- * when the query has no longer ones: they hide inside most words.
+ * `text` split into runs, the words of the query marked whole, accents and
+ * case aside, and their plurals and feminines with them ("pai" marks "pais",
+ * "senhor" "senhores"), but not longer words that merely begin with them:
+ * "amor" left "amor" marked inside "amorreus". Words of two letters ("de",
+ * "os") are marked only when the query has no longer ones: they hide inside
+ * most words.
  */
 export function highlightWords(text: string, query: string): TextSegment[] {
   const words = searchWords(query)
@@ -107,7 +110,10 @@ export function highlightWords(text: string, query: string): TextSegment[] {
       at !== -1;
       at = indexOfWord(folded, word, at + word.length)
     ) {
-      ranges.push([origin[at], origin[at + word.length]])
+      const end =
+        at + (/^[\p{L}\p{N}]*/u.exec(folded.slice(at))?.[0].length ?? 0)
+      if (/^(s|es|a|as|os)?$/.test(folded.slice(at + word.length, end)))
+        ranges.push([origin[at], origin[end]])
     }
   }
   if (!ranges.length) return [{ text, highlight: false }]
