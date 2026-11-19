@@ -1,4 +1,4 @@
-import { CommonModule } from "@angular/common"
+import { CommonModule, DOCUMENT } from "@angular/common"
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -98,6 +98,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   private readonly nativeFootnotes = inject(NativeFootnotesService)
 
   private readonly autoScroll = inject(AutoScrollService)
+  private readonly document = inject(DOCUMENT)
 
   ngOnChanges(_changes: SimpleChanges): void {
     const data = this.data()
@@ -361,6 +362,23 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   getQuoteIdentLevel(text: TextType): number {
     return text.type === "quote" ? text.identLevel : 0
+  }
+
+  /**
+   * A click on the verse's text opens its notes, where the text does, but not
+   * the one that ends a drag selecting it: the reader is copying, not asking.
+   */
+  onTextClick(event: Event): void {
+    if (!this.notesOnText) return
+    const selection = this.document.getSelection()
+    if (
+      selection &&
+      !selection.isCollapsed &&
+      selection.containsNode(event.currentTarget as Node, true)
+    ) {
+      return
+    }
+    this.toggleFootnotes(event)
   }
 
   /** Space on the verse's text opens its notes, where the text does. */

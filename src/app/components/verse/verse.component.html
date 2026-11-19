@@ -54,7 +54,7 @@
             <ng-container *ngTemplateOutlet="copySpace"></ng-container>
           </span>
         }
-        <span class="verseRun" [attr.tabindex]="notesOnText ? 0 : null" [attr.role]="notesOnText ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="notesOnText ? toggleFootnotes($event) : null" (keydown.enter)="notesOnText ? toggleFootnotes($event) : null" (keydown.space)="onTextSpace($event)">{{ text.text }}</span>
+        <span class="verseRun" [attr.tabindex]="notesOnText ? 0 : null" [attr.role]="notesOnText ? 'button' : null" [ngClass]="{'allCaps': text.allCaps}" [class.interactive]="notesOnText" (click)="onTextClick($event)" (keydown.enter)="notesOnText ? toggleFootnotes($event) : null" (keydown.space)="onTextSpace($event)">{{ text.text }}</span>
       }
 
       <!-- References -->

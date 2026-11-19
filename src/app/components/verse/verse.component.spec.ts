@@ -1040,6 +1040,20 @@ describe("VerseComponent", () => {
       expect(text().getAttribute("role")).toBe("button")
     })
 
+    // Mouse-up after drag-selecting the text clicked it, opening the notes.
+    it("leaves text being selected alone, and opens on the next plain click", () => {
+      render()
+      const selection = document.getSelection() as Selection
+      selection.selectAllChildren(text())
+      text().click()
+
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+
+      selection.removeAllRanges()
+      text().click()
+      expect(mockBottomSheet.open).toHaveBeenCalledTimes(1)
+    })
+
     // The marker was a 13x16 px target for a mouse.
     it("gives the marker WCAG's 24 px target, outside the text's flow", () => {
       render()
