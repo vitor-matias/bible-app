@@ -532,6 +532,22 @@ body:has(.audio-player) {
   }
 }
 
+/* The card tucked into its pill, small and centred: the arrows sit level
+   with it (as they do beside the card where there's room, so they stay put
+   when the card is tucked or shown), and a toast above it. */
+@media (max-width: 768px) {
+  body:has(.audio-mini)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(20px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.audio-mini)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(80px + var(--app-inset-bottom));
+  }
+}
+
 /* With room beside the card (360px, and an arrow and its margins each
    side), the arrows sit level with its row of buttons instead of above it:
    that row's middle is 6px of padding and half its 44px up the card. */

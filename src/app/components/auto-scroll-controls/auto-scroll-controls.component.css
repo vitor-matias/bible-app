@@ -260,10 +260,11 @@
 }
 
 /* The card's hide button, in its top corner beside the caption. */
+/* Its middle on the caption's line, and over the + button's. */
 .audio-collapse {
   position: absolute;
-  top: 0;
-  right: 2px;
+  top: 3px;
+  right: 18px;
   --mat-icon-button-state-layer-size: 24px;
   --mat-icon-button-icon-size: 18px;
   padding: 3px;
@@ -274,7 +275,19 @@
   color: var(--ink);
 }
 
-/* Tucked away: play and «show» in a small pill, where the card was. */
+/* Tucked away: play and «show» in a small, see-through pill where the card
+   was, faded like the auto-scroll control and clear on hover. */
+.auto-scroll-controls.audio:has(.audio-mini) {
+  opacity: 0.85;
+  transition: opacity 0.3s;
+}
+
+@media (hover: hover) {
+  .auto-scroll-controls.audio:has(.audio-mini):hover {
+    opacity: 1;
+  }
+}
+
 .audio-mini {
   display: flex;
   align-items: center;
@@ -282,7 +295,7 @@
   padding: 4px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
-  background-color: var(--glass);
+  background-color: color-mix(in srgb, var(--glass) 60%, transparent);
   backdrop-filter: blur(20px) saturate(1.6);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
