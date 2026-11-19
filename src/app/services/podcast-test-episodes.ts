@@ -1,0 +1,134 @@
+import type { ChapterEpisode } from "./podcast-player.service"
+
+// shortcut: +365 Dia 1–5 (bible-api data/mais365.json) hardcoded so the play
+// button can be tried before bible-api serves /v1/audio; delete once deployed.
+export const TEST_EPISODES: Record<string, ChapterEpisode[]> = {
+  "gen/1": [
+    {
+      day: 1,
+      title: "Dia 1 - No princípio",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113344802/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2025-11-31%2F415291843-44100-2-e8480627de31a.m4a",
+      start: 58.4,
+    },
+  ],
+  "gen/2": [
+    {
+      day: 1,
+      title: "Dia 1 - No princípio",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113344802/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2025-11-31%2F415291843-44100-2-e8480627de31a.m4a",
+      start: 362.5,
+    },
+  ],
+  "gen/3": [
+    {
+      day: 2,
+      title: "Dia 2 - A queda",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113377598/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415332929-44100-2-541ccf615c6ae.m4a",
+      start: 56.8,
+    },
+  ],
+  "gen/4": [
+    {
+      day: 2,
+      title: "Dia 2 - A queda",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113377598/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415332929-44100-2-541ccf615c6ae.m4a",
+      start: 309.18,
+    },
+  ],
+  "gen/5": [
+    {
+      day: 3,
+      title: "Dia 3 - A Arca de Noé",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378014/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415333538-44100-2-64465ddc251a1.m4a",
+      start: 56.56,
+    },
+  ],
+  "gen/6": [
+    {
+      day: 3,
+      title: "Dia 3 - A Arca de Noé",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378014/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415333538-44100-2-64465ddc251a1.m4a",
+      start: 280.82,
+    },
+  ],
+  "gen/7": [
+    {
+      day: 4,
+      title: "Dia 4 - O Dilúvio",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378087/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415333648-44100-2-f2e588e84d3c6.m4a",
+      start: 57.6,
+    },
+  ],
+  "gen/8": [
+    {
+      day: 4,
+      title: "Dia 4 - O Dilúvio",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378087/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415333648-44100-2-f2e588e84d3c6.m4a",
+      start: 269.96,
+    },
+  ],
+  "gen/9": [
+    {
+      day: 4,
+      title: "Dia 4 - O Dilúvio",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378087/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415333648-44100-2-f2e588e84d3c6.m4a",
+      start: 467.06,
+    },
+  ],
+  "gen/10": [
+    {
+      day: 5,
+      title: "Dia 5 - Torre de Babel",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378170/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-3%2F415393707-44100-2-3262b3a6ee987.m4a",
+      start: 57.16,
+    },
+  ],
+  "gen/11": [
+    {
+      day: 5,
+      title: "Dia 5 - Torre de Babel",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378170/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-3%2F415393707-44100-2-3262b3a6ee987.m4a",
+      start: 279.76,
+    },
+  ],
+  "psa/1": [
+    {
+      day: 4,
+      title: "Dia 4 - O Dilúvio",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378087/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415333648-44100-2-f2e588e84d3c6.m4a",
+      start: 702.12,
+    },
+  ],
+  "psa/2": [
+    {
+      day: 5,
+      title: "Dia 5 - Torre de Babel",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378170/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-3%2F415393707-44100-2-3262b3a6ee987.m4a",
+      start: 514.32,
+    },
+  ],
+  "psa/19": [
+    {
+      day: 1,
+      title: "Dia 1 - No princípio",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113344802/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2025-11-31%2F415291843-44100-2-e8480627de31a.m4a",
+      start: 577.32,
+    },
+  ],
+  "psa/104": [
+    {
+      day: 2,
+      title: "Dia 2 - A queda",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113377598/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415332929-44100-2-541ccf615c6ae.m4a",
+      start: 556.34,
+    },
+  ],
+  "psa/136": [
+    {
+      day: 3,
+      title: "Dia 3 - A Arca de Noé",
+      url: "https://anchor.fm/s/fbcf8b30/podcast/play/113378014/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-0-1%2F415333538-44100-2-64465ddc251a1.m4a",
+      start: 492.1,
+    },
+  ],
+}

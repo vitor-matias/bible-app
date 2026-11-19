@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http"
 import { Injectable, inject, signal } from "@angular/core"
 import { catchError, map, type Observable, of } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { TEST_EPISODES } from "./podcast-test-episodes"
 
 /** A +365 episode that reads a chapter, as bible-api's /audio lists it. */
 export interface ChapterEpisode {
@@ -11,6 +12,8 @@ export interface ChapterEpisode {
   /** Seconds where the chapter's reading starts; null plays from the top. */
   start: number | null
 }
+
+const RATES = [1, 1.25, 1.5, 2, 0.75]
 
 /**
  * Plays +365 podcast episodes (EJNS Portugal, a Bible-in-a-year reading),
@@ -25,9 +28,12 @@ export class PodcastPlayerService {
   /** The episode loaded in the player, playing or paused. */
   readonly current = signal<ChapterEpisode | null>(null)
   readonly playing = signal(false)
+  readonly rate = signal(1)
 
   /** The episodes that read a chapter, earliest day first; [] when none. */
   episodesFor(bookId: string, chapter: number): Observable<ChapterEpisode[]> {
+    const hardcoded = TEST_EPISODES[`${bookId}/${chapter}`]
+    if (hardcoded) return of(hardcoded)
     return this.http
       .get<{ episodes: ChapterEpisode[] }>(
         `${apiBaseUrl}/audio/${bookId}/${chapter}`,
@@ -74,6 +80,24 @@ export class PodcastPlayerService {
     this.play(audio, episode)
   }
 
+  /** Moves the playing episode back (negative) or forward, in seconds. */
+  skip(seconds: number): void {
+    const audio = this.audio
+    if (!audio || !this.current()) return
+    audio.currentTime = Math.max(0, audio.currentTime + seconds)
+  }
+
+  /** Moves to the next playback speed, after the last back to the first. */
+  nextRate(): void {
+    const next = RATES[(RATES.indexOf(this.rate()) + 1) % RATES.length]
+    this.rate.set(next)
+    if (this.audio) {
+      // The default survives a new src, which resets playbackRate to it.
+      this.audio.defaultPlaybackRate = next
+      this.audio.playbackRate = next
+    }
+  }
+
   private play(audio: HTMLAudioElement, episode: ChapterEpisode): void {
     audio.play().catch(() => {
       // Only this entry's failure: switching streams aborts the last play().
@@ -90,6 +114,7 @@ export class PodcastPlayerService {
   private createAudio(): HTMLAudioElement {
     const audio = new Audio()
     audio.preload = "none"
+    audio.defaultPlaybackRate = this.rate()
     audio.addEventListener("play", () => this.playing.set(true))
     audio.addEventListener("pause", () => this.playing.set(false))
     // A stream that ended or failed is not resumed: play() would restart an

@@ -19,15 +19,34 @@ import { PodcastPlayerService } from "../../services/podcast-player.service"
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (episode(); as episode) {
-      <button type="button" mat-stroked-button class="chapter-audio" (click)="player.toggle(episode)">
-        <mat-icon aria-hidden="true">{{ playingThis() ? "pause" : "play_arrow" }}</mat-icon>
-        {{ playingThis() ? "Pausar" : "Ouvir no +365" }}
-      </button>
+      <div class="chapter-audio">
+        @if (loaded()) {
+          <button type="button" matIconButton class="skip-back" (click)="player.skip(-10)" aria-label="Recuar 10 segundos">
+            <mat-icon aria-hidden="true">replay_10</mat-icon>
+          </button>
+        }
+        <button type="button" mat-stroked-button class="toggle" (click)="player.toggle(episode)">
+          <mat-icon aria-hidden="true">{{ playingThis() ? "pause" : "play_arrow" }}</mat-icon>
+          {{ playingThis() ? "Pausar" : "Ouvir no +365" }}
+        </button>
+        @if (loaded()) {
+          <button type="button" matIconButton class="skip-forward" (click)="player.skip(10)" aria-label="Avançar 10 segundos">
+            <mat-icon aria-hidden="true">forward_10</mat-icon>
+          </button>
+          <button type="button" mat-button class="rate" (click)="player.nextRate()"
+            [attr.aria-label]="'Velocidade ' + rateLabel() + ', mudar'">{{ rateLabel() }}</button>
+        }
+      </div>
     }
   `,
   styles: `
-    :host { display: flex; justify-content: center; }
-    .chapter-audio { margin-block: 0.5rem 1rem; }
+    .chapter-audio {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.25rem;
+      margin-block: 0.5rem 1rem;
+    }
   `,
 })
 export class ChapterAudioComponent {
@@ -49,6 +68,16 @@ export class ChapterAudioComponent {
 
   /** The earliest episode that reads the chapter. */
   protected readonly episode = computed(() => this.episodes.value()?.[0])
+
+  /** This chapter's entry is in the player, playing or paused. */
+  protected readonly loaded = computed(() => {
+    const episode = this.episode()
+    return !!episode && this.player.isCurrent(episode)
+  })
+
+  protected readonly rateLabel = computed(
+    () => `${String(this.player.rate()).replace(".", ",")}×`,
+  )
 
   protected readonly playingThis = computed(() => {
     const episode = this.episode()

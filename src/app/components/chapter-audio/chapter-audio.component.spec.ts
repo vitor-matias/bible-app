@@ -28,7 +28,7 @@ describe("ChapterAudioComponent", () => {
     fixture.detectChanges()
   }
   const answer = async (episodes: ChapterEpisode[] | null, chapter = 5) => {
-    const request = http.expectOne(`${apiBaseUrl}/audio/gen/${chapter}`)
+    const request = http.expectOne(`${apiBaseUrl}/audio/exo/${chapter}`)
     if (episodes) request.flush({ episodes })
     else
       request.flush(
@@ -39,7 +39,9 @@ describe("ChapterAudioComponent", () => {
     fixture.detectChanges()
   }
   const button = () =>
-    fixture.nativeElement.querySelector("button") as HTMLButtonElement | null
+    fixture.nativeElement.querySelector(
+      "button.toggle",
+    ) as HTMLButtonElement | null
   const audio = () => play.mock.contexts.at(-1) as HTMLAudioElement
 
   beforeEach(() => {
@@ -65,13 +67,13 @@ describe("ChapterAudioComponent", () => {
   afterEach(() => http.verify())
 
   it("shows nothing for a chapter no episode reads", async () => {
-    await render("gen", 5)
+    await render("exo", 5)
     await answer(null)
     expect(button()).toBeNull()
   })
 
   it("plays the episode from where the chapter starts in one touch", async () => {
-    await render("gen", 5)
+    await render("exo", 5)
     await answer([day3, { ...day3, day: 40 }])
     expect(button()?.textContent).toContain("Ouvir no +365")
 
@@ -84,7 +86,7 @@ describe("ChapterAudioComponent", () => {
   })
 
   it("pauses and resumes on the next touches", async () => {
-    await render("gen", 5)
+    await render("exo", 5)
     await answer([day3])
     button()?.click()
     button()?.click()
@@ -98,16 +100,16 @@ describe("ChapterAudioComponent", () => {
   })
 
   it("plays from the top when the episode has no start", async () => {
-    await render("gen", 5)
+    await render("exo", 5)
     await answer([{ ...day3, start: null }])
     button()?.click()
     expect(audio().src).toBe(day3.url)
   })
 
   it("stays hidden when the request fails", async () => {
-    await render("gen", 5)
+    await render("exo", 5)
     http
-      .expectOne(`${apiBaseUrl}/audio/gen/5`)
+      .expectOne(`${apiBaseUrl}/audio/exo/5`)
       .flush("boom", { status: 500, statusText: "Server Error" })
     await fixture.whenStable()
     fixture.detectChanges()
@@ -115,7 +117,7 @@ describe("ChapterAudioComponent", () => {
   })
 
   it("seeks within the episode for the next chapter it reads", async () => {
-    await render("gen", 5)
+    await render("exo", 5)
     await answer([day3])
     button()?.click()
     const stream = audio()
@@ -124,7 +126,7 @@ describe("ChapterAudioComponent", () => {
       value: HTMLMediaElement.HAVE_METADATA,
     })
 
-    await render("gen", 6)
+    await render("exo", 6)
     await answer([genesis6], 6)
     expect(button()?.textContent).toContain("Ouvir no +365")
     button()?.click()
@@ -135,11 +137,11 @@ describe("ChapterAudioComponent", () => {
   })
 
   it("restarts a stream still loading at the next chapter's start, even zero", async () => {
-    await render("gen", 5)
+    await render("exo", 5)
     await answer([day3])
     button()?.click()
 
-    await render("gen", 6)
+    await render("exo", 6)
     await answer([{ ...day3, start: null }], 6)
     button()?.click()
 
@@ -147,7 +149,7 @@ describe("ChapterAudioComponent", () => {
   })
 
   it("replays an ended episode from the chapter's start, not 0:00", async () => {
-    await render("gen", 5)
+    await render("exo", 5)
     await answer([day3])
     button()?.click()
     const stream = audio()
@@ -161,7 +163,7 @@ describe("ChapterAudioComponent", () => {
   })
 
   it("offers to play again, reloading, when the stream fails", async () => {
-    await render("gen", 5)
+    await render("exo", 5)
     await answer([day3])
     button()?.click()
     const stream = audio()
@@ -176,11 +178,45 @@ describe("ChapterAudioComponent", () => {
 
   it("offers to play again when play() is refused", async () => {
     play.mockImplementation(() => Promise.reject(new Error("NotAllowedError")))
-    await render("gen", 5)
+    await render("exo", 5)
     await answer([day3])
     button()?.click()
     await fixture.whenStable()
     fixture.detectChanges()
     expect(button()?.textContent).toContain("Ouvir no +365")
+  })
+
+  it("plays the hardcoded Dia 1–5 chapters without asking the API", async () => {
+    await render("gen", 1)
+    await fixture.whenStable()
+    fixture.detectChanges()
+    button()?.click()
+    expect(audio().src).toMatch(/^https:\/\/anchor\.fm\/.+#t=58\.4$/)
+  })
+
+  it("shows back, forward and speed only once the chapter is in the player", async () => {
+    await render("exo", 5)
+    await answer([day3])
+    const control = (name: string) =>
+      fixture.nativeElement.querySelector(
+        `.${name}`,
+      ) as HTMLButtonElement | null
+    expect(control("skip-back")).toBeNull()
+
+    control("toggle")?.click()
+    fixture.detectChanges()
+    const stream = audio()
+    stream.currentTime = 100
+    control("skip-forward")?.click()
+    expect(stream.currentTime).toBe(110)
+    control("skip-back")?.click()
+    control("skip-back")?.click()
+    expect(stream.currentTime).toBe(90)
+
+    expect(control("rate")?.textContent?.trim()).toBe("1×")
+    control("rate")?.click()
+    fixture.detectChanges()
+    expect(stream.playbackRate).toBe(1.25)
+    expect(control("rate")?.textContent?.trim()).toBe("1,25×")
   })
 })
