@@ -496,19 +496,27 @@ body:has(.audio-player) {
   --audio-card-room: calc(var(--audio-card-height) + 32px + var(--app-inset-bottom));
 }
 
-body:has(.audio-player) .mat-drawer-content:not(:has(.paged-view-container)) {
-  padding-bottom: var(--audio-card-room);
+/* Only where the card would cover text. On wider screens it sits in the
+   bottom-right corner (its left edge at 100vw - 384px) beside the text:
+   the scrolling text, at most 48rem wide and centred, clears it from 1536px;
+   the pages' columns, 65% wide less 3vw a side from 1400px, from 1873px. */
+@media (max-width: 1535px) {
+  body:has(.audio-player) .mat-drawer-content:not(:has(.paged-view-container)) {
+    padding-bottom: var(--audio-card-room);
+  }
 }
 
-body:has(.audio-player) .paged-view-container {
-  height: calc(
-    100dvh - var(--app-header-height) - var(--app-chrome-top) - 15px -
-      var(--audio-card-room)
-  );
-}
+@media (max-width: 1872px) {
+  body:has(.audio-player) .paged-view-container {
+    height: calc(
+      100dvh - var(--app-header-height) - var(--app-chrome-top) - 15px -
+        var(--audio-card-room)
+    );
+  }
 
-body:has(.audio-player) .fixed-footer {
-  bottom: calc(var(--audio-card-height) + 18px + var(--app-inset-bottom));
+  body:has(.audio-player) .fixed-footer {
+    bottom: calc(var(--audio-card-height) + 18px + var(--app-inset-bottom));
+  }
 }
 
 @media (max-width: 768px) {
