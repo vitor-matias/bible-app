@@ -182,6 +182,12 @@ describe("OfflineDataService", () => {
     expect(service).toBeTruthy()
   })
 
+  it("knows the Bible was downloaded by its flag, before reading the records", () => {
+    expect(service.isBibleDownloaded()).toBe(false)
+    mockLocalStorage._storage["booksCacheReady"] = "true"
+    expect(service.isBibleDownloaded()).toBe(true)
+  })
+
   describe("preloadAllBooksAndChapters", () => {
     it("should skip preload if cache is already valid", async () => {
       mockLocalStorage._storage["booksCacheReady"] = "true"

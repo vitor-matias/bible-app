@@ -306,8 +306,12 @@
 } @else if (showLoading) {
 <!-- Shown after a moment (styles.css), so a quick load never flashes it. -->
 <div class="books-unavailable books-loading" role="status">
+  @if (firstDownload) {
   <mat-icon class="books-unavailable-icon" aria-hidden="true">downloading</mat-icon>
+  }
   <h1 class="books-unavailable-title">A carregar a Bíblia…</h1>
+  @if (firstDownload) {
   <p>Na primeira utilização, a Bíblia (cerca de 5 MB) é descarregada para depois poder ser lida sem ligação.</p>
+  }
 </div>
 }

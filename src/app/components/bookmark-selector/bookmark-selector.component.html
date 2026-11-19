@@ -68,7 +68,7 @@
   <!-- Said as it changes, as the native sheets do: a ribbon set, moved or taken off. -->
   <p class="hint" role="status" aria-live="polite">{{ hint }}</p>
   @if (hasMarked) {
-  <p class="hint ribbon-hint">Mantenha premido um marcador para o remover.</p>
+  <p class="hint ribbon-hint">{{ removeHint }}</p>
   <span id="ribbon-remove-hint" class="sr-only">Prima a tecla de menu ou Shift+F10 para remover o marcador.</span>
   }
 </div>

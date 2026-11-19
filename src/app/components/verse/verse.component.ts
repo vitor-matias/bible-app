@@ -1,4 +1,4 @@
-import { CommonModule } from "@angular/common"
+import { CommonModule, DOCUMENT } from "@angular/common"
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
@@ -161,6 +161,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   private readonly nativeFootnotes = inject(NativeFootnotesService)
 
   private readonly autoScroll = inject(AutoScrollService)
+  private readonly document = inject(DOCUMENT)
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef)
 
@@ -492,16 +493,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     )
   }
 
-  /** A run only carries a handler when the verse has footnotes to open. */
-  onRunClick(event: Event): void {
-    // Study mode has no bottom sheet: the host listener above takes the click.
-    if (this.studyMode) return
-    // As above: finishing a selection over a footnoted verse used to throw
-    // the footnotes sheet over the words the reader had just selected.
-    if (VerseComponent.hasTextSelection()) return
-    this.toggleFootnotes(event)
-  }
-
   onFootnoteMarkerClick(event: Event): void {
     // Verse 0 carries the chapter's front matter, footnotes included, and
     // cannot be selected — so in study mode too the marker opens the sheet
@@ -530,6 +521,22 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   private emitSelection(panel?: VerseSelection["panel"]): void {
     if (!this.isSelectable) return
     this.verseSelected.emit({ verse: this.data(), panel })
+  }
+  /**
+   * A click on the verse's text opens its notes, where the text does, but not
+   * the one that ends a drag selecting it: the reader is copying, not asking.
+   */
+  onTextClick(event: Event): void {
+    if (!this.notesOnText) return
+    const selection = this.document.getSelection()
+    if (
+      selection &&
+      !selection.isCollapsed &&
+      selection.containsNode(event.currentTarget as Node, true)
+    ) {
+      return
+    }
+    this.toggleFootnotes(event)
   }
 
   toggleFootnotes(event?: Event): void {
