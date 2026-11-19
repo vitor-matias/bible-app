@@ -78,14 +78,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       this.player.episodesFor(params.bookId, params.chapter),
   })
 
-  /**
-   * What «Ouvir» controls: the earliest +365 episode that reads the chapter,
-   * or else the one already in the player. Turning to a chapter no episode
-   * reads leaves that one playing, so it must stay within reach to pause.
-   */
-  protected readonly entry = computed(
-    () => this.episodes.value()?.[0] ?? this.player.current() ?? undefined,
-  )
+  /** What «Ouvir» controls: the earliest +365 episode that reads the chapter. */
+  protected readonly entry = computed(() => this.episodes.value()?.[0])
 
   /** Playing +365 rather than scrolling: only with an episode to play. */
   protected readonly audioMode = computed(
@@ -110,6 +104,15 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   )
 
   constructor() {
+    // Turning to another chapter stops the episode: its reading is over.
+    let shown: string | undefined
+    effect(() => {
+      const chapter = `${this.bookId()}/${this.chapter()}`
+      untracked(() => {
+        if (shown !== undefined && shown !== chapter) this.player.pause()
+        shown = chapter
+      })
+    })
     // «Ouvir» can return without toggleMode(): a chapter with an episode comes
     // back (Back, «Voltar para…») after scrolling started where none was.
     effect(() => {

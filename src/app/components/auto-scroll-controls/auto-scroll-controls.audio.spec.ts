@@ -293,15 +293,17 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(audio().currentTime).toBe(66.5)
   })
 
-  it("keeps a playing episode within reach in a chapter no episode reads", async () => {
+  it("stops playing when the chapter changes", async () => {
     await listen()
     tap(toggle())
+    const stream = audio()
 
     render("exo", 7)
     await answer(null, 7)
-    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
-    tap(toggle())
-    expect(audio().paused).toBe(true)
+    expect(stream.paused).toBe(true)
+    expect(toggle()?.getAttribute("aria-label")).toBe(
+      "Ativar deslocamento automático",
+    )
   })
 
   it("pauses the episode when the controls are hidden", async () => {
@@ -328,6 +330,78 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     await answer([day3])
     expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
     expect(stop).toHaveBeenCalled()
+  })
+
+  it("pauses where the chapter's reading ends, and plays it again from its start", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    stream.currentTime = 200
+    stream.dispatchEvent(new Event("timeupdate"))
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+
+    stream.currentTime = 281
+    stream.dispatchEvent(new Event("timeupdate"))
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+    expect(stream.currentTime).toBe(280.8)
+
+    tap(toggle())
+    expect(stream.currentTime).toBe(56.5)
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+  })
+
+  it("stops on the chapter's last millisecond, not at the next timeupdate", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    vi.useFakeTimers()
+    stream.currentTime = 280.6
+    stream.dispatchEvent(new Event("timeupdate"))
+    await vi.advanceTimersByTimeAsync(150)
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+
+    await vi.advanceTimersByTimeAsync(100)
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+    expect(stream.currentTime).toBe(280.8)
+  })
+
+  it("keeps back and forward inside the chapter", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    Object.defineProperty(stream, "readyState", {
+      value: HTMLMediaElement.HAVE_METADATA,
+    })
+    stream.currentTime = 275
+    tap(byLabel("Avançar 10 segundos"))
+    expect(stream.currentTime).toBe(280.8)
+
+    stream.currentTime = 60
+    tap(byLabel("Recuar 10 segundos"))
+    expect(stream.currentTime).toBe(56.5)
+  })
+
+  it("brings a stream that starts before the chapter to its start", async () => {
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    stream.currentTime = 10
+    stream.dispatchEvent(new Event("timeupdate"))
+    expect(stream.currentTime).toBe(56.5)
+  })
+
+  it("plays on through the episode when the chapter's end is unknown", async () => {
+    await listen([{ ...day3, end: null }])
+    tap(toggle())
+    const stream = audio()
+    stream.currentTime = 900
+    stream.dispatchEvent(new Event("timeupdate"))
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
   })
 
   describe("position slider", () => {

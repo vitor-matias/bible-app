@@ -75,8 +75,15 @@ export class PodcastPlayerService {
     this.audio ??= this.createAudio()
     const audio = this.audio
     if (this.isCurrent(episode)) {
-      if (this.playing()) audio.pause()
-      else this.play(audio, episode)
+      if (this.playing()) {
+        audio.pause()
+        return
+      }
+      // Stopped at the chapter's end, play reads it again from the top.
+      if (episode.end != null && audio.currentTime >= episode.end) {
+        audio.currentTime = episode.start ?? 0
+      }
+      this.play(audio, episode)
       return
     }
     const loaded =
@@ -104,7 +111,52 @@ export class PodcastPlayerService {
       audio.readyState >= HTMLMediaElement.HAVE_METADATA
         ? audio.currentTime
         : (current.start ?? 0)
-    audio.currentTime = Math.max(0, from + seconds)
+    audio.currentTime = this.withinChapter(from + seconds)
+  }
+
+  /**
+   * Keeps a time inside the chapter's reading: the episode is never heard
+   * before its start nor past its end (the whole episode where unknown).
+   */
+  private withinChapter(seconds: number): number {
+    const current = this.current()
+    const start = current?.start ?? 0
+    const end = current?.end ?? Number.POSITIVE_INFINITY
+    return Math.min(end, Math.max(start, seconds))
+  }
+
+  /**
+   * timeupdate comes only every quarter second or so: too coarse for the
+   * chapter's end, past which the next heading or the commentary begins. So
+   * the last stretch is timed to the millisecond instead.
+   */
+  private endTimer?: ReturnType<typeof setTimeout>
+
+  private guardChapter(audio: HTMLAudioElement): void {
+    const end = this.current()?.end
+    if (audio.currentTime < (this.current()?.start ?? 0)) {
+      audio.currentTime = this.withinChapter(audio.currentTime)
+    }
+    if (end == null || !this.playing() || this.endTimer) return
+    const left = (end - audio.currentTime) / audio.playbackRate
+    if (left <= 0) this.stopAtEnd(audio)
+    else if (left < 1) {
+      this.endTimer = setTimeout(() => this.stopAtEnd(audio), left * 1000)
+    }
+  }
+
+  private stopAtEnd(audio: HTMLAudioElement): void {
+    this.clearEndTimer()
+    const end = this.current()?.end
+    if (end == null) return
+    audio.pause()
+    audio.currentTime = end
+    this.position.set(end)
+  }
+
+  private clearEndTimer(): void {
+    clearTimeout(this.endTimer)
+    this.endTimer = undefined
   }
 
   readonly canSlower = () => this.rate() > RATES[0]
@@ -125,8 +177,9 @@ export class PodcastPlayerService {
   /** Moves the episode in the player to a second of it. */
   seek(seconds: number): void {
     if (!this.audio || !this.current()) return
-    this.audio.currentTime = seconds
-    this.position.set(seconds)
+    const within = this.withinChapter(seconds)
+    this.audio.currentTime = within
+    this.position.set(within)
   }
 
   pause(): void {
@@ -154,10 +207,17 @@ export class PodcastPlayerService {
     audio.preload = "none"
     audio.defaultPlaybackRate = this.rate()
     audio.addEventListener("play", () => this.playing.set(true))
-    audio.addEventListener("pause", () => this.playing.set(false))
-    audio.addEventListener("timeupdate", () =>
-      this.position.set(audio.currentTime),
-    )
+    audio.addEventListener("pause", () => {
+      this.clearEndTimer()
+      this.playing.set(false)
+    })
+    // A move or a new speed changes when the end comes: time it afresh.
+    audio.addEventListener("seeking", () => this.clearEndTimer())
+    audio.addEventListener("ratechange", () => this.clearEndTimer())
+    audio.addEventListener("timeupdate", () => {
+      this.position.set(audio.currentTime)
+      this.guardChapter(audio)
+    })
     // A live or unknown length reads Infinity or NaN: no position to pick.
     audio.addEventListener("durationchange", () =>
       this.duration.set(Number.isFinite(audio.duration) ? audio.duration : 0),
