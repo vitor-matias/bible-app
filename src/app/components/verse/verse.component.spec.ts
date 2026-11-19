@@ -626,22 +626,10 @@ describe("VerseComponent", () => {
     })
   })
 
-  describe("a11y — text body tabindex and role", () => {
-    it("should not render tabindex or role on text span when verse has no footnotes", () => {
-      setData(
-        fixture,
-        makeVerse({
-          text: [{ type: "text", text: "plain" }],
-        }),
-      )
-      fixture.detectChanges()
-      const interactive = fixture.nativeElement.querySelectorAll(
-        ".interactive[tabindex='0'][role='button']",
-      )
-      expect(interactive.length).toBe(0)
-    })
-
-    it("should render tabindex and role on text span when verse has footnotes", () => {
+  // Each verse with notes was two tab stops, the marker and the text, both
+  // opening the same notes: about 200 per chapter.
+  describe("a11y — one tab stop per verse with notes", () => {
+    it("is the notes marker; the text is not focusable nor a button", () => {
       setData(
         fixture,
         makeVerse({
@@ -652,15 +640,74 @@ describe("VerseComponent", () => {
         }),
       )
       fixture.detectChanges()
-      const interactive = fixture.nativeElement.querySelectorAll(
-        ".interactive[tabindex='0'][role='button']",
+      const host = fixture.nativeElement as HTMLElement
+      const stops = host.querySelectorAll("[tabindex='0']")
+
+      expect(stops.length).toBe(1)
+      expect(stops[0].getAttribute("aria-label")).toBe("Notas do versículo 1")
+      expect(host.querySelectorAll("[role='button']").length).toBe(1)
+      expect(host.querySelector(".interactive")?.hasAttribute("tabindex")).toBe(
+        false,
       )
-      expect(interactive.length).toBeGreaterThan(0)
     })
 
-    // Tabbing onto a verse showed nothing: the text had outline: none, so a
-    // keyboard user couldn't tell which verse had the focus.
-    it("shows where the keyboard's focus is on the text", () => {
+    // Ester 1 opens with an unnumbered verse (the Greek addition) carrying
+    // five notes: with no number to sit beside, it had no marker, and the
+    // text was no longer a stop either.
+    it("gives an unnumbered verse with notes a marker of its own", () => {
+      setData(
+        fixture,
+        makeVerse({
+          bookId: "est",
+          number: 0,
+          verseLabel: "front",
+          text: [
+            { type: "section", tag: "s2", text: "Um sonho de Mardoqueu" },
+            { type: "paragraph", text: "\n" },
+            { type: "footnote", text: "note", reference: "A 1-11." },
+            { type: "text", text: "No segundo ano do reinado de Assuero" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      const stops = host.querySelectorAll<HTMLElement>("[tabindex='0']")
+
+      expect(stops.length).toBe(1)
+      expect(stops[0].classList).toContain("footnoteIndicator")
+      expect(stops[0].getAttribute("aria-label")).toMatch(/^Notas de .* 1$/)
+
+      stops[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+    })
+
+    // A line of poetry under a heading is shown, though the heading's runs
+    // are not: it had no marker.
+    it("gives the marker to a quote under a heading too", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 0,
+          verseLabel: "front",
+          text: [
+            { type: "section", tag: "s2", text: "Título" },
+            { type: "quote", text: "Linha de poesia", identLevel: 1 },
+            { type: "footnote", text: "note", reference: "a" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(
+          ".footnoteIndicator[tabindex='0']",
+        ).length,
+      ).toBe(1)
+    })
+
+    // The text takes no focus: after notes opened from it closed, the focus
+    // fell to the page's body.
+    it("returns the focus to the marker after notes opened from the text", () => {
       setData(
         fixture,
         makeVerse({
@@ -671,16 +718,14 @@ describe("VerseComponent", () => {
         }),
       )
       fixture.detectChanges()
-      const text = fixture.nativeElement.querySelector(
-        ".interactive[role='button']",
-      ) as HTMLElement
+      const host = fixture.nativeElement as HTMLElement
 
-      text.focus()
+      ;(host.querySelector(".interactive") as HTMLElement).click()
+      dismissed.next()
 
-      expect(text.matches(":focus-visible")).toBe(true)
-      const style = getComputedStyle(text)
-      expect(style.outlineStyle).toBe("solid")
-      expect(style.outlineColor).toBe(style.color)
+      expect(document.activeElement).toBe(
+        host.querySelector(".footnoteIndicator"),
+      )
     })
   })
 
@@ -1138,7 +1183,6 @@ describe("VerseComponent", () => {
       text().click()
 
       expect(mockBottomSheet.open).toHaveBeenCalled()
-      expect(text().getAttribute("role")).toBe("button")
     })
 
     // The marker was a 13x16 px target for a mouse.
@@ -1412,6 +1456,7 @@ describe("VerseComponent", () => {
       )
 
       const trigger = document.createElement("span")
+      trigger.tabIndex = 0
       const focusSpy = vi.spyOn(trigger, "focus").mockReturnValue(undefined)
 
       component.toggleFootnotes({ currentTarget: trigger } as unknown as Event)

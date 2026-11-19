@@ -83,6 +83,15 @@ export function introductionTitle(book: Pick<Book, "name">): string {
   return `Introdução ${feminine ? "à" : "ao"} ${book.name}`
 }
 
+/**
+ * A chapter's title as the pickers list it, after the chapter's number. The
+ * edition numbers the sections of a book's outline ("2. Jesus Revela a Sua
+ * Divindade" over Jo\u00e3o 5), which read there as a second chapter number.
+ */
+export function chapterTitle(title: string): string {
+  return title.replace(/^\d+\.\s+/, "")
+}
+
 /** The API's abbreviations carry stray spaces and byte-order marks ("Tg \ufeff"). */
 export function cleanAbbreviation(abrv: string): string {
   return abrv.replace(/[\s\ufeff]+/g, " ").trim()

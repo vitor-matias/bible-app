@@ -350,25 +350,17 @@ test.describe("About page", () => {
 })
 
 test.describe("Keyboard accessibility", () => {
-  test("verse with footnotes activates bottom sheet on Enter", async ({
-    page,
-  }) => {
+  // The note marker is a verse's one keyboard stop for its notes.
+  test("verse footnote indicator activates on Enter", async ({ page }) => {
     // John 1 has footnotes in the Portuguese Difusora Bíblica translation
     await page.goto("/jo/1")
     await page.locator("verse").first().waitFor({ timeout: 15_000 })
 
-    // Find a verse text span with role=button (has footnotes)
-    const interactiveSpan = page
-      .locator('span.interactive[role="button"]')
-      .first()
-    const count = await interactiveSpan.count()
-    if (count === 0) {
-      test.skip()
-      return
-    }
+    const indicator = page.locator(".footnoteIndicator").first()
+    await expect(indicator).toHaveCount(1)
 
-    await interactiveSpan.focus()
-    await interactiveSpan.press("Enter")
+    await indicator.focus()
+    await indicator.press("Enter")
     await expect(page.locator("footnotes-bottom-sheet")).toBeVisible({
       timeout: 5_000,
     })

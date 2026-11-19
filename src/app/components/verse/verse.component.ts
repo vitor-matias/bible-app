@@ -85,6 +85,17 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
    */
   notesOnText = false
 
+  /**
+   * Where an unnumbered verse with notes (Ester 1's Greek addition) shows
+   * the notes marker, which has no verse number to sit beside: its first
+   * run of text. -1 for every other verse. The marker is the one way to the
+   * notes from the keyboard, a screen reader and the native apps.
+   */
+  unnumberedNotesAt = -1
+
+  /** The marker's name: "Notas do versículo 3", or "Notas de Ester 1". */
+  notesLabel = ""
+
   /** A psalm's liturgical number, which the edition prints in parentheses. */
   liturgicalNumber: string | null = null
 
@@ -151,6 +162,8 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private readonly autoScroll = inject(AutoScrollService)
 
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef)
+
   ngOnChanges(_changes: SimpleChanges): void {
     const data = this.data()
     if (data) {
@@ -161,6 +174,20 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       // be a tab stop and a "button" that does nothing.
       this.notesOnText =
         this.hasFootnotes && !this.nativeFootnotes.enabled && !this.studyMode
+      this.unnumberedNotesAt =
+        this.hasFootnotes && data.number === 0
+          ? data.text.findIndex(
+              (t, i) =>
+                (t.type === "text" || t.type === "quote") &&
+                t.text.trim() !== "" &&
+                // As the template: a quote shows even inside a heading's runs.
+                (!this.isInSection(data.text, i) || t.type === "quote"),
+            )
+          : -1
+      this.notesLabel =
+        data.number > 0
+          ? `Notas do versículo ${data.number}`
+          : `Notas de ${this.nativeFootnotes.title(data)}`
       this.liturgicalNumber =
         data.bookId === PSALMS_BOOK_ID
           ? liturgicalPsalmNumber(data.chapterNumber)
@@ -505,13 +532,6 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.verseSelected.emit({ verse: this.data(), panel })
   }
 
-  /** Space on the verse's text opens its notes, where the text does. */
-  onTextSpace(event: Event): void {
-    if (!this.notesOnText) return
-    event.preventDefault()
-    this.onRunClick(event)
-  }
-
   toggleFootnotes(event?: Event): void {
     const footnotes = this.data().text.filter((t) => t.type === "footnote")
     if (footnotes.length === 0) return
@@ -526,8 +546,15 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
     // ourselves. We disable Material's automatic restoreFocus because its
     // .focus() scrolls the marker into view, which in paged (column) mode
     // yanks the reader back to the start of the chapter. Refocusing with
-    // preventScroll keeps a11y intact without moving the page.
-    const trigger = event?.currentTarget as HTMLElement | null
+    // preventScroll keeps a11y intact without moving the page. Opened from
+    // the text, which takes no focus, it goes to the verse's marker.
+    const opener = event?.currentTarget as HTMLElement | null
+    const trigger =
+      opener && opener.tabIndex >= 0
+        ? opener
+        : this.host.nativeElement.querySelector<HTMLElement>(
+            ".footnoteIndicator[tabindex='0']",
+          )
     const ref = this.bottomSheet.open(FootnotesBottomSheetComponent, {
       data: { footnotes, verse: this.data() },
       ariaLabel: `Notas de ${this.nativeFootnotes.title(this.data())}`,
