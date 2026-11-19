@@ -10,7 +10,7 @@ strict CSP, and two CSPs on one response would both apply.
 ## The policy
 
 ```
-default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt https://anchor.fm https://d3ctxlq1ktw2nl.cloudfront.net; media-src 'self' https://anchor.fm https://d3ctxlq1ktw2nl.cloudfront.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
+default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; media-src 'self' https://anchor.fm https://d3ctxlq1ktw2nl.cloudfront.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
 ```
 
 | Directive | Allows | Why |
@@ -18,8 +18,8 @@ default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4
 | `default-src 'self'` | everything else from the page's own origin | covers images, the self-hosted fonts (`media/`), the manifest, the service worker (`ngsw-worker.js`) and Vercel Speed Insights (`/_vercel/…`, preview only). `'self'` also keeps it host-neutral. |
 | `script-src` | the bundle, one inline script by hash, Umami's `script.js` | the inline script is the theme script in `src/index.html` (dark theme before the bundle arrives). It is identical on all ~1,400 prerendered pages, so one hash covers them. Event replay is off and hydration state is a JSON data block, which CSP does not govern, so no other inline script exists and no nonce is needed. |
 | `style-src 'self' 'unsafe-inline'` | the stylesheet plus inline styles | Angular adds every component's styles as `<style>` elements at runtime, and the prerendered HTML carries `style="…"` attributes (about a hundred on a chapter page). A nonce would have to be minted per response, which static nginx and the service worker's cached `index.csr.html` cannot do, and nonces never cover attributes. Inline CSS cannot run code. |
-| `connect-src` | `/v1`, `build-info.json`, `ngsw.json`, Umami's `/api/send`, the +365 podcast hosts | the API is relative (`v1`) on the web. The service worker answers the audio's requests by fetching them itself, and a worker's fetch is checked against `connect-src`, not `media-src`, so the podcast hosts are in both. |
-| `media-src` | +365 podcast episodes | the «Ouvir no +365» button streams them from the podcast's host: `anchor.fm` answers with a redirect to its CloudFront bucket, and CSP checks both. |
+| `connect-src` | `/v1`, `build-info.json`, `ngsw.json`, Umami's `/api/send` | the API is relative (`v1`) on the web. |
+| `media-src` | +365 podcast episodes | the auto-scroll control's «Ouvir» mode streams them from the podcast's host: `anchor.fm` answers with a redirect to its CloudFront bucket, and CSP checks both. |
 | `object-src 'none'` | no plugins | |
 | `base-uri 'self'` | `<base href="/">` | stops an injected `<base>` from redirecting relative URLs. |
 | `form-action 'self'` | forms post only here | |
@@ -61,15 +61,15 @@ location would do the same job; production runs 1.26). Adding lines to the snipp
 therefore covers every page and asset in one edit and leaves `/v1/` untouched; the
 `/v1/books` curl check below confirms it. Assets (`.js`, `.css`, fonts) get the CSP too;
 browsers ignore it on them, except on `ngsw-worker.js`, where it governs the service
-worker, which fetches from the site, from Umami (tested) and, for the +365 audio, from
-the podcast's hosts.
+worker, which only fetches from the site and from Umami (tested): the +365 audio
+bypasses it (`ngsw-bypass`) and loads under `media-src`.
 
 ### Step 1: report-only (a few days)
 
 Append to `/etc/nginx/snippets/security-headers.conf`:
 
 ```nginx
-add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt https://anchor.fm https://d3ctxlq1ktw2nl.cloudfront.net; media-src 'self' https://anchor.fm https://d3ctxlq1ktw2nl.cloudfront.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
+add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; media-src 'self' https://anchor.fm https://d3ctxlq1ktw2nl.cloudfront.net; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
 add_header Permissions-Policy "accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=(), clipboard-write=(self), screen-wake-lock=(self)" always;
 add_header Cross-Origin-Opener-Policy "same-origin" always;
 ```

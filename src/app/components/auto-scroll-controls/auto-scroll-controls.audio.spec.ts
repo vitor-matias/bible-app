@@ -106,7 +106,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     tap(toggle())
 
     expect(play).toHaveBeenCalledTimes(1)
-    expect(audio().src).toBe(`${day3.url}#t=56.5`)
+    expect(audio().src).toBe(`${day3.url}?ngsw-bypass=true#t=56.5`)
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
   })
 
@@ -116,7 +116,9 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     fixture.detectChanges()
     tap(modeToggle())
     tap(toggle())
-    expect(audio().src).toMatch(/^https:\/\/anchor\.fm\/.+#t=58\.4$/)
+    expect(audio().src).toMatch(
+      /^https:\/\/anchor\.fm\/.+\?ngsw-bypass=true#t=58\.4$/,
+    )
   })
 
   it("pauses and resumes on the next touches", async () => {
@@ -150,7 +152,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
   it("plays from the top when the episode has no start", async () => {
     await listen([{ ...day3, start: null }])
     tap(toggle())
-    expect(audio().src).toBe(day3.url)
+    expect(audio().src).toBe(`${day3.url}?ngsw-bypass=true`)
   })
 
   it("skips 10 s back and forward once the chapter is in the player", async () => {
@@ -206,7 +208,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     tap(toggle())
 
     expect(audio()).toBe(stream)
-    expect(stream.src).toBe(`${day3.url}#t=56.5`)
+    expect(stream.src).toBe(`${day3.url}?ngsw-bypass=true#t=56.5`)
     expect(stream.currentTime).toBe(280.8)
   })
 
@@ -218,7 +220,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     await answer([{ ...day3, start: null }], 6)
     tap(toggle())
 
-    expect(audio().src).toBe(day3.url)
+    expect(audio().src).toBe(`${day3.url}?ngsw-bypass=true`)
   })
 
   it("replays an ended episode from the chapter's start, not 0:00", async () => {
@@ -231,7 +233,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
 
     tap(toggle())
-    expect(stream.src).toBe(`${day3.url}#t=56.5`)
+    expect(stream.src).toBe(`${day3.url}?ngsw-bypass=true#t=56.5`)
   })
 
   it("offers to play again, reloading, when the stream fails", async () => {
@@ -244,7 +246,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
 
     tap(toggle())
-    expect(stream.src).toBe(`${day3.url}#t=56.5`)
+    expect(stream.src).toBe(`${day3.url}?ngsw-bypass=true#t=56.5`)
   })
 
   it("offers to play again when play() is refused", async () => {

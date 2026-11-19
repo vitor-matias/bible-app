@@ -16,6 +16,15 @@ export interface ChapterEpisode {
 const RATES = [0.75, 1, 1.25, 1.5, 2]
 
 /**
+ * Where the <audio> loads an episode from. ngsw-bypass keeps the service
+ * worker out: it would fetch the stream itself, which Safari's ranged media
+ * requests don't survive (the worker answered 504). A media fragment makes
+ * the browser start at the chapter once the stream loads.
+ */
+const streamUrl = ({ url, start }: ChapterEpisode): string =>
+  `${url}${url.includes("?") ? "&" : "?"}ngsw-bypass=true${start ? `#t=${start}` : ""}`
+
+/**
  * Plays +365 podcast episodes (EJNS Portugal, a Bible-in-a-year reading),
  * streamed from the podcast's own host. One player for the whole app, so the
  * audio carries on while the reader turns chapters.
@@ -72,12 +81,9 @@ export class PodcastPlayerService {
     if (loaded) {
       audio.currentTime = episode.start ?? 0
     } else {
-      // A media fragment makes the browser start there once the stream loads.
       // Reloading also replaces the fragment of a stream still loading, which
       // would otherwise win over a later chapter's start of zero.
-      audio.src = episode.start
-        ? `${episode.url}#t=${episode.start}`
-        : episode.url
+      audio.src = streamUrl(episode)
     }
     this.play(audio, episode)
   }
