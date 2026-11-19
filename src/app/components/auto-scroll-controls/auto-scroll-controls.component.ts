@@ -147,6 +147,14 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.dragging.set(true)
   }
 
+  /** Under the slider: time into the chapter's reading, and time left of it. */
+  protected readonly elapsed = computed(() =>
+    clock(this.sliderValue() - this.chapterStart()),
+  )
+  protected readonly remaining = computed(() =>
+    clock(this.seekable() ? this.chapterEnd() - this.sliderValue() : 0),
+  )
+
   /** For screen readers, into the chapter's reading: "1:03 de 3:44". */
   protected readonly spokenPosition = (seconds: number): string =>
     `${clock(seconds - this.chapterStart())} de ${clock(this.chapterEnd() - this.chapterStart())}`
