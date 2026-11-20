@@ -21,7 +21,7 @@
     <!-- The number and its notes marker, kept on one line together and on
          the line of the verse's first word (.verseMarker). -->
     <span class="verseMarker">
-      <span class="verseNumber">{{ data().number }}</span>
+      <span class="verseNumber">{{ data().numberLabel || data().number }}</span>
       @if(hasFootnotes){
         <ng-container *ngTemplateOutlet="noteMark"></ng-container>
       }
@@ -45,7 +45,7 @@
       @if (text.type === 'text' || text.type === 'quote') {
         @if (text.type === 'quote' && isFirstDisplayableElement(i) && data().number > 0) {
           <span class="quoteVerseNumber">
-            <span class="verseNumber">{{ data().number }}</span>
+            <span class="verseNumber">{{ data().numberLabel || data().number }}</span>
             @if(hasFootnotes){
               <ng-container *ngTemplateOutlet="noteMark"></ng-container>
             } @else {

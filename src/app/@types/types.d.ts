@@ -91,6 +91,8 @@ type Verse = {
   chapterNumber: Chapter["number"]
   number: number
   verseLabel: string
+  /** The printed number when it differs from `number` (an addition's "B1"). */
+  numberLabel?: string
   text: TextType[]
   highlightedSegments?: HighlightSegment[]
 }

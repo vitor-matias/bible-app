@@ -131,7 +131,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
           : -1
       this.notesLabel =
         data.number > 0
-          ? `Notas do versículo ${data.number}`
+          ? `Notas do versículo ${data.numberLabel || data.number}`
           : `Notas de ${this.nativeFootnotes.title(data)}`
       this.liturgicalNumber =
         data.bookId === PSALMS_BOOK_ID

@@ -87,6 +87,26 @@ describe("VerseComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // Ester's Greek additions are stored as verses after the one they trail, so
+  // a verse's position is not what the page prints: "B1", or "14" after B.
+  describe("printed verse number", () => {
+    const printed = () =>
+      (fixture.nativeElement as HTMLElement).querySelector(".verseNumber")
+        ?.textContent
+
+    it("prints the label of an addition's verse, not its position", () => {
+      setData(fixture, makeVerse({ number: 14, numberLabel: "B1" }))
+      fixture.detectChanges()
+      expect(printed()).toBe("B1")
+    })
+
+    it("prints the position when there is no label", () => {
+      setData(fixture, makeVerse({ number: 5 }))
+      fixture.detectChanges()
+      expect(printed()).toBe("5")
+    })
+  })
+
   describe("ngOnChanges — chapterNumberDisplayIndex", () => {
     it("should be -1 for regular verses (number > 0)", () => {
       setData(fixture, makeVerse({ number: 5 }))
