@@ -155,6 +155,59 @@ describe("VerseComponent", () => {
       expect(letter()).toBe("D")
     })
 
+    it("labels the notes of a supplement's verse with its printed number", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 18,
+          numberLabel: "1",
+          text: [
+            { type: "text", text: "Texto" },
+            { type: "footnote", text: "nota", reference: "1" },
+          ] as TextType[],
+        }),
+      )
+      expect(component.notesLabel).toBe("Notas do versículo 1")
+    })
+
+    it("prints the label on a verse opening with a quote too", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 18,
+          numberLabel: "1",
+          text: [
+            { type: "quote", text: "Poesia", identLevel: 1 },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(
+          ".quoteVerseNumber .verseNumber",
+        )?.textContent,
+      ).toBe("1")
+    })
+
+    it("breaks the line ahead of the chapter number at the closing heading", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(".chapterNumber")
+          ?.previousElementSibling?.tagName,
+      ).toBe("BR")
+    })
+
     it("marks a supplement's verse, set in italics", () => {
       setData(fixture, makeVerse({ number: 1, supplement: true }))
       fixture.detectChanges()
