@@ -140,6 +140,23 @@ describe("VerseSectionComponent", () => {
       ) as NodeListOf<HTMLElement>
       return spans[spans.length - 1]
     }
+    // Two headings in a group: the dash follows the last one only.
+    fixture.componentRef.setInput("changeLine", false)
+    setData(
+      fixture,
+      makeVerse({
+        verseLabel: "front",
+        text: [
+          { type: "section", tag: "s2", text: "Oração", supplement: true },
+          { type: "section", tag: "s2", text: "Banquete" },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+    const spans = fixture.nativeElement.querySelectorAll(
+      ".section",
+    ) as NodeListOf<HTMLElement>
+    expect(spans[spans.length - 1].classList).not.toContain("supplementHeading")
     expect(dash(true).textContent).toContain("—")
     expect(dash(true).classList).toContain("supplementHeading")
     expect(dash(false).classList).not.toContain("supplementHeading")

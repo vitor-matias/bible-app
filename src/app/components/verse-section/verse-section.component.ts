@@ -42,9 +42,11 @@ export class VerseSectionComponent implements OnChanges {
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
-  /** Whether the heading is one inside a Greek supplement; its dash follows it. */
+  /** Whether the group's last heading, which the dash follows, is inside a Greek supplement. */
   get isSupplement(): boolean {
-    return this.data().text.some((t) => t.type === "section" && t.supplement)
+    const sections = this.data().text.filter((t) => t.type === "section")
+    const last = sections[sections.length - 1]
+    return last?.type === "section" && last.supplement === true
   }
 
   ngOnChanges(_changes: SimpleChanges): void {
