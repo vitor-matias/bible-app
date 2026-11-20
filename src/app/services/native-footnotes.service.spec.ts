@@ -192,6 +192,15 @@ describe("NativeFootnotesService", () => {
     expect(shown().title).toBe("Salmo 23 (22),1")
   })
 
+  it("titles a supplement's verse with its printed number", () => {
+    service.open([footnote], {
+      ...verse,
+      number: 18,
+      numberLabel: "1",
+    } as Verse)
+    expect(shown().title).toBe("Mateus 11,1")
+  })
+
   it("titles notes before the first verse with the chapter alone", () => {
     service.open([footnote], { ...verse, number: 0 } as Verse)
     expect(shown().title).toBe("Mateus 11")

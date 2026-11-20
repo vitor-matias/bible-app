@@ -135,7 +135,7 @@ export class NativeFootnotesService {
     return passageLabel(
       book,
       verse.chapterNumber,
-      verse.number > 0 ? verse.number : undefined,
+      verse.number > 0 ? verse.numberLabel || verse.number : undefined,
     )
   }
 }
