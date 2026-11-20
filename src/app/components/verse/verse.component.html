@@ -33,7 +33,7 @@
     <!-- Chapter Number Display -->
     @if (chapterNumberDisplayIndex === i) {
       <!-- Ahead of the float, so it sits beside the heading, not the line of text before it. -->
-      @if (i > 0 && (data().chapterNumberStarts || data().supplementLetter)) {
+      @if (text.type === 'section' && (data().chapterNumberStarts || data().supplementLetter)) {
         <br>
       }
       <div #chapterNumber class="chapterNumber" [class.supplementMark]="!!(data().chapterLabel || data().supplementLetter)">

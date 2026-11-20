@@ -230,6 +230,47 @@ describe("VerseComponent", () => {
       ).toBe("D")
     })
 
+    it("keeps the closing heading, its dash and the chapter number upright", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          supplement: true,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      const style = (selector: string) =>
+        getComputedStyle(host.querySelector(selector) as Element).fontStyle
+      expect(style(".chapterNumber")).toBe("normal")
+      expect(style("[data-section-heading]")).toBe("normal")
+      expect(style(".headingMark:not([data-section-heading])")).toBe("normal")
+    })
+
+    it("puts no line break before a letter that opens the verse's text", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [
+            { type: "text", text: " " },
+            { type: "text", text: "Ao terceiro dia" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(".chapterNumber")
+          ?.previousElementSibling?.tagName,
+      ).not.toBe("BR")
+    })
+
     it("marks a supplement's verse, set in italics", () => {
       setData(fixture, makeVerse({ number: 1, supplement: true }))
       fixture.detectChanges()

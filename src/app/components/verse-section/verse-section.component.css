@@ -93,3 +93,8 @@ a {
   color: var(--text-color);
   font-style: italic;
 }
+
+/* In a supplement's verse, the heading that ends it (and its dash) is the main text's. */
+.headingMark:not(.supplementHeading) {
+  font-style: normal;
+}

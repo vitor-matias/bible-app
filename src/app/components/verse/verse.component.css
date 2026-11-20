@@ -361,6 +361,11 @@ h3:not(:first-child) {
   font-style: italic;
 }
 
+/* The chapter number at a supplement's closing heading is the main text's. */
+:host(.supplement) .chapterNumber:not(.supplementMark) {
+  font-style: normal;
+}
+
 /* A supplement's letter is red, like the headings, in the printed edition. */
 .chapterNumber.supplementMark {
   color: var(--text-secondary);
