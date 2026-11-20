@@ -42,6 +42,11 @@ export class VerseSectionComponent implements OnChanges {
   /** Pre-computed parsed references keyed by text index */
   parsedReferences: Map<number, (string | BibleReference)[]> = new Map()
 
+  /** Whether the heading is one inside a Greek supplement; its dash follows it. */
+  get isSupplement(): boolean {
+    return this.data().text.some((t) => t.type === "section" && t.supplement)
+  }
+
   ngOnChanges(_changes: SimpleChanges): void {
     if (this.data()) {
       this.parsedReferences = this.computeParsedReferences()

@@ -28,10 +28,10 @@
   </span>
   }
   @if (data().verseLabel === 'front' && isLast && data().text[data().text.length -1].type !== 'quote' && !nextIsQuote()) {
-  <span class="section">&nbsp;— </span>
+  <span class="section" [class.supplementHeading]="isSupplement">&nbsp;— </span>
   }
   @if (data().verseLabel !== 'front' && isLast && text.type !== 'quote' && !nextIsQuote()) {
-  <span class="section">&nbsp;— </span>
+  <span class="section" [class.supplementHeading]="isSupplement">&nbsp;— </span>
   }
   }
 </span>

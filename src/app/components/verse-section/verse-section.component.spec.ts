@@ -124,6 +124,27 @@ describe("VerseSectionComponent", () => {
     expect(getComputedStyle(headings[1]).fontStyle).not.toBe("italic")
   })
 
+  it("sets a supplement heading's dash like the heading, not red", () => {
+    const dash = (supplement: boolean) => {
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          verseLabel: "front",
+          text: [{ type: "section", tag: "s2", text: "Oração", supplement }],
+        }),
+      )
+      fixture.detectChanges()
+      const spans = fixture.nativeElement.querySelectorAll(
+        ".section",
+      ) as NodeListOf<HTMLElement>
+      return spans[spans.length - 1]
+    }
+    expect(dash(true).textContent).toContain("—")
+    expect(dash(true).classList).toContain("supplementHeading")
+    expect(dash(false).classList).not.toContain("supplementHeading")
+  })
+
   describe("ngOnChanges — parsedReferences", () => {
     it("should pre-compute references for reference-type text entries", () => {
       fixture.componentRef.setInput("changeLine", false)

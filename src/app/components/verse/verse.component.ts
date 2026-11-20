@@ -319,7 +319,9 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
       if (heading !== -1 || !data.supplementLetter) return heading
       // A supplement with no heading of its own: beside its first line.
       return data.text.findIndex(
-        (text) => text.type === "text" || text.type === "quote",
+        (text) =>
+          (text.type === "text" || text.type === "quote") &&
+          text.text.trim() !== "",
       )
     }
     if (data.number !== 0) return -1

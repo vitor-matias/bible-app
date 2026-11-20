@@ -209,6 +209,27 @@ describe("VerseComponent", () => {
       ).toBe("BR")
     })
 
+    it("prints a supplement's letter beside the first text that shows", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [
+            { type: "text", text: " " },
+            { type: "text", text: "Ao terceiro dia" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(
+        (fixture.nativeElement as HTMLElement)
+          .querySelector(".chapterNumber")
+          ?.textContent?.trim(),
+      ).toBe("D")
+    })
+
     it("marks a supplement's verse, set in italics", () => {
       setData(fixture, makeVerse({ number: 1, supplement: true }))
       fixture.detectChanges()
