@@ -44,6 +44,7 @@ import { getVerseQueryParams, parseReferences } from "./verse.utils"
   styleUrls: ["./verse.component.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
+  host: { "[class.supplement]": "data().supplement" },
 })
 export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   private bibleRef = inject(BibleReferenceService)
@@ -309,11 +310,16 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private computeChapterNumberIndex(): number {
     const data = this.data()
-    if (data.chapterNumberStarts) {
-      return data.text.reduce(
+    if (data.chapterNumberStarts || data.supplementLetter) {
+      const heading = data.text.reduce(
         (last, text, i) =>
           text.type === "section" && text.tag === "s2" ? i : last,
         -1,
+      )
+      if (heading !== -1 || !data.supplementLetter) return heading
+      // A supplement with no heading of its own: beside its first line.
+      return data.text.findIndex(
+        (text) => text.type === "text" || text.type === "quote",
       )
     }
     if (data.number !== 0) return -1

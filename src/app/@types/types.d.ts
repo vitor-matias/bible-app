@@ -97,6 +97,10 @@ type Verse = {
   chapterLabel?: string
   /** On the last verse of that supplement: the chapter number is printed at its closing heading. */
   chapterNumberStarts?: boolean
+  /** On the verse a mid-chapter supplement ("C") opens at: its letter is printed at the closing heading, or the first line without one. */
+  supplementLetter?: string
+  /** On the verses of a supplement, which the printed edition sets in italics. */
+  supplement?: boolean
   text: TextType[]
   highlightedSegments?: HighlightSegment[]
 }

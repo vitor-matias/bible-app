@@ -124,6 +124,49 @@ describe("VerseComponent", () => {
       )
     })
 
+    it("prints a mid-chapter supplement's letter at its heading, or its first line", () => {
+      const letter = () =>
+        host().querySelector(".chapterNumber")?.textContent?.trim()
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          supplementLetter: "C",
+          text: [
+            { type: "text", text: "Fim." },
+            { type: "section", tag: "s2", text: "Oração" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(letter()).toBe("C")
+
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [{ type: "text", text: "Ao terceiro dia" }] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(0)
+      expect(letter()).toBe("D")
+    })
+
+    it("marks a supplement's verse, set in italics", () => {
+      setData(fixture, makeVerse({ number: 1, supplement: true }))
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      expect(host.classList).toContain("supplement")
+      expect(getComputedStyle(host).fontStyle).toBe("italic")
+
+      setData(fixture, makeVerse({ number: 2 }))
+      fixture.detectChanges()
+      expect(host.classList).not.toContain("supplement")
+    })
+
     it("prints the chapter number at the heading ending the supplement", () => {
       setData(
         fixture,

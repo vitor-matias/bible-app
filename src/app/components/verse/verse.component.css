@@ -355,3 +355,8 @@ h3:not(:first-child) {
     transition: none;
   }
 }
+
+/* Ester's Greek additions are set in italics in the printed edition. */
+:host(.supplement) {
+  font-style: italic;
+}

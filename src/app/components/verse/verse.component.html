@@ -32,8 +32,12 @@
   <ng-template #elementContent let-text let-i="i" let-isFirst="isFirst" let-isLast="isLast" let-isQuote="isQuote">
     <!-- Chapter Number Display -->
     @if (chapterNumberDisplayIndex === i) {
+      <!-- Ahead of the float, so it sits beside the heading, not the line of text before it. -->
+      @if (data().chapterNumberStarts || data().supplementLetter) {
+        <br>
+      }
       <div #chapterNumber class="chapterNumber">
-        {{ data().chapterLabel || data().chapterNumber }}
+        {{ data().chapterLabel || data().supplementLetter || data().chapterNumber }}
         @if (liturgicalNumber) {
           <span class="liturgicalNumber"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
         }
@@ -127,7 +131,7 @@
               [nextIsQuote]="checkNextIsQuote(i)"
               [nextIsParagraph]="checkNextIsParagraph(i)"
               [besideChapterNumber]="chapterNumberDisplayIndex === i"
-              [changeLine]="(chapterNumberDisplayIndex !== i || !!data().chapterNumberStarts) && data().text[i-1]?.type !== 'section' && data().text[i-1]?.type !== 'references'">
+              [changeLine]="chapterNumberDisplayIndex !== i && data().text[i-1]?.type !== 'section' && data().text[i-1]?.type !== 'references'">
             </verse-section>
           }
         }
