@@ -93,6 +93,10 @@ type Verse = {
   verseLabel: string
   /** The printed number when it differs from `number` (an addition's "B1"). */
   numberLabel?: string
+  /** On verse 0 of a chapter opening with a supplement ("A"): printed in place of the chapter number. */
+  chapterLabel?: string
+  /** On the last verse of that supplement: the chapter number is printed at its closing heading. */
+  chapterNumberStarts?: boolean
   text: TextType[]
   highlightedSegments?: HighlightSegment[]
 }

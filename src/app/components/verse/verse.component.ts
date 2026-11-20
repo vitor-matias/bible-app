@@ -309,6 +309,13 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private computeChapterNumberIndex(): number {
     const data = this.data()
+    if (data.chapterNumberStarts) {
+      return data.text.reduce(
+        (last, text, i) =>
+          text.type === "section" && text.tag === "s2" ? i : last,
+        -1,
+      )
+    }
     if (data.number !== 0) return -1
 
     const hasS2 = data.text.some(

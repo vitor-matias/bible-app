@@ -33,7 +33,7 @@
     <!-- Chapter Number Display -->
     @if (chapterNumberDisplayIndex === i) {
       <div #chapterNumber class="chapterNumber">
-        {{ data().chapterNumber }}
+        {{ data().chapterLabel || data().chapterNumber }}
         @if (liturgicalNumber) {
           <span class="liturgicalNumber"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
         }
@@ -127,7 +127,7 @@
               [nextIsQuote]="checkNextIsQuote(i)"
               [nextIsParagraph]="checkNextIsParagraph(i)"
               [besideChapterNumber]="chapterNumberDisplayIndex === i"
-              [changeLine]="chapterNumberDisplayIndex !== i && data().text[i-1]?.type !== 'section' && data().text[i-1]?.type !== 'references'">
+              [changeLine]="(chapterNumberDisplayIndex !== i || !!data().chapterNumberStarts) && data().text[i-1]?.type !== 'section' && data().text[i-1]?.type !== 'references'">
             </verse-section>
           }
         }

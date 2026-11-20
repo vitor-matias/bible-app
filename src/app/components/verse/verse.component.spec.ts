@@ -88,22 +88,60 @@ describe("VerseComponent", () => {
   })
 
   // Ester's Greek additions are stored as verses after the one they trail, so
-  // a verse's position is not what the page prints: "B1", or "14" after B.
-  describe("printed verse number", () => {
-    const printed = () =>
-      (fixture.nativeElement as HTMLElement).querySelector(".verseNumber")
-        ?.textContent
+  // a verse's position is not what the page prints.
+  describe("supplements", () => {
+    const host = () => fixture.nativeElement as HTMLElement
+    const printed = () => host().querySelector(".verseNumber")?.textContent
 
-    it("prints the label of an addition's verse, not its position", () => {
-      setData(fixture, makeVerse({ number: 14, numberLabel: "B1" }))
+    it("prints a verse's label, not its position", () => {
+      setData(fixture, makeVerse({ number: 18, numberLabel: "1" }))
       fixture.detectChanges()
-      expect(printed()).toBe("B1")
+      expect(printed()).toBe("1")
     })
 
     it("prints the position when there is no label", () => {
       setData(fixture, makeVerse({ number: 5 }))
       fixture.detectChanges()
       expect(printed()).toBe("5")
+    })
+
+    it("prints the supplement's letter where the chapter number goes", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 0,
+          verseLabel: "front",
+          chapterNumber: 1,
+          chapterLabel: "A",
+          text: [
+            { type: "section", tag: "s2", text: "Um sonho" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(host().querySelector(".chapterNumber")?.textContent?.trim()).toBe(
+        "A",
+      )
+    })
+
+    it("prints the chapter number at the heading ending the supplement", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          chapterNumber: 1,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(host().querySelector(".chapterNumber")?.textContent?.trim()).toBe(
+        "1",
+      )
     })
   })
 
