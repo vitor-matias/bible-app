@@ -119,9 +119,9 @@ describe("VerseComponent", () => {
         }),
       )
       fixture.detectChanges()
-      expect(host().querySelector(".chapterNumber")?.textContent?.trim()).toBe(
-        "A",
-      )
+      const mark = host().querySelector(".chapterNumber")
+      expect(mark?.textContent?.trim()).toBe("A")
+      expect(mark?.classList).toContain("supplementMark")
     })
 
     it("prints a mid-chapter supplement's letter at its heading, or its first line", () => {

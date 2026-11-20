@@ -360,3 +360,8 @@ h3:not(:first-child) {
 :host(.supplement) {
   font-style: italic;
 }
+
+/* A supplement's letter is red, like the headings, in the printed edition. */
+.chapterNumber.supplementMark {
+  color: var(--text-secondary);
+}

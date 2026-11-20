@@ -33,10 +33,10 @@
     <!-- Chapter Number Display -->
     @if (chapterNumberDisplayIndex === i) {
       <!-- Ahead of the float, so it sits beside the heading, not the line of text before it. -->
-      @if (data().chapterNumberStarts || data().supplementLetter) {
+      @if (i > 0 && (data().chapterNumberStarts || data().supplementLetter)) {
         <br>
       }
-      <div #chapterNumber class="chapterNumber">
+      <div #chapterNumber class="chapterNumber" [class.supplementMark]="!!(data().chapterLabel || data().supplementLetter)">
         {{ data().chapterLabel || data().supplementLetter || data().chapterNumber }}
         @if (liturgicalNumber) {
           <span class="liturgicalNumber"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
