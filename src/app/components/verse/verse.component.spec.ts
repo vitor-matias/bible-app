@@ -122,6 +122,7 @@ describe("VerseComponent", () => {
       const mark = host().querySelector(".chapterNumber")
       expect(mark?.textContent?.trim()).toBe("A")
       expect(mark?.classList).toContain("supplementMark")
+      expect(getComputedStyle(mark as Element).fontStyle).toBe("italic")
     })
 
     it("prints a mid-chapter supplement's letter at its heading, or its first line", () => {

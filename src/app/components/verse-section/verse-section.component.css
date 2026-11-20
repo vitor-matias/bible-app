@@ -88,3 +88,8 @@
 a {
   color: var(--text-color);
 }
+/* A heading inside a Greek supplement is black, bold and italic in print. */
+.section.supplementHeading {
+  color: var(--text-color);
+  font-style: italic;
+}

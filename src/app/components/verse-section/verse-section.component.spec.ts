@@ -97,6 +97,33 @@ describe("VerseSectionComponent", () => {
     ])
   })
 
+  // The printed edition sets a supplement's headings black, bold and italic,
+  // where the main text's are red.
+  it("styles a supplement's heading apart from the others", () => {
+    fixture.componentRef.setInput("changeLine", false)
+    setData(
+      fixture,
+      makeVerse({
+        text: [
+          { type: "section", tag: "s2", text: "Oração", supplement: true },
+          { type: "section", tag: "s2", text: "Banquete" },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const headings = Array.from(
+      fixture.nativeElement.querySelectorAll(
+        "[data-section-heading]",
+      ) as NodeListOf<HTMLElement>,
+    )
+    expect(
+      headings.map((h) => h.classList.contains("supplementHeading")),
+    ).toEqual([true, false])
+    expect(getComputedStyle(headings[0]).fontStyle).toBe("italic")
+    expect(getComputedStyle(headings[1]).fontStyle).not.toBe("italic")
+  })
+
   describe("ngOnChanges — parsedReferences", () => {
     it("should pre-compute references for reference-type text entries", () => {
       fixture.componentRef.setInput("changeLine", false)

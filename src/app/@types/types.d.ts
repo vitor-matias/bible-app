@@ -111,6 +111,8 @@ type Section = {
   type: "section"
   tag: string
   text: string
+  /** A heading inside a Greek supplement: black, bold and italic in the printed edition. */
+  supplement?: boolean
 }
 
 type _Text = {
