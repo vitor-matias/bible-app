@@ -252,6 +252,35 @@ describe("VerseComponent", () => {
       expect(style(".headingMark:not([data-section-heading])")).toBe("normal")
     })
 
+    it("puts the number at the first of two consecutive closing headings", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Oração", supplement: true },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          supplementLetter: "C",
+          text: [
+            { type: "text", text: "Fim." },
+            { type: "section", tag: "s2", text: "Oração" },
+            { type: "section", tag: "s2", text: "Outra" },
+          ] as TextType[],
+        }),
+      )
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+    })
+
     it("puts no line break before a letter that opens the verse's text", () => {
       setData(
         fixture,

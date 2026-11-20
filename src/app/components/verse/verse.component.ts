@@ -311,9 +311,15 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
   private computeChapterNumberIndex(): number {
     const data = this.data()
     if (data.chapterNumberStarts || data.supplementLetter) {
+      // The heading that leads the last group: a later one in the same group
+      // renders inside the first's section, with nothing of its own.
       const heading = data.text.reduce(
         (last, text, i) =>
-          text.type === "section" && text.tag === "s2" ? i : last,
+          text.type === "section" &&
+          text.tag === "s2" &&
+          !this.isInSection(data.text, i)
+            ? i
+            : last,
         -1,
       )
       if (heading !== -1 || !data.supplementLetter) return heading
