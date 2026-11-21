@@ -52,8 +52,12 @@ describe("Mais365Component", () => {
   const player = {
     position: signal(0),
     playing: signal(false),
+    rate: signal(1),
     seek: vi.fn(),
     skip: vi.fn(),
+    stepRate: vi.fn(),
+    canSlower: () => true,
+    canFaster: () => false,
   }
   const text = () => (fixture.nativeElement as HTMLElement).textContent ?? ""
   const button = (label: string) =>
@@ -119,6 +123,9 @@ describe("Mais365Component", () => {
     ) as HTMLInputElement
     expect(slider.min).toBe("688.72")
     expect(slider.max).toBe("1344")
+    button("Diminuir velocidade")?.click()
+    expect(player.stepRate).toHaveBeenCalledWith(-1)
+    expect(button("Aumentar velocidade")?.hasAttribute("disabled")).toBe(true)
     button("Terminar")?.click()
     expect(plan.end).toHaveBeenCalled()
   })

@@ -37,6 +37,16 @@
       <button type="button" mat-icon-button aria-label="Avançar 10 segundos" (click)="player.skip(10)">
         <mat-icon>forward_10</mat-icon>
       </button>
+      <button type="button" mat-icon-button aria-label="Diminuir velocidade" [disabled]="!player.canSlower()"
+        (click)="player.stepRate(-1)">
+        <mat-icon>remove</mat-icon>
+      </button>
+      <!-- No number on screen, as in the reader's player: only screen readers hear it. -->
+      <span class="visually-hidden" aria-live="polite">{{ rateSpoken() }}</span>
+      <button type="button" mat-icon-button aria-label="Aumentar velocidade" [disabled]="!player.canFaster()"
+        (click)="player.stepRate(1)">
+        <mat-icon>add</mat-icon>
+      </button>
       <button type="button" mat-flat-button class="finish" (click)="plan.end()">Terminar</button>
     </div>
   </section>

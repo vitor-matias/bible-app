@@ -54,6 +54,11 @@ export class Mais365Component implements OnInit {
       dragging && previous ? previous.value : at,
   })
 
+  protected readonly rateSpoken = computed(() => {
+    const rate = this.player.rate()
+    return `${String(rate).replace(".", ",")} ${rate === 1 ? "vez" : "vezes"}`
+  })
+
   /** "m:ss" of a span in seconds. */
   protected time(seconds: number): string {
     const s = Math.max(0, Math.round(seconds))

@@ -135,6 +135,11 @@ h1 {
 
 .transport .mat-mdc-icon-button {
   background-color: antiquewhite;
+  border: 1px solid color-mix(in srgb, #543d27 35%, transparent);
+}
+
+.transport .mat-mdc-icon-button:disabled {
+  opacity: 0.5;
 }
 
 .finish {
