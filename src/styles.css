@@ -404,9 +404,11 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
 }
 
 
-/* "Tentar novamente" when the Bible can't load: the span rule would paint its
-   label the text colour, which in the iOS app is also its fill. */
-.books-unavailable .mdc-button__label {
+/* "Tentar novamente" when the Bible can't load, and the +365 page's buttons:
+   the span rule would paint their labels the text colour, dark on the brown
+   fill (and in the iOS app the fill itself). */
+.books-unavailable .mdc-button__label,
+.mais365 .mdc-button__label {
   color: inherit;
 }
 

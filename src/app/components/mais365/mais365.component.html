@@ -37,7 +37,7 @@
       <button type="button" mat-icon-button aria-label="Avançar 10 segundos" (click)="player.skip(10)">
         <mat-icon>forward_10</mat-icon>
       </button>
-      <button type="button" mat-stroked-button class="finish" (click)="plan.end()">Terminar</button>
+      <button type="button" mat-flat-button class="finish" (click)="plan.end()">Terminar</button>
     </div>
   </section>
   } @else {
@@ -66,9 +66,9 @@
       </button>
       }
       @if (day.readings.length) {
-      <a mat-stroked-button [routerLink]="['/', day.readings[0].bookId, day.readings[0].chapter]">Ler sem áudio</a>
+      <a mat-flat-button [routerLink]="['/', day.readings[0].bookId, day.readings[0].chapter]">Ler sem áudio</a>
       }
-      <button type="button" mat-button (click)="plan.markDone(day.day, !isDone(day))">
+      <button type="button" mat-flat-button (click)="plan.markDone(day.day, !isDone(day))">
         {{ isDone(day) ? 'Marcar como não lido' : 'Marcar como lido' }}
       </button>
     </div>

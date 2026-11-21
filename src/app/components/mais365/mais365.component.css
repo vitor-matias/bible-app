@@ -101,24 +101,40 @@ h1 {
   justify-content: center;
 }
 
-/* Brown and round, as the reader's play buttons (auto-scroll-controls). */
+/* One look for every button here, the header's pills': antiquewhite and
+   brown, in either theme. */
+.mais365 {
+  --mat-button-filled-container-color: antiquewhite;
+  --mat-button-filled-label-text-color: #543d27;
+  --mat-fab-container-color: antiquewhite;
+  --mat-fab-foreground-color: #543d27;
+  --mat-icon-button-icon-color: #543d27;
+}
+
 .card .play {
-  --mat-fab-container-color: var(--cap-brown);
-  --mat-fab-foreground-color: var(--highlight-color);
+  --mat-fab-container-color: antiquewhite;
+  --mat-fab-foreground-color: #543d27;
   border-radius: 50%;
 }
 
-.card .play .mat-icon {
-  color: var(--highlight-color);
+.card .mat-icon,
+.card .actions .mat-mdc-button-base,
+.card .actions a.mat-mdc-button-base {
+  color: #543d27;
 }
 
-:host-context(.dark-theme) .card .play {
-  --mat-fab-container-color: #ecdcc6;
-  --mat-fab-foreground-color: #2b2119;
+/* styles.css paints every link the text colour, !important. */
+.card .actions a.mat-mdc-button-base {
+  color: #543d27 !important;
 }
 
-:host-context(.dark-theme) .card .play .mat-icon {
-  color: #2b2119;
+/* The header pills' outline, so they hold on the card in either theme. */
+.card .actions .mat-mdc-button-base {
+  border: 1px solid color-mix(in srgb, #543d27 35%, transparent);
+}
+
+.transport .mat-mdc-icon-button {
+  background-color: antiquewhite;
 }
 
 .finish {
@@ -166,8 +182,4 @@ h1 {
 
 .day-done {
   opacity: 0.7;
-}
-
-.transport .mat-mdc-icon-button {
-  color: inherit;
 }
