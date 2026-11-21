@@ -716,7 +716,13 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   toggleAudio(): void {
     const entry = this.entry()
-    if (entry) this.player.toggle(entry)
+    // Named for the system's player: the chapter, not the episode's day.
+    if (entry) {
+      this.player.toggle({
+        ...entry,
+        title: `${this.bookName()} ${this.chapter()}`,
+      })
+    }
   }
 
   ngOnInit(): void {

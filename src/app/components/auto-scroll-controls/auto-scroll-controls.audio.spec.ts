@@ -11,6 +11,7 @@ import {
   type ChapterEpisode,
   PodcastPlayerService,
 } from "../../services/podcast-player.service"
+import { lastCall } from "../../testing/spy-obj"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
 const day3: ChapterEpisode = {
@@ -346,6 +347,30 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     const stream = audio()
     fixture.destroy()
     expect(stream.paused).toBe(true)
+  })
+
+  it("shows the system's player the chapter's own time, and seeks within it", async () => {
+    const position = vi.spyOn(navigator.mediaSession, "setPositionState")
+    const handlers = new Map<string, MediaSessionActionHandler | null>()
+    vi.spyOn(navigator.mediaSession, "setActionHandler").mockImplementation(
+      (action, handler) => void handlers.set(action, handler),
+    )
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    stream.currentTime = 200
+    stream.dispatchEvent(new Event("timeupdate"))
+    TestBed.tick()
+    // Génesis 6: 56.5 to 280.8 in the episode.
+    expect(lastCall(position)[0]).toEqual({
+      duration: 280.8 - 56.5,
+      position: 200 - 56.5,
+      playbackRate: 1,
+    })
+    expect(navigator.mediaSession.metadata?.title).toBe("Êxodo 5")
+
+    handlers.get("seekto")?.({ action: "seekto", seekTime: 30 })
+    expect(stream.currentTime).toBe(86.5)
   })
 
   it("plays on across chapters and when hidden in a +365 day", async () => {

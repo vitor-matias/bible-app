@@ -95,7 +95,7 @@ export class Mais365Service {
           // Its own span, so play and pause go on from here, not a chapter's top.
           this.player.adopt({
             day: day.day,
-            title: day.title,
+            title: `Reflexão: ${day.title}`,
             url: day.url,
             start: day.reflection,
             end: day.duration,
@@ -106,7 +106,11 @@ export class Mais365Service {
           return
         }
         const reading = day.readings[stage]
-        this.player.adopt(reading.episode)
+        // Named for the system's player: the chapter, not the whole day.
+        this.player.adopt({
+          ...reading.episode,
+          title: `${reading.bookName} ${reading.chapter}`,
+        })
         void this.router.navigate(["/", reading.bookId, reading.chapter])
       })
     })

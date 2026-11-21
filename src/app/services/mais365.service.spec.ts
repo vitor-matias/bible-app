@@ -87,7 +87,10 @@ describe("Mais365Service", () => {
 
     at(day.readings[1].episode.start as number)
     expect(lastCall(navigate)).toEqual([["/", "gen", 2]])
-    expect(player.current()).toBe(day.readings[1].episode)
+    expect(player.current()).toEqual({
+      ...day.readings[1].episode,
+      title: "Génesis 2",
+    })
 
     at(day.readings[2].episode.start as number)
     expect(lastCall(navigate)).toEqual([["/", "psa", 19]])
@@ -105,6 +108,7 @@ describe("Mais365Service", () => {
     expect(lastCall(navigate)).toEqual([["/365"]])
     // The reflection's own span: play goes on from here, not a chapter's top.
     expect(player.current()?.start).toBe(day.reflection)
+    expect(player.current()?.title).toBe("Reflexão: No princípio")
   })
 
   it("plays an introduction where it is, done only once heard out", () => {

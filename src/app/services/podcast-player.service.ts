@@ -1,5 +1,5 @@
 import { HttpClient } from "@angular/common/http"
-import { Injectable, inject, signal } from "@angular/core"
+import { effect, Injectable, inject, signal, untracked } from "@angular/core"
 import { catchError, map, type Observable, of } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { TEST_EPISODES } from "./podcast-test-episodes"
@@ -138,6 +138,18 @@ export class PodcastPlayerService {
     this.play(audio, episode)
   }
 
+  constructor() {
+    // The system's player (lock screen, menu bar, headphones) shows the part
+    // being heard, the chapter or the reflection, not the whole episode.
+    effect(() => {
+      const current = this.current()
+      const position = this.position()
+      const rate = this.rate()
+      const duration = this.duration()
+      untracked(() => this.syncMediaSession(current, position, rate, duration))
+    })
+  }
+
   /** Moves the playing episode back (negative) or forward, in seconds. */
   skip(seconds: number): void {
     const audio = this.audio
@@ -255,7 +267,71 @@ export class PodcastPlayerService {
     this.current.set(null)
   }
 
+  private syncMediaSession(
+    current: ChapterEpisode | null,
+    position: number,
+    rate: number,
+    duration: number,
+  ): void {
+    if (typeof navigator === "undefined" || !navigator.mediaSession) return
+    const session = navigator.mediaSession
+    if (!current) {
+      session.metadata = null
+      return
+    }
+    if (session.metadata?.title !== current.title) {
+      session.metadata = new MediaMetadata({
+        title: current.title,
+        artist: "+365",
+        album: "Bíblia Sagrada",
+        artwork: [
+          {
+            src: "/icons/maskable_icon_x512.png",
+            sizes: "512x512",
+            type: "image/png",
+          },
+        ],
+      })
+    }
+    const start = current.start ?? 0
+    const span = (current.end ?? duration) - start
+    if (!(span > 0)) return
+    try {
+      session.setPositionState({
+        duration: span,
+        position: Math.min(span, Math.max(0, position - start)),
+        playbackRate: rate,
+      })
+    } catch {
+      // Not every browser takes a position state; its own then shows.
+    }
+  }
+
+  /** The system player's seek and skip, in the part's own time. */
+  private handleMediaSession(): void {
+    if (typeof navigator === "undefined" || !navigator.mediaSession) return
+    const session = navigator.mediaSession
+    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+      [
+        "seekto",
+        ({ seekTime }) =>
+          seekTime != null &&
+          this.seek((this.current()?.start ?? 0) + seekTime),
+      ],
+      ["seekbackward", ({ seekOffset }) => this.skip(-(seekOffset ?? 10))],
+      ["seekforward", ({ seekOffset }) => this.skip(seekOffset ?? 10)],
+    ]
+    for (const [action, handler] of handlers) {
+      try {
+        session.setActionHandler(action, handler)
+      } catch {
+        // An action this browser doesn't know.
+      }
+    }
+  }
+
   private createAudio(): HTMLAudioElement {
+    this.handleMediaSession()
     const audio = new Audio()
     audio.preload = "none"
     audio.defaultPlaybackRate = this.rate()
