@@ -7,7 +7,10 @@ import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { apiBaseUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
-import type { ChapterEpisode } from "../../services/podcast-player.service"
+import {
+  type ChapterEpisode,
+  PodcastPlayerService,
+} from "../../services/podcast-player.service"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
 const day3: ChapterEpisode = {
@@ -343,6 +346,25 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     const stream = audio()
     fixture.destroy()
     expect(stream.paused).toBe(true)
+  })
+
+  it("plays on across chapters and when hidden in a +365 day", async () => {
+    TestBed.inject(PodcastPlayerService).throughEpisode.set(true)
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    // Past the chapter's end (280.8), on into the next reading.
+    stream.currentTime = 290
+    stream.dispatchEvent(new Event("timeupdate"))
+    fixture.detectChanges()
+    expect(stream.paused).toBe(false)
+    expect(stream.currentTime).toBe(290)
+
+    render("exo", 7)
+    await answer(null, 7)
+    expect(stream.paused).toBe(false)
+    fixture.destroy()
+    expect(stream.paused).toBe(false)
   })
 
   it("stops scrolling when it comes back to «Ouvir» by turning chapters", async () => {

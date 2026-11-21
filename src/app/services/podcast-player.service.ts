@@ -63,6 +63,19 @@ export class PodcastPlayerService {
   readonly mode = signal<"scroll" | "audio">("scroll")
   /** «Ouvir» tucked into a small pill, the card out of the text's way. */
   readonly collapsed = signal(false)
+  /**
+   * A +365 day plays straight through (Mais365Service): its readings one
+   * after another, then the reflection, without stopping at a chapter's end.
+   */
+  readonly throughEpisode = signal(false)
+
+  /**
+   * Makes another chapter's entry of the same stream the one in the player,
+   * without seeking: a +365 day moving on to its next reading.
+   */
+  adopt(episode: ChapterEpisode): void {
+    if (this.current()?.url === episode.url) this.current.set(episode)
+  }
 
   /** The episodes that read a chapter, earliest day first; [] when none. */
   episodesFor(bookId: string, chapter: number): Observable<ChapterEpisode[]> {
@@ -146,6 +159,7 @@ export class PodcastPlayerService {
    * before its start nor past its end (the whole episode where unknown).
    */
   private withinChapter(seconds: number): number {
+    if (this.throughEpisode()) return Math.max(0, seconds)
     const current = this.current()
     const start = current?.start ?? 0
     const end = current?.end ?? Number.POSITIVE_INFINITY
@@ -160,6 +174,7 @@ export class PodcastPlayerService {
   private endTimer?: ReturnType<typeof setTimeout>
 
   private guardChapter(audio: HTMLAudioElement): void {
+    if (this.throughEpisode()) return
     const end = this.current()?.end
     if (audio.currentTime < (this.current()?.start ?? 0)) {
       audio.currentTime = this.withinChapter(audio.currentTime)

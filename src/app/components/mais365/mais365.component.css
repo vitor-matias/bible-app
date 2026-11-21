@@ -1,0 +1,173 @@
+.mais365 {
+  max-width: 36em;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  color: var(--text-color);
+}
+
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.75;
+}
+
+h1 {
+  margin: 16px 0 4px;
+}
+
+.intro {
+  margin: 0 0 24px;
+  opacity: 0.75;
+}
+
+.card {
+  padding: 20px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--text-color) 6%, var(--background-color));
+}
+
+.kicker {
+  margin: 0;
+  font-size: 0.85em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.card h2 {
+  margin: 4px 0 12px;
+}
+
+.readings {
+  margin: 0 0 16px;
+  padding-left: 1.4em;
+  line-height: 1.9;
+}
+
+.readings a {
+  color: inherit;
+}
+
+.readings .passed a {
+  opacity: 0.6;
+}
+
+.check {
+  margin-left: 6px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.priest,
+.day-readings {
+  margin: -4px 0 12px;
+  opacity: 0.8;
+}
+
+.day-readings a {
+  color: inherit;
+}
+
+.position {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.position mat-slider {
+  flex: 1;
+}
+
+.time {
+  min-width: 3em;
+  font-size: 0.85em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.time:last-child {
+  text-align: end;
+}
+
+.transport {
+  justify-content: center;
+}
+
+/* Brown and round, as the reader's play buttons (auto-scroll-controls). */
+.card .play {
+  --mat-fab-container-color: var(--cap-brown);
+  --mat-fab-foreground-color: var(--highlight-color);
+  border-radius: 50%;
+}
+
+.card .play .mat-icon {
+  color: var(--highlight-color);
+}
+
+:host-context(.dark-theme) .card .play {
+  --mat-fab-container-color: #ecdcc6;
+  --mat-fab-foreground-color: #2b2119;
+}
+
+:host-context(.dark-theme) .card .play .mat-icon {
+  color: #2b2119;
+}
+
+.finish {
+  margin-inline-start: 8px;
+}
+
+.days-title {
+  margin: 32px 0 8px;
+  font-size: 1.1em;
+}
+
+.days {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.day {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--text-color) 12%, transparent);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.day.selected {
+  font-weight: 600;
+}
+
+.day-number {
+  min-width: 4em;
+  opacity: 0.7;
+}
+
+.day-title {
+  flex: 1;
+}
+
+.day-done {
+  opacity: 0.7;
+}
+
+.transport .mat-mdc-icon-button {
+  color: inherit;
+}

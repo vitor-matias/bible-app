@@ -1,0 +1,91 @@
+<main class="mais365">
+  <a class="back" routerLink="/" aria-label="Voltar à leitura">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon> Bíblia
+  </a>
+  <h1>+365</h1>
+  <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
+
+  @if (inReflection() && plan.active(); as day) {
+  <!-- After the day's readings, the reflection; or an introduction, all of it. -->
+  <section class="card reflection" aria-labelledby="reflection-title">
+    <p class="kicker">{{ label(day) }} · {{ day.readings.length ? 'Reflexão' : 'Introdução' }}</p>
+    <h2 id="reflection-title">{{ day.theme }}</h2>
+    @if (day.priest) { <p class="priest">Com o {{ day.priest }}</p> }
+    @if (day.readings.length) {
+    <p class="day-readings">Leituras:
+      @for (reading of day.readings; track reading.bookId + reading.chapter; let last = $last) {
+      <a [routerLink]="['/', reading.bookId, reading.chapter]">{{ reading.bookName }} {{ reading.chapter }}</a>{{ last ? '' : ', ' }}
+      }
+    </p>
+    }
+    <div class="position">
+      <span class="time" aria-hidden="true">{{ time(player.position() - day.reflection) }}</span>
+      <mat-slider [min]="day.reflection" [max]="day.duration" [step]="1" [displayWith]="spokenTime">
+        <input matSliderThumb aria-label="Posição na reflexão" [value]="sliderValue()"
+          (dragStart)="dragging.set(true)" (dragEnd)="dragging.set(false)" (valueChange)="player.seek($event)">
+      </mat-slider>
+      <span class="time" aria-hidden="true">−{{ time(day.duration - player.position()) }}</span>
+    </div>
+    <div class="actions transport">
+      <button type="button" mat-icon-button aria-label="Recuar 10 segundos" (click)="player.skip(-10)">
+        <mat-icon>replay_10</mat-icon>
+      </button>
+      <button type="button" mat-fab class="play" [attr.aria-label]="player.playing() ? 'Pausar' : 'Ouvir'"
+        (click)="plan.toggle()">
+        <mat-icon>{{ player.playing() ? 'pause' : 'play_arrow' }}</mat-icon>
+      </button>
+      <button type="button" mat-icon-button aria-label="Avançar 10 segundos" (click)="player.skip(10)">
+        <mat-icon>forward_10</mat-icon>
+      </button>
+      <button type="button" mat-stroked-button class="finish" (click)="plan.end()">Terminar</button>
+    </div>
+  </section>
+  } @else {
+  @let day = selected();
+  <section class="card today" aria-labelledby="day-title">
+    <p class="kicker">{{ label(day) }}@if (day === plan.today() && !isDone(day)) { · Hoje}@if (isDone(day)) { · Lido ✓}</p>
+    <h2 id="day-title">{{ day.title }}</h2>
+    @if (day.priest) { <p class="priest">Com o {{ day.priest }}</p> }
+    <ol class="readings">
+      @for (reading of day.readings; track reading.bookId + reading.chapter; let i = $index) {
+      <li [class.passed]="passed(day, i)">
+        <a [routerLink]="['/', reading.bookId, reading.chapter]">{{ reading.bookName }} {{ reading.chapter }}</a>
+        @if (passed(day, i)) { <span class="check" aria-label="ouvido">✓</span> }
+      </li>
+      }
+    </ol>
+    <div class="actions">
+      @if (plan.active() === day) {
+      <button type="button" mat-flat-button (click)="plan.toggle()">
+        <mat-icon>{{ playingDay(day) ? 'pause' : 'play_arrow' }}</mat-icon>
+        {{ playingDay(day) ? 'Pausar' : 'Continuar' }}
+      </button>
+      } @else {
+      <button type="button" mat-flat-button (click)="plan.start(day)">
+        <mat-icon>headphones</mat-icon> {{ day.readings.length ? 'Ouvir e ler' : 'Ouvir' }}
+      </button>
+      }
+      @if (day.readings.length) {
+      <a mat-stroked-button [routerLink]="['/', day.readings[0].bookId, day.readings[0].chapter]">Ler sem áudio</a>
+      }
+      <button type="button" mat-button (click)="plan.markDone(day.day, !isDone(day))">
+        {{ isDone(day) ? 'Marcar como não lido' : 'Marcar como lido' }}
+      </button>
+    </div>
+  </section>
+  }
+
+  <h2 class="days-title">Dias</h2>
+  <ul class="days">
+    @for (day of plan.days; track day.day) {
+    <li>
+      <button type="button" class="day" [class.selected]="day === selected()" [class.done]="isDone(day)"
+        [attr.aria-pressed]="day === selected()" (click)="selected.set(day)">
+        <span class="day-number">{{ label(day) }}</span>
+        <span class="day-title">{{ day.title }}</span>
+        @if (isDone(day)) { <mat-icon class="day-done" aria-label="lido">check_circle</mat-icon> }
+      </button>
+    </li>
+    }
+  </ul>
+</main>

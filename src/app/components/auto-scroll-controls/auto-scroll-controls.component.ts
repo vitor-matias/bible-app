@@ -185,11 +185,17 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       if (this.paged()) untracked(() => this.player.mode.set("audio"))
     })
     // Turning to another chapter stops the episode: its reading is over.
+    // Not in a +365 day, which turns the chapters itself as it plays on.
     let shown: string | undefined
     effect(() => {
       const chapter = `${this.bookId()}/${this.chapter()}`
       untracked(() => {
-        if (shown !== undefined && shown !== chapter) this.player.pause()
+        if (
+          shown !== undefined &&
+          shown !== chapter &&
+          !this.player.throughEpisode()
+        )
+          this.player.pause()
         shown = chapter
       })
     })
@@ -731,7 +737,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     // Hidden from the menu, the controls take what they started with them.
     this.stopGlide()
-    this.player.pause()
+    // A +365 day plays on into its reflection, on its own page.
+    if (!this.player.throughEpisode()) this.player.pause()
     this.stopAutoScroll()
     if (this.native) this.nativeChrome.setAutoScroll(null)
   }

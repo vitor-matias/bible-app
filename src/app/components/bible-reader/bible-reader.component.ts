@@ -56,6 +56,7 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { REVERT_STATE } from "../../services/depth-location-strategy"
 import { HapticsService } from "../../services/haptics.service"
+import { Mais365Service } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
@@ -173,6 +174,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private nativeFootnotes = inject(NativeFootnotesService)
   private location = inject(Location)
   protected readonly backButton = inject(BackButtonService)
+  /** A +365 day under way shows its player, even with the control hidden. */
+  protected readonly plan = inject(Mais365Service)
   /** The verses a link asked to open the notes of, until the chapter is here. */
   private linkedNotes: string | null = null
   private dismissLinkedNotes?: () => void

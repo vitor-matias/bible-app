@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { MatMenuModule, MatMenuTrigger } from "@angular/material/menu"
 import { By } from "@angular/platform-browser"
+import { Router } from "@angular/router"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { ToastService } from "../../services/toast.service"
 import { ReaderMenuComponent } from "./reader-menu.component"
@@ -57,6 +58,18 @@ describe("ReaderMenuComponent", () => {
     document.querySelector(
       '[aria-label^="Justificado"], [aria-label^="Alinhado"]',
     )
+
+  it("opens the +365 reading plan", () => {
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), "navigate")
+      .mockResolvedValue(true)
+    open("scrolling", false)
+    const entry = Array.from(
+      document.querySelectorAll<HTMLElement>(".mat-mdc-menu-item"),
+    ).find((item) => item.textContent?.includes("+365: ler um pouco por dia"))
+    entry?.click()
+    expect(navigate).toHaveBeenCalledWith(["/365"])
+  })
 
   it("offers the text alignment with a view mode, or when asked for", () => {
     open("scrolling", null)

@@ -63,6 +63,13 @@ export const routes: Routes = [
     loadComponent: loadIndexPage,
   },
   {
+    path: "365",
+    loadComponent: () =>
+      import("./components/mais365/mais365.component").then(
+        (m) => m.Mais365Component,
+      ),
+  },
+  {
     path: ":book/:chapter",
     component: BibleReaderComponent,
     canMatch: [chapterExists],

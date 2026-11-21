@@ -125,7 +125,7 @@
       </button>
       }
       }
-      @if (showAutoScrollControls && drawerContent && bookBlock) {
+      @if ((showAutoScrollControls || plan.active()) && drawerContent && bookBlock) {
       <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
         [bookId]="chapter.bookId" [chapter]="chapter.number"
         [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'"

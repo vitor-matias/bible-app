@@ -13,6 +13,7 @@ import { MatDividerModule } from "@angular/material/divider"
 import { MatIconModule } from "@angular/material/icon"
 import { MatMenu, MatMenuModule } from "@angular/material/menu"
 import { MatTooltipModule } from "@angular/material/tooltip"
+import { Router } from "@angular/router"
 import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -53,6 +54,7 @@ export class ReaderMenuComponent {
   private readonly textAlign = inject(TextAlignService)
   private readonly appPromo = inject(AppPromoService)
   private readonly toast = inject(ToastService)
+  private readonly router = inject(Router)
   readonly analyticsService = inject(AnalyticsService)
 
   /** Static: the page's trigger reads it before this view's first check. */
@@ -174,6 +176,11 @@ export class ReaderMenuComponent {
     } catch {
       // The browser refused; nothing was copied, so nothing to confirm.
     }
+  }
+
+  /** The +365 reading plan's page. */
+  openPlan(): void {
+    void this.router.navigate(["/365"])
   }
 
   openHelp(): void {
