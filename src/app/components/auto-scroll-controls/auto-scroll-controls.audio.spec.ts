@@ -430,6 +430,11 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.paused).toBe(false)
     expect(stream.currentTime).toBe(290)
 
+    // Paused between two readings, play goes on rather than back to the top.
+    tap(toggle())
+    tap(toggle())
+    expect(stream.currentTime).toBe(290)
+
     render("exo", 7)
     await answer(null, 7)
     expect(stream.paused).toBe(false)

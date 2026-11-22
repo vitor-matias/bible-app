@@ -33,7 +33,7 @@
         <mat-icon>skip_previous</mat-icon>
       </button>
       }
-      <button type="button" mat-icon-button aria-label="Recuar 10 segundos" (click)="player.skip(-10)">
+      <button type="button" mat-icon-button aria-label="Recuar 10 segundos" (click)="skipBack(day)">
         <mat-icon>replay_10</mat-icon>
       </button>
       <button type="button" mat-fab class="play" [attr.aria-label]="player.playing() ? 'Pausar' : 'Ouvir'"
@@ -56,7 +56,9 @@
       <button type="button" mat-flat-button class="finish" (click)="plan.end()">Terminar</button>
     </div>
   </section>
-  } @else {
+  }
+  <!-- Another day picked while one plays: shown under the player. -->
+  @if (!inReflection() || selected() !== plan.active()) {
   @let day = selected();
   <section class="card today" aria-labelledby="day-title">
     <p class="kicker">{{ label(day) }}@if (day === plan.today() && !isDone(day)) { · Hoje}@if (isDone(day)) { · Lido ✓}</p>

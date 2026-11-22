@@ -115,6 +115,15 @@ export class Mais365Service {
       })
     })
     // The episode over (or failed): the session with it.
+    // Another stream taken up (a chapter of another day played by hand):
+    // the day is left as it was, and that chapter plays as any other.
+    effect(() => {
+      const day = this.active()
+      const current = this.player.current()
+      if (day && current && current.url !== day.url) {
+        untracked(() => this.release())
+      }
+    })
     effect(() => {
       const day = this.active()
       if (!day || this.player.current()) return
@@ -146,7 +155,12 @@ export class Mais365Service {
       })
       return
     }
-    this.player.position.set(first.episode.start ?? 0)
+    // From its first reading, even with that reading paused further on.
+    if (this.player.isCurrent(first.episode)) {
+      this.player.seek(first.episode.start ?? 0)
+    } else {
+      this.player.position.set(first.episode.start ?? 0)
+    }
     this.active.set(day)
     void this.router.navigate(["/", first.bookId, first.chapter])
     if (!this.player.isCurrent(first.episode) || !this.player.playing()) {
@@ -196,6 +210,11 @@ export class Mais365Service {
   /** Ends the session (the reflection skipped, or the episode over). */
   end(): void {
     this.player.pause()
+    this.release()
+  }
+
+  /** Lets the player go back to chapters, playing or not. */
+  private release(): void {
     this.active.set(null)
     this.player.throughEpisode.set(false)
   }
@@ -212,7 +231,10 @@ export class Mais365Service {
 
   private storedDone(): number[] {
     try {
-      return JSON.parse(localStorage.getItem(DONE_KEY) ?? "[]") as number[]
+      const stored: unknown = JSON.parse(localStorage.getItem(DONE_KEY) ?? "[]")
+      return Array.isArray(stored)
+        ? stored.filter((day): day is number => Number.isFinite(day))
+        : []
     } catch {
       return []
     }

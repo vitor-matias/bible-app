@@ -59,6 +59,11 @@ export class Mais365Component implements OnInit {
     return `${String(rate).replace(".", ",")} ${rate === 1 ? "vez" : "vezes"}`
   })
 
+  /** Back 10 s, but not out of the reflection into the readings (⏮ does that). */
+  protected skipBack(day: PlanDay): void {
+    this.player.seek(Math.max(day.reflection, this.player.position() - 10))
+  }
+
   /** "m:ss" of a span in seconds. */
   protected time(seconds: number): string {
     const s = Math.max(0, Math.round(seconds))

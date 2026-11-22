@@ -78,6 +78,46 @@ describe("Mais365Service", () => {
     expect(plan.today().day).toBe(0)
   })
 
+  it("starts afresh when what is stored is not a list of days", () => {
+    localStorage.setItem("mais365Done", "{}")
+    expect(create().today().day).toBe(0)
+    TestBed.resetTestingModule()
+    localStorage.setItem("mais365Done", '[1, "x", null, 0]')
+    expect(create().done()).toEqual([1, 0])
+  })
+
+  it("starts a day from its first reading even when that reading is paused further on", () => {
+    player.seek = vi.fn()
+    const plan = create()
+    const day = plan.days.find(({ day }) => day === 1) as (typeof plan.days)[0]
+    player.isCurrent.mockReturnValue(true)
+    plan.start(day)
+    expect(player.seek).toHaveBeenCalledWith(day.readings[0].episode.start)
+  })
+
+  it("lets the day go, unmarked and still playing, when another stream is played", () => {
+    const plan = create()
+    const day = plan.days.find(({ day }) => day === 3) as (typeof plan.days)[0]
+    plan.start(day)
+    TestBed.tick()
+    // A chapter of Dia 4, played by hand.
+    player.current.set({
+      day: 4,
+      title: "Dia 4",
+      url: "dia4",
+      start: 0,
+      end: 1404,
+    })
+    TestBed.tick()
+    expect(plan.active()).toBeNull()
+    expect(player.throughEpisode()).toBe(false)
+    expect(player.pause).not.toHaveBeenCalled()
+    at(1404)
+    player.current.set(null)
+    TestBed.tick()
+    expect(plan.done()).toEqual([])
+  })
+
   it("turns to each reading as the podcast reaches it", () => {
     const plan = create()
     const day = plan.days.find(({ day }) => day === 1) as (typeof plan.days)[0]

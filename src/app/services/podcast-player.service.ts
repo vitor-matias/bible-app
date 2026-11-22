@@ -110,8 +110,13 @@ export class PodcastPlayerService {
         audio.pause()
         return
       }
-      // Stopped at the chapter's end, play reads it again from the top.
-      if (episode.end != null && audio.currentTime >= episode.end) {
+      // Stopped at the chapter's end, play reads it again from the top. Not
+      // in a +365 day, paused between two readings: it goes on to the next.
+      if (
+        episode.end != null &&
+        audio.currentTime >= episode.end &&
+        !this.throughEpisode()
+      ) {
         audio.currentTime = episode.start ?? 0
       }
       this.play(audio, episode)

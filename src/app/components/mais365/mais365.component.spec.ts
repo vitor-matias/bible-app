@@ -122,6 +122,11 @@ describe("Mais365Component", () => {
     fixture.detectChanges()
     button("Voltar a Salmo 19")?.click()
     expect(plan.back).toHaveBeenCalled()
+    // Back 10 s near its start stays in the reflection.
+    player.position.set(692)
+    button("Recuar 10 segundos")?.click()
+    expect(player.seek).toHaveBeenLastCalledWith(688.72)
+
     button("Avançar 10 segundos")?.click()
     expect(player.skip).toHaveBeenCalledWith(10)
     const slider = (fixture.nativeElement as HTMLElement).querySelector(
@@ -134,5 +139,17 @@ describe("Mais365Component", () => {
     expect(button("Aumentar velocidade")?.hasAttribute("disabled")).toBe(true)
     button("Terminar")?.click()
     expect(plan.end).toHaveBeenCalled()
+
+    // Another day picked (here today's, Dia 0): shown under the player.
+    button("No princípio")?.click()
+    fixture.detectChanges()
+    const picked = () =>
+      (fixture.nativeElement as HTMLElement).querySelector("#day-title")
+        ?.textContent
+    expect(picked()).toBeUndefined()
+    button("Introdução à Criação do Mundo")?.click()
+    fixture.detectChanges()
+    expect(text()).toContain("Dia 1 · Reflexão")
+    expect(picked()).toBe("Introdução à Criação do Mundo")
   })
 })

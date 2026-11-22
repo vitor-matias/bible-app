@@ -273,7 +273,8 @@ h3:not(:first-child) {
 
 /* Read-along (+365): only a faint line under the verse being read. Not on
    cross-reference links (a.verseRun), whose own underline says "link". */
-.verseRun:not(a) {
+/* :where() adds no specificity, so the reduced-motion rule below still wins. */
+.verseRun:where(:not(a)) {
   text-decoration: underline transparent;
   text-decoration-thickness: 0.06em;
   text-underline-offset: 0.28em;
