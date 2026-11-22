@@ -19,8 +19,12 @@ import {
   BibleReferenceService,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { ToastService } from "../../services/toast.service"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
+
+/** What the sheet is dismissed with when one of its references is followed. */
+const FOLLOWED = "followed"
 
 @Component({
   selector: "footnotes-bottom-sheet",
@@ -124,6 +128,13 @@ export class FootnotesBottomSheetComponent {
     // Opened over a way back, which is still to be within reach.
     afterNextRender(() => this.toast.bringToFront())
 
+    // +365 pauses while the note is read, and goes on once it is closed;
+    // not after a reference was followed to another passage.
+    const release = inject(PodcastPlayerService).hold()
+    this.bottomSheetRef
+      .afterDismissed()
+      .subscribe((result) => release(result !== FOLLOWED))
+
     const data = this.data
 
     void this.analyticsService.track("footnotes_opened", {
@@ -164,7 +175,7 @@ export class FootnotesBottomSheetComponent {
 
   /** The link navigates; this closes the sheet and offers the way back. */
   followReference(): void {
-    this.close()
+    this.bottomSheetRef.dismiss(FOLLOWED)
     this.toast.showReturn(this.data.verse)
   }
 }

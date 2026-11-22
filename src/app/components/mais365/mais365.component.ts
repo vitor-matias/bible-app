@@ -14,6 +14,7 @@ import { Meta, Title } from "@angular/platform-browser"
 import { RouterLink } from "@angular/router"
 import { Mais365Service, type PlanDay } from "../../services/mais365.service"
 import { PodcastPlayerService } from "../../services/podcast-player.service"
+import { ToastService } from "../../services/toast.service"
 
 /**
  * +365 as a reading plan: today's readings, played through with the
@@ -30,11 +31,14 @@ import { PodcastPlayerService } from "../../services/podcast-player.service"
 export class Mais365Component implements OnInit {
   protected readonly plan = inject(Mais365Service)
   protected readonly player = inject(PodcastPlayerService)
+  protected readonly toast = inject(ToastService)
   private readonly title = inject(Title)
   private readonly meta = inject(Meta)
 
-  /** The day shown: today, until another is picked. */
-  protected readonly selected = linkedSignal<PlanDay>(() => this.plan.today())
+  /** The day shown: the one playing, else today, until another is picked. */
+  protected readonly selected = linkedSignal<PlanDay>(
+    () => this.plan.active() ?? this.plan.today(),
+  )
 
   protected readonly inReflection = computed(
     () => this.plan.stage() === "reflection",

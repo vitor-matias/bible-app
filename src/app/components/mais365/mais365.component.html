@@ -14,7 +14,7 @@
     @if (day.readings.length) {
     <p class="day-readings">Leituras:
       @for (reading of day.readings; track reading.bookId + reading.chapter; let last = $last) {
-      <a [routerLink]="['/', reading.bookId, reading.chapter]">{{ reading.bookName }} {{ reading.chapter }}</a>{{ last ? '' : ', ' }}
+      <a [routerLink]="plan.link(reading)" (click)="toast.showReturnToPlan()">{{ reading.bookName }} {{ reading.chapter }}</a>{{ last ? '' : ', ' }}
       }
     </p>
     }
@@ -67,7 +67,7 @@
     <ol class="readings">
       @for (reading of day.readings; track reading.bookId + reading.chapter; let i = $index) {
       <li [class.passed]="passed(day, i)">
-        <a [routerLink]="['/', reading.bookId, reading.chapter]">{{ reading.bookName }} {{ reading.chapter }}</a>
+        <a [routerLink]="plan.link(reading)">{{ reading.bookName }} {{ reading.chapter }}</a>
         @if (passed(day, i)) { <span class="check" aria-label="ouvido">✓</span> }
       </li>
       }
@@ -84,7 +84,7 @@
       </button>
       }
       @if (day.readings.length) {
-      <a mat-flat-button [routerLink]="['/', day.readings[0].bookId, day.readings[0].chapter]">Ler sem áudio</a>
+      <a mat-flat-button [routerLink]="plan.link(day.readings[0])">Ler sem áudio</a>
       }
       <button type="button" mat-flat-button (click)="plan.markDone(day.day, !isDone(day))">
         {{ isDone(day) ? 'Marcar como não lido' : 'Marcar como lido' }}

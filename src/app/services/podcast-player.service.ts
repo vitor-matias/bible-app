@@ -256,6 +256,31 @@ export class PodcastPlayerService {
     this.audio?.pause()
   }
 
+  private holds = 0
+  private resumeAfterHolds = false
+
+  /**
+   * Pauses while something is read over the text (a footnote), and returns
+   * what resumes it: once the last hold is let go, if it was playing. Let go
+   * with `resume` false (the reader went elsewhere), it stays paused.
+   */
+  hold(): (resume?: boolean) => void {
+    if (this.holds++ === 0) {
+      this.resumeAfterHolds = this.playing()
+      if (this.resumeAfterHolds) this.pause()
+    }
+    let released = false
+    return (resume = true) => {
+      if (released) return
+      released = true
+      if (!resume) this.resumeAfterHolds = false
+      if (--this.holds > 0 || !this.resumeAfterHolds) return
+      this.resumeAfterHolds = false
+      const current = this.current()
+      if (current && !this.playing()) this.toggle(current)
+    }
+  }
+
   private play(audio: HTMLAudioElement, episode: ChapterEpisode): void {
     audio.play().catch((error: unknown) => {
       // A pause, or a new stream, aborts a play() still loading: that is no

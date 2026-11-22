@@ -108,6 +108,9 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       : `Saltar para ${next.bookName} ${next.chapter}`
   })
 
+  /** A day of the plan playing, its readings or reflection: ⏮ ⏭ in the transport. */
+  protected readonly inPlan = computed(() => this.plan.stage() !== null)
+
   /** "Voltar a Génesis 1"; null on the day's first reading. */
   protected readonly backLabel = computed(() => {
     const previous = this.plan.previous()
@@ -118,6 +121,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   protected readonly caption = computed(() => {
     const chapter = `${this.bookName()} ${this.chapter()}`
     const day = this.plan.active()
+    if (day && this.reflection()) return `+365 · Dia ${day.day} · Reflexão`
     const inDay = day?.readings.some(
       (reading) =>
         reading.bookId === this.bookId() && reading.chapter === this.chapter(),
@@ -146,7 +150,14 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   })
 
   /** What «Ouvir» controls: the earliest +365 episode that reads the chapter. */
-  protected readonly entry = computed(() => this.episodes.value()?.[0])
+  /** A +365 day's reflection in the player: the card plays it, whatever chapter is open. */
+  private readonly reflection = computed(() =>
+    this.plan.stage() === "reflection" ? this.player.current() : null,
+  )
+
+  protected readonly entry = computed(
+    () => this.reflection() ?? this.episodes.value()?.[0],
+  )
 
   /**
    * The episode the last finished lookup found, kept through the next one:
@@ -744,6 +755,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   toggleAudio(): void {
     const entry = this.entry()
+    if (entry && this.reflection()) {
+      this.player.toggle(entry)
+      return
+    }
     // Named for the system's player: the chapter, not the episode's day.
     if (entry) {
       this.player.toggle({

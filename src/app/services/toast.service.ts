@@ -106,6 +106,15 @@ export class ToastService {
     )
   }
 
+  /** The way back to the +365 reflection still playing, from one of its readings. */
+  showReturnToPlan(): void {
+    this.showWayBack(
+      "Voltar ao plano de leitura",
+      (extras: NavigationExtras = {}) => this.router.navigate(["/365"], extras),
+      (url) => url.split(/[?#]/)[0] === "/365",
+    )
+  }
+
   private showWayBack(
     message: string,
     goTo: (extras?: NavigationExtras) => void,

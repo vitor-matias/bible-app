@@ -8,6 +8,7 @@ import { Router } from "@angular/router"
 import { apiBaseUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { BookService } from "../../services/book.service"
 import { Mais365Service } from "../../services/mais365.service"
 import {
   type ChapterEpisode,
@@ -74,6 +75,8 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: AnalyticsService, useValue: { track: vi.fn() } },
+        // The plan's links ask it for a book's address; no book list here.
+        { provide: BookService, useValue: { findBookById: () => undefined } },
       ],
     })
     http = TestBed.inject(HttpTestingController)
@@ -416,6 +419,63 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     fixture.detectChanges()
     tap(byLabel("Voltar a Êxodo 5"))
     expect(stream.currentTime).toBe(56.5)
+  })
+
+  it("holds for a footnote, resuming once the last one lets go", async () => {
+    const player = TestBed.inject(PodcastPlayerService)
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    const first = player.hold()
+    expect(stream.paused).toBe(true)
+    // One note to the next: the first closes as the second opens.
+    const second = player.hold()
+    first()
+    expect(stream.paused).toBe(true)
+    second()
+    expect(stream.paused).toBe(false)
+
+    const followed = player.hold()
+    followed(false)
+    expect(stream.paused).toBe(true)
+  })
+
+  it("leaves a paused episode paused after a footnote", async () => {
+    const player = TestBed.inject(PodcastPlayerService)
+    await listen()
+    tap(toggle())
+    tap(toggle())
+    player.hold()()
+    expect(audio().paused).toBe(true)
+  })
+
+  it("plays a day's reflection from any chapter, with ⏭ kept but disabled", async () => {
+    vi.spyOn(TestBed.inject(Router), "navigate").mockResolvedValue(true)
+    TestBed.inject(PodcastPlayerService).throughEpisode.set(true)
+    await listen()
+    tap(toggle())
+    TestBed.inject(Mais365Service).active.set({
+      day: 3,
+      title: "A Arca de Noé",
+      theme: "A Arca de Noé",
+      url: day3.url,
+      duration: 1103,
+      readings: [
+        { bookId: "exo", bookName: "Êxodo", chapter: 5, episode: day3 },
+      ],
+      reflection: 900,
+    })
+    const stream = audio()
+    stream.currentTime = 950
+    stream.dispatchEvent(new Event("timeupdate"))
+    TestBed.tick()
+    fixture.detectChanges()
+    expect(find(".audio-caption")?.textContent?.trim()).toBe(
+      "+365 · Dia 3 · Reflexão",
+    )
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    expect(find("button.plan-skip")?.disabled).toBe(true)
+    expect(byLabel("Voltar a Êxodo 5")).toBeTruthy()
   })
 
   it("plays on across chapters and when hidden in a +365 day", async () => {

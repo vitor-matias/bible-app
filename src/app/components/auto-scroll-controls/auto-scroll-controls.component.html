@@ -17,7 +17,7 @@
   } @else if (audioMode()) {
   <!-- On a desktop: dragged by anything but its controls, its width resized
        from the corner, both remembered; a double-click on the caption docks it. -->
-  <div class="audio-player" role="group" aria-label="+365" [class.movable]="desktop()" [class.in-plan]="!!skipLabel()"
+  <div class="audio-player" role="group" aria-label="+365" [class.movable]="desktop()" [class.in-plan]="inPlan()"
     [style.width.px]="desktop() ? cardWidth() : null" (pointerdown)="startDrag($event)">
     @if (desktop()) {
     <!-- What says it can be dragged: a grip, as on a window's handle. -->
@@ -39,7 +39,7 @@
       <span class="audio-time" aria-hidden="true">−{{ remaining() }}</span>
     </div>
     <div class="audio-buttons">
-      @if (skipLabel()) {
+      @if (inPlan()) {
       <!-- In a day of the plan the transport steps through its readings. -->
       <span></span>
       } @else if (!paged()) {
@@ -51,7 +51,7 @@
       <span></span>
       }
       <div class="audio-transport">
-        @if (skipLabel()) {
+        @if (inPlan()) {
         <button type="button" mat-icon-button class="plan-back" [attr.aria-label]="backLabel() ?? 'Primeira leitura do dia'"
           [title]="backLabel() ?? ''" [disabled]="!backLabel()" (click)="plan.back()">
           <mat-icon>skip_previous</mat-icon>
@@ -70,9 +70,10 @@
           [disabled]="!loaded()" (click)="player.skip(10)">
           <mat-icon>forward_10</mat-icon>
         </button>
-        @if (skipLabel(); as label) {
-        <button type="button" mat-icon-button class="plan-skip" [attr.aria-label]="label" [title]="label"
-          (click)="plan.skip()">
+        @if (inPlan()) {
+        <!-- Kept, disabled, in the reflection: play stays in the middle. -->
+        <button type="button" mat-icon-button class="plan-skip" [attr.aria-label]="skipLabel() ?? 'Nada a seguir'"
+          [title]="skipLabel() ?? ''" [disabled]="!skipLabel()" (click)="plan.skip()">
           <mat-icon>skip_next</mat-icon>
         </button>
         }

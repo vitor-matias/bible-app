@@ -46,6 +46,11 @@ describe("Mais365Component", () => {
     stage: signal<number | "reflection" | null>(null),
     previous: signal<PlanDay["readings"][0] | null>(null),
     back: vi.fn(),
+    link: (reading: PlanDay["readings"][0]) => [
+      "/",
+      reading.bookId,
+      reading.chapter,
+    ],
     start: vi.fn(),
     end: vi.fn(),
     toggle: vi.fn(),

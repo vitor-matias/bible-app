@@ -2,6 +2,7 @@ import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
 import { lastCall } from "../testing/spy-obj"
+import { BookService } from "./book.service"
 import { Mais365Service } from "./mais365.service"
 import {
   type ChapterEpisode,
@@ -29,6 +30,7 @@ describe("Mais365Service", () => {
       providers: [
         { provide: PodcastPlayerService, useValue: player },
         { provide: Router, useValue: { navigate } },
+        { provide: BookService, useValue: { findBookById: () => undefined } },
       ],
     })
     return TestBed.inject(Mais365Service)

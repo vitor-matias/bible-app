@@ -7,6 +7,7 @@ import {
   untracked,
 } from "@angular/core"
 import { Router } from "@angular/router"
+import { BookService } from "./book.service"
 import { TEST_INTROS } from "./mais365-test-intros"
 import { TEST_PLAN } from "./mais365-test-plan"
 import {
@@ -53,6 +54,17 @@ const DONE_KEY = "mais365Done"
 export class Mais365Service {
   private readonly player = inject(PodcastPlayerService)
   private readonly router = inject(Router)
+  private readonly books = inject(BookService)
+
+  /**
+   * A reading's address as the reader has it (/gn/1, not /gen/1): no redirect
+   * on the way, which would also take down a way back shown for it.
+   */
+  link(reading: PlanReading): (string | number)[] {
+    const book = this.books.findBookById(reading.bookId)
+    const abrv = book ? this.books.getUrlAbrv(book) : reading.bookId
+    return ["/", abrv, reading.chapter]
+  }
 
   /** The days, with the introductions after the day they came out with. */
   readonly days: PlanDay[] = [...TEST_PLAN, ...TEST_INTROS].sort(
@@ -111,7 +123,7 @@ export class Mais365Service {
           ...reading.episode,
           title: `${reading.bookName} ${reading.chapter}`,
         })
-        void this.router.navigate(["/", reading.bookId, reading.chapter])
+        void this.router.navigate(this.link(reading))
       })
     })
     // The episode over (or failed): the session with it.
@@ -162,7 +174,7 @@ export class Mais365Service {
       this.player.position.set(first.episode.start ?? 0)
     }
     this.active.set(day)
-    void this.router.navigate(["/", first.bookId, first.chapter])
+    void this.router.navigate(this.link(first))
     if (!this.player.isCurrent(first.episode) || !this.player.playing()) {
       this.player.toggle(first.episode)
     }

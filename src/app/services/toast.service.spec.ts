@@ -166,6 +166,21 @@ describe("ToastService", () => {
     expect(snackBar.open).not.toHaveBeenCalled()
   })
 
+  it("offers the way back to the reading plan", () => {
+    const service = create(false)
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), "navigate")
+      .mockResolvedValue(true)
+    service.showReturnToPlan()
+    const data = snackBar.openFromComponent.mock.lastCall?.[1]?.data as {
+      message: string
+      returnUrl: () => void
+    }
+    expect(data.message).toBe("Voltar ao plano de leitura")
+    data.returnUrl()
+    expect(navigate).toHaveBeenCalledWith(["/365"], {})
+  })
+
   describe("showReturn", () => {
     const returnSnack = () =>
       lastCall(vi.mocked(snackBar.openFromComponent))[1]?.data as {
