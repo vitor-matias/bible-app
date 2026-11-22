@@ -63,6 +63,7 @@ import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
@@ -176,6 +177,38 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private location = inject(Location)
   protected readonly backButton = inject(BackButtonService)
   private readonly plan = inject(Mais365Service)
+  private readonly player = inject(PodcastPlayerService)
+  /**
+   * Whether +365 reads the open chapter, looked up in page view on the web
+   * (where the control is only the +365 player); null until known.
+   */
+  private readonly chapterAudio = signal<boolean | null>(null)
+
+  /**
+   * The menu's «Mostrar/Esconder»: left out in pages where +365 doesn't read
+   * the chapter, as there would be nothing to show.
+   */
+  protected menuControlVisible(): boolean | null {
+    const shown = this.showAutoScrollControls || this.heldByPlan()
+    const nothingHere =
+      this.effectiveViewMode === "paged" &&
+      !this.chapterAudio() &&
+      !this.heldByPlan()
+    return nothingHere ? null : shown
+  }
+
+  private lookUpChapterAudio(): void {
+    this.chapterAudio.set(null)
+    const chapter = this.chapter
+    if (!chapter || this.nativeChrome.enabled) return
+    if (this.effectiveViewMode !== "paged") return
+    this.player
+      .episodesFor(chapter.bookId, chapter.number)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((episodes) => {
+        if (this.chapter === chapter) this.chapterAudio.set(episodes.length > 0)
+      })
+  }
   /**
    * A +365 day shows its player even with the control hidden, and keeps it
    * once the day lets go (another episode played, the stream failed): only
@@ -1137,6 +1170,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+    this.lookUpChapterAudio()
     this.linkedVerse = undefined
     // Not the About page shown for want of the books: the passage asked for
     // (the address) is what a failed first load must keep.
@@ -1327,6 +1361,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const reading = this.verseBeingRead()
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
+    this.lookUpChapterAudio()
 
     void this.analyticsService.track("view_mode_toggle", {
       mode: this.viewMode,

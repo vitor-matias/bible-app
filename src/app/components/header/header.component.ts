@@ -102,7 +102,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   readonly book = input.required<Book>()
   readonly chapterNumber = input.required<number>()
-  readonly autoScrollControlsVisible = input(false)
+  /** null: no such control here (the menu leaves its entry out). */
+  readonly autoScrollControlsVisible = input<boolean | null>(false)
   /** The reader's text size, for the Android app's text sheet; null before it opens. */
   readonly textSize = input<TextSize | null>(null)
   readonly viewMode = input<"scrolling" | "paged">("scrolling")
@@ -471,7 +472,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       themeMode: this.themeService.currentMode,
       viewMode: isAbout ? null : this.viewMode(),
       raggedText: isAbout ? null : this.textAlign.ragged,
-      autoScrollVisible: this.autoScrollControlsVisible(),
+      autoScrollVisible: this.autoScrollControlsVisible() ?? false,
       autoScrollAvailable: this.viewMode() !== "paged",
       canShare: this.canShare,
       canReport: this.analyticsService.areAnalyticsAvailable(),

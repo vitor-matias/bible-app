@@ -1299,6 +1299,17 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       fixture.detectChanges()
       expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
     })
+
+    it("leaves the scrolling controls as they were after a look at the pages", async () => {
+      render("exo", 5)
+      await answer([day3])
+      fixture.componentRef.setInput("paged", false)
+      fixture.detectChanges()
+      expect(toggle()?.getAttribute("aria-label")).toBe(
+        "Ativar deslocamento automático",
+      )
+      expect(TestBed.inject(PodcastPlayerService).mode()).toBe("scroll")
+    })
   })
 
   describe("position slider", () => {

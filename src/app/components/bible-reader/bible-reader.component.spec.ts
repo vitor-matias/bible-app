@@ -2230,6 +2230,35 @@ describe("BibleReaderComponent", () => {
       expect(component["readingVerse"]()).toBeNull()
     })
 
+    it("leaves «Mostrar o +365» out of the menu in pages +365 doesn't read", () => {
+      fixture.detectChanges()
+      component.showAutoScrollControls = false
+      component.chapter = { bookId: "exo", number: 1, verses: [] } as Chapter
+      component.chapterNumber = 1
+      const episodesFor = vi
+        .spyOn(TestBed.inject(PodcastPlayerService), "episodesFor")
+        .mockReturnValue(of([]))
+      const reader = component as unknown as {
+        lookUpChapterAudio: () => void
+        menuControlVisible: () => boolean | null
+      }
+      component.viewMode = "scrolling"
+      reader.lookUpChapterAudio()
+      expect(episodesFor).not.toHaveBeenCalled()
+      expect(reader.menuControlVisible()).toBe(false)
+
+      component.viewMode = "paged"
+      reader.lookUpChapterAudio()
+      expect(episodesFor).toHaveBeenCalledWith("exo", 1)
+      expect(reader.menuControlVisible()).toBeNull()
+
+      episodesFor.mockReturnValue(
+        of([{ day: 3, title: "Dia 3", url: "u", start: 0, end: 10 }]),
+      )
+      reader.lookUpChapterAudio()
+      expect(reader.menuControlVisible()).toBe(false)
+    })
+
     it("hides at the first «Esconder» with the preference on and a day holding it", () => {
       fixture.detectChanges()
       component.books = [component.book]

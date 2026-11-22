@@ -244,9 +244,12 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       untracked(() => this.readingVerse.emit(verse))
     })
     // Listening in pages carries on as «Ouvir» back in the scrolling view,
-    // where the episode would otherwise lose its controls.
+    // where the episode would otherwise lose its controls. Only once it
+    // plays: a look at the pages leaves the scrolling controls as they were.
     effect(() => {
-      if (this.paged()) untracked(() => this.player.mode.set("audio"))
+      if (this.paged() && this.playingThis()) {
+        untracked(() => this.player.mode.set("audio"))
+      }
     })
     // Turning to another chapter stops the episode: its reading is over.
     // Not in a +365 day, which turns the chapters itself as it plays on.

@@ -278,7 +278,10 @@ h3:not(:first-child) {
   text-decoration: underline transparent;
   text-decoration-thickness: 0.06em;
   text-underline-offset: 0.28em;
-  transition: text-decoration-color 0.4s ease;
+  /* With the highlight's own fade, which this shorthand would otherwise drop. */
+  transition:
+    background-color 0.4s ease,
+    text-decoration-color 0.4s ease;
 }
 
 :host(.verse-reading) .verseRun:not(a) {
