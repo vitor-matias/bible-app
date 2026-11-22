@@ -456,9 +456,9 @@ describe("BibleReaderComponent", () => {
         ],
       } as Chapter
 
-      function follow(notes: string) {
+      function follow(notes: string, shown: Chapter = chapter) {
         fixture.detectChanges()
-        component.chapter = chapter
+        component.chapter = shown
         const sheet = vi
           .spyOn(TestBed.inject(MatBottomSheet), "open")
           .mockReturnValue({
@@ -585,6 +585,26 @@ describe("BibleReaderComponent", () => {
           expect(component.selection?.panel).toBe("footnotes")
           expect(sheet).not.toHaveBeenCalled()
           expect(open).not.toHaveBeenCalled()
+        })
+
+        // Verse 0 is the chapter's front matter, notes included: no verse to
+        // select, as a click on its marker knows, so the sheet is where they are.
+        it("opens the sheet for the chapter's front matter, which is no verse to select", () => {
+          fixture.detectChanges()
+          studyMode.activate()
+          const front = {
+            ...chapter,
+            verses: [
+              verse(0, ["Nota do cabeçalho"]),
+              ...(chapter.verses ?? []),
+            ],
+          } as Chapter
+          const { sheet } = follow("0", front)
+
+          expect(component.selection).toBeNull()
+          expect(sheet).toHaveBeenCalledTimes(1)
+          const data = sheet.mock.lastCall?.[1]?.data as { verse: Verse }
+          expect(data.verse.number).toBe(0)
         })
 
         it("opens no sheet natively either, and still takes it off the address", () => {

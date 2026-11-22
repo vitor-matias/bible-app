@@ -1516,7 +1516,10 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // Study mode reads footnotes in the panel's Rodapé tab, and a sheet over
     // its three columns would be a second place for them: the same as a click
     // on the verse's marker, which selects the verse and asks for that tab.
-    if (this.studyModeActive) {
+    // Not for verse 0, the chapter's front matter: there is no verse to select
+    // (what the panel would save there is dropped), so its notes stay in the
+    // sheet, as the marker's click leaves them.
+    if (this.studyModeActive && verse.number > 0) {
       this.scrollToVerse(verse.number)
       this.onVerseSelected({ verse, panel: "footnotes" })
       return
