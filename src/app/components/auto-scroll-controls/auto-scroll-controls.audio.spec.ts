@@ -417,6 +417,22 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     TestBed.tick()
     expect(lastCall(navigate)[0]).toEqual(["/", "exo", 6])
     fixture.detectChanges()
+    // Still on Êxodo 5 (the stubbed router turned nothing): the card plays
+    // and names the reading heard, and marks nothing in the chapter open.
+    expect(find(".audio-caption")?.textContent?.trim()).toBe(
+      "+365 · Dia 3 · Êxodo 6",
+    )
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    expect(byLabel("Recuar 10 segundos")?.disabled).toBe(false)
+    expect(
+      (
+        fixture.componentInstance as unknown as { heardHere: () => boolean }
+      ).heardHere(),
+    ).toBe(false)
+    tap(toggle())
+    expect(stream.paused).toBe(true)
+    expect(stream.currentTime).toBe(280.8)
+    tap(toggle())
     tap(byLabel("Voltar a Êxodo 5"))
     expect(stream.currentTime).toBe(56.5)
   })

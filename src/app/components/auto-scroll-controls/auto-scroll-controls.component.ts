@@ -126,11 +126,9 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         ? `+365 · Dia ${day.day} · Reflexão`
         : `+365 · ${day.title}`
     }
-    const inDay = day?.readings.some(
-      (reading) =>
-        reading.bookId === this.bookId() && reading.chapter === this.chapter(),
-    )
-    return day && inDay ? `+365 · Dia ${day.day} · ${chapter}` : chapter
+    // The reading being heard, named by the plan ("Génesis 2").
+    const heard = this.planEntry()
+    return day && heard ? `+365 · Dia ${day.day} · ${heard.title}` : chapter
   })
 
   private readonly nativeChrome = inject(NativeChromeService)
@@ -159,8 +157,27 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     this.plan.stage() === "reflection" ? this.player.current() : null,
   )
 
+  /**
+   * In a +365 day the card plays what the day is at (a reading, or the
+   * reflection), whichever chapter the reader has open.
+   */
+  private readonly planEntry = computed(() =>
+    this.plan.stage() !== null ? this.player.current() : null,
+  )
+
+  /** The chapter open is the one being heard: read-along marks and follows it. */
+  private readonly heardHere = computed(() => {
+    const stage = this.plan.stage()
+    if (stage === null) return true
+    const reading =
+      stage === "reflection" ? undefined : this.plan.active()?.readings[stage]
+    return (
+      reading?.bookId === this.bookId() && reading?.chapter === this.chapter()
+    )
+  })
+
   protected readonly entry = computed(
-    () => this.reflection() ?? this.episodes.value()?.[0],
+    () => this.planEntry() ?? this.episodes.value()?.[0],
   )
 
   /**
@@ -215,7 +232,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     // While it plays, the text follows the reading: eased up when scrolling,
     // turned page by page when paged.
     effect(() => {
-      const glide = !this.native && this.playingThis() && !!this.entry()?.verses
+      const glide =
+        !this.native &&
+        this.playingThis() &&
+        this.heardHere() &&
+        !!this.entry()?.verses
       untracked(() => (glide ? this.startGlide() : this.stopGlide()))
     })
     effect(() => {
@@ -297,7 +318,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   protected readonly verseNow = computed(() => {
     const verses = this.entry()?.verses
     // While it plays only: paused, or stopped at the chapter's end, no mark.
-    if (!verses || !this.playingThis()) return null
+    if (!verses || !this.playingThis() || !this.heardHere()) return null
     const at = this.player.position()
     let verse: number | null = null
     for (const [number, start] of verses) {
@@ -353,7 +374,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const entry = this.entry()
     const verses = entry?.verses
     const page = this.scrollElement()
-    if (!entry || !verses || !page) return undefined
+    if (!entry || !verses || !page || !this.heardHere()) return undefined
     const now = this.player.now()
     let current = -1
     while (current + 1 < verses.length && verses[current + 1][1] <= now) {
@@ -759,7 +780,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   toggleAudio(): void {
     const entry = this.entry()
-    if (entry && this.reflection()) {
+    if (entry && this.planEntry()) {
       this.player.toggle(entry)
       return
     }
