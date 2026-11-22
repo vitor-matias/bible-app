@@ -91,6 +91,16 @@ type Verse = {
   chapterNumber: Chapter["number"]
   number: number
   verseLabel: string
+  /** The printed number when it differs from `number` (an addition's "B1"). */
+  numberLabel?: string
+  /** On verse 0 of a chapter opening with a supplement ("A"): printed in place of the chapter number. */
+  chapterLabel?: string
+  /** On the last verse of that supplement: the chapter number is printed at its closing heading. */
+  chapterNumberStarts?: boolean
+  /** On the verse a mid-chapter supplement ("C") opens at: its letter is printed at the closing heading, or the first line without one. */
+  supplementLetter?: string
+  /** On the verses of a supplement, which the printed edition sets in italics. */
+  supplement?: boolean
   text: TextType[]
   highlightedSegments?: HighlightSegment[]
 }
@@ -101,6 +111,8 @@ type Section = {
   type: "section"
   tag: string
   text: string
+  /** A heading inside a Greek supplement: black, bold and italic in the printed edition. */
+  supplement?: boolean
 }
 
 type _Text = {

@@ -55,6 +55,7 @@ import { getVerseQueryParams, parseReferences } from "./verse.utils"
     "[class.verse-marked]": "highlight",
     "[class.mark-continues]": "highlight && markContinues",
     "[attr.data-highlight]": "highlight ?? null",
+    "[class.supplement]": "data().supplement",
   },
 })
 export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
@@ -187,7 +188,7 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
           : -1
       this.notesLabel =
         data.number > 0
-          ? `Notas do versículo ${data.number}`
+          ? `Notas do versículo ${data.numberLabel || data.number}`
           : `Notas de ${this.nativeFootnotes.title(data)}`
       this.liturgicalNumber =
         data.bookId === PSALMS_BOOK_ID
@@ -376,6 +377,26 @@ export class VerseComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   private computeChapterNumberIndex(): number {
     const data = this.data()
+    if (data.chapterNumberStarts || data.supplementLetter) {
+      // The heading that leads the last group: a later one in the same group
+      // renders inside the first's section, with nothing of its own.
+      const heading = data.text.reduce(
+        (last, text, i) =>
+          text.type === "section" &&
+          text.tag === "s2" &&
+          !this.isInSection(data.text, i)
+            ? i
+            : last,
+        -1,
+      )
+      if (heading !== -1 || !data.supplementLetter) return heading
+      // A supplement with no heading of its own: beside its first line.
+      return data.text.findIndex(
+        (text) =>
+          (text.type === "text" || text.type === "quote") &&
+          text.text.trim() !== "",
+      )
+    }
     if (data.number !== 0) return -1
 
     const hasS2 = data.text.some(

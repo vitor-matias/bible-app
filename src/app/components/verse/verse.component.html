@@ -5,9 +5,9 @@
   <ng-template #verseNumber><span class="verseNumber" [attr.role]="isSelectable ? 'button' : null"
       [attr.tabindex]="isSelectable ? 0 : null"
       [attr.aria-pressed]="isSelectable ? selected : null"
-      [attr.aria-label]="isSelectable ? 'Versículo ' + data().number : null"
+      [attr.aria-label]="isSelectable ? 'Versículo ' + (data().numberLabel || data().number) : null"
       (keydown.enter)="onVerseNumberKeydown($event)"
-      (keydown.space)="onVerseNumberKeydown($event)">{{ data().number }}</span></ng-template>
+      (keydown.space)="onVerseNumberKeydown($event)">{{ data().numberLabel || data().number }}</span></ng-template>
   <!-- The notes marker beside a verse number: an icon, which reads as
        something to tap. No whitespace inside, or it would show as a space. -->
   <ng-template #noteIcon>
@@ -41,8 +41,12 @@
   <ng-template #elementContent let-text let-i="i" let-isFirst="isFirst" let-isLast="isLast" let-isQuote="isQuote">
     <!-- Chapter Number Display -->
     @if (chapterNumberDisplayIndex === i) {
-      <div #chapterNumber class="chapterNumber">
-        {{ data().chapterNumber }}
+      <!-- Ahead of the float, so it sits beside the heading, not the line of text before it. -->
+      @if (text.type === 'section' && (data().chapterNumberStarts || data().supplementLetter)) {
+        <br>
+      }
+      <div #chapterNumber class="chapterNumber" [class.supplementMark]="!!(data().chapterLabel || data().supplementLetter)">
+        {{ data().chapterLabel || data().supplementLetter || data().chapterNumber }}
         @if (liturgicalNumber) {
           <span class="liturgicalNumber"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
         }
