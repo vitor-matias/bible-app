@@ -9,6 +9,7 @@ import {
   HostListener,
   Injector,
   inject,
+  linkedSignal,
   type OnDestroy,
   type OnInit,
   PendingTasks,
@@ -174,8 +175,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private nativeFootnotes = inject(NativeFootnotesService)
   private location = inject(Location)
   protected readonly backButton = inject(BackButtonService)
-  /** A +365 day under way shows its player, even with the control hidden. */
-  protected readonly plan = inject(Mais365Service)
+  private readonly plan = inject(Mais365Service)
+  /**
+   * A +365 day shows its player even with the control hidden, and keeps it
+   * once the day lets go (another episode played, the stream failed): only
+   * the menu takes it away, so it never vanishes under what it plays.
+   */
+  protected readonly heldByPlan = linkedSignal<boolean, boolean>({
+    source: () => !!this.plan.active(),
+    computation: (active, previous) => active || (previous?.value ?? false),
+  })
   /** The verses a link asked to open the notes of, until the chapter is here. */
   private linkedNotes: string | null = null
   private dismissLinkedNotes?: () => void
@@ -1297,10 +1306,16 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   toggleAutoScrollControlsVisibility(): void {
+    // Hidden by the reader while a day held it: hidden it is.
+    if (this.heldByPlan() && !this.showAutoScrollControls) {
+      this.heldByPlan.set(false)
+      this.readingVerse.set(null)
+      return
+    }
     this.showAutoScrollControls = !this.showAutoScrollControls
     // The control gone, nothing says which verse is read any more (a +365
     // day keeps it on screen).
-    if (!this.showAutoScrollControls && !this.plan.active()) {
+    if (!this.showAutoScrollControls && !this.heldByPlan()) {
       this.readingVerse.set(null)
     }
     this.autoScrollControlsPreference = this.showAutoScrollControls
@@ -1321,7 +1336,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     })
 
     this.showAutoScrollControls = this.autoScrollControlsShown()
-    if (!this.showAutoScrollControls && !this.plan.active()) {
+    if (!this.showAutoScrollControls && !this.heldByPlan()) {
       this.readingVerse.set(null)
     }
     this.cdr.markForCheck()

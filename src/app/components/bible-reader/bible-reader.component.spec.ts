@@ -33,11 +33,13 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { REVERT_STATE } from "../../services/depth-location-strategy"
 import { HapticsService } from "../../services/haptics.service"
+import { Mais365Service } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP } from "../../services/toast.service"
@@ -2172,6 +2174,60 @@ describe("BibleReaderComponent", () => {
       expect(controls).not.toBeNull()
       expect(controls?.bookId).toBe("gen")
       expect(controls?.chapter).toBe(3)
+    })
+  })
+
+  describe("+365 day with the control hidden", () => {
+    beforeEach(async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ imports: [MatSidenavModule] })
+      fixture = TestBed.createComponent(BibleReaderComponent)
+      component = fixture.componentInstance
+    })
+
+    it("shows the player for the day, keeps it once the day lets go, and hides it from the menu", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.showAutoScrollControls = false
+      component.chapter = { bookId: "gen", number: 3, verses: [] } as Chapter
+      component.chapterNumber = 3
+      const controls = () => {
+        ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+        fixture.detectChanges()
+        return fixture.nativeElement.querySelector("app-auto-scroll-controls")
+      }
+      expect(controls()).toBeNull()
+
+      const player = TestBed.inject(PodcastPlayerService)
+      const plan = TestBed.inject(Mais365Service)
+      const episode = {
+        day: 2,
+        title: "Dia 2",
+        url: "dia2",
+        start: 0,
+        end: 300,
+      }
+      player.current.set(episode)
+      plan.active.set({
+        day: 2,
+        title: "A queda",
+        theme: "A queda",
+        url: "dia2",
+        duration: 1466,
+        readings: [{ bookId: "gen", bookName: "Génesis", chapter: 3, episode }],
+        reflection: 900,
+      })
+      expect(controls()).not.toBeNull()
+
+      // Another day's chapter played: the day lets go, the card stays.
+      player.current.set({ ...episode, day: 4, url: "dia4" })
+      TestBed.tick()
+      expect(plan.active()).toBeNull()
+      expect(controls()).not.toBeNull()
+
+      component.toggleAutoScrollControlsVisibility()
+      expect(controls()).toBeNull()
+      expect(component["readingVerse"]()).toBeNull()
     })
   })
 

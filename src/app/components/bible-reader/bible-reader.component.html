@@ -3,7 +3,7 @@
   (swipeMove)="onSwipeMove($event)" (swipeCancel)="onSwipeCancel()" (textSizeChange)="onTextSizeChange($event)">
   <header class="reader-header" [book]="indexPage ? indexBook() : book"
     [indexShareText]="indexPage ? indexShareText() : null" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
-    [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
+    [autoScrollControlsVisible]="showAutoScrollControls || heldByPlan()" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize($event)"
     (decreaseFontSizeEvent)="onDecreaseFontSize($event)" (resetFontSizeEvent)="onResetFontSize()" [textSize]="textSize"
@@ -125,7 +125,7 @@
       </button>
       }
       }
-      @if ((showAutoScrollControls || plan.active()) && drawerContent && bookBlock) {
+      @if ((showAutoScrollControls || heldByPlan()) && drawerContent && bookBlock) {
       <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
         [bookId]="chapter.bookId" [chapter]="chapter.number"
         [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'"
