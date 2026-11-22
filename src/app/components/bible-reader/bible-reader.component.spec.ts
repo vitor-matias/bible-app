@@ -2266,6 +2266,9 @@ describe("BibleReaderComponent", () => {
       expect(controls()).toBeNull()
       expect(component["readingVerse"]()).toBeNull()
       expect(component.showAutoScrollControls).toBe(false)
+      // The day goes with the card: no unseen playing, no pages turned.
+      expect(TestBed.inject(Mais365Service).active()).toBeNull()
+      expect(player.throughEpisode()).toBe(false)
 
       // «Mostrar» brings it back.
       component.toggleAutoScrollControlsVisibility()

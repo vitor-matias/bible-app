@@ -1311,6 +1311,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const visible = this.showAutoScrollControls || this.heldByPlan()
     this.showAutoScrollControls = !visible
     if (visible) {
+      // A +365 day under way goes with it, as playing does with the control.
+      if (this.plan.active()) this.plan.end()
       this.heldByPlan.set(false)
       // The control gone, nothing says which verse is read any more.
       this.readingVerse.set(null)

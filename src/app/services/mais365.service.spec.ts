@@ -15,6 +15,7 @@ describe("Mais365Service", () => {
     position: ReturnType<typeof signal<number>>
     playing: ReturnType<typeof signal<boolean>>
     throughEpisode: ReturnType<typeof signal<boolean>>
+    throughFrom: ReturnType<typeof signal<number>>
     mode: ReturnType<typeof signal<string>>
     collapsed: ReturnType<typeof signal<boolean>>
     toggle: ReturnType<typeof vi.fn>
@@ -48,6 +49,7 @@ describe("Mais365Service", () => {
       position: signal(0),
       playing: signal(false),
       throughEpisode: signal(false),
+      throughFrom: signal(0),
       mode: signal("scroll"),
       collapsed: signal(true),
       // Loads what it's given, as the real player does.
@@ -155,7 +157,9 @@ describe("Mais365Service", () => {
     expect(plan.stage()).toBe("reflection")
     expect(plan.next()).toBeNull()
 
+    expect(player.throughFrom()).toBe(day.reflection)
     plan.back()
+    expect(player.throughFrom()).toBe(0)
     expect(lastCall(navigate)).toEqual([["/", "psa", 19]])
     plan.back()
     expect(lastCall(navigate)).toEqual([["/", "gen", 2]])
@@ -176,6 +180,8 @@ describe("Mais365Service", () => {
     // The reflection's own span: play goes on from here, not a chapter's top.
     expect(player.current()?.start).toBe(day.reflection)
     expect(player.current()?.title).toBe("Reflexão: No princípio")
+    // Back 10 s stays in it.
+    expect(player.throughFrom()).toBe(day.reflection)
   })
 
   it("plays an introduction where it is, done only once heard out", () => {

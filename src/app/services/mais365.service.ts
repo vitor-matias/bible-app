@@ -105,6 +105,7 @@ export class Mais365Service {
         if (!day || stage === null) return
         if (stage === "reflection") {
           // Its own span, so play and pause go on from here, not a chapter's top.
+          this.player.throughFrom.set(day.reflection)
           this.player.adopt({
             day: day.day,
             title: `Reflexão: ${day.title}`,
@@ -151,6 +152,7 @@ export class Mais365Service {
   /** Plays a day through: its first reading, and on from there. */
   start(day: PlanDay): void {
     this.player.throughEpisode.set(true)
+    this.player.throughFrom.set(0)
     this.player.mode.set("audio")
     this.player.collapsed.set(false)
     const first = day.readings[0]
@@ -200,7 +202,10 @@ export class Mais365Service {
   /** Back to the start of the day's previous reading. */
   back(): void {
     const previous = this.previous()
-    if (previous) this.player.seek(previous.episode.start ?? 0)
+    if (!previous) return
+    // ⏮ is the one way from the reflection back into its readings.
+    this.player.throughFrom.set(0)
+    this.player.seek(previous.episode.start ?? 0)
   }
 
   /** Skips the rest of the reading being heard. */
@@ -229,6 +234,7 @@ export class Mais365Service {
   private release(): void {
     this.active.set(null)
     this.player.throughEpisode.set(false)
+    this.player.throughFrom.set(0)
   }
 
   markDone(day: number, done: boolean): void {

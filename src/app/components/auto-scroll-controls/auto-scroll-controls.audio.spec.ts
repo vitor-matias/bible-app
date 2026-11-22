@@ -476,6 +476,12 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
     expect(find("button.plan-skip")?.disabled).toBe(true)
     expect(byLabel("Voltar a Êxodo 5")).toBeTruthy()
+
+    // Back 10 s near its start stays in the reflection.
+    stream.currentTime = 905
+    stream.dispatchEvent(new Event("timeupdate"))
+    tap(byLabel("Recuar 10 segundos"))
+    expect(stream.currentTime).toBe(900)
   })
 
   it("plays on across chapters and when hidden in a +365 day", async () => {

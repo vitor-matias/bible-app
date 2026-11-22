@@ -68,6 +68,11 @@ export class PodcastPlayerService {
    * after another, then the reflection, without stopping at a chapter's end.
    */
   readonly throughEpisode = signal(false)
+  /**
+   * Where playing through may go back to: a day's reflection, which back
+   * 10 s (the card's, the system player's) doesn't leave for its readings.
+   */
+  readonly throughFrom = signal(0)
 
   /**
    * Makes another chapter's entry of the same stream the one in the player,
@@ -176,7 +181,7 @@ export class PodcastPlayerService {
    * before its start nor past its end (the whole episode where unknown).
    */
   private withinChapter(seconds: number): number {
-    if (this.throughEpisode()) return Math.max(0, seconds)
+    if (this.throughEpisode()) return Math.max(this.throughFrom(), seconds)
     const current = this.current()
     const start = current?.start ?? 0
     const end = current?.end ?? Number.POSITIVE_INFINITY
