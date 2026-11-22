@@ -1306,16 +1306,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   }
 
   toggleAutoScrollControlsVisibility(): void {
-    // Hidden by the reader while a day held it: hidden it is.
-    if (this.heldByPlan() && !this.showAutoScrollControls) {
+    // On screen by the preference or held by a +365 day, as the menu says:
+    // «Esconder» takes it away at once, both ways.
+    const visible = this.showAutoScrollControls || this.heldByPlan()
+    this.showAutoScrollControls = !visible
+    if (visible) {
       this.heldByPlan.set(false)
-      this.readingVerse.set(null)
-      return
-    }
-    this.showAutoScrollControls = !this.showAutoScrollControls
-    // The control gone, nothing says which verse is read any more (a +365
-    // day keeps it on screen).
-    if (!this.showAutoScrollControls && !this.heldByPlan()) {
+      // The control gone, nothing says which verse is read any more.
       this.readingVerse.set(null)
     }
     this.autoScrollControlsPreference = this.showAutoScrollControls
