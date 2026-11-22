@@ -154,6 +154,39 @@ export class Mais365Service {
     }
   }
 
+  /** What follows the reading being heard: the next one, or the reflection. */
+  readonly next = computed((): PlanReading | "reflection" | null => {
+    const day = this.active()
+    const stage = this.stage()
+    if (!day || typeof stage !== "number") return null
+    return day.readings[stage + 1] ?? "reflection"
+  })
+
+  /** The reading before: the day's previous one, or from the reflection its last. */
+  readonly previous = computed((): PlanReading | null => {
+    const day = this.active()
+    const stage = this.stage()
+    if (!day || stage === null || !day.readings.length) return null
+    if (stage === "reflection") return day.readings[day.readings.length - 1]
+    return day.readings[stage - 1] ?? null
+  })
+
+  /** Back to the start of the day's previous reading. */
+  back(): void {
+    const previous = this.previous()
+    if (previous) this.player.seek(previous.episode.start ?? 0)
+  }
+
+  /** Skips the rest of the reading being heard. */
+  skip(): void {
+    const day = this.active()
+    const next = this.next()
+    if (!day || !next) return
+    this.player.seek(
+      next === "reflection" ? day.reflection : (next.episode.start ?? 0),
+    )
+  }
+
   /** Pauses or resumes the day where it is (its reflection, say). */
   toggle(): void {
     const current = this.player.current()

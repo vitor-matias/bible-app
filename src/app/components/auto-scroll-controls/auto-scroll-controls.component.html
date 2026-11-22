@@ -17,13 +17,13 @@
   } @else if (audioMode()) {
   <!-- On a desktop: dragged by anything but its controls, its width resized
        from the corner, both remembered; a double-click on the caption docks it. -->
-  <div class="audio-player" role="group" aria-label="+365" [class.movable]="desktop()"
+  <div class="audio-player" role="group" aria-label="+365" [class.movable]="desktop()" [class.in-plan]="!!skipLabel()"
     [style.width.px]="desktop() ? cardWidth() : null" (pointerdown)="startDrag($event)">
     @if (desktop()) {
     <!-- What says it can be dragged: a grip, as on a window's handle. -->
     <mat-icon class="audio-grip" aria-hidden="true" title="Arraste para mover; duplo clique para voltar ao canto">drag_indicator</mat-icon>
     }
-    <div class="audio-caption" (dblclick)="dock()">{{ bookName() }} {{ chapter() }}</div>
+    <div class="audio-caption" (dblclick)="dock()">{{ caption() }}</div>
     <button type="button" mat-icon-button class="audio-collapse" aria-label="Esconder o leitor do +365"
       (click)="tuck(true)">
       <mat-icon>expand_more</mat-icon>
@@ -39,7 +39,10 @@
       <span class="audio-time" aria-hidden="true">−{{ remaining() }}</span>
     </div>
     <div class="audio-buttons">
-      @if (!paged()) {
+      @if (skipLabel()) {
+      <!-- In a day of the plan the transport steps through its readings. -->
+      <span></span>
+      } @else if (!paged()) {
       <button type="button" mat-icon-button class="mode-toggle" aria-label="Deslocar o texto em vez de ouvir"
         (click)="toggleMode()">
         <mat-icon>swap_vert</mat-icon>
@@ -48,6 +51,12 @@
       <span></span>
       }
       <div class="audio-transport">
+        @if (skipLabel()) {
+        <button type="button" mat-icon-button class="plan-back" [attr.aria-label]="backLabel() ?? 'Primeira leitura do dia'"
+          [title]="backLabel() ?? ''" [disabled]="!backLabel()" (click)="plan.back()">
+          <mat-icon>skip_previous</mat-icon>
+        </button>
+        }
         <button type="button" mat-icon-button class="skip-back" aria-label="Recuar 10 segundos" [disabled]="!loaded()"
           (click)="player.skip(-10)">
           <mat-icon>replay_10</mat-icon>
@@ -61,6 +70,12 @@
           [disabled]="!loaded()" (click)="player.skip(10)">
           <mat-icon>forward_10</mat-icon>
         </button>
+        @if (skipLabel(); as label) {
+        <button type="button" mat-icon-button class="plan-skip" [attr.aria-label]="label" [title]="label"
+          (click)="plan.skip()">
+          <mat-icon>skip_next</mat-icon>
+        </button>
+        }
       </div>
       <div class="audio-rate">
         <button type="button" mat-icon-button aria-label="Diminuir velocidade do +365"

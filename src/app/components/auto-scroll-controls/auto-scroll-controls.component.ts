@@ -25,6 +25,7 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatSliderModule } from "@angular/material/slider"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { Mais365Service } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import {
   type ChapterEpisode,
@@ -96,6 +97,33 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   readonly paged = input(false)
 
   protected readonly player = inject(PodcastPlayerService)
+  protected readonly plan = inject(Mais365Service)
+
+  /** "Saltar para Génesis 2", while a day of the plan plays. */
+  protected readonly skipLabel = computed(() => {
+    const next = this.plan.next()
+    if (!next) return null
+    return next === "reflection"
+      ? "Saltar para a reflexão"
+      : `Saltar para ${next.bookName} ${next.chapter}`
+  })
+
+  /** "Voltar a Génesis 1"; null on the day's first reading. */
+  protected readonly backLabel = computed(() => {
+    const previous = this.plan.previous()
+    return previous ? `Voltar a ${previous.bookName} ${previous.chapter}` : null
+  })
+
+  /** "+365 · Dia 1 · Génesis 1" while a day of the plan plays here. */
+  protected readonly caption = computed(() => {
+    const chapter = `${this.bookName()} ${this.chapter()}`
+    const day = this.plan.active()
+    const inDay = day?.readings.some(
+      (reading) =>
+        reading.bookId === this.bookId() && reading.chapter === this.chapter(),
+    )
+    return day && inDay ? `+365 · Dia ${day.day} · ${chapter}` : chapter
+  })
 
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly destroyRef = inject(DestroyRef)

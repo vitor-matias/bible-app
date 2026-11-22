@@ -27,6 +27,12 @@
       <span class="time" aria-hidden="true">−{{ time(day.duration - player.position()) }}</span>
     </div>
     <div class="actions transport">
+      @if (plan.previous(); as previous) {
+      <button type="button" mat-icon-button [attr.aria-label]="'Voltar a ' + previous.bookName + ' ' + previous.chapter"
+        [title]="'Voltar a ' + previous.bookName + ' ' + previous.chapter" (click)="plan.back()">
+        <mat-icon>skip_previous</mat-icon>
+      </button>
+      }
       <button type="button" mat-icon-button aria-label="Recuar 10 segundos" (click)="player.skip(-10)">
         <mat-icon>replay_10</mat-icon>
       </button>

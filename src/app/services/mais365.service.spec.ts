@@ -20,6 +20,7 @@ describe("Mais365Service", () => {
     adopt: ReturnType<typeof vi.fn>
     pause: ReturnType<typeof vi.fn>
     isCurrent: ReturnType<typeof vi.fn>
+    seek?: ReturnType<typeof vi.fn>
   }
   let navigate: ReturnType<typeof vi.fn>
 
@@ -95,6 +96,30 @@ describe("Mais365Service", () => {
     at(day.readings[2].episode.start as number)
     expect(lastCall(navigate)).toEqual([["/", "psa", 19]])
     expect(plan.done()).toEqual([])
+  })
+
+  it("skips to the next reading, and from the last to the reflection", () => {
+    player.seek = vi.fn((seconds: number) => at(seconds))
+    const plan = create()
+    const day = plan.days.find(({ day }) => day === 1) as (typeof plan.days)[0]
+    plan.start(day)
+    TestBed.tick()
+    plan.skip()
+    expect(player.seek).toHaveBeenLastCalledWith(day.readings[1].episode.start)
+    expect(lastCall(navigate)).toEqual([["/", "gen", 2]])
+    plan.skip()
+    plan.skip()
+    expect(player.seek).toHaveBeenLastCalledWith(day.reflection)
+    expect(plan.stage()).toBe("reflection")
+    expect(plan.next()).toBeNull()
+
+    plan.back()
+    expect(lastCall(navigate)).toEqual([["/", "psa", 19]])
+    plan.back()
+    expect(lastCall(navigate)).toEqual([["/", "gen", 2]])
+    plan.back()
+    expect(lastCall(navigate)).toEqual([["/", "gen", 1]])
+    expect(plan.previous()).toBeNull()
   })
 
   it("marks the day done at its reflection, and goes to the plan's page", () => {

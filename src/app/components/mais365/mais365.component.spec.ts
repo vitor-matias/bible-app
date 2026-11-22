@@ -44,6 +44,8 @@ describe("Mais365Component", () => {
     today: signal(intro),
     active: signal<PlanDay | null>(null),
     stage: signal<number | "reflection" | null>(null),
+    previous: signal<PlanDay["readings"][0] | null>(null),
+    back: vi.fn(),
     start: vi.fn(),
     end: vi.fn(),
     toggle: vi.fn(),
@@ -116,6 +118,10 @@ describe("Mais365Component", () => {
     expect(text()).toContain("Génesis 2")
     expect(text()).toContain("−10:44")
 
+    plan.previous.set(day1.readings[2])
+    fixture.detectChanges()
+    button("Voltar a Salmo 19")?.click()
+    expect(plan.back).toHaveBeenCalled()
     button("Avançar 10 segundos")?.click()
     expect(player.skip).toHaveBeenCalledWith(10)
     const slider = (fixture.nativeElement as HTMLElement).querySelector(

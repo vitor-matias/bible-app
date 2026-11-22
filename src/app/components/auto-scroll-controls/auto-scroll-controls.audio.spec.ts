@@ -4,9 +4,11 @@ import {
   provideHttpClientTesting,
 } from "@angular/common/http/testing"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { Router } from "@angular/router"
 import { apiBaseUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { Mais365Service } from "../../services/mais365.service"
 import {
   type ChapterEpisode,
   PodcastPlayerService,
@@ -371,6 +373,49 @@ describe("AutoScrollControlsComponent +365 mode", () => {
 
     handlers.get("seekto")?.({ action: "seekto", seekTime: 30 })
     expect(stream.currentTime).toBe(86.5)
+  })
+
+  it("says the day and the reading's place in it, and steps through its readings", async () => {
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), "navigate")
+      .mockResolvedValue(true)
+    // As Mais365Service.start() sets it: the day plays through its chapters.
+    TestBed.inject(PodcastPlayerService).throughEpisode.set(true)
+    await listen()
+    tap(toggle())
+    expect(find(".audio-caption")?.textContent?.trim()).toBe("Êxodo 5")
+    const reading = (chapter: number, start: number) => ({
+      bookId: "exo",
+      bookName: "Êxodo",
+      chapter,
+      episode: { ...day3, start },
+    })
+    TestBed.inject(Mais365Service).active.set({
+      day: 3,
+      title: "A Arca de Noé",
+      theme: "A Arca de Noé",
+      url: day3.url,
+      duration: 1103,
+      readings: [reading(4, 0), reading(5, 56.5), reading(6, 280.8)],
+      reflection: 900,
+    })
+    const stream = audio()
+    stream.currentTime = 60
+    stream.dispatchEvent(new Event("timeupdate"))
+    TestBed.tick()
+    fixture.detectChanges()
+    expect(find(".audio-caption")?.textContent?.trim()).toBe(
+      "+365 · Dia 3 · Êxodo 5",
+    )
+    // Stepping through the day's readings, in place of the mode switch.
+    expect(modeToggle()).toBeNull()
+    tap(byLabel("Saltar para Êxodo 6"))
+    expect(stream.currentTime).toBe(280.8)
+    TestBed.tick()
+    expect(lastCall(navigate)[0]).toEqual(["/", "exo", 6])
+    fixture.detectChanges()
+    tap(byLabel("Voltar a Êxodo 5"))
+    expect(stream.currentTime).toBe(56.5)
   })
 
   it("plays on across chapters and when hidden in a +365 day", async () => {
