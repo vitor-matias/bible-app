@@ -148,6 +148,31 @@ describe("KeepAwakeService", () => {
     expect(sentinel.release).toHaveBeenCalled()
   })
 
+  it("keeps the screen on until every owner lets go", async () => {
+    const sentinel = {
+      addEventListener: vi.fn(),
+      release: vi.fn().mockResolvedValue(undefined),
+    } as unknown as WakeLockSentinel
+    const requestSpy = vi.fn().mockResolvedValue(sentinel)
+    Object.defineProperty(navigator, "wakeLock", {
+      value: { request: requestSpy },
+      configurable: true,
+    })
+    service = TestBed.runInInjectionContext(() => new KeepAwakeService())
+
+    service.start()
+    service.start("podcast")
+    await Promise.resolve()
+    expect(requestSpy).toHaveBeenCalledTimes(1)
+    // Auto-scroll stops while +365 plays on: the screen stays on.
+    service.stop()
+    await Promise.resolve()
+    expect(sentinel.release).not.toHaveBeenCalled()
+    service.stop("podcast")
+    await Promise.resolve()
+    expect(sentinel.release).toHaveBeenCalled()
+  })
+
   it("should request a new wake lock when restarted while the old one is releasing", async () => {
     let finishRelease: () => void = () => {}
     const sentinel = {

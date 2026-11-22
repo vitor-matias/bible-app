@@ -8,7 +8,11 @@ export class KeepAwakeService implements OnDestroy {
   private readonly platformId = inject(PLATFORM_ID)
   private wakeLockSentinel?: WakeLockSentinel
   private wakeLockRequest?: Promise<void>
-  private active = false
+  /** Who wants the screen on (auto-scroll, +365): it stays on while any does. */
+  private readonly owners = new Set<string>()
+  private get active(): boolean {
+    return this.owners.size > 0
+  }
   private readonly visibilityHandler = () => {
     if (!this.active) {
       return
@@ -32,24 +36,21 @@ export class KeepAwakeService implements OnDestroy {
     if (isPlatformBrowser(this.platformId)) {
       document.removeEventListener("visibilitychange", this.visibilityHandler)
     }
-    this.stop()
+    this.owners.clear()
+    void this.releaseWakeLock()
   }
 
-  start(): void {
-    if (this.active) {
+  start(owner = "default"): void {
+    const wasActive = this.active
+    this.owners.add(owner)
+    if (!wasActive) void this.requestWakeLock()
+  }
+
+  stop(owner = "default"): void {
+    if (!this.owners.delete(owner) || this.active) {
       return
     }
 
-    this.active = true
-    void this.requestWakeLock()
-  }
-
-  stop(): void {
-    if (!this.active) {
-      return
-    }
-
-    this.active = false
     void this.releaseWakeLock()
   }
 

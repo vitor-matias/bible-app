@@ -9,6 +9,7 @@ import { apiBaseUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BookService } from "../../services/book.service"
+import { KeepAwakeService } from "../../services/keep-awake.service"
 import { Mais365Service } from "../../services/mais365.service"
 import {
   type ChapterEpisode,
@@ -435,6 +436,19 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     tap(toggle())
     tap(byLabel("Voltar a Êxodo 5"))
     expect(stream.currentTime).toBe(56.5)
+  })
+
+  it("keeps the screen on while +365 plays", async () => {
+    const keepAwake = TestBed.inject(KeepAwakeService)
+    const start = vi.spyOn(keepAwake, "start")
+    const stop = vi.spyOn(keepAwake, "stop")
+    await listen()
+    tap(toggle())
+    TestBed.tick()
+    expect(start).toHaveBeenLastCalledWith("podcast")
+    tap(toggle())
+    TestBed.tick()
+    expect(stop).toHaveBeenLastCalledWith("podcast")
   })
 
   it("holds for a footnote, resuming once the last one lets go", async () => {

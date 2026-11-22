@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http"
 import { effect, Injectable, inject, signal, untracked } from "@angular/core"
 import { catchError, map, type Observable, of } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { KeepAwakeService } from "./keep-awake.service"
 import { TEST_EPISODES } from "./podcast-test-episodes"
 
 /** A +365 episode that reads a chapter, as bible-api's /audio lists it. */
@@ -149,6 +150,14 @@ export class PodcastPlayerService {
   }
 
   constructor() {
+    // Read along, the phone mustn't lock while +365 plays.
+    const keepAwake = inject(KeepAwakeService)
+    effect(() => {
+      const playing = this.playing()
+      untracked(() =>
+        playing ? keepAwake.start("podcast") : keepAwake.stop("podcast"),
+      )
+    })
     // The system's player (lock screen, menu bar, headphones) shows the part
     // being heard, the chapter or the reflection, not the whole episode.
     effect(() => {
