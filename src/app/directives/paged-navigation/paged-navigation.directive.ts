@@ -91,14 +91,46 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
   private anchor?: PageAnchor
   private anchorTimeout?: number
   private readonly platformId = inject(PLATFORM_ID)
+  private resizeObserver?: ResizeObserver
+  /** The pages' size as last seen, "WxH". */
+  private observedSize?: string
+
+  constructor() {
+    if (
+      !isPlatformBrowser(this.platformId) ||
+      typeof ResizeObserver === "undefined"
+    ) {
+      return
+    }
+    // The pages change size with no window resize too: the apps' bars take
+    // another height after a rotation, and as they hide.
+    this.resizeObserver = new ResizeObserver(() => {
+      const size = this.size()
+      if (this.observedSize !== undefined && size !== this.observedSize) {
+        this.onWindowResize()
+      }
+      this.observedSize = size
+    })
+    this.resizeObserver.observe(this.container)
+  }
 
   /**
    * A resize is under way: the layout no longer matches the anchor's page.
    * Read off the pending timer rather than kept as a flag, which a throw in
-   * the restore would leave set, and the anchor never noted again.
+   * the restore would leave set, and the anchor never noted again. Or the
+   * pages changed size and the observer is yet to say so: a layout read
+   * before the next frame sends the browser's clamping scroll ahead of it.
    */
   private get resizing(): boolean {
-    return this.resizeTimeout !== undefined
+    return (
+      this.resizeTimeout !== undefined ||
+      (this.observedSize !== undefined && this.size() !== this.observedSize)
+    )
+  }
+
+  /** The pages' size, "WxH". */
+  private size(): string {
+    return `${this.container.clientWidth}x${this.container.clientHeight}`
   }
 
   private get container(): HTMLElement {
@@ -144,6 +176,7 @@ export class PagedNavigationDirective implements OnChanges, OnDestroy {
     clearTimeout(this.anchorTimeout)
     if (this.layoutFrame !== undefined) cancelAnimationFrame(this.layoutFrame)
     this.mutationObserver?.disconnect()
+    this.resizeObserver?.disconnect()
     this.drag = undefined
     this.removeSpacer()
   }

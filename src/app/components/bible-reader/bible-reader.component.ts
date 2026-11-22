@@ -53,10 +53,12 @@ import { BackButtonService } from "../../services/back-button.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { REVERT_STATE } from "../../services/depth-location-strategy"
 import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
+import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { PwaInstallService } from "../../services/pwa-install.service"
@@ -129,6 +131,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private animationService = inject(BibleReaderAnimationService)
   private analyticsService = inject(AnalyticsService)
   private networkService = inject(NetworkService)
+  private offlineData = inject(OfflineDataService)
   private seoService = inject(SeoService)
   private pwaInstallService = inject(PwaInstallService)
   private indexState = inject(PastoralIndexState)
@@ -241,6 +244,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   booksUnavailable = false
   /** Whether to say the books are loading while there's nothing to show. */
   showLoading = false
+  /** The loading is the Bible's first download, not a read of the copy kept. */
+  firstDownload = false
   retryingBooks = false
   /** The first chapter opened could not be loaded: there is none to stay on. */
   chapterUnavailable = false
@@ -394,6 +399,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // Otherwise the page is blank until the books load, which on a first
     // launch downloads the Bible.
     this.showLoading = isPlatformBrowser(this.platformId) && !prerendered
+    this.firstDownload =
+      this.showLoading && !this.offlineData.isBibleDownloaded()
 
     const storedSpeed = this.preferencesService.getAutoScrollSpeed()
     if (storedSpeed) {
@@ -1029,6 +1036,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       this.chapter = undefined
       this.chapterUnavailable = true
       this.retryChapterLoad = retry
+      // The tab names it too, not the app shell's generic title (offline, a
+      // chapter never downloaded).
+      this.seoService.updateForChapter(this.book, chapter)
     }
     this.cdr.markForCheck()
     // Or the URL coming back here would read as a chapter still to load.
@@ -1057,7 +1067,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
           this.bookService.getUrlAbrv(this.book),
           this.bookService.getChapterUrlSegment(this.chapterNumber),
         ],
-        { replaceUrl: true },
+        // On the web the failed page has an entry of its own (the apps replace
+        // on chapter steps): back to the one before it, not a second copy.
+        {
+          replaceUrl: true,
+          ...(!this.replaceChapterHistory && { state: REVERT_STATE }),
+        },
       )
     }
     console.error(error)

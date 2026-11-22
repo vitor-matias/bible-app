@@ -42,6 +42,10 @@
   display: table;
   width: auto;
   margin: 0 auto;
+  /* Where the number leaves it under 8 ems, its words went on lines of their
+     own beside it («O BOM / PASTOR» at 170% on 393 px): a table that can't
+     fit beside a float goes below it, centred on the whole line. */
+  min-width: min(100%, 8em);
 }
 
 /* At the largest sizes the number leaves it a word's width or less, and its
@@ -83,4 +87,14 @@
 
 a {
   color: var(--text-color);
+}
+/* A heading inside a Greek supplement is black, bold and italic in print. */
+.section.supplementHeading {
+  color: var(--text-color);
+  font-style: italic;
+}
+
+/* In a supplement's verse, the heading that ends it (and its dash) is the main text's. */
+.headingMark:not(.supplementHeading) {
+  font-style: normal;
 }

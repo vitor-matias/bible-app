@@ -5,6 +5,9 @@ import {
 } from "@angular/common/testing"
 import { ApplicationRef, Component } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
+import { MatBottomSheet } from "@angular/material/bottom-sheet"
+import { MATERIAL_ANIMATIONS } from "@angular/material/core"
+import { MatDialog } from "@angular/material/dialog"
 import {
   MatSnackBar,
   type MatSnackBarDismiss,
@@ -506,5 +509,87 @@ describe("ToastService", () => {
         expect(hideToast).not.toHaveBeenCalled()
       })
     })
+  })
+})
+
+// "Voltar para …" stayed bright under a dialog's or a menu's backdrop, which
+// took its taps: it looked tappable and wasn't. Over the notes it is on top.
+describe("a toast under an overlay shown after it", () => {
+  let service: ToastService
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        {
+          provide: MATERIAL_ANIMATIONS,
+          useValue: { animationsDisabled: true },
+        },
+        { provide: NativeChromeService, useValue: { enabled: false } },
+        { provide: BookService, useValue: {} },
+        provideRouter([]),
+      ],
+    })
+    service = TestBed.inject(ToastService)
+    TestBed.inject(MatSnackBar).open("Voltar para Gn 1,1", "Fechar")
+    TestBed.tick()
+  })
+
+  afterEach(() => {
+    TestBed.inject(MatDialog).closeAll()
+    TestBed.inject(MatBottomSheet).dismiss()
+    TestBed.inject(MatSnackBar).dismiss()
+  })
+
+  const toast = () =>
+    document.querySelector("mat-snack-bar-container") as HTMLElement
+  /** What a tap on the toast's middle reaches. */
+  const tapped = () => {
+    const box = toast().getBoundingClientRect()
+    return document.elementFromPoint(
+      box.x + box.width / 2,
+      box.y + box.height / 2,
+    )
+  }
+  /** Its content faded: its own opacity is its entry animation's. */
+  const faded = () =>
+    Number(
+      getComputedStyle(
+        toast().querySelector(".mdc-snackbar__surface > *") as Element,
+      ).opacity,
+    ) < 1
+  const backdrops = (count: number) =>
+    vi.waitFor(() =>
+      expect(
+        document.querySelectorAll(".cdk-overlay-backdrop-showing").length,
+      ).toBe(count),
+    )
+
+  it("is faded under a dialog's backdrop, which takes its taps", async () => {
+    expect(toast().contains(tapped())).toBe(true)
+    expect(faded()).toBe(false)
+
+    TestBed.inject(MatDialog).open(PassagePage)
+    TestBed.tick()
+    await backdrops(1)
+
+    expect(tapped()?.classList).toContain("cdk-overlay-backdrop")
+    expect(faded()).toBe(true)
+  })
+
+  it("is bright and tappable over the notes, and faded under a dialog over them", async () => {
+    TestBed.inject(MatBottomSheet).open(PassagePage)
+    TestBed.tick()
+    await backdrops(1)
+    service.bringToFront()
+
+    expect(toast().contains(tapped())).toBe(true)
+    expect(faded()).toBe(false)
+
+    TestBed.inject(MatDialog).open(PassagePage)
+    TestBed.tick()
+    await backdrops(2)
+
+    expect(toast().contains(tapped())).toBe(false)
+    expect(faded()).toBe(true)
   })
 })

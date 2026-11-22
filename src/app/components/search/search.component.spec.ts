@@ -22,6 +22,7 @@ import type { Mock } from "vitest"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
+  type BibleReference,
   BibleReferenceService,
   type VerseReference,
 } from "../../services/bible-reference.service"
@@ -389,7 +390,7 @@ describe("SearchComponent", () => {
       it("offers a book by its name", () => {
         bookService.findBook.mockReturnValue(john)
         component.onTyping("João")
-        expect(component.passageSuggestion?.label).toBe(
+        expect(component.passageSuggestions[0]?.label).toBe(
           "Abrir Evangelho segundo São João",
         )
       })
@@ -415,7 +416,7 @@ describe("SearchComponent", () => {
           expect(apiService.search).toHaveBeenCalledTimes(1)
           expect(apiService.search).toHaveBeenCalledWith("sabedoria", 1)
           expect(router.navigate).not.toHaveBeenCalled()
-          expect(component.passageSuggestion?.label).toBe(
+          expect(component.passageSuggestions[0]?.label).toBe(
             "Abrir Livro da Sabedoria",
           )
         })
@@ -459,7 +460,9 @@ describe("SearchComponent", () => {
           abrv: "Sl",
         } as Book)
         component.onTyping("Sl 94")
-        expect(component.passageSuggestion?.label).toBe("Escolher o Salmo 94")
+        expect(component.passageSuggestions[0]?.label).toBe(
+          "Escolher o Salmo 94",
+        )
       })
 
       // Before, "Escolher o Salmo 94" stayed above the two psalms it offered.
@@ -483,7 +486,7 @@ describe("SearchComponent", () => {
         fixture.detectChanges()
 
         expect(component.psalmChoice?.length).toBe(2)
-        expect(component.passageSuggestion).toBeNull()
+        expect(component.passageSuggestions).toEqual([])
         expect(host().querySelector(".passage-suggestion")).toBeNull()
       })
 
@@ -491,7 +494,7 @@ describe("SearchComponent", () => {
       it("says it is searching until the search runs", async () => {
         vi.useFakeTimers()
         component.onTyping("pastor")
-        expect(component.passageSuggestion).toBeNull()
+        expect(component.passageSuggestions).toEqual([])
         expect(host().textContent).toContain("A procurar…")
 
         await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
@@ -504,7 +507,7 @@ describe("SearchComponent", () => {
         component.onTyping("pastor")
         component.onTyping("")
         expect(component.pendingSearch).toBe(false)
-        expect(component.passageSuggestion).toBeNull()
+        expect(component.passageSuggestions).toEqual([])
         expect(host().textContent).toContain("Por exemplo: Jo 3,16")
       })
     })
@@ -1130,6 +1133,11 @@ describe("SearchComponent", () => {
       chapter,
       ...(verse ? { verses: [{ type: "single" as const, verse }] } : {}),
     })
+    /** What the extractor finds in each text asked about. */
+    const extracts = (found: Record<string, BibleReference[]>) =>
+      referenceService.extract.mockImplementation(
+        (text: string) => found[text] ?? [],
+      )
 
     beforeEach(() => {
       apiService.search.mockReturnValue(
@@ -1147,7 +1155,7 @@ describe("SearchComponent", () => {
       bookService.findBook.mockReturnValue(about)
 
       component.onTyping("1 Xy 13,4")
-      expect(component.passageSuggestion).toBeNull()
+      expect(component.passageSuggestions).toEqual([])
 
       void component.onSearchSubmit("1 Xy 13,4")
       await vi.advanceTimersByTimeAsync(0)
@@ -1171,11 +1179,153 @@ describe("SearchComponent", () => {
       apiService.getVerse.mockReturnValue(of({} as Verse))
 
       component.onTyping("1 Co 13,4")
-      expect(component.passageSuggestion?.label).toBe("Abrir 1 Coríntios 13,4")
+      expect(component.passageSuggestions[0]?.label).toBe(
+        "Abrir 1 Coríntios 13,4",
+      )
       await component.onSearchSubmit("1 Co 13,4")
 
       expect(router.navigate).toHaveBeenCalledWith(["/", "1co", 13], {
         queryParams: { verseStart: 4 },
+      })
+    })
+
+    // «Jo 3,16, 1Cor13,4» offered «Abrir João 3,16» alone.
+    it("offers each passage named, in order, up to three", async () => {
+      const corinthians: Book = {
+        id: "1co",
+        abrv: "1Cor",
+        shortName: "1 Coríntios",
+        name: "Primeira Carta aos Coríntios",
+        chapterCount: 16,
+      }
+      const cor = { ...reference("1Cor", 13, 4), match: "1Cor13,4" }
+      extracts({
+        "Jo 3,16, 1Cor13,4; 4,1; Jo 2,1": [
+          reference("Jo", 3, 16),
+          { ...cor, index: 9 },
+          // "; 4,1" borrows the book before it.
+          { ...reference("1Cor", 4, 1), match: "4,1", index: 19 },
+          { ...reference("Jo", 2, 1), index: 24 },
+        ],
+        "1Cor13,4": [cor],
+        "1Cor 4,1": [{ ...reference("1Cor", 4, 1), match: "1Cor 4,1" }],
+      })
+      bookService.findBook.mockImplementation((text: string) =>
+        text === "1Cor" ? corinthians : john,
+      )
+      apiService.getVerse.mockReturnValue(of({} as Verse))
+
+      component.onTyping("Jo 3,16, 1Cor13,4; 4,1; Jo 2,1")
+      fixture.detectChanges()
+      const offers = Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLButtonElement>("button.passage-suggestion"),
+      )
+      expect(offers.map((offer) => offer.textContent?.trim())).toEqual([
+        expect.stringContaining("Abrir João 3,16"),
+        expect.stringContaining("Abrir 1 Coríntios 13,4"),
+        expect.stringContaining("Abrir 1 Coríntios 4,1"),
+      ])
+      expect(component.passageSuggestions[2].query).toBe("1Cor 4,1")
+
+      offers[1].click()
+      await vi.waitFor(() =>
+        expect(router.navigate).toHaveBeenCalledWith(["/", "1co", 13], {
+          queryParams: { verseStart: 4 },
+        }),
+      )
+    })
+
+    describe("among several", () => {
+      const matthew: Book = {
+        id: "mat",
+        abrv: "Mt",
+        shortName: "Mateus",
+        name: "Evangelho segundo São Mateus",
+        chapterCount: 28,
+      }
+      beforeEach(() => {
+        bookService.findBook.mockImplementation((text: string) =>
+          text === "Mt" ? matthew : john,
+        )
+        apiService.getVerse.mockReturnValue(of({} as Verse))
+      })
+      const labels = () => component.passageSuggestions.map((s) => s.label)
+
+      // «Mt 5,1; 6,1-7,3» offered chapter 6 without its verse.
+      it("opens a later range across chapters at its first verse", async () => {
+        const across = {
+          type: "crossChapterRange" as const,
+          startChapter: 6,
+          startVerse: 1,
+          endChapter: 7,
+          endVerse: 3,
+        }
+        extracts({
+          "Mt 5,1; 6,1-7,3": [
+            reference("Mt", 5, 1),
+            {
+              match: "6,1-7,3",
+              index: 8,
+              book: "Mt",
+              chapter: 6,
+              crossChapter: across,
+            },
+          ],
+          "Mt 6,1-7,3": [
+            {
+              match: "Mt 6,1-7,3",
+              index: 0,
+              book: "Mt",
+              chapter: 6,
+              crossChapter: across,
+            },
+          ],
+        })
+        component.onTyping("Mt 5,1; 6,1-7,3")
+        expect(component.passageSuggestions[1]?.query).toBe("Mt 6,1-7,3")
+
+        component.openSuggestion(component.passageSuggestions[1])
+        await vi.waitFor(() =>
+          expect(router.navigate).toHaveBeenCalledWith(["/", "mat", 6], {
+            queryParams: { verseStart: 1 },
+          }),
+        )
+      })
+
+      // «Jo 99; Mt 5,3» offered Mateus 5,3, but Return said Jo 99 doesn't exist.
+      it("offers none when the first, which Return opens, can't be", () => {
+        extracts({
+          "Jo 99; Mt 5,3": [
+            reference("Jo", 99),
+            { ...reference("Mt", 5, 3), index: 7 },
+          ],
+          "Mt 5,3": [reference("Mt", 5, 3)],
+        })
+        component.onTyping("Jo 99; Mt 5,3")
+        expect(component.passageSuggestions).toEqual([])
+      })
+
+      // «Jo 3,16; Jo 3,16» offered it twice.
+      it("offers a passage once, and the next one in its place", () => {
+        extracts({
+          "Jo 3,16; 3,16; Mt 5,3; Mt 5,4": [
+            reference("Jo", 3, 16),
+            { ...reference("Jo", 3, 16), match: "3,16", index: 9 },
+            { ...reference("Mt", 5, 3), index: 15 },
+            { ...reference("Mt", 5, 4), index: 23 },
+          ],
+          "Jo 3,16": [reference("Jo", 3, 16)],
+          "Mt 5,3": [reference("Mt", 5, 3)],
+          "Mt 5,4": [reference("Mt", 5, 4)],
+        })
+        component.onTyping("Jo 3,16; 3,16; Mt 5,3; Mt 5,4")
+        expect(labels()).toEqual([
+          "Abrir João 3,16",
+          "Abrir Mateus 5,3",
+          "Abrir Mateus 5,4",
+        ])
       })
     })
 
@@ -1201,7 +1351,7 @@ describe("SearchComponent", () => {
         apiService.getVerse.mockReturnValue(of({} as Verse))
 
         component.onTyping(query)
-        expect(component.passageSuggestion?.label).toBe(label)
+        expect(component.passageSuggestions[0]?.label).toBe(label)
         await component.onSearchSubmit(query)
         expect(router.navigate).toHaveBeenCalledWith(["/", "luk", 15], {
           queryParams,
@@ -1245,7 +1395,7 @@ describe("SearchComponent", () => {
       bookService.findBook.mockReturnValue(john)
 
       component.onTyping("Jo 99")
-      expect(component.passageSuggestion).toBeNull()
+      expect(component.passageSuggestions).toEqual([])
       expect(component.pendingSearch).toBe(false)
 
       await component.onSearchSubmit("Jo 99")
@@ -2281,6 +2431,29 @@ describe("SearchComponent", () => {
       expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 95], {})
     })
 
+    // «Jo 3,16; Sl 94 (95)» offered «Escolher o Salmo 94» second.
+    it("keeps the pair in a later reference", async () => {
+      const found: Record<string, BibleReference[]> = {
+        "Sl 150; Sl 94 (95)": [
+          { match: "Sl 150", index: 0, book: "Sl", chapter: 150 },
+          { match: "Sl 94", index: 8, book: "Sl", chapter: 94 },
+        ],
+        "Sl 95": [{ match: "Sl 95", index: 0, book: "Sl", chapter: 95 }],
+      }
+      referenceService.extract.mockImplementation(
+        (text: string) => found[text] ?? [],
+      )
+      component.onTyping("Sl 150; Sl 94 (95)")
+      expect(component.passageSuggestions[1]?.label).not.toContain("Escolher")
+      expect(component.passageSuggestions[1]?.query).toBe("Sl 94 (95)")
+
+      component.openSuggestion(component.passageSuggestions[1])
+      await vi.waitFor(() =>
+        expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 95], {}),
+      )
+      expect(component.psalmChoice).toBeNull()
+    })
+
     // The liturgy's Psalm 115 is the second half of this edition's 116.
     it("opens the half of a psalm a pair names", async () => {
       referenceService.extract.mockReturnValue([
@@ -2395,6 +2568,8 @@ describe("SearchComponent in the iOS app", () => {
   }
   let location: SpyObj<Location>
   let apiService: SpyObj<BibleApiService>
+  let bookService: SpyObj<BookService>
+  let route: { queryParamMap: Observable<ParamMap> }
 
   beforeEach(async () => {
     actions = new Subject()
@@ -2412,16 +2587,18 @@ describe("SearchComponent in the iOS app", () => {
     )
     const referenceService = createSpyObj("BibleReferenceService", ["extract"])
     referenceService.extract.mockReturnValue([])
-    const bookService = Object.assign(
+    bookService = Object.assign(
       createSpyObj<BookService>("BookService", [
         "findBook",
         "findBookById",
         "findTypedBook",
         "getUrlAbrv",
         "getChapterUrlSegment",
+        "initializeBooks",
       ]),
       { books$: of([{ id: "mat" }]) },
     )
+    route = { queryParamMap: of(convertToParamMap({})) }
     bookService.findBookById.mockReturnValue({
       abrv: "Mt",
       shortName: "Mateus",
@@ -2456,10 +2633,7 @@ describe("SearchComponent in the iOS app", () => {
           },
         },
         { provide: AnalyticsService, useValue: analytics },
-        {
-          provide: ActivatedRoute,
-          useValue: { queryParamMap: of(convertToParamMap({})) },
-        },
+        { provide: ActivatedRoute, useValue: route },
         {
           provide: SeoService,
           useValue: {
@@ -2487,6 +2661,20 @@ describe("SearchComponent in the iOS app", () => {
       themeMode: "dark",
       query: "",
     })
+  })
+
+  // Android raises the keyboard only over an empty field (Search.kt). On a
+  // cold share the search waits for the book list, so the field opened empty.
+  it("opens a shared query in the native field before searching it", () => {
+    fixture.destroy()
+    nativeChrome.show.mockClear()
+    route.queryParamMap = of(convertToParamMap({ q: "amai-vos" }))
+    bookService.initializeBooks.mockReturnValue(new Promise(() => {}))
+    TestBed.createComponent(SearchComponent).detectChanges()
+
+    expect(nativeChrome.show.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ mode: "search", query: "amai-vos" }),
+    )
   })
 
   it("searches what is typed in the native field, and keeps it there", async () => {

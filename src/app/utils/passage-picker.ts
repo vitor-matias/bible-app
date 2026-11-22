@@ -10,7 +10,11 @@ import {
   withIntros,
 } from "../bible-canon"
 import { BookService } from "../services/book.service"
-import { cleanAbbreviation, passageSpokenLabel } from "./passage-label"
+import {
+  chapterTitle,
+  cleanAbbreviation,
+  passageSpokenLabel,
+} from "./passage-label"
 import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "./psalms"
 
 /** Mirrors PassagePickerData in ios/App/App/PassagePicker.swift. */
@@ -151,7 +155,7 @@ function chaptersOf(book: Book): Omit<PickerChapter, "bookmark">[] {
       label: String(number),
       ...(detail ? { detail } : {}),
       ...(psalms ? { spoken: passageSpokenLabel(book, number) } : {}),
-      ...(title ? { title } : {}),
+      ...(title ? { title: chapterTitle(title) } : {}),
     }
   })
   const hasIntro =

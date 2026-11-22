@@ -614,6 +614,30 @@ describe("BibleReferenceService", () => {
       ])
     })
 
+    // The note on Mt 5,1 linked its list markers «2)» and «3)» to Lc 2 and Lc 3.
+    it('takes no list marker for a chapter: "(v.13-48); 2) as boas obras"', () => {
+      const note =
+        "O Sermão da Montanha, apresentado por Mt como discurso inaugural da nova Lei do Reino, reúne diversas sentenças de Jesus nas quais se trata da nova justiça cristã (Lc 6,20-49). Ao texto das bem-aventuranças (v.3-12), que serve de exórdio, seguem-se três partes: 1) a justiça perfeita (v.13-48); 2) as boas obras (6,1-18); 3) três admoestações (7,1-27). Trata-se de um apelo de Jesus, em confronto com a Antiga Aliança, a quem deseja segui-lo."
+      const out = service.extract(note, "mat", 5)
+      expect(out.map((ref) => ref.match)).toEqual([
+        "Lc 6,20-49",
+        "v.3-12",
+        "v.13-48",
+        "6,1-18",
+        "7,1-27",
+      ])
+    })
+
+    it('still reads a chapter that closes a parenthesis: "(Sl 103; 104)"', () => {
+      const out = service.extract("(cf. Sl 103; 104) e Lc 6,20-23); 5,3")
+      expect(out.map((ref) => [ref.match, ref.chapter])).toEqual([
+        ["Sl 103", 103],
+        ["104", 104],
+        ["Lc 6,20-23", 6],
+        ["5,3", 5],
+      ])
+    })
+
     // Before, "1-2" lost its "-2" when a comma followed it.
     it('takes a range in a comma list whole: "Lc 5,3,1-2,5"', () => {
       const out = service.extract("Lc 5,3,1-2,5")

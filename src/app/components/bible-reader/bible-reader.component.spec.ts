@@ -31,10 +31,12 @@ import { BackButtonService } from "../../services/back-button.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import { BibleReaderAnimationService } from "../../services/bible-reader-animation.service"
 import { BookService } from "../../services/book.service"
+import { REVERT_STATE } from "../../services/depth-location-strategy"
 import { HapticsService } from "../../services/haptics.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
+import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { PreferencesService } from "../../services/preferences.service"
 import {
@@ -55,6 +57,8 @@ class IndexPageStub {}
 
 /** A step to the next or previous chapter: reading on keeps the way back. */
 const STEP = { info: CHAPTER_STEP }
+/** A failed chapter going back to the one shown (DepthLocationStrategy). */
+const REVERT = { replaceUrl: true, state: REVERT_STATE }
 
 describe("BibleReaderComponent", () => {
   let component: BibleReaderComponent
@@ -265,6 +269,19 @@ describe("BibleReaderComponent", () => {
         .querySelector("button.dismiss-button")
         ?.getAttribute("aria-label"),
     ).toBe("Fechar")
+  })
+
+  // The icon had a card-coloured square of its own inside the button's grey
+  // focus circle.
+  it("paints no background behind the dismiss button's icon", () => {
+    fixture.detectChanges()
+    const icon = fixture.nativeElement.querySelector(
+      "button.dismiss-button mat-icon",
+    ) as HTMLElement
+    // MatIcon's own class: its module is left out of this test bed.
+    icon.classList.add("mat-icon")
+
+    expect(getComputedStyle(icon).backgroundColor).toBe("rgba(0, 0, 0, 0)")
   })
 
   describe("ngOnInit", () => {
@@ -612,6 +629,29 @@ describe("BibleReaderComponent", () => {
       expect(notice()?.textContent).toContain("A carregar a Bíblia…")
     })
 
+    it("says it is downloading only on the first launch", () => {
+      vi.spyOn(
+        TestBed.inject(OfflineDataService),
+        "isBibleDownloaded",
+      ).mockReturnValue(false)
+      fixture.detectChanges()
+
+      expect(notice()?.textContent).toContain("cerca de 5 MB")
+    })
+
+    // A cold start read the kept copy for seconds under the download wording.
+    it("just says loading once the Bible was downloaded", () => {
+      vi.spyOn(
+        TestBed.inject(OfflineDataService),
+        "isBibleDownloaded",
+      ).mockReturnValue(true)
+      fixture.detectChanges()
+
+      expect(notice()?.textContent).toContain("A carregar a Bíblia…")
+      expect(notice()?.textContent).not.toContain("5 MB")
+      expect(notice()?.querySelector("mat-icon")).toBeNull()
+    })
+
     it("leaves a prerendered page's text alone", () => {
       vi.spyOn(TestBed.inject(PendingTasks), "add").mockReturnValue(() => {})
       fixture.nativeElement.insertAdjacentHTML(
@@ -863,6 +903,17 @@ describe("BibleReaderComponent", () => {
         "Não foi possível carregar o capítulo",
       )
       expect(snackBarSpy.open).not.toHaveBeenCalled()
+    })
+
+    // Offline, from the app shell, the tab kept «Bíblia Sagrada Online — …».
+    it("names the chapter asked for in the tab", async () => {
+      fixture.detectChanges()
+      await fixture.whenStable()
+
+      expect(seoServiceSpy.updateForChapter).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "gen" }),
+        1,
+      )
     })
 
     it("loads the chapter again, at the verse asked for, on «Tentar novamente»", async () => {
@@ -1843,6 +1894,66 @@ describe("BibleReaderComponent", () => {
         ) as HTMLElement
         expect(getComputedStyle(block).marginLeft).toBe("20px")
         expect(getComputedStyle(block).marginRight).toBe("20px")
+      })
+
+      // The ‹ › arrows sat over each page's last line of text.
+      it("keep a phone's last line clear of the arrows", () => {
+        pagedAt(390)
+        const host = fixture.nativeElement as HTMLElement
+        const box = (selector: string) =>
+          (host.querySelector(selector) as HTMLElement).getBoundingClientRect()
+        // The pages end at the screen's foot (the spec renders no header,
+        // so they start higher): what they keep clear below the text.
+        const kept =
+          box(".paged-view-container").bottom - box(".paged-view").bottom
+        for (const arrow of ["button.next-chapter", "button.prev-chapter"]) {
+          expect(
+            window.innerHeight - box(arrow).top,
+            arrow,
+          ).toBeLessThanOrEqual(kept)
+        }
+      })
+
+      it("keep only the footer's room in the apps, which draw no arrows", () => {
+        document.body.classList.add("native-chrome")
+        try {
+          pagedAt(390)
+          const host = fixture.nativeElement as HTMLElement
+          const box = (selector: string) =>
+            (
+              host.querySelector(selector) as HTMLElement
+            ).getBoundingClientRect()
+          expect(
+            box(".paged-view-container").bottom - box(".paged-view").bottom,
+          ).toBeCloseTo(78, 0)
+        } finally {
+          document.body.classList.remove("native-chrome")
+        }
+      })
+
+      // The copyright shares the arrows' row there (styles.css): the iOS
+      // rule above took 78px off every Android page.
+      it("give Android's text the whole page", () => {
+        document.body.classList.add("native-chrome", "platform-android")
+        try {
+          // A <bible-reader> host, for the Android rules in styles.css.
+          fixture = TestBed.createComponent(BibleReaderComponent, {
+            inferTagName: true,
+          })
+          component = fixture.componentInstance
+          pagedAt(390)
+          const host = fixture.nativeElement as HTMLElement
+          const pages = host.querySelector(
+            ".paged-view-container",
+          ) as HTMLElement
+          // The drawer's flex column isn't rendered here: size it as it would.
+          pages.style.height = "500px"
+          expect(
+            (host.querySelector(".paged-view") as HTMLElement).offsetHeight,
+          ).toBe(500)
+        } finally {
+          document.body.classList.remove("native-chrome", "platform-android")
+        }
       })
 
       it("keep a tablet's margins inside each of its two columns", () => {
@@ -2907,7 +3018,7 @@ describe("BibleReaderComponent", () => {
       expect(snackBarSpy.open).toHaveBeenCalled()
       expect(routerSpy.navigate).toHaveBeenCalledWith(
         ["/", expect.anything(), "1"],
-        { replaceUrl: true },
+        REVERT,
       )
     })
 
@@ -3558,15 +3669,43 @@ describe("BibleReaderComponent", () => {
       component.getChapter(4)
       await vi.advanceTimersByTimeAsync(0)
 
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"], {
-        replaceUrl: true,
-      })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "3"],
+        REVERT,
+      )
       expect(el.style.opacity).not.toBe("0")
       expect(snackBarSpy.open).toHaveBeenCalledWith(
         "Não foi possível carregar o capítulo. Tente novamente.",
         "OK",
         { duration: 4000 },
       )
+    })
+
+    // The apps replace on chapter steps: the failed chapter's entry is the
+    // shown one's, so it is replaced as before.
+    it("reverts a failed chapter with a plain replace in the native apps", async () => {
+      vi.useFakeTimers()
+      vi.spyOn(console, "error").mockReturnValue(undefined)
+      vi.spyOn(Capacitor, "isNativePlatform").mockReturnValue(true)
+      component.book = mockBooks[0] as unknown as Book
+      component.bookContainer = {
+        nativeElement: document.createElement("div"),
+      } as unknown as ElementRef
+      apiServiceSpy.getChapter.mockReturnValueOnce(
+        of({ bookId: "gen", number: 3, verses: [] } as unknown as Chapter),
+      )
+      component.getChapter(3)
+      routerSpy.navigate.mockClear()
+      apiServiceSpy.getChapter.mockReturnValue(
+        throwError(() => new Error("Not found")),
+      )
+
+      component.getChapter(4)
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "3"], {
+        replaceUrl: true,
+      })
     })
 
     // Génesis 5's text stayed on screen labelled João 5; from Génesis 50 the
@@ -3597,9 +3736,7 @@ describe("BibleReaderComponent", () => {
       )
 
       expect(component.book.id).toBe("gen")
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "gen", "1"], {
-        replaceUrl: true,
-      })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "gen", "1"], REVERT)
       expect(component.chaptersWithIntro.some((c) => c.number === 0)).toBe(
         false,
       )
@@ -3639,9 +3776,10 @@ describe("BibleReaderComponent", () => {
 
       expect(component.book.id).toBe("gen")
       expect(component.chapterNumber).toBe(5)
-      expect(routerSpy.navigate).toHaveBeenLastCalledWith(["/", "gen", "5"], {
-        replaceUrl: true,
-      })
+      expect(routerSpy.navigate).toHaveBeenLastCalledWith(
+        ["/", "gen", "5"],
+        REVERT,
+      )
     })
 
     it("should revert URL with replaceUrl and not reset container when NetworkService reports offline", async () => {
@@ -3666,9 +3804,10 @@ describe("BibleReaderComponent", () => {
 
       component.getChapter(2)
       await vi.advanceTimersByTimeAsync(0)
-      expect(routerSpy.navigate).toHaveBeenCalledWith(["/", "1-genesis", "1"], {
-        replaceUrl: true,
-      })
+      expect(routerSpy.navigate).toHaveBeenCalledWith(
+        ["/", "1-genesis", "1"],
+        REVERT,
+      )
       expect(el.style.opacity).not.toBe("0")
       expect(snackBarSpy.open).toHaveBeenCalledWith(
         "Sem ligação. Este capítulo ainda não está disponível offline.",

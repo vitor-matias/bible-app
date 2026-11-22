@@ -123,6 +123,27 @@ describe("OnboardingComponent", () => {
     }
   })
 
+  // On a desktop the dialog jumped taller on the install step, its guides
+  // being longer than the other steps.
+  it("keeps its height on the install step, which scrolls inside", async () => {
+    await page.viewport(1280, 800)
+    try {
+      create()
+      element.style.width = "520px"
+      component.goTo(component.steps.length - 2)
+      fixture.detectChanges()
+      const before = element.getBoundingClientRect().height
+
+      goToInstallStep()
+      const body = element.querySelector(".body") as HTMLElement
+
+      expect(element.getBoundingClientRect().height).toBe(before)
+      expect(body.scrollHeight).toBeGreaterThan(body.clientHeight)
+    } finally {
+      await page.viewport(800, 600)
+    }
+  })
+
   it("shows the app logo on the welcome step and an icon afterwards", () => {
     create()
 

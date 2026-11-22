@@ -97,6 +97,71 @@ describe("VerseSectionComponent", () => {
     ])
   })
 
+  // The printed edition sets a supplement's headings black, bold and italic,
+  // where the main text's are red.
+  it("styles a supplement's heading apart from the others", () => {
+    fixture.componentRef.setInput("changeLine", false)
+    setData(
+      fixture,
+      makeVerse({
+        text: [
+          { type: "section", tag: "s2", text: "Oração", supplement: true },
+          { type: "section", tag: "s2", text: "Banquete" },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const headings = Array.from(
+      fixture.nativeElement.querySelectorAll(
+        "[data-section-heading]",
+      ) as NodeListOf<HTMLElement>,
+    )
+    expect(
+      headings.map((h) => h.classList.contains("supplementHeading")),
+    ).toEqual([true, false])
+    expect(getComputedStyle(headings[0]).fontStyle).toBe("italic")
+    expect(getComputedStyle(headings[1]).fontStyle).not.toBe("italic")
+  })
+
+  it("sets a supplement heading's dash like the heading, not red", () => {
+    const dash = (supplement: boolean) => {
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          verseLabel: "front",
+          text: [{ type: "section", tag: "s2", text: "Oração", supplement }],
+        }),
+      )
+      fixture.detectChanges()
+      const spans = fixture.nativeElement.querySelectorAll(
+        ".section",
+      ) as NodeListOf<HTMLElement>
+      return spans[spans.length - 1]
+    }
+    // Two headings in a group: the dash follows the last one only.
+    fixture.componentRef.setInput("changeLine", false)
+    setData(
+      fixture,
+      makeVerse({
+        verseLabel: "front",
+        text: [
+          { type: "section", tag: "s2", text: "Oração", supplement: true },
+          { type: "section", tag: "s2", text: "Banquete" },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+    const spans = fixture.nativeElement.querySelectorAll(
+      ".section",
+    ) as NodeListOf<HTMLElement>
+    expect(spans[spans.length - 1].classList).not.toContain("supplementHeading")
+    expect(dash(true).textContent).toContain("—")
+    expect(dash(true).classList).toContain("supplementHeading")
+    expect(dash(false).classList).not.toContain("supplementHeading")
+  })
+
   describe("ngOnChanges — parsedReferences", () => {
     it("should pre-compute references for reference-type text entries", () => {
       fixture.componentRef.setInput("changeLine", false)
@@ -264,6 +329,40 @@ describe("VerseSectionComponent", () => {
 
       expect(box.top).toBeGreaterThanOrEqual(numberBottom)
       expect(box.width).toBeCloseTo(800, 0)
+    })
+
+    // Below the largest sizes the number could still leave it a few words:
+    // «O BOM / PASTOR» on lines of its own beside it at 170% on a phone.
+    describe("where the number leaves it a few words' width", () => {
+      function besideNumber(numberWidth: number) {
+        const host = fixture.nativeElement as HTMLElement
+        const container = document.createElement("div")
+        container.style.cssText = "width: 400px; font-size: 20px"
+        const number = document.createElement("div")
+        number.style.cssText = `float: left; width: ${numberWidth}px; height: 40px`
+        host.before(container)
+        container.append(number, host)
+
+        const heading = render({ changeLine: false, beside: true })
+        const box = heading.getBoundingClientRect()
+        const numberBox = number.getBoundingClientRect()
+        container.replaceWith(host)
+        return { box, numberBox }
+      }
+
+      it("goes below the number when less than 8 ems are left", () => {
+        const { box, numberBox } = besideNumber(250)
+
+        expect(box.top).toBeGreaterThanOrEqual(numberBox.bottom)
+        expect(box.right).toBeLessThanOrEqual(400 + numberBox.left)
+      })
+
+      it("stays beside it with room for them", () => {
+        const { box, numberBox } = besideNumber(150)
+
+        expect(box.top).toBeLessThan(numberBox.bottom)
+        expect(box.left).toBeGreaterThanOrEqual(numberBox.right)
+      })
     })
 
     it("leaves a heading that runs into the text inline, with no break before it", () => {

@@ -96,7 +96,11 @@ describe("VerseCardsComponent", () => {
           provide: BookService,
           // The real <verse> renders the cards, and its reference parser
           // subscribes to the book list as soon as it is constructed.
-          useValue: { books$: of([john]), getBooks: () => [john] },
+          useValue: {
+            books$: of([john]),
+            getBooks: () => [john],
+            findBookById: () => john,
+          },
         },
       ],
     })

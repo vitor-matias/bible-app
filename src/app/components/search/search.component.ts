@@ -26,6 +26,7 @@ import themeTitles from "../../pastoral-index-titles.json"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleApiService } from "../../services/bible-api.service"
 import {
+  type BibleReference,
   BibleReferenceService,
   type VerseReference,
 } from "../../services/bible-reference.service"
@@ -57,7 +58,7 @@ import { getVerseQueryParams } from "../verse/verse.utils"
 /**
  * Searching as people type waits for them to pause this long: each search is
  * one by meaning on the server. "A procurar…" shows meanwhile, and a typed
- * reference is offered at once (passageSuggestion), which costs nothing.
+ * reference is offered at once (passageSuggestions), which costs nothing.
  */
 export const TYPING_PAUSE_MS = 1500
 
@@ -88,6 +89,9 @@ const NO_SUCH_PASSAGE = "Este capítulo ou versículo não existe."
 
 /** Verses of a search over the stored Bible shown at a time. */
 const STORED_PAGE_SIZE = 50
+
+/** Passages offered at a time, as "Jo 3,16, 1Cor13,4" names two. */
+const MAX_PASSAGES = 3
 
 /** Index themes offered at a time: each takes the room of a result or two. */
 const MAX_THEMES = 3
@@ -187,10 +191,10 @@ export class SearchComponent {
   /** Typed words wait for the pause before their search: "A procurar…". */
   pendingSearch = false
   /**
-   * What is typed names a passage: offered at once, first, as "Abrir João
-   * 3,16"; Return or a tap opens it.
+   * What is typed names passages: offered at once, first, as "Abrir João
+   * 3,16"; Return opens the first, a tap the one tapped.
    */
-  passageSuggestion: { label: string; query: string } | null = null
+  passageSuggestions: { label: string; query: string }[] = []
   /** The pastoral index's themes that what is typed names, offered with it. */
   themes: { slug: string; title: string }[] = []
   /**
@@ -319,7 +323,6 @@ export class SearchComponent {
             void this.onSearchSubmit(action.text)
           if (action.id === "back") this.location.back()
         })
-      this.syncNativeChrome()
     }
 
     // Share-target launches arrive as /search?q=, and so does Back from a
@@ -336,6 +339,9 @@ export class SearchComponent {
         const back = this.cameBack
         this.cameBack = false
         if (back && this.restore(sharedQuery)) return
+        // In the native field from the start: Android raises the keyboard
+        // over an empty one, and this search may wait for the book list.
+        this.syncNativeChrome(sharedQuery)
         // On a cold start a reference finds no book until the list has loaded.
         const generation = this.searchGeneration
         void this.bookService
@@ -351,6 +357,8 @@ export class SearchComponent {
           })
       },
     )
+    // A query in the URL has shown the native field already.
+    if (!this.lastSharedQuery) this.syncNativeChrome()
   }
 
   ngOnDestroy(): void {
@@ -438,7 +446,7 @@ export class SearchComponent {
   /** Searches once typing pauses (TYPING_PAUSE_MS); Return still searches at once. */
   onTyping(text: string): void {
     const query = text.trim()
-    this.passageSuggestion = query ? this.suggestPassage(query) : null
+    this.passageSuggestions = query ? this.suggestPassages(query) : []
     this.themes = themesNamed(query)
     this.pendingSearch = this.searchesOnPause(query)
     this.cdr.detectChanges()
@@ -456,11 +464,9 @@ export class SearchComponent {
     return !target || !!target.bookOnly
   }
 
-  /** Opens the passage offered for what is typed. */
-  openSuggestion(): void {
-    if (this.passageSuggestion) {
-      void this.onSearchSubmit(this.passageSuggestion.query)
-    }
+  /** Opens a passage offered for what is typed. */
+  openSuggestion(suggestion: { query: string }): void {
+    void this.onSearchSubmit(suggestion.query)
   }
 
   /** Opens a theme in the index, as openPassage does a passage. */
@@ -471,14 +477,43 @@ export class SearchComponent {
   }
 
   /**
+   * One offer per passage named, in order, each once: the first opens the
+   * whole query, as Return does; the others their own words up to the next
+   * reference ("1Cor13,4", "Sl 94 (95)"), with the book they borrow
+   * ("1Cor 13,4; 4,1" offers "1Cor 4,1").
+   */
+  private suggestPassages(query: string): { label: string; query: string }[] {
+    const { text, target, references } = this.resolvePassage(query)
+    const first = target && this.suggestPassage(target, query)
+    // Return opens the first: no other offer when it can't be opened.
+    if (!first) return []
+    const offers = [first]
+    for (const [i, ref] of references.entries()) {
+      if (i === 0) continue
+      if (offers.length === MAX_PASSAGES) break
+      const words = text
+        .slice(ref.index, references[i + 1]?.index)
+        .replace(/[\s;,.]+$/, "")
+      const own = ref.match.startsWith(ref.book)
+        ? words
+        : `${ref.book} ${words}`
+      const next = this.resolvePassage(own).target
+      const offer = next && this.suggestPassage(next, own)
+      if (offer && !offers.some(({ label }) => label === offer.label)) {
+        offers.push(offer)
+      }
+    }
+    return offers
+  }
+
+  /**
    * "Abrir João 3,16", "Abrir Evangelho segundo São Lucas", or, for a psalm
    * the liturgy numbers otherwise, the choice between the two.
    */
   private suggestPassage(
+    target: PassageTarget,
     query: string,
   ): { label: string; query: string } | null {
-    const { target } = this.resolvePassage(query)
-    if (!target) return null
     const { book, chapter, verseStart, verseEnd } = target
     if (book.introSlug || target.bookOnly) {
       return { label: `Abrir ${book.name}`, query }
@@ -512,6 +547,7 @@ export class SearchComponent {
   private resolvePassage(query: string): {
     text: string
     target: PassageTarget | null
+    references: BibleReference[]
   } {
     // "Sl 94 (95), 1-2": with both numbers, a leaflet names one psalm.
     const pair = parsePsalmPair(query)
@@ -527,19 +563,7 @@ export class SearchComponent {
     if (references.length > 0) {
       // A well-formed Bible reference jumps straight into the reader instead
       // of going through the broader full-text search results flow.
-      const ref = references[0]
-      // A book of the Bible: "1 Co 13" is not the About page, which findBook
-      // falls back to, nor "Joao 3" the introduction to John's letters.
-      const book = ref.book ? this.bookService.findTypedBook(ref.book) : null
-      if (book) {
-        target = {
-          book,
-          chapter: ref.chapter || 1,
-          ...getVerseQueryParams(ref.verses),
-          citedVerses: citedVerses(ref.verses),
-          pairedPsalm,
-        }
-      }
+      target = this.passageTarget(references[0], pairedPsalm)
     } else {
       // The query is a book's name or abbreviation, or an introduction's
       // ("Pentateuco"), though a book comes first: "Joao" is João.
@@ -560,16 +584,34 @@ export class SearchComponent {
     ) {
       target.verseStart = pair.verse
     }
-    return { text, target }
+    return { text, target, references }
+  }
+
+  /** Where a reference opens in the reader; null for a book it doesn't know. */
+  private passageTarget(
+    ref: BibleReference,
+    pairedPsalm: boolean,
+  ): PassageTarget | null {
+    // A book of the Bible: "1 Co 13" is not the About page, which findBook
+    // falls back to, nor "Joao 3" the introduction to John's letters.
+    const book = ref.book ? this.bookService.findTypedBook(ref.book) : null
+    if (!book) return null
+    return {
+      book,
+      chapter: ref.chapter || 1,
+      ...getVerseQueryParams(ref.verses, ref.crossChapter),
+      citedVerses: citedVerses(ref.verses),
+      pairedPsalm,
+    }
   }
 
   /** Shows the native search field, holding the current query. */
-  private syncNativeChrome(): void {
+  private syncNativeChrome(query = this.searchTerm): void {
     if (!this.native) return
     this.nativeChrome.show({
       mode: "search",
       themeMode: this.themeService.currentMode,
-      query: this.searchTerm,
+      query,
     })
   }
 
@@ -654,7 +696,7 @@ export class SearchComponent {
     this.pendingSearch = false
     // Taken up (tapped, or Return): no second copy of it above what follows.
     // A pause leaves the offer to open a book whose name it searches.
-    if (!typed) this.passageSuggestion = null
+    if (!typed) this.passageSuggestions = []
     this.themes = themesNamed(query)
     const { text, target: named } = this.resolvePassage(query)
     const target = typed && named?.bookOnly ? null : named

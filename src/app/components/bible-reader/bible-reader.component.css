@@ -239,7 +239,6 @@ h6 {
   font-size: 24px;
   width: 24px;
   height: 24px;
-  background-color: var(--card-background);
 }
 
 .mat-icon {
@@ -377,9 +376,15 @@ h6 {
     padding: 0 0 2vw;
     width: 100%;
     margin: 0 !important;
-    height: calc(100% - 78px);
-    /* Reserve space for copyright footer */
+    /* Clear of the copyright footer and the ‹ › arrows above it (100px up). */
+    height: calc(100% - 108px);
     max-width: 100%;
+  }
+
+  /* iOS draws no arrows: room for the footer alone. Android's pages are
+     laid out in styles.css, with the copyright beside its arrows. */
+  :host-context(.native-chrome:not(.platform-android)) .paged-view {
+    height: calc(100% - 78px);
   }
 
   /* As the scrolling text's margin. */

@@ -56,6 +56,13 @@
   }
 }
 
+/* The floor alone let the install step grow the dialog: it stops there. */
+@media (min-height: 601px) {
+  .body.install {
+    max-height: 300px;
+  }
+}
+
 /* Shorter still (a phone on its side, a page zoomed to 400%), the picture
    and the buttons left the text a line's window: the whole dialog scrolls. */
 @media (max-height: 500px) {

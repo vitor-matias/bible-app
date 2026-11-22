@@ -87,6 +87,252 @@ describe("VerseComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // Ester's Greek additions are stored as verses after the one they trail, so
+  // a verse's position is not what the page prints.
+  describe("supplements", () => {
+    const host = () => fixture.nativeElement as HTMLElement
+    const printed = () => host().querySelector(".verseNumber")?.textContent
+
+    it("prints a verse's label, not its position", () => {
+      setData(fixture, makeVerse({ number: 18, numberLabel: "1" }))
+      fixture.detectChanges()
+      expect(printed()).toBe("1")
+    })
+
+    it("prints the position when there is no label", () => {
+      setData(fixture, makeVerse({ number: 5 }))
+      fixture.detectChanges()
+      expect(printed()).toBe("5")
+    })
+
+    it("prints the supplement's letter where the chapter number goes", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 0,
+          verseLabel: "front",
+          chapterNumber: 1,
+          chapterLabel: "A",
+          text: [
+            { type: "section", tag: "s2", text: "Um sonho" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      const mark = host().querySelector(".chapterNumber")
+      expect(mark?.textContent?.trim()).toBe("A")
+      expect(mark?.classList).toContain("supplementMark")
+      expect(getComputedStyle(mark as Element).fontStyle).toBe("italic")
+    })
+
+    it("prints a mid-chapter supplement's letter at its heading, or its first line", () => {
+      const letter = () =>
+        host().querySelector(".chapterNumber")?.textContent?.trim()
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          supplementLetter: "C",
+          text: [
+            { type: "text", text: "Fim." },
+            { type: "section", tag: "s2", text: "Oração" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(letter()).toBe("C")
+
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [{ type: "text", text: "Ao terceiro dia" }] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(0)
+      expect(letter()).toBe("D")
+    })
+
+    it("labels the notes of a supplement's verse with its printed number", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 18,
+          numberLabel: "1",
+          text: [
+            { type: "text", text: "Texto" },
+            { type: "footnote", text: "nota", reference: "1" },
+          ] as TextType[],
+        }),
+      )
+      expect(component.notesLabel).toBe("Notas do versículo 1")
+    })
+
+    it("prints the label on a verse opening with a quote too", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 18,
+          numberLabel: "1",
+          text: [
+            { type: "quote", text: "Poesia", identLevel: 1 },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(
+          ".quoteVerseNumber .verseNumber",
+        )?.textContent,
+      ).toBe("1")
+    })
+
+    it("breaks the line ahead of the chapter number at the closing heading", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(".chapterNumber")
+          ?.previousElementSibling?.tagName,
+      ).toBe("BR")
+    })
+
+    it("prints a supplement's letter beside the first text that shows", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [
+            { type: "text", text: " " },
+            { type: "text", text: "Ao terceiro dia" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(
+        (fixture.nativeElement as HTMLElement)
+          .querySelector(".chapterNumber")
+          ?.textContent?.trim(),
+      ).toBe("D")
+    })
+
+    it("keeps the closing heading, its dash and the chapter number upright", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          supplement: true,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      const style = (selector: string) =>
+        getComputedStyle(host.querySelector(selector) as Element).fontStyle
+      expect(style(".chapterNumber")).toBe("normal")
+      expect(style("[data-section-heading]")).toBe("normal")
+      expect(style(".headingMark:not([data-section-heading])")).toBe("normal")
+    })
+
+    it("puts the number at the first of two consecutive closing headings", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Oração", supplement: true },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          supplementLetter: "C",
+          text: [
+            { type: "text", text: "Fim." },
+            { type: "section", tag: "s2", text: "Oração" },
+            { type: "section", tag: "s2", text: "Outra" },
+          ] as TextType[],
+        }),
+      )
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+    })
+
+    it("puts no line break before a letter that opens the verse's text", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [
+            { type: "text", text: " " },
+            { type: "text", text: "Ao terceiro dia" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(".chapterNumber")
+          ?.previousElementSibling?.tagName,
+      ).not.toBe("BR")
+    })
+
+    it("marks a supplement's verse, set in italics", () => {
+      setData(fixture, makeVerse({ number: 1, supplement: true }))
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      expect(host.classList).toContain("supplement")
+      expect(getComputedStyle(host).fontStyle).toBe("italic")
+
+      setData(fixture, makeVerse({ number: 2 }))
+      fixture.detectChanges()
+      expect(host.classList).not.toContain("supplement")
+    })
+
+    it("prints the chapter number at the heading ending the supplement", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          chapterNumber: 1,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(host().querySelector(".chapterNumber")?.textContent?.trim()).toBe(
+        "1",
+      )
+    })
+  })
+
   describe("ngOnChanges — chapterNumberDisplayIndex", () => {
     it("should be -1 for regular verses (number > 0)", () => {
       setData(fixture, makeVerse({ number: 5 }))
@@ -114,6 +360,21 @@ describe("VerseComponent", () => {
       expect(component.chapterNumberDisplayIndex).toBe(-1)
       expect(fixture.nativeElement.querySelector(".chapterNumber")).toBeNull()
       expect(fixture.nativeElement.textContent).toContain("Alef")
+    })
+
+    it("draws no supplement letter either when the host declines the chapter number", () => {
+      fixture.componentRef.setInput("showChapterNumber", false)
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [{ type: "text", text: "Ao terceiro dia" }] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(-1)
+      expect(fixture.nativeElement.querySelector(".chapterNumber")).toBeNull()
     })
 
     it("should target s2 section index for verse 0 with s2 section", () => {
@@ -587,22 +848,10 @@ describe("VerseComponent", () => {
     })
   })
 
-  describe("a11y — text body tabindex and role", () => {
-    it("should not render tabindex or role on text span when verse has no footnotes", () => {
-      setData(
-        fixture,
-        makeVerse({
-          text: [{ type: "text", text: "plain" }],
-        }),
-      )
-      fixture.detectChanges()
-      const interactive = fixture.nativeElement.querySelectorAll(
-        ".interactive[tabindex='0'][role='button']",
-      )
-      expect(interactive.length).toBe(0)
-    })
-
-    it("should render tabindex and role on text span when verse has footnotes", () => {
+  // Each verse with notes was two tab stops, the marker and the text, both
+  // opening the same notes: about 200 per chapter.
+  describe("a11y — one tab stop per verse with notes", () => {
+    it("is the notes marker; the text is not focusable nor a button", () => {
       setData(
         fixture,
         makeVerse({
@@ -613,15 +862,74 @@ describe("VerseComponent", () => {
         }),
       )
       fixture.detectChanges()
-      const interactive = fixture.nativeElement.querySelectorAll(
-        ".interactive[tabindex='0'][role='button']",
+      const host = fixture.nativeElement as HTMLElement
+      const stops = host.querySelectorAll("[tabindex='0']")
+
+      expect(stops.length).toBe(1)
+      expect(stops[0].getAttribute("aria-label")).toBe("Notas do versículo 1")
+      expect(host.querySelectorAll("[role='button']").length).toBe(1)
+      expect(host.querySelector(".interactive")?.hasAttribute("tabindex")).toBe(
+        false,
       )
-      expect(interactive.length).toBeGreaterThan(0)
     })
 
-    // Tabbing onto a verse showed nothing: the text had outline: none, so a
-    // keyboard user couldn't tell which verse had the focus.
-    it("shows where the keyboard's focus is on the text", () => {
+    // Ester 1 opens with an unnumbered verse (the Greek addition) carrying
+    // five notes: with no number to sit beside, it had no marker, and the
+    // text was no longer a stop either.
+    it("gives an unnumbered verse with notes a marker of its own", () => {
+      setData(
+        fixture,
+        makeVerse({
+          bookId: "est",
+          number: 0,
+          verseLabel: "front",
+          text: [
+            { type: "section", tag: "s2", text: "Um sonho de Mardoqueu" },
+            { type: "paragraph", text: "\n" },
+            { type: "footnote", text: "note", reference: "A 1-11." },
+            { type: "text", text: "No segundo ano do reinado de Assuero" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      const stops = host.querySelectorAll<HTMLElement>("[tabindex='0']")
+
+      expect(stops.length).toBe(1)
+      expect(stops[0].classList).toContain("footnoteIndicator")
+      expect(stops[0].getAttribute("aria-label")).toMatch(/^Notas de .* 1$/)
+
+      stops[0].dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }))
+      expect(mockBottomSheet.open).toHaveBeenCalled()
+    })
+
+    // A line of poetry under a heading is shown, though the heading's runs
+    // are not: it had no marker.
+    it("gives the marker to a quote under a heading too", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 0,
+          verseLabel: "front",
+          text: [
+            { type: "section", tag: "s2", text: "Título" },
+            { type: "quote", text: "Linha de poesia", identLevel: 1 },
+            { type: "footnote", text: "note", reference: "a" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(
+          ".footnoteIndicator[tabindex='0']",
+        ).length,
+      ).toBe(1)
+    })
+
+    // The text takes no focus: after notes opened from it closed, the focus
+    // fell to the page's body.
+    it("returns the focus to the marker after notes opened from the text", () => {
       setData(
         fixture,
         makeVerse({
@@ -632,16 +940,14 @@ describe("VerseComponent", () => {
         }),
       )
       fixture.detectChanges()
-      const text = fixture.nativeElement.querySelector(
-        ".interactive[role='button']",
-      ) as HTMLElement
+      const host = fixture.nativeElement as HTMLElement
 
-      text.focus()
+      ;(host.querySelector(".interactive") as HTMLElement).click()
+      dismissed.next()
 
-      expect(text.matches(":focus-visible")).toBe(true)
-      const style = getComputedStyle(text)
-      expect(style.outlineStyle).toBe("solid")
-      expect(style.outlineColor).toBe(style.color)
+      expect(document.activeElement).toBe(
+        host.querySelector(".footnoteIndicator"),
+      )
     })
   })
 
@@ -782,6 +1088,56 @@ describe("VerseComponent", () => {
       ).getBoundingClientRect()
       expect(wrapper.left).toBeLessThanOrEqual(digits.left + 0.5)
       expect(Math.abs(wrapper.right - line.left)).toBeLessThan(0.5)
+    })
+
+    // Sl 23,2: the line's band stood a pixel above and below the number's,
+    // with a rounded notch between them, and a wrapped line's band overlapped
+    // the next one's, darker where the translucent colour was laid twice.
+    it("should paint a poetry line's band level with its number's and its lines edge to edge", async () => {
+      const host = fixture.nativeElement as HTMLElement
+      const reader = document.createElement("div")
+      reader.className = "bookBlock"
+      reader.style.width = "200px"
+      host.before(reader)
+      reader.append(host)
+      setData(
+        fixture,
+        makeVerse({
+          number: 2,
+          // As the API serves it: an empty element left first.
+          text: [
+            { type: "quote", text: "\u200b", identLevel: 1 },
+            { type: "text", text: "Em verdes prados me faz descansar" },
+            {
+              type: "quote",
+              text: "e conduz-me às águas refrescantes.",
+              identLevel: 2,
+            },
+          ],
+        }),
+      )
+      await document.fonts.load('20px "Literata Variable"')
+      highlightHost()
+
+      const number = (
+        host.querySelector(".quoteVerseNumber") as HTMLElement
+      ).getBoundingClientRect()
+      const run = Array.from(
+        host.querySelectorAll(".quoteLineWrapper .verseRun"),
+      ).find((r) => r.textContent?.startsWith("Em verdes")) as HTMLElement
+      const lines = Array.from(run.getClientRects())
+      const radius = getComputedStyle(run).borderTopLeftRadius
+      reader.replaceWith(host)
+
+      expect(lines.length).toBeGreaterThan(1)
+      // Within half a pixel (it was a whole one): the test page sets the text
+      // half a pixel shorter than the app does.
+      expect(Math.abs(lines[0].top - number.top)).toBeLessThan(0.6)
+      expect(Math.abs(lines[0].bottom - number.bottom)).toBeLessThan(0.6)
+      expect(radius).toBe("0px")
+      for (let i = 1; i < lines.length; i++) {
+        expect(Math.abs(lines[i].top - lines[i - 1].bottom)).toBeLessThan(0.6)
+      }
     })
 
     function withFootnote(): HTMLElement {
@@ -1010,7 +1366,20 @@ describe("VerseComponent", () => {
       text().click()
 
       expect(mockBottomSheet.open).toHaveBeenCalled()
-      expect(text().getAttribute("role")).toBe("button")
+    })
+
+    // Mouse-up after drag-selecting the text clicked it, opening the notes.
+    it("leaves text being selected alone, and opens on the next plain click", () => {
+      render()
+      const selection = document.getSelection() as Selection
+      selection.selectAllChildren(text())
+      text().click()
+
+      expect(mockBottomSheet.open).not.toHaveBeenCalled()
+
+      selection.removeAllRanges()
+      text().click()
+      expect(mockBottomSheet.open).toHaveBeenCalledTimes(1)
     })
 
     // The marker was a 13x16 px target for a mouse.
@@ -1284,6 +1653,7 @@ describe("VerseComponent", () => {
       )
 
       const trigger = document.createElement("span")
+      trigger.tabIndex = 0
       const focusSpy = vi.spyOn(trigger, "focus").mockReturnValue(undefined)
 
       component.toggleFootnotes({ currentTarget: trigger } as unknown as Event)
