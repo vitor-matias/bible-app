@@ -484,6 +484,27 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.currentTime).toBe(900)
   })
 
+  it("names an introduction as itself, not a reflection of a «Dia 6.5»", async () => {
+    vi.spyOn(TestBed.inject(Router), "navigate").mockResolvedValue(true)
+    TestBed.inject(PodcastPlayerService).throughEpisode.set(true)
+    await listen()
+    tap(toggle())
+    TestBed.inject(Mais365Service).active.set({
+      day: 6.5,
+      title: "Introdução aos Patriarcas",
+      theme: "Introdução aos Patriarcas",
+      url: day3.url,
+      duration: 2631,
+      readings: [],
+      reflection: 0,
+    })
+    TestBed.tick()
+    fixture.detectChanges()
+    expect(find(".audio-caption")?.textContent?.trim()).toBe(
+      "+365 · Introdução aos Patriarcas",
+    )
+  })
+
   it("plays on across chapters and when hidden in a +365 day", async () => {
     TestBed.inject(PodcastPlayerService).throughEpisode.set(true)
     await listen()

@@ -95,20 +95,25 @@ export class Mais365Service {
   })
 
   constructor() {
-    let last: number | "reflection" | null = null
+    // Per day: another day started at the same stage still takes it up.
+    let last: { day: PlanDay | null; stage: number | "reflection" | null } = {
+      day: null,
+      stage: null,
+    }
     effect(() => {
       const stage = this.stage()
+      const day = this.active()
       untracked(() => {
-        if (stage === last) return
-        last = stage
-        const day = this.active()
+        if (stage === last.stage && day === last.day) return
+        last = { day, stage }
         if (!day || stage === null) return
         if (stage === "reflection") {
           // Its own span, so play and pause go on from here, not a chapter's top.
           this.player.throughFrom.set(day.reflection)
           this.player.adopt({
             day: day.day,
-            title: `Reflexão: ${day.title}`,
+            // An introduction is all "reflection": its own title.
+            title: day.readings.length ? `Reflexão: ${day.title}` : day.title,
             url: day.url,
             start: day.reflection,
             end: day.duration,

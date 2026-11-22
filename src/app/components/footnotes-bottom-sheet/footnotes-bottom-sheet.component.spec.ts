@@ -47,8 +47,9 @@ describe("FootnotesBottomSheetComponent", () => {
     ])
     dismissed = new Subject()
     bottomSheetRefSpy.afterDismissed.mockReturnValue(dismissed)
-    bottomSheetRefSpy.dismiss.mockImplementation((result?: unknown) =>
-      dismissed.next(result),
+    // As BackButtonService.closeOnBack wraps it: no result passed along.
+    bottomSheetRefSpy.dismiss.mockImplementation(() =>
+      dismissed.next(undefined),
     )
     release = vi.fn()
     bibleRefSpy = createSpyObj("BibleReferenceService", ["extract"])

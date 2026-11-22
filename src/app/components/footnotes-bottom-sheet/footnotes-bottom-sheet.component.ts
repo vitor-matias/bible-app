@@ -23,9 +23,6 @@ import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { ToastService } from "../../services/toast.service"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
-/** What the sheet is dismissed with when one of its references is followed. */
-const FOLLOWED = "followed"
-
 @Component({
   selector: "footnotes-bottom-sheet",
   standalone: true,
@@ -123,6 +120,8 @@ export class FootnotesBottomSheetComponent {
   private bookService = inject(BookService)
   private analyticsService = inject(AnalyticsService)
   private toast = inject(ToastService)
+  /** One of its references was followed: +365 stays paused. */
+  private followed = false
 
   constructor() {
     // Opened over a way back, which is still to be within reach.
@@ -133,7 +132,7 @@ export class FootnotesBottomSheetComponent {
     const release = inject(PodcastPlayerService).hold()
     this.bottomSheetRef
       .afterDismissed()
-      .subscribe((result) => release(result !== FOLLOWED))
+      .subscribe(() => release(!this.followed))
 
     const data = this.data
 
@@ -175,7 +174,9 @@ export class FootnotesBottomSheetComponent {
 
   /** The link navigates; this closes the sheet and offers the way back. */
   followReference(): void {
-    this.bottomSheetRef.dismiss(FOLLOWED)
+    // Kept here: BackButtonService's dismiss passes no result along.
+    this.followed = true
+    this.close()
     this.toast.showReturn(this.data.verse)
   }
 }

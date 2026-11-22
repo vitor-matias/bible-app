@@ -121,7 +121,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   protected readonly caption = computed(() => {
     const chapter = `${this.bookName()} ${this.chapter()}`
     const day = this.plan.active()
-    if (day && this.reflection()) return `+365 · Dia ${day.day} · Reflexão`
+    if (day && this.reflection()) {
+      return day.readings.length
+        ? `+365 · Dia ${day.day} · Reflexão`
+        : `+365 · ${day.title}`
+    }
     const inDay = day?.readings.some(
       (reading) =>
         reading.bookId === this.bookId() && reading.chapter === this.chapter(),

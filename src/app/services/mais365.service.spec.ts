@@ -122,6 +122,18 @@ describe("Mais365Service", () => {
     expect(plan.done()).toEqual([])
   })
 
+  it("names the first reading of a day started while another was at its first", () => {
+    const plan = create()
+    const find = (n: number) =>
+      plan.days.find(({ day }) => day === n) as (typeof plan.days)[0]
+    plan.start(find(1))
+    TestBed.tick()
+    expect(player.current()?.title).toBe("Génesis 1")
+    plan.start(find(3))
+    TestBed.tick()
+    expect(player.current()?.title).toBe("Génesis 5")
+  })
+
   it("turns to each reading as the podcast reaches it", () => {
     const plan = create()
     const day = plan.days.find(({ day }) => day === 1) as (typeof plan.days)[0]
@@ -191,6 +203,8 @@ describe("Mais365Service", () => {
     TestBed.tick()
     expect(plan.stage()).toBe("reflection")
     expect(plan.done()).toEqual([])
+    // Named as itself for the system's player, not as a reflection.
+    expect(player.current()?.title).toBe(intro.title)
 
     at(intro.duration)
     player.current.set(null) // the stream ended
