@@ -292,10 +292,18 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   /**
    * Where the card view can show at all: it is built around thumb-flicking a
    * phone, and it deals out verses — which the app's own pages (About, the
-   * index) and an introduction (prose, not verses) do not have.
+   * index) and an introduction (prose, not verses) do not have. Not in the
+   * native apps either, until their menus (ReaderChrome) have an entry: with
+   * none, a stored preference would trap the reader in the cards.
    */
   get cardsViewAvailable(): boolean {
-    return this.isMobile && !!this.book && !this.isPage && !this.isIntroChapter
+    return (
+      this.isMobile &&
+      !this.nativeChrome.enabled &&
+      !!this.book &&
+      !this.isPage &&
+      !this.isIntroChapter
+    )
   }
 
   /**

@@ -35,8 +35,8 @@ Angular Material, and a thin REST backend.
   its own, so the book/chapter pickers, deep links and sideways chapter swipes
   all keep working; on a desktop the entry is absent and the preference ignored.
   The native iOS/Android apps draw their menus natively (`ReaderChrome`), which
-  has no entry for it yet, so there it is reachable only through the web menu
-  the shells do not show.
+  has no entry for it yet, so the view is not offered there, and a stored
+  preference is ignored.
 
 ## Tech stack
 

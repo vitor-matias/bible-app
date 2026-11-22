@@ -2589,6 +2589,14 @@ describe("BibleReaderComponent", () => {
         ).toBeNull()
       })
 
+      it("is not offered in the native apps, whose menus have no entry to leave it", () => {
+        Object.assign(TestBed.inject(NativeChromeService), { enabled: true })
+        bootOn("android", true)
+
+        expect(component.cardsViewAvailable).toBe(false)
+        expect(component.showCards).toBe(false)
+      })
+
       it("is not offered on the About page", () => {
         bootOn("android", true)
         component.book = { ...component.book, id: "about" }
