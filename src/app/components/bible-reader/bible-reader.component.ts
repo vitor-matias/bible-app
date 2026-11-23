@@ -1200,6 +1200,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // an addition (Ester) are stored under others.
     const verses = this.chapter?.verses ?? []
     const verseStart = resolveVerseKey(verses, start)
+    // A verse the chapter doesn't have: nothing to scroll to or mark.
+    if (verseStart === undefined) return
     const verseEnd = end && resolveVerseEndKey(verses, end, start.addition)
     this.linkedVerse = verseStart
     const pagedNav = this.pagedNav

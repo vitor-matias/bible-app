@@ -645,6 +645,11 @@ describe("BibleReaderComponent", () => {
         expect([call?.[2], call?.[3]]).toEqual([4, 4])
       })
 
+      it("scrolls to nothing for a verse the chapter lacks", () => {
+        queryTo([["verseStart", "9"]])
+        expect(animationServiceSpy.scrollToVerseElement).not.toHaveBeenCalled()
+      })
+
       it("does not fall over a parameter given twice", () => {
         queryTo([["verseStart", ["1", "2"] as unknown as string]])
         expect(

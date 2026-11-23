@@ -67,28 +67,32 @@ const ofKind = (verses: readonly StoredVerse[], addition: boolean) =>
   verses.filter((verse) => verse.number > 0 && !!verse.supplement === addition)
 
 /**
- * The number the verse a link names is stored under. A chapter without
- * additions stores its verses under their printed numbers, as a chapter cached
- * before the additions were split out does, so those answer as they are.
+ * The number the verse a link names is stored under; undefined for a verse the
+ * chapter doesn't have. A chapter without additions stores its verses under
+ * their printed numbers, as a chapter cached before the additions were split
+ * out does, so those answer as they are. Where there are additions the two
+ * are apart, and a printed number the chapter lacks may be the key of another
+ * verse: it opens nothing.
  */
 export function resolveVerseKey(
   verses: readonly StoredVerse[],
   ref: VerseRef,
   /** The letter an end of range inherits from its start. */
   inheritedAddition?: boolean,
-): number {
+): number | undefined {
   const addition = ref.addition ?? inheritedAddition ?? false
-  return (
-    ofKind(verses, addition).find(
-      (verse) => printedNumber(verse) === ref.number,
-    )?.number ?? ref.number
+  const found = ofKind(verses, addition).find(
+    (verse) => printedNumber(verse) === ref.number,
   )
+  if (found) return found.number
+  return verses.some((verse) => verse.supplement) ? undefined : ref.number
 }
 
 /**
- * The same for the end of a range, which a link may carry past the last verse
- * ("Est 1,20-23" in a chapter of 22): the range then runs to the last one of
- * its kind, as stored, since the printed number would fall before the start.
+ * The same for the end of a range. One the chapter lacks ("Est 1,20-23" in a
+ * chapter of 22, or a verse the translation omits) ends the range at the last
+ * verse of its kind before it, as stored: the printed number would fall before
+ * the start where the two are apart, and a verse past it must not be reached.
  */
 export function resolveVerseEndKey(
   verses: readonly StoredVerse[],
@@ -96,10 +100,9 @@ export function resolveVerseEndKey(
   inheritedAddition?: boolean,
 ): number {
   const addition = ref.addition ?? inheritedAddition ?? false
-  const kind = ofKind(verses, addition)
-  return (
-    kind.find((verse) => printedNumber(verse) === ref.number)?.number ??
-    kind.at(-1)?.number ??
-    ref.number
+  const upTo = ofKind(verses, addition).filter(
+    (verse) => printedNumber(verse) <= ref.number,
   )
+  const exact = upTo.find((verse) => printedNumber(verse) === ref.number)
+  return (exact ?? upTo.at(-1))?.number ?? ref.number
 }

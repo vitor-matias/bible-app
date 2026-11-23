@@ -76,9 +76,22 @@ describe("verse-ref", () => {
       ).toBe(2)
     })
 
-    it("keeps a number the chapter lacks, as before", () => {
-      expect(resolveVerseKey(esterOne, { number: 99 })).toBe(99)
+    it("keeps a number a chapter without additions lacks, as before", () => {
+      const plain = [
+        { number: 1, numberLabel: "1" },
+        { number: 2, numberLabel: "2" },
+      ]
+      expect(resolveVerseKey(plain, { number: 99 })).toBe(99)
       expect(resolveVerseKey([], { number: 3 })).toBe(3)
+    })
+
+    // Where the numbers are apart, a missing one is the key of another verse.
+    it("opens nothing for a number a chapter with additions lacks", () => {
+      expect(resolveVerseKey(esterOne, { number: 30 })).toBeUndefined()
+      expect(resolveVerseKey(esterOne, { number: 99 })).toBeUndefined()
+      expect(
+        resolveVerseKey(esterOne, { number: 20, addition: true }),
+      ).toBeUndefined()
     })
   })
 
@@ -93,6 +106,16 @@ describe("verse-ref", () => {
       // the start's stored 37.
       expect(resolveVerseEndKey(esterOne, { number: 23 })).toBe(39)
       expect(resolveVerseEndKey(esterOne, { number: 30 }, true)).toBe(17)
+    })
+
+    it("ends a range at the verse before one the chapter omits", () => {
+      // Mt 17 as the translation has it: 20, then 22.
+      const omitted = [20, 22, 23].map((n) => ({
+        number: n,
+        numberLabel: `${n}`,
+      }))
+      expect(resolveVerseEndKey(omitted, { number: 21 })).toBe(20)
+      expect(resolveVerseEndKey(omitted, { number: 23 })).toBe(23)
     })
 
     it("keeps the number where the chapter has nothing to go by", () => {
