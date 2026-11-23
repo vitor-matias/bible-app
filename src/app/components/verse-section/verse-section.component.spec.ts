@@ -445,6 +445,49 @@ describe("VerseSectionComponent", () => {
       }
     })
 
+    // «Diálogo      com      Nicodemos      —»: a justified line the verse text
+    // can't join stretched the heading's spaces (styles.css; Chromium, Firefox).
+    describe("a run-in heading beside the chapter number in justified text", () => {
+      const justifyOf = (beside: boolean, centred: boolean): string => {
+        const host = fixture.nativeElement as HTMLElement
+        // As the reader nests it: .bookBlock > verse-section > .section.
+        const block = document.createElement("div")
+        block.className = "bookBlock"
+        const wrapper = document.createElement("verse-section")
+        host.before(block)
+        block.append(wrapper)
+        wrapper.append(host)
+        try {
+          fixture.componentRef.setInput("changeLine", false)
+          fixture.componentRef.setInput("besideChapterNumber", beside)
+          fixture.componentRef.setInput("nextIsQuote", centred)
+          setData(
+            fixture,
+            makeVerse({
+              text: [
+                { type: "section", tag: "s2", text: "Diálogo com Nicodemos" },
+              ],
+            }),
+          )
+          fixture.detectChanges()
+          return getComputedStyle(host.querySelector(".section") as HTMLElement)
+            .textJustify
+        } finally {
+          block.before(host)
+          block.remove()
+        }
+      }
+
+      it("does not stretch its spaces", () => {
+        expect(justifyOf(true, false)).toBe("none")
+      })
+
+      it("leaves a heading elsewhere, or centred, as it was", () => {
+        expect(justifyOf(false, false)).not.toBe("none")
+        expect(justifyOf(true, true)).not.toBe("none")
+      })
+    })
+
     // In justified paged text the space inside a citation stretched:
     // «O porquê das parábolas (Mc        4,10-12;».
     it("keeps a citation's own space unstretched in justified text", () => {

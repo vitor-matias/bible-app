@@ -39,7 +39,7 @@
       <div #chapterNumber class="chapterNumber" [class.supplementMark]="!!(data().chapterLabel || data().supplementLetter)">
         {{ data().chapterLabel || data().supplementLetter || data().chapterNumber }}
         @if (liturgicalNumber) {
-          <span class="liturgicalNumber"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
+          <span class="liturgicalNumber" title="Numeração litúrgica, a dos missais e das leituras da Missa"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
         }
       </div>
     }

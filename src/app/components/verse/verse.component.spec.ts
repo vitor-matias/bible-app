@@ -1564,6 +1564,7 @@ describe("VerseComponent", () => {
       fixture.detectChanges()
 
       expect(liturgical().textContent?.trim()).toBe("na liturgia, (22)")
+      expect(liturgical().title).toContain("Numeração litúrgica")
     })
 
     it("carries none where the numberings agree, or outside the Psalms", () => {

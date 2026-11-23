@@ -987,3 +987,11 @@ html:has(mat-snack-bar-container) .footnotes-container {
     opacity: 1 !important;
   }
 }
+
+/* A run-in heading beside the chapter number, dash included, is not stretched:
+   justified, its line (always one the verse text can't join) spread
+   "Diálogo      com      Nicodemos      —" across the column. Chromium and
+   Firefox; Safari has no text-justify. */
+.bookBlock verse-section .section.besideChapterNumber:not(.center) {
+  text-justify: none;
+}
