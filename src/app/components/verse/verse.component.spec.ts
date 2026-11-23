@@ -1361,6 +1361,66 @@ describe("VerseComponent", () => {
       expect(centre).toBe(asterisk())
     })
 
+    // "Sl 23" was a 24 px tall target on a phone, among the words.
+    describe("a cross-reference's touch target", () => {
+      const render = (
+        text: string,
+        refs: { match: string; index: number }[],
+      ) => {
+        document.body.classList.add("native-chrome")
+        mockBibleRef.extract.mockReturnValue(
+          refs.map((ref) => ({ ...ref, book: "psa", chapter: 8 })),
+        )
+        setData(fixture, makeVerse({ text: [{ type: "references", text }] }))
+        fixture.detectChanges()
+        return Array.from(
+          fixture.nativeElement.querySelectorAll("a.references"),
+        ) as HTMLElement[]
+      }
+      afterEach(() => document.body.classList.remove("native-chrome"))
+
+      it("reaches past the link, outside the text's flow", () => {
+        const [link] = render("Sl 23", [{ match: "Sl 23", index: 0 }])
+        const box = link.getBoundingClientRect()
+        const target = getComputedStyle(link, "::after")
+
+        expect(target.position).toBe("absolute")
+        expect(Number.parseFloat(target.height)).toBeCloseTo(box.height + 14, 0)
+        expect(Number.parseFloat(target.width)).toBeCloseTo(
+          box.width + 0.4 * Number.parseFloat(getComputedStyle(link).fontSize),
+          0,
+        )
+        const below = document.elementFromPoint(
+          box.left + box.width / 2,
+          box.bottom + 5,
+        )
+        expect(below).toBe(link)
+      })
+
+      // "Sl 8; 9": a later link paints over an earlier one, so the bare "9"
+      // must not reach the 8's words.
+      it.each(["20px", "10.6px"])(
+        "does not cover the words of a neighbouring link at %s text",
+        (fontSize) => {
+          fixture.nativeElement.style.fontSize = fontSize
+          const [first, second] = render("Sl 8; 9", [
+            { match: "Sl 8", index: 0 },
+            { match: "9", index: 6 },
+          ])
+          const gap =
+            second.getBoundingClientRect().left -
+            first.getBoundingClientRect().right
+          const target = getComputedStyle(second, "::after")
+          const overhang =
+            (Number.parseFloat(target.width) -
+              second.getBoundingClientRect().width) /
+            2
+
+          expect(overhang).toBeLessThanOrEqual(gap)
+        },
+      )
+    })
+
     // It scrolled on under the sheet, carrying the verse away.
     it("stops auto-scroll as the notes open", () => {
       const autoScroll = play()
