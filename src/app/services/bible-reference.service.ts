@@ -155,8 +155,9 @@ export class BibleReferenceService {
       // as the verse range it is, through the branch above — and only when
       // the number is not the front of the next book, so "1 Sm 31 - 2 Sm 1"
       // stays two references instead of "1 Sm 31-2" and an orphaned "Sm 1".
+      // The space before that book's chapter may be left out, as above.
       String.raw`|\s*[-\u2010-\u2015\u2212]\s*(?<endChapterOnly>\d+)(?!\s*(?:[:.]|,(?!\s))\s*\d)` +
-      String.raw`(?!\s*(?:${this.bookAlternation})\s+\d)` +
+      String.raw`(?!\s*(?:${this.bookAlternation})\s*\d)` +
       String.raw`)?\b`
 
     this.explicitRe = new RegExp(pattern, "gi")

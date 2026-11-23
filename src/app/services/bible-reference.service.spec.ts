@@ -87,6 +87,20 @@ describe("BibleReferenceService", () => {
       expect(refs[0].endChapter).toBeUndefined()
     })
 
+    // The spaceless form is read on purpose ("1Cor13,4"), so the next book's
+    // number must be kept from the range there too, or its book loses it.
+    it("does not take the number of a next book written without a space", () => {
+      for (const text of ["Gn 50 \u2013 1Jo2,4", "Gn 50 \u2013 1 Jo2,4"]) {
+        const refs = service.extract(text, "gen", 1)
+
+        expect(refs.map((ref) => ref.match)).toEqual([
+          "Gn 50",
+          text.slice(text.indexOf("1")),
+        ])
+        expect(refs[0].endChapter).toBeUndefined()
+      }
+    })
+
     it("leaves a verse range alone", () => {
       const [ref] = service.extract("Gn 46,1-27", "gen", 1)
 
