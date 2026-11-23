@@ -46,19 +46,27 @@ export function printedNumber(
   return Number.isNaN(printed) ? verse.number : printed
 }
 
-type StoredVerse = Pick<Verse, "number" | "numberLabel" | "supplement">
+type StoredVerse = Pick<Verse, "number" | "numberLabel" | "supplement"> &
+  Partial<Pick<Verse, "bookId" | "chapterNumber">>
+
+/** Ben Sira 1 stores the translator's prologue as its first eight verses. */
+const SIRACH_PROLOGUE_LINES = 8
 
 /**
  * Whether a verse is numbered apart from the chapter's own: one of Ester's
  * Greek additions (flagged), or a line of Ben Sira's prologue, which the
- * source stores unflagged ahead of chapter 1 with labels that run ahead of its
- * keys (1, 5, 10, ... as keys 1-8). Elsewhere a verse is printed as it is
- * stored, or behind it, after an addition.
+ * source stores unflagged ahead of chapter 1 (keys 1-8, labelled 1, 5, 10 ...
+ * 35, then the chapter's own 1-30 as keys 9-38). Named by book, not told by
+ * its numbers: Zechariah 3 prints "10" under stored key 9 and is no addition,
+ * and the prologue's first line is labelled 1 as stored.
  */
 export function isAddition(verse: StoredVerse): boolean {
   return (
     !!verse.supplement ||
-    (verse.number > 0 && printedNumber(verse) > verse.number)
+    (verse.bookId === SIRACH_ID &&
+      verse.chapterNumber === 1 &&
+      verse.number >= 1 &&
+      verse.number <= SIRACH_PROLOGUE_LINES)
   )
 }
 
@@ -72,7 +80,7 @@ export function verseRefValue(
   chapter: number,
 ): string | number {
   const printed = printedNumber(verse)
-  if (!isAddition(verse)) return printed
+  if (!isAddition({ ...verse, bookId, chapterNumber: chapter })) return printed
   const letter =
     (bookId === ESTHER_ID ? ESTHER_ADDITION_LETTERS[chapter] : undefined) ??
     (bookId === SIRACH_ID ? "P" : "A")

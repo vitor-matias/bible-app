@@ -24,15 +24,22 @@ const esterOne: Pick<Verse, "number" | "numberLabel" | "supplement">[] = [
 
 /** Ben Sira 1 as the API stores it: the prologue's eight lines, unflagged,
  *  labelled 1, 5, 10 ... 35 as keys 1-8, then the chapter's 1-30 as 9-38. */
-const sirachOne: Pick<Verse, "number" | "numberLabel" | "supplement">[] = [
-  { number: 0, numberLabel: "0" },
+const sirachOne: Pick<
+  Verse,
+  "number" | "numberLabel" | "supplement" | "bookId" | "chapterNumber"
+>[] = [
+  { number: 0, numberLabel: "0", bookId: "sir", chapterNumber: 1 },
   ...[1, 5, 10, 15, 20, 25, 30, 35].map((label, i) => ({
     number: i + 1,
     numberLabel: `${label}`,
+    bookId: "sir",
+    chapterNumber: 1,
   })),
   ...Array.from({ length: 30 }, (_, i) => ({
     number: i + 9,
     numberLabel: `${i + 1}`,
+    bookId: "sir",
+    chapterNumber: 1,
   })),
 ]
 
@@ -156,13 +163,28 @@ describe("verse-ref", () => {
     })
 
     it("writes a link that opens the verse a result is", () => {
+      // The prologue's first line is labelled 1, as is the chapter's.
+      expect(verseRefValue(sirachOne[1], "sir", 1)).toBe("P1")
+      expect(resolveVerseKey(sirachOne, { number: 1, addition: true })).toBe(1)
       // Search hit Sir 1,5 (stored 13) and a prologue line (stored 2).
       expect(verseRefValue(sirachOne[13], "sir", 1)).toBe(5)
       expect(verseRefValue(sirachOne[2], "sir", 1)).toBe("P5")
-      for (const verse of sirachOne.slice(2)) {
+      for (const verse of sirachOne.slice(1)) {
         const ref = parseVerseRef(`${verseRefValue(verse, "sir", 1)}`)
         expect(ref && resolveVerseKey(sirachOne, ref)).toBe(verse.number)
       }
+    })
+
+    // Zechariah 3 stores "8-9" as key 8 and prints "10" under key 9: a label
+    // ahead of its key is no sign of an addition.
+    it("does not take a merged verse's successor for an addition", () => {
+      const zechariah = [
+        { number: 8, numberLabel: "8-9", bookId: "zec", chapterNumber: 3 },
+        { number: 9, numberLabel: "10", bookId: "zec", chapterNumber: 3 },
+      ]
+      expect(isAddition(zechariah[1])).toBe(false)
+      expect(resolveVerseKey(zechariah, { number: 10 })).toBe(9)
+      expect(verseRefValue(zechariah[1], "zec", 3)).toBe(10)
     })
 
     it("tells the prologue from the chapter, and an addition from neither", () => {
