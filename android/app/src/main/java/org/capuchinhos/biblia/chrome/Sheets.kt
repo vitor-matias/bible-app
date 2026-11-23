@@ -563,11 +563,16 @@ private fun BookmarksSheet(chrome: ChromeController, sheet: Sheet.Bookmarks) {
     ChromeSheet(chrome, sheet, sheetState) {
         Column(Modifier.padding(start = 16.dp, end = 4.dp, bottom = 24.dp)) {
             SheetTitleRow("Marcadores", onClose = { closer.close() }, Modifier.padding(start = 8.dp)) {
-                // A shape, not bare text: it reads as a button.
-                if (anyUsed) {
-                    FilledTonalButton(onClick = { editing = !editing }) {
-                        Text(if (editing) "Concluído" else "Editar")
-                    }
+                // A shape, not bare text: it reads as a button. Always laid out,
+                // unseen until a ribbon is placed: its row's height (and the
+                // wrap at large text) is the sheet's from the start, or the
+                // colours move under the finger that placed the first.
+                FilledTonalButton(
+                    onClick = { editing = !editing },
+                    enabled = anyUsed,
+                    modifier = if (anyUsed) Modifier else Modifier.alpha(0f).clearAndSetSemantics {},
+                ) {
+                    Text(if (editing) "Concluído" else "Editar")
                 }
             }
             // Scrolls under the title on a phone on its side, as the text
