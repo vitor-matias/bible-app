@@ -52,6 +52,7 @@ import {
   verseLines,
   verseText,
 } from "../../utils/text-search"
+import { verseRefValue } from "../../utils/verse-ref"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 import { getVerseQueryParams } from "../verse/verse.utils"
 
@@ -1046,12 +1047,18 @@ export class SearchComponent {
     return this.bookService.findBook(bookId)
   }
 
+  /** A result's verse as a link names it: by its printed number, which an
+   *  addition's letter goes with (Ester), not the number it is stored under. */
+  verseRef(verse: Verse): string | number {
+    return verseRefValue(verse, verse.bookId, verse.chapterNumber)
+  }
+
   /** A result's or a psalm's address: a real link, which a keyboard, a
    *  screen reader and "open in a new tab" can follow. */
   passageHref(
     bookId: string,
     chapter: number,
-    verseStart?: number,
+    verseStart?: string | number,
     verseEnd?: number,
   ): string {
     const end = verseStart && verseEnd ? `&verseEnd=${verseEnd}` : ""
@@ -1083,7 +1090,7 @@ export class SearchComponent {
     event: MouseEvent,
     bookId: string,
     chapter: number,
-    verseStart?: number,
+    verseStart?: string | number,
     verseEnd?: number,
   ): void {
     if (leftToTheBrowser(event)) return

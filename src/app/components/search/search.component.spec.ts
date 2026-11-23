@@ -2239,6 +2239,31 @@ describe("SearchComponent", () => {
       })
     })
 
+    it("links an Ester result by its printed verse, an addition's with its letter", () => {
+      const verse = (
+        number: number,
+        numberLabel: string,
+        supplement?: boolean,
+      ) =>
+        ({
+          bookId: "est",
+          chapterNumber: 1,
+          number,
+          numberLabel,
+          ...(supplement ? { supplement } : {}),
+        }) as Verse
+      // The chapter's first verse is stored after seventeen of addition A's.
+      expect(component.verseRef(verse(18, "1"))).toBe(1)
+      expect(component.verseRef(verse(3, "3", true))).toBe("A3")
+      expect(
+        component.passageHref(
+          "est",
+          1,
+          component.verseRef(verse(3, "3", true)),
+        ),
+      ).toContain("?verseStart=A3")
+    })
+
     it("leaves a click with a modifier to the browser, for a new tab", () => {
       const link = (fixture.nativeElement as HTMLElement).querySelector(
         "a.result-card",

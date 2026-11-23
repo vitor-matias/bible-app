@@ -64,6 +64,12 @@ import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
 import { introductionTitle, passageLabel } from "../../utils/passage-label"
+import {
+  parseVerseRef,
+  printedNumber,
+  resolveVerseKey,
+  type VerseRef,
+} from "../../utils/verse-ref"
 import { AboutComponent } from "../about/about.component"
 import { AutoScrollControlsComponent } from "../auto-scroll-controls/auto-scroll-controls.component"
 import { BookIntroComponent } from "../book-intro/book-intro.component"
@@ -420,12 +426,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
             this.chapter = undefined
             this.rebuildChapterLinks()
 
-            const parsedVerseStart = queryParams["verseStart"]
-              ? Number.parseInt(queryParams["verseStart"], 10)
-              : undefined
-            const parsedVerseEnd = queryParams["verseEnd"]
-              ? Number.parseInt(queryParams["verseEnd"], 10)
-              : undefined
+            const parsedVerseStart = parseVerseRef(queryParams["verseStart"])
+            const parsedVerseEnd = parseVerseRef(queryParams["verseEnd"])
 
             // Browser-only: while prerendering, this navigation would make
             // Angular emit a "Redirecting" stub instead of the page content.
@@ -460,12 +462,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
         const chapterParam = this.bookService.parseChapterUrlSegment(
           params.get("chapter"),
         )
-        const verseStartParam = queryParams.get("verseStart")
-          ? Number.parseInt(queryParams.get("verseStart") || "1", 10)
-          : undefined
-        const verseEndParam = queryParams.get("verseEnd")
-          ? Number.parseInt(queryParams.get("verseEnd") || "1", 10)
-          : undefined
+        const verseStartParam = parseVerseRef(queryParams.get("verseStart"))
+        const verseEndParam = parseVerseRef(queryParams.get("verseEnd"))
 
         const highlight =
           queryParams.get("highlight") === null
@@ -826,8 +824,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   getChapter(
     chapter: Chapter["number"],
-    verseStart?: Verse["number"],
-    verseEnd?: Verse["number"],
+    verseStart?: VerseRef,
+    verseEnd?: VerseRef,
     highlight = true,
   ) {
     this.pendingChapter = chapter
@@ -1066,8 +1064,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private applyChapter(
     chapterData: Chapter,
     chapter: Chapter["number"],
-    verseStart?: Verse["number"],
-    verseEnd?: Verse["number"],
+    verseStart?: VerseRef,
+    verseEnd?: VerseRef,
     highlight = true,
   ): void {
     // Paged view lays the text out anew and a verse link moves it, so those
@@ -1168,8 +1166,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const [from, to = from] = wanted.split("-").map(Number)
     const verse = this.chapter.verses.find(
       (candidate) =>
-        candidate.number >= from &&
-        candidate.number <= to &&
+        !candidate.supplement &&
+        printedNumber(candidate) >= from &&
+        printedNumber(candidate) <= to &&
         candidate.text.some((part) => part.type === "footnote"),
     )
     if (!verse) return
@@ -1192,10 +1191,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   /** Paged mode scrolls in whole pages, so paged navigation does the scroll. */
   private scrollToVerse(
-    verseStart: Verse["number"],
-    verseEnd?: Verse["number"],
+    start: VerseRef,
+    end?: VerseRef,
     highlight = true,
   ): void {
+    // A link names a verse by its printed number; the chapter's verses after
+    // an addition (Ester) are stored under others.
+    const verses = this.chapter?.verses ?? []
+    const verseStart = resolveVerseKey(verses, start)
+    const verseEnd = end && resolveVerseKey(verses, end, start.addition)
     this.linkedVerse = verseStart
     const pagedNav = this.pagedNav
     this.animationService.scrollToVerseElement(

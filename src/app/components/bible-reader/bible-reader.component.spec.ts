@@ -586,6 +586,73 @@ describe("BibleReaderComponent", () => {
       })
     })
 
+    describe("a link's verse in a chapter with a supplement (Ester)", () => {
+      // Addition A is stored as 1-2, the chapter's own verses after it as 3-4.
+      const verse = (number: number, numberLabel: string, supplement = false) =>
+        ({
+          bookId: "gen",
+          chapterNumber: 1,
+          number,
+          numberLabel,
+          ...(supplement ? { supplement: true } : {}),
+          text: [],
+        }) as unknown as Verse
+      const queryTo = (query: [string, string][]) =>
+        (
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap.next(new Map(query))
+
+      beforeEach(async () => {
+        apiServiceSpy.getChapter.mockReturnValue(
+          of({
+            ...mockChapter,
+            verses: [
+              verse(1, "1", true),
+              verse(2, "2", true),
+              verse(3, "1"),
+              verse(4, "2"),
+            ],
+          } as unknown as Chapter),
+        )
+        fixture.detectChanges()
+        await fixture.whenStable()
+        animationServiceSpy.scrollToVerseElement.mockClear()
+      })
+
+      it("opens the chapter's own verse for its printed number", () => {
+        queryTo([["verseStart", "1"]])
+        expect(
+          animationServiceSpy.scrollToVerseElement.mock.lastCall?.[2],
+        ).toBe(3)
+      })
+
+      it("opens the addition's verse for its letter and number", () => {
+        queryTo([["verseStart", "A2"]])
+        expect(
+          animationServiceSpy.scrollToVerseElement.mock.lastCall?.[2],
+        ).toBe(2)
+      })
+
+      it("takes the end of a range in the start's kind", () => {
+        queryTo([
+          ["verseStart", "A1"],
+          ["verseEnd", "2"],
+        ])
+        const call = animationServiceSpy.scrollToVerseElement.mock.lastCall
+        expect([call?.[2], call?.[3]]).toEqual([1, 2])
+
+        queryTo([
+          ["verseStart", "1"],
+          ["verseEnd", "2"],
+        ])
+        const chapterCall =
+          animationServiceSpy.scrollToVerseElement.mock.lastCall
+        expect([chapterCall?.[2], chapterCall?.[3]]).toEqual([3, 4])
+      })
+    })
+
     it("should not call getChapter if book and chapter didn't change on route update", () => {
       fixture.detectChanges() // Sets up initial sub
       apiServiceSpy.getChapter.mockClear()
@@ -3158,7 +3225,7 @@ describe("BibleReaderComponent", () => {
       apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
-      component.getChapter(1, 5, 10, true)
+      component.getChapter(1, { number: 5 }, { number: 10 }, true)
       await vi.advanceTimersByTimeAsync(0)
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
     })
@@ -3352,7 +3419,7 @@ describe("BibleReaderComponent", () => {
       bookServiceSpy.findBook.mockReturnValue(mockBooks[1] as unknown as Book)
       component.book = mockBooks[1] as unknown as Book
 
-      component.getChapter(1, 10)
+      component.getChapter(1, { number: 10 })
       await vi.advanceTimersByTimeAsync(0)
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
     })

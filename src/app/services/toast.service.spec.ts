@@ -194,6 +194,45 @@ describe("ToastService", () => {
       })
     })
 
+    it("goes back by the verse's printed number, not the one it is stored under", () => {
+      const toast = create(false)
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
+      // The chapter's first verse, stored after seventeen of an addition's.
+      toast.showReturn({
+        bookId: "gen",
+        chapterNumber: 1,
+        number: 18,
+        numberLabel: "1",
+      })
+      expect(returnSnack().message).toBe("Voltar para Gn 1,1")
+      returnSnack().returnUrl()
+      expect(navigate).toHaveBeenCalledWith(["gn", 1], {
+        queryParams: { verseStart: 1, highlight: false },
+      })
+    })
+
+    it("names an addition's verse by its letter in the link", () => {
+      const toast = create(false)
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
+      toast.showReturn({
+        bookId: "gen",
+        chapterNumber: 1,
+        number: 3,
+        numberLabel: "3",
+        supplement: true,
+      })
+      // As printed: no letter.
+      expect(returnSnack().message).toBe("Voltar para Gn 1,3")
+      returnSnack().returnUrl()
+      expect(navigate).toHaveBeenCalledWith(["gn", 1], {
+        queryParams: { verseStart: "A3", highlight: false },
+      })
+    })
+
     it("goes back to verse 1 from before the first verse", () => {
       create(false).showReturn({ bookId: "gen", chapterNumber: 1, number: 0 })
       expect(returnSnack().message).toBe("Voltar para Gn 1,1")
