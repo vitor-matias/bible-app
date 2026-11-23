@@ -83,6 +83,9 @@ import { VerseComponent } from "../verse/verse.component"
 /** How long «A tentar…» shows at least: offline, a retry fails at once, unseen. */
 export const RETRY_FEEDBACK_MS = 1000
 
+/** The key of no verse, for a link to one the chapter lacks. */
+const NO_VERSE = -1
+
 @Component({
   selector: "bible-reader",
   templateUrl: "./bible-reader.component.html",
@@ -1199,10 +1202,14 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // A link names a verse by its printed number; the chapter's verses after
     // an addition (Ester) are stored under others.
     const verses = this.chapter?.verses ?? []
-    const verseStart = resolveVerseKey(verses, start)
-    // A verse the chapter doesn't have: nothing to scroll to or mark.
-    if (verseStart === undefined) return
-    const verseEnd = end && resolveVerseEndKey(verses, end, start.addition)
+    const resolved = resolveVerseKey(verses, start)
+    // A verse the chapter doesn't have is no element's id: nothing is scrolled
+    // or marked, but the pass still runs, as it ends the chapter's fade-in.
+    const verseStart = resolved ?? NO_VERSE
+    const verseEnd =
+      resolved === undefined || !end
+        ? undefined
+        : resolveVerseEndKey(verses, end, start.addition)
     this.linkedVerse = verseStart
     const pagedNav = this.pagedNav
     this.animationService.scrollToVerseElement(

@@ -645,9 +645,15 @@ describe("BibleReaderComponent", () => {
         expect([call?.[2], call?.[3]]).toEqual([4, 4])
       })
 
-      it("scrolls to nothing for a verse the chapter lacks", () => {
-        queryTo([["verseStart", "9"]])
-        expect(animationServiceSpy.scrollToVerseElement).not.toHaveBeenCalled()
+      // The pass must still run: it ends the fade-in of a chapter opened from
+      // a link, which would stay invisible otherwise.
+      it("marks no verse for one the chapter lacks, but still runs the pass", () => {
+        queryTo([
+          ["verseStart", "9"],
+          ["verseEnd", "12"],
+        ])
+        const call = animationServiceSpy.scrollToVerseElement.mock.lastCall
+        expect([call?.[2], call?.[3]]).toEqual([-1, undefined])
       })
 
       it("does not fall over a parameter given twice", () => {
