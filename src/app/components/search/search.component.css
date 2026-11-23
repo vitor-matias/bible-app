@@ -1,6 +1,9 @@
 .results-section {
   margin-top: 0px;
   padding: 20px;
+  /* A centred column on a tablet or desktop (rows ran 100 characters wide);
+     the scroll bar stays at the window's edge. */
+  padding-inline: max(20px, calc((100% - 40rem) / 2));
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: none; /* Prevents rubber banding in this container */
@@ -178,8 +181,7 @@
 }
 
 :host-context(.native-chrome) .results-section {
-  padding-left: 16px;
-  padding-right: 16px;
+  padding-inline: max(16px, calc((100% - 40rem) / 2));
 }
 
 :host-context(.native-chrome) :is(.results-count, .results-hint) {
@@ -252,8 +254,8 @@
   align-items: center;
   gap: 12px;
   box-sizing: border-box;
-  width: calc(100% - 40px);
-  margin: 20px 20px 0;
+  width: min(calc(100% - 40px), 40rem);
+  margin: 20px auto 0;
   padding: 14px 16px;
   border: 1px solid var(--border-color);
   border-radius: 8px;

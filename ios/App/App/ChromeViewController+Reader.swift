@@ -7,7 +7,7 @@ extension ChromeViewController {
         // would close the menu while a choice that keeps it open is applied.
         let send: (String) -> Void = { [weak self] id in self?.plugin.send(id) }
         moreItem.menu = ReaderMenu.make(state, send: send)
-        fontItem.menu = ReaderMenu.font(state, send: send)
+        fontItem.menu = ReaderMenu.font(state, compact: traitCollection.verticalSizeClass == .compact, send: send)
         moreItem.isEnabled = enabled
         bookmarksItem.isEnabled = enabled
         // The chapter's ribbon, in its colour; the bars are otherwise monochrome.

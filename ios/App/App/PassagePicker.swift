@@ -204,7 +204,9 @@ private final class BookListViewController: UICollectionViewController, UISearch
 
     private static func layout(for mode: Mode) -> UICollectionViewLayout {
         switch mode {
-        case .names: return tileLayout(minWidth: 104, height: 56)
+        // Wide: tiles roomy enough for "2 Tessalonicenses" at full size, else
+        // each long name shrinks on its own to the 104 pt tile's width.
+        case .names: return tileLayout(minWidth: 104, regularMinWidth: 150, height: 56)
         case .abbreviations: return tileLayout(minWidth: 52, height: 48)
         }
     }
@@ -573,9 +575,10 @@ private func tileSection(_ environment: NSCollectionLayoutEnvironment, minWidth:
 }
 
 /// The book grid, with a header above each canon group.
-private func tileLayout(minWidth: CGFloat, height: CGFloat) -> UICollectionViewLayout {
+private func tileLayout(minWidth: CGFloat, regularMinWidth: CGFloat? = nil, height: CGFloat) -> UICollectionViewLayout {
     UICollectionViewCompositionalLayout { _, environment in
-        let section = tileSection(environment, minWidth: minWidth, height: height)
+        let wide = environment.traitCollection.horizontalSizeClass == .regular
+        let section = tileSection(environment, minWidth: wide ? regularMinWidth ?? minWidth : minWidth, height: height)
         let header = NSCollectionLayoutBoundarySupplementaryItem(
             layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(36)),
             elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)

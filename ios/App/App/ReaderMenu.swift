@@ -43,7 +43,9 @@ enum ReaderMenu {
 
     /// Text size, theme, and pages or scrolling. Kept open throughout: the
     /// page changes behind it as people tap.
-    static func font(_ state: ChromeState, send: @escaping (String) -> Void) -> UIMenu {
+    /// `compact`: a landscape iPhone, where the title's line is what the last
+    /// row would scroll for.
+    static func font(_ state: ChromeState, compact: Bool = false, send: @escaping (String) -> Void) -> UIMenu {
         let size = row([
             action("Diminuir texto", "textformat.size.smaller", "font-decrease", keepsOpen: true, send: send),
             action("Aumentar texto", "textformat.size.larger", "font-increase", keepsOpen: true, send: send),
@@ -90,7 +92,7 @@ enum ReaderMenu {
                 return choice
             }))
         }
-        return UIMenu(title: "Texto e aparência", children: sections)
+        return UIMenu(title: compact ? "" : "Texto e aparência", children: sections)
     }
 
     /// Builds the reader's more menu, with reading actions followed by app

@@ -548,6 +548,23 @@ describe("SearchComponent", () => {
         expect(document.activeElement).toBe(field)
       })
 
+      // Before, the rows ran the width of a tablet, about 100 characters a line.
+      it("keeps the rows to a centred column on a wide screen", async () => {
+        vi.useFakeTimers()
+        const host = fixture.nativeElement as HTMLElement
+        host.style.display = "block"
+        host.style.width = "1200px"
+        component.onTyping("pastor")
+        await vi.advanceTimersByTimeAsync(TYPING_PAUSE_MS)
+        fixture.detectChanges()
+
+        const list = host.querySelector(".results-list") as HTMLElement
+        const rect = list.getBoundingClientRect()
+        const hostLeft = host.getBoundingClientRect().left
+        expect(rect.width).toBeCloseTo(640, 0)
+        expect(rect.left - hostLeft).toBeCloseTo((1200 - 640) / 2, 0)
+      })
+
       // Before, "amor " came back as "amor", and typing on gave "amorde".
       it("leaves what is being typed as it is", async () => {
         vi.useFakeTimers()
