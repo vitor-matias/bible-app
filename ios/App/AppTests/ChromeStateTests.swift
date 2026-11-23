@@ -690,7 +690,7 @@ final class PickerTitleLabelTests: XCTestCase {
     private func label(_ text: String) -> PickerTitleLabel { pickerTitleView(text) }
 
     func testAShortNameKeepsItsOwnWidthOnOneLine() {
-        let title = label("Livro do Génesis")
+        let title = label("Livro de Ester")
         title.maxWidth = PickerTitleLabel.room(inBarOfWidth: 402)
         let line = title.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
         XCTAssertEqual(title.intrinsicContentSize.width, line.width, accuracy: 0.5)
@@ -708,6 +708,11 @@ final class PickerTitleLabelTests: XCTestCase {
     func testTheRoomFollowsTheBarAndNeverVanishes() {
         XCTAssertGreaterThan(PickerTitleLabel.room(inBarOfWidth: 834), PickerTitleLabel.room(inBarOfWidth: 402))
         XCTAssertEqual(PickerTitleLabel.room(inBarOfWidth: 100), 120)
+        // A wider button leaves less, on both sides: the title is centred in what
+        // the narrower side allows.
+        XCTAssertLessThan(
+            PickerTitleLabel.room(inBarOfWidth: 402, widerButton: 140),
+            PickerTitleLabel.room(inBarOfWidth: 402, widerButton: 100))
     }
 }
 

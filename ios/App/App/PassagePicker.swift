@@ -214,10 +214,12 @@ final class PickerTitleLabel: UILabel {
         didSet { if oldValue != maxWidth { invalidateIntrinsicContentSize() } }
     }
 
-    /// What a bar of this width leaves a title between its two buttons: the wider
-    /// of them, doubled, as the title is centred («‹ Livros» is the wider).
-    static func room(inBarOfWidth width: CGFloat) -> CGFloat {
-        max(120, width - 2 * 116)
+    /// What a bar of this width leaves a title that stays centred between its two
+    /// buttons: the room either side of the centre, past the wider button (the bar's
+    /// left margin, 23 pt, and the 13 pt it keeps clear), doubled. Any wider and the
+    /// bar shifts the title off the centre, towards the room there is.
+    static func room(inBarOfWidth width: CGFloat, widerButton: CGFloat = 100) -> CGFloat {
+        max(120, width - 2 * (widerButton + 36))
     }
 
     override var intrinsicContentSize: CGSize {
@@ -420,7 +422,11 @@ private final class ChapterListViewController: UICollectionViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         let barWidth = navigationController?.navigationBar.bounds.width ?? view.bounds.width
-        titleLabel.maxWidth = PickerTitleLabel.room(inBarOfWidth: barWidth)
+        // «‹ Livros» is the wider of the two buttons, and is measured: it is drawn
+        // with the bar's own metrics, which differ between iOS versions.
+        let back = navigationItem.leftBarButtonItem?.customView?
+            .systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).width ?? 100
+        titleLabel.maxWidth = PickerTitleLabel.room(inBarOfWidth: barWidth, widerButton: max(back, 48))
     }
 
     @available(*, unavailable)
