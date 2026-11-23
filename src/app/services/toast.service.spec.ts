@@ -241,9 +241,19 @@ describe("ToastService", () => {
       expect(returnSnack().message).toBe("Voltar para Salmo 23 (22),1")
     })
 
-    it("goes back to verse 1 from before the first verse", () => {
-      create(false).showReturn({ bookId: "gen", chapterNumber: 1, number: 0 })
+    // Est 1 opens with addition A (stored 1-17) ahead of its own verse 1, so a
+    // named verse 1 would skip the addition.
+    it("goes back to the top of the chapter from before the first verse", () => {
+      const toast = create(false)
+      const navigate = vi
+        .spyOn(TestBed.inject(Router), "navigate")
+        .mockResolvedValue(true)
+      toast.showReturn({ bookId: "gen", chapterNumber: 1, number: 0 })
       expect(returnSnack().message).toBe("Voltar para Gn 1,1")
+      returnSnack().returnUrl()
+      expect(navigate).toHaveBeenCalledWith(["gn", 1], {
+        queryParams: { highlight: false },
+      })
     })
 
     it("offers the way back as a glass toast that is a button in the iOS app", () => {

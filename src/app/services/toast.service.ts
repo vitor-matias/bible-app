@@ -88,15 +88,23 @@ export class ToastService {
     // As printed: a verse after one of Ester's additions is stored under
     // another number, and the link names the addition's verses by letter.
     const printed = from.number > 0 ? printedNumber(from) : 1
+    // From before the first verse (a heading on verse 0) the way back is the
+    // top of the chapter: no verse named, which a chapter with an addition at
+    // its head would read as its own first verse, past the addition.
     const verseStart =
-      from.number > 0 ? verseRefValue(from, from.bookId, from.chapterNumber) : 1
+      from.number > 0
+        ? verseRefValue(from, from.bookId, from.chapterNumber)
+        : undefined
     const book = this.bookService.findBook(from.bookId)
     const urlAbrv = this.bookService.getUrlAbrv(book)
     // As the title and the share write it: "Salmo 23 (22),1", not "Salmos 23,1".
     const message = `Voltar para ${passageLabel(book, from.chapterNumber, printed)}`
     const goBack = (extras: NavigationExtras = {}) =>
       this.router.navigate([urlAbrv, from.chapterNumber], {
-        queryParams: { verseStart, highlight: false },
+        queryParams: {
+          ...(verseStart !== undefined && { verseStart }),
+          highlight: false,
+        },
         ...extras,
       })
 
