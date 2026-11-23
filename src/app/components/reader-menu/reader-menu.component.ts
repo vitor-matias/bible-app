@@ -120,6 +120,12 @@ export class ReaderMenuComponent {
     return this.textAlign.ragged ? "format_align_left" : "format_align_justify"
   }
 
+  /** The visible words under the icon, as the iPhone and Android menus say them:
+   *  a touch screen has no tooltip. Each is the start of its aria-label. */
+  getTextAlignLabel(): string {
+    return this.textAlign.ragged ? "À esquerda" : "Justificado"
+  }
+
   getTextAlignTooltip(): string {
     return this.textAlign.ragged
       ? "Alinhado à esquerda (clique para justificar)"
@@ -136,6 +142,12 @@ export class ReaderMenuComponent {
     const mode = this.themeService.currentMode
     if (mode === "system") return "brightness_auto"
     return mode === "light" ? "light_mode" : "dark_mode"
+  }
+
+  getThemeLabel(): string {
+    const mode = this.themeService.currentMode
+    if (mode === "system") return "Automático"
+    return mode === "light" ? "Claro" : "Escuro"
   }
 
   getThemeTooltip(): string {
@@ -156,6 +168,12 @@ export class ReaderMenuComponent {
 
   getViewModeIcon(): string {
     return this.viewMode() === "scrolling" ? "swipe_vertical" : "auto_stories"
+  }
+
+  getViewModeLabel(): string {
+    return this.viewMode() === "scrolling"
+      ? "Texto contínuo"
+      : "Página a página"
   }
 
   getViewModeTooltip(): string {
