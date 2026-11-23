@@ -243,6 +243,33 @@ h3:not(:first-child) {
   height: 44px;
 }
 
+/* The same for a cross-reference ("Sl 23"), whose line is about 27 px tall.
+   The box is centred on the link, so a later link's hit area never covers an
+   earlier one's own text, and at least as wide as the link. */
+a.references {
+  position: relative;
+}
+
+a.references::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+@media (pointer: coarse) {
+  a.references::after {
+    width: max(100%, 44px);
+    height: 44px;
+  }
+}
+
+:host-context(.native-chrome) a.references::after {
+  width: max(100%, 44px);
+  height: 44px;
+}
+
 /* Android's minimum touch target, as the floating buttons have. */
 :host-context(.platform-android.native-chrome) .footnoteIndicator::after {
   width: 48px;

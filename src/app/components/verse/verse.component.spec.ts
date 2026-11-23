@@ -1361,6 +1361,39 @@ describe("VerseComponent", () => {
       expect(centre).toBe(asterisk())
     })
 
+    // "Sl 23" was a 24 px tall target on a phone, among the words.
+    it("gives a cross-reference a finger-sized target, outside the text's flow", () => {
+      document.body.classList.add("native-chrome")
+      mockBibleRef.extract.mockReturnValue([
+        { match: "Sl 23", index: 0, book: "psa", chapter: 23 },
+      ])
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            { type: "text", text: "plain" },
+            { type: "references", text: "Jo 1,1" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      const link = fixture.nativeElement.querySelector(
+        "a.references",
+      ) as HTMLElement
+      const box = link.getBoundingClientRect()
+      const target = getComputedStyle(link, "::after")
+
+      expect(target.position).toBe("absolute")
+      expect(target.height).toBe("44px")
+      expect(Number.parseFloat(target.width)).toBeGreaterThanOrEqual(44)
+      const below = document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2 + 18,
+      )
+      document.body.classList.remove("native-chrome")
+      expect(below).toBe(link)
+    })
+
     // It scrolled on under the sheet, carrying the verse away.
     it("stops auto-scroll as the notes open", () => {
       const autoScroll = play()
