@@ -922,7 +922,7 @@ export class SearchComponent {
   }
 
   /**
-   * "23 resultados", "Os 100 mais relevantes" when the search capped it, or
+   * "23 resultados", "Os 100 versículos que melhor correspondem" when the search capped it, or
    * for the stored Bible "12 versículos com estas palavras".
    */
   get resultsHeading(): string {
@@ -933,7 +933,7 @@ export class SearchComponent {
         : `${this.totalResults} versículos com estas palavras`
     }
     if (this.totalResults >= SEARCH_RESULT_CAP) {
-      return `Os ${SEARCH_RESULT_CAP} mais relevantes`
+      return `Os ${SEARCH_RESULT_CAP} versículos que melhor correspondem`
     }
     return this.totalResults === 1
       ? "1 resultado"

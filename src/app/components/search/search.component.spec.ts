@@ -1769,7 +1769,7 @@ describe("SearchComponent", () => {
   })
 
   // The search returns the 100 verses nearest in meaning: a cap, not a count.
-  it("says when the results are the most relevant, not all", async () => {
+  it("says when the results are the best matches, not all", async () => {
     referenceService.extract.mockReturnValue([])
     apiService.search.mockReturnValue(
       of({
@@ -1780,7 +1780,9 @@ describe("SearchComponent", () => {
       } as VersePage),
     )
     await component.onSearchSubmit("luz")
-    expect(component.resultsHeading).toBe("Os 100 mais relevantes")
+    expect(component.resultsHeading).toBe(
+      "Os 100 versículos que melhor correspondem",
+    )
 
     apiService.search.mockReturnValue(
       of({ verses: [], total: 23, currentPage: 1, totalPages: 1 } as VersePage),
