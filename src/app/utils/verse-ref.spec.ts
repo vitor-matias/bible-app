@@ -108,6 +108,29 @@ describe("verse-ref", () => {
       expect(resolveVerseKey([], { number: 3 })).toBe(3)
     })
 
+    // Zechariah 3 stores "8-9" as key 8 and prints "10" under key 9.
+    it("reads a merged verse's second number as the merged verse, not another key", () => {
+      const zechariah = [
+        { number: 7, numberLabel: "7" },
+        { number: 8, numberLabel: "8-9" },
+        { number: 9, numberLabel: "10" },
+      ]
+      expect(resolveVerseKey(zechariah, { number: 9 })).toBe(8)
+      expect(resolveVerseKey(zechariah, { number: 8 })).toBe(8)
+      expect(resolveVerseKey(zechariah, { number: 10 })).toBe(9)
+      // Past the last: key 11 stores nothing, so the number stays as it is.
+      expect(resolveVerseKey(zechariah, { number: 11 })).toBe(11)
+    })
+
+    it("opens nothing for a number whose stored key prints another", () => {
+      const shifted = [
+        { number: 1, numberLabel: "1" },
+        { number: 2, numberLabel: "3" },
+      ]
+      // Printed 2 is not there; key 2 is printed 3.
+      expect(resolveVerseKey(shifted, { number: 2 })).toBeUndefined()
+    })
+
     // Where the numbers are apart, a missing one is the key of another verse.
     it("opens nothing for a number a chapter with additions lacks", () => {
       expect(resolveVerseKey(esterOne, { number: 30 })).toBeUndefined()

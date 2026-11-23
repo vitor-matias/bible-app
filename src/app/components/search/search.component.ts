@@ -52,7 +52,11 @@ import {
   verseLines,
   verseText,
 } from "../../utils/text-search"
-import { printedNumber, verseRefValue } from "../../utils/verse-ref"
+import {
+  printedNumber,
+  resolveVerseKey,
+  verseRefValue,
+} from "../../utils/verse-ref"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 import { getVerseQueryParams } from "../verse/verse.utils"
 
@@ -737,13 +741,33 @@ export class SearchComponent {
       const isIntro = !!targetBook.introSlug
       try {
         if (!isIntro) {
-          await firstValueFrom(
+          const probe = await firstValueFrom(
             this.apiService.getVerse(
               targetBook.id,
               targetChapter,
               targetVerseStart || 1,
             ),
           )
+          // The probe finds a verse by the number it is stored under. Where a
+          // chapter numbers some verses apart (Ester, Ben Sira) that verse
+          // prints another, and the reader opens the printed one: ask the
+          // chapter whether it has it, or "Sir 1,35" would open nothing.
+          if (
+            targetVerseStart &&
+            probe?.numberLabel !== undefined &&
+            printedNumber(probe) !== targetVerseStart
+          ) {
+            const chapter = await firstValueFrom(
+              this.apiService.getChapter(targetBook.id, targetChapter),
+            )
+            if (
+              resolveVerseKey(chapter.verses ?? [], {
+                number: targetVerseStart,
+              }) === undefined
+            ) {
+              throw Object.assign(new Error("No such verse"), { status: 404 })
+            }
+          }
         }
         if (isStale()) return
         const navigated = await this.router.navigate(

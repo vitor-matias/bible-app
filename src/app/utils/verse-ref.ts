@@ -105,13 +105,21 @@ export function verseRefValue(
 const ofKind = (verses: readonly StoredVerse[], addition: boolean) =>
   verses.filter((verse) => verse.number > 0 && isAddition(verse) === addition)
 
+/** The printed numbers a verse covers: "8-9" (stored as one verse) is 8 and 9. */
+const covers = (verse: StoredVerse, number: number): boolean => {
+  if (printedNumber(verse) === number) return true
+  const range = /^(\d+)\s*[-\u2013]\s*(\d+)$/.exec(verse.numberLabel ?? "")
+  return !!range && Number(range[1]) <= number && number <= Number(range[2])
+}
+
 /**
  * The number the verse a link names is stored under; undefined for a verse the
- * chapter doesn't have. A chapter without additions stores its verses under
- * their printed numbers, as a chapter cached before the additions were split
- * out does, so those answer as they are. Where there are additions the two
- * are apart, and a printed number the chapter lacks may be the key of another
- * verse: it opens nothing.
+ * chapter doesn't have. A chapter without displaced numbers stores its verses
+ * under their printed numbers, as a chapter cached before the additions were
+ * split out does, so a number it lacks answers as it is, unless the verse
+ * stored under it prints another (Zechariah 3's "10" under key 9, after "8-9"
+ * as key 8: "9" is the merged verse, never key 9). Where there are additions
+ * the two are apart: a number the chapter lacks opens nothing.
  */
 export function resolveVerseKey(
   verses: readonly StoredVerse[],
@@ -123,10 +131,15 @@ export function resolveVerseKey(
   // The last one: a chapter's own verses come after what is numbered apart
   // from them, and a line of it may print the same number (Sir 1,5).
   const found = ofKind(verses, addition)
-    .filter((verse) => printedNumber(verse) === ref.number)
+    .filter((verse) => covers(verse, ref.number))
     .at(-1)
   if (found) return found.number
-  return verses.some(isAddition) ? undefined : ref.number
+  if (verses.some(isAddition)) return undefined
+  const sameKey = verses.find((verse) => verse.number === ref.number)
+  return sameKey?.numberLabel !== undefined &&
+    printedNumber(sameKey) !== ref.number
+    ? undefined
+    : ref.number
 }
 
 /**
