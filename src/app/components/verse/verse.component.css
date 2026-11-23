@@ -244,8 +244,12 @@ h3:not(:first-child) {
 }
 
 /* The same for a cross-reference ("Sl 23"), whose line is about 27 px tall.
-   The box is centred on the link, so a later link's hit area never covers an
-   earlier one's own text, and at least as wide as the link. */
+   Links share lines, and a later link paints over an earlier one, so the box
+   may not run into a neighbour's words: it stays within the gap that
+   separates them. Sideways, 4 px each side of the link (a "; " is about 9 px
+   wide), with a floor of 24 px for a bare continuation ("Sl 8; 9"'s 9) which
+   still stays inside that gap. Up and down, 7 px: the least that wrapped lines
+   of the smallest reading size leave between two links. */
 a.references {
   position: relative;
 }
@@ -260,14 +264,14 @@ a.references::after {
 
 @media (pointer: coarse) {
   a.references::after {
-    width: max(100%, 44px);
-    height: 44px;
+    width: max(calc(100% + 8px), 24px);
+    height: calc(100% + 14px);
   }
 }
 
 :host-context(.native-chrome) a.references::after {
-  width: max(100%, 44px);
-  height: 44px;
+  width: max(calc(100% + 8px), 24px);
+  height: calc(100% + 14px);
 }
 
 /* Android's minimum touch target, as the floating buttons have. */

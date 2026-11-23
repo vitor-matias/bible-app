@@ -1362,36 +1362,57 @@ describe("VerseComponent", () => {
     })
 
     // "Sl 23" was a 24 px tall target on a phone, among the words.
-    it("gives a cross-reference a finger-sized target, outside the text's flow", () => {
-      document.body.classList.add("native-chrome")
-      mockBibleRef.extract.mockReturnValue([
-        { match: "Sl 23", index: 0, book: "psa", chapter: 23 },
-      ])
-      setData(
-        fixture,
-        makeVerse({
-          text: [
-            { type: "text", text: "plain" },
-            { type: "references", text: "Jo 1,1" },
-          ],
-        }),
-      )
-      fixture.detectChanges()
-      const link = fixture.nativeElement.querySelector(
-        "a.references",
-      ) as HTMLElement
-      const box = link.getBoundingClientRect()
-      const target = getComputedStyle(link, "::after")
+    describe("a cross-reference's touch target", () => {
+      const render = (
+        text: string,
+        refs: { match: string; index: number }[],
+      ) => {
+        document.body.classList.add("native-chrome")
+        mockBibleRef.extract.mockReturnValue(
+          refs.map((ref) => ({ ...ref, book: "psa", chapter: 8 })),
+        )
+        setData(fixture, makeVerse({ text: [{ type: "references", text }] }))
+        fixture.detectChanges()
+        return Array.from(
+          fixture.nativeElement.querySelectorAll("a.references"),
+        ) as HTMLElement[]
+      }
+      afterEach(() => document.body.classList.remove("native-chrome"))
 
-      expect(target.position).toBe("absolute")
-      expect(target.height).toBe("44px")
-      expect(Number.parseFloat(target.width)).toBeGreaterThanOrEqual(44)
-      const below = document.elementFromPoint(
-        box.left + box.width / 2,
-        box.top + box.height / 2 + 18,
-      )
-      document.body.classList.remove("native-chrome")
-      expect(below).toBe(link)
+      it("reaches past the link, outside the text's flow", () => {
+        const [link] = render("Sl 23", [{ match: "Sl 23", index: 0 }])
+        const box = link.getBoundingClientRect()
+        const target = getComputedStyle(link, "::after")
+
+        expect(target.position).toBe("absolute")
+        expect(Number.parseFloat(target.height)).toBeCloseTo(box.height + 14, 0)
+        expect(Number.parseFloat(target.width)).toBeCloseTo(box.width + 8, 0)
+        const below = document.elementFromPoint(
+          box.left + box.width / 2,
+          box.bottom + 5,
+        )
+        expect(below).toBe(link)
+      })
+
+      // "Sl 8; 9": a later link paints over an earlier one, so the bare "9"
+      // must not reach the 8's words.
+      it("does not cover the words of a neighbouring link", () => {
+        const [first, second] = render("Sl 8; 9", [
+          { match: "Sl 8", index: 0 },
+          { match: "9", index: 6 },
+        ])
+        const gap =
+          second.getBoundingClientRect().left -
+          first.getBoundingClientRect().right
+        const target = getComputedStyle(second, "::after")
+        const overhang =
+          (Number.parseFloat(target.width) -
+            second.getBoundingClientRect().width) /
+          2
+
+        expect(Number.parseFloat(target.width)).toBeGreaterThanOrEqual(24)
+        expect(overhang).toBeLessThanOrEqual(gap)
+      })
     })
 
     // It scrolled on under the sheet, carrying the verse away.
