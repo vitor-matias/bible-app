@@ -18,7 +18,14 @@ const MIN_FONT_SIZE = 70
  * body text). The two above it left a handful of words to a line.
  */
 const MAX_FONT_SIZE = 235
-const FONT_STEP = 5
+/**
+ * One press of A-/A+ (percent points). 5 took 33 presses across the range, and
+ * a reader at 150% zoom found it slow; 10 is the Android sheet's step. Sizes
+ * stored with the old step (105, 115...) stay valid: a press lands on the grid.
+ */
+const FONT_STEP = 10
+/** The grid the iPhone's own size is rounded to: finer than a press. */
+const SYSTEM_SIZE_GRID = 5
 
 /** The text size's range, for a control that shows it (the Android app's sheet). */
 export interface TextSize {
@@ -50,7 +57,7 @@ export function startingFontSize(
   const percent = system()
   return percent === null
     ? null
-    : clamp(Math.round(percent / FONT_STEP) * FONT_STEP)
+    : clamp(Math.round(percent / SYSTEM_SIZE_GRID) * SYSTEM_SIZE_GRID)
 }
 
 @Directive({
