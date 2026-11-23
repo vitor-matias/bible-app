@@ -38,13 +38,22 @@ android {
     }
     buildFeatures {
         compose = true
+        // CRASH_ENDPOINT, and the version the crash reports carry.
+        buildConfig = true
     }
     sourceSets {
         // The payloads the web app sends, shared with the iOS and web tests.
         test.resources.srcDir rootProject.file('../native-contract')
     }
     buildTypes {
+        debug {
+            // Crash reporting is off in debug builds, which would otherwise
+            // report developers' crashes to the real Umami. To try it against
+            // a local stub: ./gradlew assembleDebug -PcrashEndpoint=http://10.0.2.2:8787/api/send
+            buildConfigField 'String', 'CRASH_ENDPOINT', "\"${project.findProperty('crashEndpoint') ?: ''}\""
+        }
         release {
+            buildConfigField 'String', 'CRASH_ENDPOINT', '"https://umami.dojo.pt/api/send"'
             if (keystorePropertiesFile.exists()) {
                 signingConfig signingConfigs.release
             }
