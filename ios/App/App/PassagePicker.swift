@@ -189,8 +189,8 @@ private func booksBackButton(for controller: UIViewController) -> UIBarButtonIte
 /// A book's name as the bar's title, as the system draws one, but on two
 /// lines when it must: between «‹ Livros» and ✕, «Livro dos Atos dos
 /// Apóstolos» was cut to «Livro dos Atos dos Apó…».
-func pickerTitleView(_ text: String) -> UILabel {
-    let label = UILabel()
+func pickerTitleView(_ text: String) -> PickerTitleLabel {
+    let label = PickerTitleLabel()
     label.text = text
     label.font = .systemFont(ofSize: 17, weight: .semibold)
     label.textColor = .label
@@ -199,9 +199,33 @@ func pickerTitleView(_ text: String) -> UILabel {
     label.adjustsFontSizeToFitWidth = true
     label.minimumScaleFactor = 0.75
     label.accessibilityTraits = .header
-    // Sized by constraints, the bar lets it wrap in the width it has.
     label.translatesAutoresizingMaskIntoConstraints = false
     return label
+}
+
+/// The title label of the book picker's bars. Left to the bar to size, from the
+/// width its own layout pass happened to leave, it was sometimes a word wide:
+/// «Livro do Génesis» came out «Livro / do…», cut on two lines, until the sheet
+/// was pushed again. Its width is the name's own, or the room the owner gives it
+/// (`maxWidth`, from the bar's width) when that is less, and it wraps in that.
+final class PickerTitleLabel: UILabel {
+    /// The room the bar leaves it; 0 until the owner has measured the bar.
+    var maxWidth: CGFloat = 0 {
+        didSet { if oldValue != maxWidth { invalidateIntrinsicContentSize() } }
+    }
+
+    /// What a bar of this width leaves a title between its two buttons: the wider
+    /// of them, doubled, as the title is centred («‹ Livros» is the wider).
+    static func room(inBarOfWidth width: CGFloat) -> CGFloat {
+        max(120, width - 2 * 116)
+    }
+
+    override var intrinsicContentSize: CGSize {
+        let line = sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
+        guard maxWidth > 0, line.width > maxWidth else { return line }
+        let wrapped = sizeThatFits(CGSize(width: maxWidth, height: CGFloat.greatestFiniteMagnitude))
+        return CGSize(width: maxWidth, height: wrapped.height)
+    }
 }
 
 /// The books as tiles, a section per canon group. Shown by name, or by
@@ -379,6 +403,7 @@ private final class ChapterListViewController: UICollectionViewController {
         self.book = book
         self.current = current
         self.onSelect = onSelect
+        titleLabel = pickerTitleView(book.name)
         let layout = UICollectionViewCompositionalLayout { section, environment in
             // Section 0 is the introduction, alone on its row.
             section == 0 && book.chapters.first?.label.isEmpty == true
@@ -387,7 +412,15 @@ private final class ChapterListViewController: UICollectionViewController {
         }
         super.init(collectionViewLayout: layout)
         title = book.name
-        navigationItem.titleView = pickerTitleView(book.name)
+        navigationItem.titleView = titleLabel
+    }
+
+    private let titleLabel: PickerTitleLabel
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let barWidth = navigationController?.navigationBar.bounds.width ?? view.bounds.width
+        titleLabel.maxWidth = PickerTitleLabel.room(inBarOfWidth: barWidth)
     }
 
     @available(*, unavailable)
