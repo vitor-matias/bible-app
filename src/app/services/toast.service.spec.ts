@@ -67,7 +67,10 @@ describe("ToastService", () => {
         {
           provide: BookService,
           useValue: {
-            findBook: () => ({ id: "gen", shortName: "Gn" }) as Book,
+            findBook: (id: string) =>
+              (id === "psa"
+                ? { id: "psa", shortName: "Salmos" }
+                : { id: "gen", shortName: "Gn" }) as Book,
             getUrlAbrv: () => "gn",
             parseChapterUrlSegment:
               BookService.prototype.parseChapterUrlSegment,
@@ -231,6 +234,11 @@ describe("ToastService", () => {
       expect(navigate).toHaveBeenCalledWith(["gn", 1], {
         queryParams: { verseStart: "A3", highlight: false },
       })
+    })
+
+    it("names a psalm as the title does, with its liturgical number", () => {
+      create(false).showReturn({ bookId: "psa", chapterNumber: 23, number: 1 })
+      expect(returnSnack().message).toBe("Voltar para Salmo 23 (22),1")
     })
 
     it("goes back to verse 1 from before the first verse", () => {
