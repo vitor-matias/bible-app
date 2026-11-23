@@ -635,6 +635,23 @@ describe("BibleReaderComponent", () => {
         ).toBe(2)
       })
 
+      it("runs a range whose end is past the chapter's last verse to it", () => {
+        // Printed 1-2 of the chapter, stored 3-4: an end of 9 is no verse.
+        queryTo([
+          ["verseStart", "2"],
+          ["verseEnd", "9"],
+        ])
+        const call = animationServiceSpy.scrollToVerseElement.mock.lastCall
+        expect([call?.[2], call?.[3]]).toEqual([4, 4])
+      })
+
+      it("does not fall over a parameter given twice", () => {
+        queryTo([["verseStart", ["1", "2"] as unknown as string]])
+        expect(
+          animationServiceSpy.scrollToVerseElement.mock.lastCall?.[2],
+        ).toBe(3)
+      })
+
       it("takes the end of a range in the start's kind", () => {
         queryTo([
           ["verseStart", "A1"],

@@ -67,6 +67,7 @@ import { introductionTitle, passageLabel } from "../../utils/passage-label"
 import {
   parseVerseRef,
   printedNumber,
+  resolveVerseEndKey,
   resolveVerseKey,
   type VerseRef,
 } from "../../utils/verse-ref"
@@ -1199,7 +1200,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     // an addition (Ester) are stored under others.
     const verses = this.chapter?.verses ?? []
     const verseStart = resolveVerseKey(verses, start)
-    const verseEnd = end && resolveVerseKey(verses, end, start.addition)
+    const verseEnd = end && resolveVerseEndKey(verses, end, start.addition)
     this.linkedVerse = verseStart
     const pagedNav = this.pagedNav
     this.animationService.scrollToVerseElement(

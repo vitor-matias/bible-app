@@ -1,6 +1,7 @@
 import {
   parseVerseRef,
   printedNumber,
+  resolveVerseEndKey,
   resolveVerseKey,
   verseRefValue,
 } from "./verse-ref"
@@ -27,6 +28,15 @@ describe("verse-ref", () => {
       expect(parseVerseRef("A1")).toEqual({ number: 1, addition: true })
       expect(parseVerseRef("c30")).toEqual({ number: 30, addition: true })
       expect(parseVerseRef("16b")).toEqual({ number: 16 })
+    })
+
+    // /gn/1?verseStart=1&verseStart=2 gives the router an array.
+    it("reads a parameter given twice as its first, and never throws", () => {
+      expect(parseVerseRef(["1", "2"])).toEqual({ number: 1 })
+      expect(parseVerseRef(["A2", "5"])).toEqual({ number: 2, addition: true })
+      expect(parseVerseRef([])).toBeUndefined()
+      expect(parseVerseRef(7)).toBeUndefined()
+      expect(parseVerseRef({})).toBeUndefined()
     })
 
     it.each([null, undefined, "", "0", "abc", "AB1", "-3"])(
@@ -69,6 +79,24 @@ describe("verse-ref", () => {
     it("keeps a number the chapter lacks, as before", () => {
       expect(resolveVerseKey(esterOne, { number: 99 })).toBe(99)
       expect(resolveVerseKey([], { number: 3 })).toBe(3)
+    })
+  })
+
+  describe("resolveVerseEndKey", () => {
+    it("finds an end that is printed, as the start does", () => {
+      expect(resolveVerseEndKey(esterOne, { number: 22 })).toBe(39)
+      expect(resolveVerseEndKey(esterOne, { number: 5 }, true)).toBe(5)
+    })
+
+    it("runs a range past the last verse to the last one of its kind", () => {
+      // "Est 1,20-23" in a chapter printed to 22: not 23, which falls before
+      // the start's stored 37.
+      expect(resolveVerseEndKey(esterOne, { number: 23 })).toBe(39)
+      expect(resolveVerseEndKey(esterOne, { number: 30 }, true)).toBe(17)
+    })
+
+    it("keeps the number where the chapter has nothing to go by", () => {
+      expect(resolveVerseEndKey([], { number: 9 })).toBe(9)
     })
   })
 

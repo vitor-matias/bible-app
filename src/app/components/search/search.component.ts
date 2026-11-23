@@ -52,7 +52,7 @@ import {
   verseLines,
   verseText,
 } from "../../utils/text-search"
-import { verseRefValue } from "../../utils/verse-ref"
+import { printedNumber, verseRefValue } from "../../utils/verse-ref"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 import { getVerseQueryParams } from "../verse/verse.utils"
 
@@ -954,9 +954,11 @@ export class SearchComponent {
     const book = this.booksLoaded()
       ? this.findBookById(result.bookId)
       : undefined
+    // As printed, the number the link opens, not the one stored (Ester).
+    const printed = printedNumber(result)
     return book
-      ? passageLabel(book, result.chapterNumber, result.number)
-      : `${result.chapterNumber},${result.number}`
+      ? passageLabel(book, result.chapterNumber, printed)
+      : `${result.chapterNumber},${printed}`
   }
 
   /**

@@ -2255,6 +2255,9 @@ describe("SearchComponent", () => {
       // The chapter's first verse is stored after seventeen of addition A's.
       expect(component.verseRef(verse(18, "1"))).toBe(1)
       expect(component.verseRef(verse(3, "3", true))).toBe("A3")
+      // The label says what the link opens: "1,1", not "1,18".
+      expect(component.resultReference(verse(18, "1"))).toMatch(/1,1$/)
+      expect(component.resultReference(verse(3, "3", true))).toMatch(/1,3$/)
       expect(
         component.passageHref(
           "est",

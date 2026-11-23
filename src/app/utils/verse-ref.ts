@@ -24,12 +24,13 @@ const ESTHER_ADDITION_LETTERS: Record<number, string> = {
 
 /**
  * A link's verse ("16", "A1"); undefined for anything else, or for 0. What
- * follows the digits is ignored, as the reader always did ("16b" opens 16).
+ * follows the digits is ignored, as the reader always did ("16b" opens 16). A
+ * parameter given twice reads as its first.
  */
-export function parseVerseRef(
-  raw: string | null | undefined,
-): VerseRef | undefined {
-  const match = /^([A-Za-z]?)(\d+)/.exec(raw?.trim() ?? "")
+export function parseVerseRef(raw: unknown): VerseRef | undefined {
+  const text = Array.isArray(raw) ? raw[0] : raw
+  if (typeof text !== "string") return undefined
+  const match = /^([A-Za-z]?)(\d+)/.exec(text.trim())
   if (!match) return undefined
   const number = Number(match[2])
   if (!(number > 0)) return undefined
@@ -60,23 +61,45 @@ export function verseRefValue(
   return `${letter}${printed}`
 }
 
+type StoredVerse = Pick<Verse, "number" | "numberLabel" | "supplement">
+
+const ofKind = (verses: readonly StoredVerse[], addition: boolean) =>
+  verses.filter((verse) => verse.number > 0 && !!verse.supplement === addition)
+
 /**
  * The number the verse a link names is stored under. A chapter without
  * additions stores its verses under their printed numbers, as a chapter cached
  * before the additions were split out does, so those answer as they are.
  */
 export function resolveVerseKey(
-  verses: readonly Pick<Verse, "number" | "numberLabel" | "supplement">[],
+  verses: readonly StoredVerse[],
   ref: VerseRef,
   /** The letter an end of range inherits from its start. */
   inheritedAddition?: boolean,
 ): number {
   const addition = ref.addition ?? inheritedAddition ?? false
-  const found = verses.find(
-    (verse) =>
-      verse.number > 0 &&
-      !!verse.supplement === addition &&
-      printedNumber(verse) === ref.number,
+  return (
+    ofKind(verses, addition).find(
+      (verse) => printedNumber(verse) === ref.number,
+    )?.number ?? ref.number
   )
-  return found?.number ?? ref.number
+}
+
+/**
+ * The same for the end of a range, which a link may carry past the last verse
+ * ("Est 1,20-23" in a chapter of 22): the range then runs to the last one of
+ * its kind, as stored, since the printed number would fall before the start.
+ */
+export function resolveVerseEndKey(
+  verses: readonly StoredVerse[],
+  ref: VerseRef,
+  inheritedAddition?: boolean,
+): number {
+  const addition = ref.addition ?? inheritedAddition ?? false
+  const kind = ofKind(verses, addition)
+  return (
+    kind.find((verse) => printedNumber(verse) === ref.number)?.number ??
+    kind.at(-1)?.number ??
+    ref.number
+  )
 }
