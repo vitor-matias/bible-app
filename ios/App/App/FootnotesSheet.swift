@@ -104,6 +104,21 @@ final class FootnotesController: UIViewController, UITextViewDelegate {
         ])
     }
 
+    /// The sheet is as wide as the iPad's screen in portrait, and notes run to
+    /// 110 characters a line there (a narrower preferredContentSize had no
+    /// effect on a bottom sheet): the text stays in a column, centred, and the
+    /// scroll bar keeps to the sheet's edge.
+    private static let columnWidth: CGFloat = 560
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        let side = max(20, (textView.bounds.width - Self.columnWidth) / 2)
+        if textView.textContainerInset.left != side {
+            textView.textContainerInset.left = side
+            textView.textContainerInset.right = side
+        }
+    }
+
     // The toast is under this sheet until it has come up, and again as it goes:
     // the capsule shows only in between, so that the two are never both in view.
 
