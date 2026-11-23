@@ -12,6 +12,12 @@ import {
 import type { Observable, Subscription } from "rxjs"
 import { filter, take } from "rxjs/operators"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
+import { passageLabel } from "../utils/passage-label"
+import {
+  chapterFirstRef,
+  printedNumber,
+  verseRefValue,
+} from "../utils/verse-ref"
 import { BookService } from "./book.service"
 import { isPanelEntry, pageDepth } from "./depth-location-strategy"
 import { NativeChromeService } from "./native-chrome.service"
@@ -79,14 +85,27 @@ export class ToastService {
    * The way back after following a reference, from a verse's cross-references
    * or its notes: "Voltar para Gn 3,5".
    */
-  showReturn(from: Pick<Verse, "bookId" | "chapterNumber" | "number">): void {
-    const verseNumber = from.number > 0 ? from.number : 1
+  showReturn(
+    from: Pick<Verse, "bookId" | "chapterNumber" | "number"> &
+      Partial<Pick<Verse, "numberLabel" | "supplement">>,
+  ): void {
+    // As printed: a verse after one of Ester's additions is stored under
+    // another number, and the link names the addition's verses by letter.
+    const printed = from.number > 0 ? printedNumber(from) : 1
+    // From before the first verse (a heading on verse 0) the way back is the
+    // chapter's first stored verse, which an addition at its head (Est 1's A)
+    // keeps from being printed verse 1.
+    const verseStart =
+      from.number > 0
+        ? verseRefValue(from, from.bookId, from.chapterNumber)
+        : chapterFirstRef(from.bookId, from.chapterNumber)
     const book = this.bookService.findBook(from.bookId)
     const urlAbrv = this.bookService.getUrlAbrv(book)
-    const message = `Voltar para ${book.shortName} ${from.chapterNumber},${verseNumber}`
+    // As the title and the share write it: "Salmo 23 (22),1", not "Salmos 23,1".
+    const message = `Voltar para ${passageLabel(book, from.chapterNumber, printed)}`
     const goBack = (extras: NavigationExtras = {}) =>
       this.router.navigate([urlAbrv, from.chapterNumber], {
-        queryParams: { verseStart: verseNumber, highlight: false },
+        queryParams: { verseStart, highlight: false },
         ...extras,
       })
 

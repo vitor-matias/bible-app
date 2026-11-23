@@ -427,6 +427,26 @@ describe("BibleReaderAnimationService", () => {
       expect(verses[1].scrollIntoView).not.toHaveBeenCalled()
     })
 
+    it("leaves out the verses of an addition lying within a chapter's range", async () => {
+      // Ester 3: 12-13, addition B stored as 14-16, then the chapter's 14.
+      const bookBlock = document.createElement("div")
+      const verses = [12, 13, 14, 15, 16, 17].map((n) => {
+        const el = document.createElement("div")
+        el.id = String(n)
+        if (n >= 14 && n <= 16) el.classList.add("supplement")
+        bookBlock.appendChild(el)
+        vi.spyOn(el, "scrollIntoView").mockReturnValue(undefined)
+        return el
+      })
+
+      service.scrollToVerseElement(bookBlock, undefined, 12, 17, true, false)
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(
+        verses.map((el) => el.classList.contains(HIGHLIGHT_CLASS)),
+      ).toEqual([true, true, false, false, false, true])
+    })
+
     describe("a range", () => {
       let bookBlock: HTMLElement
       let verses: HTMLElement[]

@@ -134,7 +134,11 @@ describe("SearchComponent", () => {
   }
 
   beforeEach(async () => {
-    apiService = createSpyObj("BibleApiService", ["getVerse", "search"])
+    apiService = createSpyObj("BibleApiService", [
+      "getVerse",
+      "getChapter",
+      "search",
+    ])
     referenceService = createSpyObj("BibleReferenceService", ["extract"])
     bookService = createSpyObj("BookService", [
       "findBook",
@@ -1034,6 +1038,61 @@ describe("SearchComponent", () => {
     await component.onSearchSubmit("John 3:99")
 
     expect(console.error).toHaveBeenCalled()
+    expect(snackBar.open).toHaveBeenCalledWith(
+      "Este capítulo ou versículo não existe.",
+      "Fechar",
+      { duration: 3000 },
+    )
+    expect(router.navigate).not.toHaveBeenCalled()
+  })
+
+  // Sir 1 stores 38 verses (the prologue's eight, then the chapter's 1-30 as
+  // keys 9-38): the probe finds key 35, which prints 27, though the chapter has
+  // no verse 35, and the reader would open nothing.
+  it("says so for a typed verse the chapter prints no number for", async () => {
+    referenceService.extract.mockReturnValue([
+      {
+        match: "Sir 1,35",
+        index: 0,
+        book: "sir",
+        chapter: 1,
+        verses: [{ type: "single", verse: 35 }],
+      },
+    ])
+    bookService.findBook.mockReturnValue({
+      id: "sir",
+      abrv: "Sir",
+      shortName: "Ben Sira",
+      name: "Livro de Ben Sira",
+      chapterCount: 51,
+    })
+    apiService.getVerse.mockReturnValue(
+      of({
+        number: 35,
+        numberLabel: "27",
+        bookId: "sir",
+        chapterNumber: 1,
+      } as Verse),
+    )
+    apiService.getChapter.mockReturnValue(
+      of({
+        bookId: "sir",
+        number: 1,
+        verses: [
+          { number: 1, numberLabel: "1", bookId: "sir", chapterNumber: 1 },
+          ...Array.from({ length: 30 }, (_, i) => ({
+            number: i + 9,
+            numberLabel: `${i + 1}`,
+            bookId: "sir",
+            chapterNumber: 1,
+          })),
+        ],
+      } as unknown as Chapter),
+    )
+
+    vi.spyOn(console, "error").mockReturnValue(undefined)
+    await component.onSearchSubmit("Sir 1,35")
+
     expect(snackBar.open).toHaveBeenCalledWith(
       "Este capítulo ou versículo não existe.",
       "Fechar",
@@ -2258,6 +2317,34 @@ describe("SearchComponent", () => {
       })
     })
 
+    it("links an Ester result by its printed verse, an addition's with its letter", () => {
+      const verse = (
+        number: number,
+        numberLabel: string,
+        supplement?: boolean,
+      ) =>
+        ({
+          bookId: "est",
+          chapterNumber: 1,
+          number,
+          numberLabel,
+          ...(supplement ? { supplement } : {}),
+        }) as Verse
+      // The chapter's first verse is stored after seventeen of addition A's.
+      expect(component.verseRef(verse(18, "1"))).toBe(1)
+      expect(component.verseRef(verse(3, "3", true))).toBe("A3")
+      // The label says what the link opens: "1,1", not "1,18".
+      expect(component.resultReference(verse(18, "1"))).toMatch(/1,1$/)
+      expect(component.resultReference(verse(3, "3", true))).toMatch(/1,3$/)
+      expect(
+        component.passageHref(
+          "est",
+          1,
+          component.verseRef(verse(3, "3", true)),
+        ),
+      ).toContain("?verseStart=A3")
+    })
+
     it("leaves a click with a modifier to the browser, for a new tab", () => {
       const link = (fixture.nativeElement as HTMLElement).querySelector(
         "a.result-card",
@@ -2600,7 +2687,11 @@ describe("SearchComponent in the iOS app", () => {
       toast: vi.fn().mockName("toast"),
     }
     location = createSpyObj("Location", ["back", "replaceState"])
-    apiService = createSpyObj("BibleApiService", ["getVerse", "search"])
+    apiService = createSpyObj("BibleApiService", [
+      "getVerse",
+      "getChapter",
+      "search",
+    ])
     apiService.search.mockReturnValue(
       of({ verses: [], total: 0, currentPage: 1, totalPages: 0 }),
     )

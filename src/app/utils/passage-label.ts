@@ -1,5 +1,6 @@
 import { isIndexBookmark } from "../pastoral-index-bookmarks"
 import { liturgicalPsalmNumber, PSALMS_BOOK_ID } from "./psalms"
+import { parseVerseRef } from "./verse-ref"
 
 type NamedBook = Pick<Book, "id" | "shortName">
 
@@ -34,8 +35,9 @@ export function sharedPassage(
   if (book.introSlug) return book.name
   if (chapter === 0) return `${book.shortName} Introdução`
   const params = new URLSearchParams(search)
-  const start = Number.parseInt(params.get("verseStart") ?? "", 10)
-  const end = Number.parseInt(params.get("verseEnd") ?? "", 10)
+  // As printed, which an addition's letter ("A1") is no part of.
+  const start = parseVerseRef(params.get("verseStart"))?.number ?? 0
+  const end = parseVerseRef(params.get("verseEnd"))?.number ?? 0
   const verses =
     start > 0 ? (end > start ? `${start}-${end}` : `${start}`) : undefined
   return passageLabel(book, chapter, verses)

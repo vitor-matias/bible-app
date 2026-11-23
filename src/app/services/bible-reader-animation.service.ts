@@ -212,6 +212,7 @@ export class BibleReaderAnimationService {
     this.pendingVerseScroll = setTimeout(() => {
       this.pendingVerseScroll = undefined
       let scrolled = false
+      let startsInAddition: boolean | undefined
       if (!bookBlock) return
       this.unmarkRange?.()
 
@@ -226,7 +227,12 @@ export class BibleReaderAnimationService {
         const element = bookBlock.querySelector(
           `[id="${verseStart + offset}"]`,
         ) as HTMLElement
+        // A range runs through the verses of its start's kind: an addition's
+        // (Ester) lie between a chapter's, numbered apart, and are not in it.
         if (element) {
+          const addition = element.classList.contains("supplement")
+          startsInAddition ??= addition
+          if (addition !== startsInAddition) continue
           if (!scrolled) {
             bringIntoView(element)
             this.realignWhenLayoutSettles(element, bringIntoView)
