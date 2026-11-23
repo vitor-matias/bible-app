@@ -357,7 +357,11 @@ final class BookmarksController: UIViewController {
             }, for: .primaryActionTriggered)
             if used {
                 let badge = UIImageView(image: UIImage(systemName: "minus.circle.fill"))
-                badge.tintColor = .systemRed
+                // Neutral, not red: the ribbons are coloured, red one among them,
+                // so a red badge on it reads as the ribbon's own colour. Taking a
+                // ribbon off loses nothing the reader can't put back, so it is not
+                // a destructive action in HIG's sense either.
+                badge.tintColor = .secondaryLabel
                 badge.backgroundColor = sheetBackground
                 badge.layer.cornerRadius = 11
                 badge.translatesAutoresizingMaskIntoConstraints = false
@@ -385,8 +389,7 @@ final class BookmarksController: UIViewController {
                                 image: UIImage(systemName: "bookmark")) { [weak self] _ in
                 self?.send("bookmark-move", ribbon.color)
             }
-            let remove = UIAction(title: "Remover marcador", image: UIImage(systemName: "bookmark.slash"),
-                                  attributes: .destructive) { [weak self] _ in
+            let remove = UIAction(title: "Remover marcador", image: UIImage(systemName: "bookmark.slash")) { [weak self] _ in
                 self?.send("bookmark-remove", ribbon.color)
             }
             let marked = state.ribbons.contains { $0.current }
