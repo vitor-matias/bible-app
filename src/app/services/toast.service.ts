@@ -13,7 +13,11 @@ import type { Observable, Subscription } from "rxjs"
 import { filter, take } from "rxjs/operators"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
 import { passageLabel } from "../utils/passage-label"
-import { printedNumber, verseRefValue } from "../utils/verse-ref"
+import {
+  chapterFirstRef,
+  printedNumber,
+  verseRefValue,
+} from "../utils/verse-ref"
 import { BookService } from "./book.service"
 import { isPanelEntry, pageDepth } from "./depth-location-strategy"
 import { NativeChromeService } from "./native-chrome.service"
@@ -89,22 +93,19 @@ export class ToastService {
     // another number, and the link names the addition's verses by letter.
     const printed = from.number > 0 ? printedNumber(from) : 1
     // From before the first verse (a heading on verse 0) the way back is the
-    // top of the chapter: no verse named, which a chapter with an addition at
-    // its head would read as its own first verse, past the addition.
+    // chapter's first stored verse, which an addition at its head (Est 1's A)
+    // keeps from being printed verse 1.
     const verseStart =
       from.number > 0
         ? verseRefValue(from, from.bookId, from.chapterNumber)
-        : undefined
+        : chapterFirstRef(from.bookId, from.chapterNumber)
     const book = this.bookService.findBook(from.bookId)
     const urlAbrv = this.bookService.getUrlAbrv(book)
     // As the title and the share write it: "Salmo 23 (22),1", not "Salmos 23,1".
     const message = `Voltar para ${passageLabel(book, from.chapterNumber, printed)}`
     const goBack = (extras: NavigationExtras = {}) =>
       this.router.navigate([urlAbrv, from.chapterNumber], {
-        queryParams: {
-          ...(verseStart !== undefined && { verseStart }),
-          highlight: false,
-        },
+        queryParams: { verseStart, highlight: false },
         ...extras,
       })
 

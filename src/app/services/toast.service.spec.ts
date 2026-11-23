@@ -242,19 +242,28 @@ describe("ToastService", () => {
     })
 
     // Est 1 opens with addition A (stored 1-17) ahead of its own verse 1, so a
-    // named verse 1 would skip the addition.
-    it("goes back to the top of the chapter from before the first verse", () => {
-      const toast = create(false)
-      const navigate = vi
-        .spyOn(TestBed.inject(Router), "navigate")
-        .mockResolvedValue(true)
-      toast.showReturn({ bookId: "gen", chapterNumber: 1, number: 0 })
-      expect(returnSnack().message).toBe("Voltar para Gn 1,1")
-      returnSnack().returnUrl()
-      expect(navigate).toHaveBeenCalledWith(["gn", 1], {
-        queryParams: { highlight: false },
-      })
-    })
+    // plain 1 would skip the addition; and with no verse named, a way back
+    // within the chapter would not scroll at all.
+    it.each([
+      ["gen", 1, 1],
+      ["est", 1, "A1"],
+      ["sir", 1, "P1"],
+      ["est", 3, 1],
+    ])(
+      "goes back to the first verse of %s %i from before it",
+      (bookId, chapterNumber, verseStart) => {
+        const toast = create(false)
+        const navigate = vi
+          .spyOn(TestBed.inject(Router), "navigate")
+          .mockResolvedValue(true)
+        toast.showReturn({ bookId, chapterNumber, number: 0 })
+        expect(returnSnack().message).toBe(`Voltar para Gn ${chapterNumber},1`)
+        returnSnack().returnUrl()
+        expect(navigate).toHaveBeenCalledWith(["gn", chapterNumber], {
+          queryParams: { verseStart, highlight: false },
+        })
+      },
+    )
 
     it("offers the way back as a glass toast that is a button in the iOS app", () => {
       const toast = create(true)

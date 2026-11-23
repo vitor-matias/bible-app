@@ -46,6 +46,21 @@ export function printedNumber(
   return Number.isNaN(printed) ? verse.number : printed
 }
 
+/**
+ * The link's value for a chapter's first stored verse, the top of it as the
+ * way back from a verse-0 heading means: the opening addition's (Est 1's "A1",
+ * Ben Sira's prologue "P1") where one stands ahead of the chapter's own verse
+ * 1, else 1.
+ */
+export function chapterFirstRef(
+  bookId: string,
+  chapter: number,
+): string | number {
+  if (bookId === ESTHER_ID && chapter === 1) return "A1"
+  if (bookId === SIRACH_ID && chapter === 1) return "P1"
+  return 1
+}
+
 type StoredVerse = Pick<Verse, "number" | "numberLabel" | "supplement"> &
   Partial<Pick<Verse, "bookId" | "chapterNumber">>
 

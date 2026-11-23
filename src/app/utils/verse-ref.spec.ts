@@ -1,4 +1,5 @@
 import {
+  chapterFirstRef,
   isAddition,
   parseVerseRef,
   printedNumber,
@@ -194,6 +195,18 @@ describe("verse-ref", () => {
       expect(
         isAddition({ number: 3, numberLabel: "3", supplement: true }),
       ).toBe(true)
+    })
+  })
+
+  describe("chapterFirstRef", () => {
+    it("names the verse the chapter's top opens at", () => {
+      expect(chapterFirstRef("est", 1)).toBe("A1")
+      expect(chapterFirstRef("sir", 1)).toBe("P1")
+      expect(chapterFirstRef("est", 5)).toBe(1)
+      expect(chapterFirstRef("gen", 1)).toBe(1)
+      expect(
+        resolveVerseKey(esterOne, parseVerseRef("A1") ?? { number: 0 }),
+      ).toBe(1)
     })
   })
 
