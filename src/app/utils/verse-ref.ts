@@ -12,6 +12,7 @@ export interface VerseRef {
 }
 
 const ESTHER_ID = "est"
+const SIRACH_ID = "sir"
 /** Which letter each of Ester's chapters with an addition prints it under. */
 const ESTHER_ADDITION_LETTERS: Record<number, string> = {
   1: "A",
@@ -45,26 +46,41 @@ export function printedNumber(
   return Number.isNaN(printed) ? verse.number : printed
 }
 
+type StoredVerse = Pick<Verse, "number" | "numberLabel" | "supplement">
+
+/**
+ * Whether a verse is numbered apart from the chapter's own: one of Ester's
+ * Greek additions (flagged), or a line of Ben Sira's prologue, which the
+ * source stores unflagged ahead of chapter 1 with labels that run ahead of its
+ * keys (1, 5, 10, ... as keys 1-8). Elsewhere a verse is printed as it is
+ * stored, or behind it, after an addition.
+ */
+export function isAddition(verse: StoredVerse): boolean {
+  return (
+    !!verse.supplement ||
+    (verse.number > 0 && printedNumber(verse) > verse.number)
+  )
+}
+
 /**
  * The link's value for a verse held as stored: its printed number, with its
  * letter for an addition's.
  */
 export function verseRefValue(
-  verse: Pick<Verse, "number" | "numberLabel" | "supplement">,
+  verse: StoredVerse,
   bookId: string,
   chapter: number,
 ): string | number {
   const printed = printedNumber(verse)
-  if (!verse.supplement) return printed
+  if (!isAddition(verse)) return printed
   const letter =
-    (bookId === ESTHER_ID ? ESTHER_ADDITION_LETTERS[chapter] : undefined) ?? "A"
+    (bookId === ESTHER_ID ? ESTHER_ADDITION_LETTERS[chapter] : undefined) ??
+    (bookId === SIRACH_ID ? "P" : "A")
   return `${letter}${printed}`
 }
 
-type StoredVerse = Pick<Verse, "number" | "numberLabel" | "supplement">
-
 const ofKind = (verses: readonly StoredVerse[], addition: boolean) =>
-  verses.filter((verse) => verse.number > 0 && !!verse.supplement === addition)
+  verses.filter((verse) => verse.number > 0 && isAddition(verse) === addition)
 
 /**
  * The number the verse a link names is stored under; undefined for a verse the
@@ -81,11 +97,13 @@ export function resolveVerseKey(
   inheritedAddition?: boolean,
 ): number | undefined {
   const addition = ref.addition ?? inheritedAddition ?? false
-  const found = ofKind(verses, addition).find(
-    (verse) => printedNumber(verse) === ref.number,
-  )
+  // The last one: a chapter's own verses come after what is numbered apart
+  // from them, and a line of it may print the same number (Sir 1,5).
+  const found = ofKind(verses, addition)
+    .filter((verse) => printedNumber(verse) === ref.number)
+    .at(-1)
   if (found) return found.number
-  return verses.some((verse) => verse.supplement) ? undefined : ref.number
+  return verses.some(isAddition) ? undefined : ref.number
 }
 
 /**
@@ -103,6 +121,8 @@ export function resolveVerseEndKey(
   const upTo = ofKind(verses, addition).filter(
     (verse) => printedNumber(verse) <= ref.number,
   )
-  const exact = upTo.find((verse) => printedNumber(verse) === ref.number)
+  const exact = upTo
+    .filter((verse) => printedNumber(verse) === ref.number)
+    .at(-1)
   return (exact ?? upTo.at(-1))?.number ?? ref.number
 }

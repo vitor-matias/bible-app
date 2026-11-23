@@ -65,6 +65,7 @@ import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
 import { introductionTitle, passageLabel } from "../../utils/passage-label"
 import {
+  isAddition,
   parseVerseRef,
   printedNumber,
   resolveVerseEndKey,
@@ -1170,7 +1171,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const [from, to = from] = wanted.split("-").map(Number)
     const verse = this.chapter.verses.find(
       (candidate) =>
-        !candidate.supplement &&
+        !isAddition(candidate) &&
         printedNumber(candidate) >= from &&
         printedNumber(candidate) <= to &&
         candidate.text.some((part) => part.type === "footnote"),
