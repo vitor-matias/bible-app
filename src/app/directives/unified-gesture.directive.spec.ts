@@ -89,7 +89,7 @@ describe("UnifiedGesturesDirective", () => {
       })
 
       directive.increaseFontSize()
-      expect(last().percent).toBe(125)
+      expect(last().percent).toBe(130)
     })
 
     // Nothing to reset before the reader has chosen a size.
@@ -103,7 +103,7 @@ describe("UnifiedGesturesDirective", () => {
       })
     })
 
-    // 150% was ten taps away in steps of 5.
+    // 150% was ten taps away in steps of 5; ten is also the default now.
     it("steps by the sheet's 10, onto its grid", () => {
       stored = 105
       directive.ngOnInit()
@@ -113,6 +113,18 @@ describe("UnifiedGesturesDirective", () => {
       expect(last().percent).toBe(100)
       directive.decreaseFontSize(10)
       expect(last().percent).toBe(90)
+    })
+
+    // 5 took 33 presses across the range; sizes stored with it stay valid.
+    it("presses by 10 by default, from a size saved with the old step", () => {
+      stored = 115
+      directive.ngOnInit()
+      directive.increaseFontSize()
+      expect(last().percent).toBe(120)
+      directive.decreaseFontSize()
+      expect(last().percent).toBe(110)
+      directive.decreaseFontSize()
+      expect(last().percent).toBe(100)
     })
 
     // A pinch leaves fractions: 119.6 is shown as 120, and stepped to 120.
@@ -286,7 +298,7 @@ describe("UnifiedGesturesDirective", () => {
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
         "font-size",
-        "185%",
+        "190%",
       )
     })
 
@@ -295,12 +307,12 @@ describe("UnifiedGesturesDirective", () => {
       directive.ngOnInit()
       expect(rendererSpy.setStyle).not.toHaveBeenCalled()
 
-      // increasing size starts from default -> 105
+      // increasing size starts from default -> 110
       directive.increaseFontSize()
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
         "font-size",
-        "105%",
+        "110%",
       )
     })
 
@@ -325,7 +337,7 @@ describe("UnifiedGesturesDirective", () => {
       expect(rendererSpy.setStyle).toHaveBeenCalledWith(
         element,
         "font-size",
-        "105%",
+        "110%",
       )
     })
 
@@ -706,7 +718,7 @@ describe("UnifiedGesturesDirective", () => {
     directive.decreaseFontSize()
 
     expect(vi.mocked(preferencesServiceSpy.setFontSize).mock.calls[0]).toEqual([
-      105,
+      110,
       "reader",
     ])
     expect(vi.mocked(preferencesServiceSpy.setFontSize).mock.calls[1]).toEqual([
@@ -716,7 +728,7 @@ describe("UnifiedGesturesDirective", () => {
     expect(vi.mocked(rendererSpy.setStyle).mock.calls[0]).toEqual([
       element,
       "font-size",
-      "105%",
+      "110%",
     ])
     expect(vi.mocked(rendererSpy.setStyle).mock.calls[1]).toEqual([
       element,
