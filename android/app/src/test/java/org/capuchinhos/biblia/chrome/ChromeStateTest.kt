@@ -532,6 +532,30 @@ class PickerRowsTest {
     fun findsNothingForNoMatch() {
         assertEquals(emptyList<PickerRow>(), pickerRows(data, "Apocalipse"))
     }
+
+    // "Est" is in "Testamento": every book of both testaments answered to it, and
+    // Ester was lost among them. The testament's name is not searched at all.
+    @Test
+    fun doesNotSearchTheTestamentsName() {
+        val history = PassagePickerData(
+            sections = listOf(
+                PassagePickerData.Section(
+                    "Antigo Testamento",
+                    listOf(PassagePickerData.Group("Livros Históricos", listOf(book("rt", "Rute", "Rt"), book("est", "Ester", "Est")))),
+                ),
+            ),
+            currentBookId = "rt",
+            currentChapter = 1,
+        )
+        assertEquals(listOf("testament:Antigo Testamento", "group:Livros Históricos", "book:est"), pickerRows(history, "est").keys())
+        for (query in listOf("test", "tament", "antigo")) assertEquals(emptyList<PickerRow>(), pickerRows(history, query))
+        // A group's name still finds its books, by the beginning of a word.
+        assertEquals(
+            listOf("testament:Antigo Testamento", "group:Livros Históricos", "book:rt", "book:est"),
+            pickerRows(history, "hist").keys(),
+        )
+        assertEquals(emptyList<PickerRow>(), pickerRows(history, "stóricos"))
+    }
 }
 
 /** The picker's books as tiles, big with the names or small with the abbreviations, as on iOS. */
