@@ -710,3 +710,40 @@ final class PickerTitleLabelTests: XCTestCase {
         XCTAssertEqual(PickerTitleLabel.room(inBarOfWidth: 100), 120)
     }
 }
+
+/// The book picker's filter.
+final class PassagePickerFilterTests: XCTestCase {
+    private func book(_ id: String, _ name: String, _ abbreviation: String) -> PassagePickerData.Book {
+        PassagePickerData.Book(id: id, label: name, name: name, abbreviation: abbreviation, chapters: [])
+    }
+
+    private let history = PassagePickerData.Group(title: "Livros Históricos", books: [])
+
+    private func finds(_ query: String, _ book: PassagePickerData.Book) -> Bool {
+        PassagePickerData.filter(query, matches: book, in: history)
+    }
+
+    // "Est" is in "Testamento": every book of both testaments answered to it, and
+    // Ester was lost among them. The testament's name is not searched at all.
+    func testTheTestamentsNameIsNotSearched() {
+        let rute = book("rt", "Rute", "Rt")
+        XCTAssertTrue(finds("est", book("est", "Ester", "Est")))
+        for query in ["est", "test", "tament", "antigo"] {
+            XCTAssertFalse(finds(query, rute), query)
+        }
+    }
+
+    func testAGroupsNameFindsItsBooksByTheBeginningOfAWord() {
+        let rute = book("rt", "Rute", "Rt")
+        XCTAssertTrue(finds("hist", rute))
+        XCTAssertTrue(finds("livros hist", rute))
+        XCTAssertTrue(finds("HISTÓR", rute))
+        XCTAssertFalse(finds("stóricos", rute))
+        XCTAssertTrue(finds("", rute))
+    }
+
+    func testABookIsFoundWhereverItsOwnNameMatches() {
+        XCTAssertTrue(finds("ute", book("rt", "Rute", "Rt")))
+        XCTAssertTrue(finds("genesis", book("gn", "Génesis", "Gn")))
+    }
+}

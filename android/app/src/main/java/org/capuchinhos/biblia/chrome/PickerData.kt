@@ -21,9 +21,25 @@ sealed interface PickerRow {
 }
 
 /**
+ * Whether [query] begins a word of [text] (both folded). A group's name finds
+ * its books by its words' beginnings, not by any part of them.
+ */
+internal fun startsAWord(text: String, query: String): Boolean {
+    var from = 0
+    while (true) {
+        val at = text.indexOf(query, from)
+        if (at < 0) return false
+        if (at == 0 || !text[at - 1].isLetterOrDigit()) return true
+        from = at + 1
+    }
+}
+
+/**
  * The book list's lines, the books that match [filter] (folded, see [fold])
  * under their headings; a heading with none left goes too. A group's own
- * introduction is found by the group's name ("Pentateuco").
+ * introduction is found by the group's name ("Pentateuco"), by the beginning
+ * of one of its words. The testament's name is not searched: "Est" is in
+ * "Testamento", and every book under it answered to that.
  */
 fun pickerRows(data: PassagePickerData, filter: String): List<PickerRow> {
     val query = fold(filter.trim())
@@ -31,8 +47,8 @@ fun pickerRows(data: PassagePickerData, filter: String): List<PickerRow> {
         val groups = section.groups.mapIndexedNotNull { index, group ->
             val books = group.books.filter { book ->
                 query.isEmpty() ||
-                    listOfNotNull(book.label, book.name, book.abbreviation, group.title, section.title)
-                        .any { fold(it).contains(query) }
+                    listOfNotNull(book.label, book.name, book.abbreviation).any { fold(it).contains(query) } ||
+                    group.title?.let { startsAWord(fold(it), query) } == true
             }
             if (books.isEmpty()) {
                 null

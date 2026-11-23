@@ -63,6 +63,31 @@ struct PassagePickerData {
         return testament.title
     }
 
+    /// Whether a book answers to the filter: by its own label, name or abbreviation
+    /// wherever they match, and by its group's name only at the beginning of a word
+    /// ("Pentateuco" finds the group's introduction, as on Android). The testament's
+    /// name is not searched: "Est" is in "Testamento", and every book under it
+    /// answered to that.
+    static func filter(_ query: String, matches book: Book, in group: Group) -> Bool {
+        guard !query.isEmpty else { return true }
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        if [book.label, book.name, book.abbreviation].contains(where: { $0.range(of: query, options: options) != nil }) {
+            return true
+        }
+        guard let heading = group.title else { return false }
+        var searched = heading.startIndex..<heading.endIndex
+        while let found = heading.range(of: query, options: options, range: searched) {
+            if found.lowerBound == heading.startIndex
+                || !heading[heading.index(before: found.lowerBound)].isLetter
+                    && !heading[heading.index(before: found.lowerBound)].isNumber
+            {
+                return true
+            }
+            searched = heading.index(after: found.lowerBound)..<heading.endIndex
+        }
+        return false
+    }
+
     var currentBook: Book? {
         sections.lazy.flatMap(\.groups).flatMap(\.books).first { $0.id == currentBookId }
     }
@@ -326,17 +351,14 @@ private final class BookListViewController: UICollectionViewController, UISearch
 
     private func show(filter: String) {
         let query = filter.trimmingCharacters(in: .whitespaces)
-        // A group's own introduction is found by the group's name ("Pentateuco"), as on Android.
-        func matches(_ book: Book, in group: PassagePickerData.Group, of testament: PassagePickerData.Section) -> Bool {
-            query.isEmpty || [book.label, book.name, book.abbreviation, group.title, testament.title].contains {
-                $0?.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
-            }
+        func matches(_ book: Book, in group: PassagePickerData.Group) -> Bool {
+            PassagePickerData.filter(query, matches: book, in: group)
         }
 
         var snapshot = NSDiffableDataSourceSnapshot<String, Book>()
         for testament in data.sections {
             for group in testament.groups {
-                let books = group.books.filter { matches($0, in: group, of: testament) }
+                let books = group.books.filter { matches($0, in: group) }
                 guard !books.isEmpty else { continue }
                 let title = PassagePickerData.sectionTitle(of: group, in: testament, showing: books,
                                                            taken: snapshot.sectionIdentifiers)
