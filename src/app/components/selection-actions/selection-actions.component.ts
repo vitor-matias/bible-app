@@ -353,12 +353,17 @@ export class SelectionActionsComponent {
   /** "22,37" or "22,37-39" — what the selection covers. */
   get reference(): string {
     if (!this.source || !this.verses.length) return ""
-    const chapter = this.source.chapter.number
+    const { chapter } = this.source
+    // The positions the elements are keyed by, said as they are printed: a
+    // supplement's "A1" is stored at a position past the chapter's own verses.
+    const printed = (position: Verse["number"]): string | number =>
+      chapter.verses?.find(({ number }) => number === position)?.numberLabel ||
+      position
     const first = this.verses[0]
     const last = this.verses[this.verses.length - 1]
     return first === last
-      ? `${chapter},${first}`
-      : `${chapter},${first}-${last}`
+      ? `${chapter.number},${printed(first)}`
+      : `${chapter.number},${printed(first)}-${printed(last)}`
   }
 
   mark(color: HighlightColor): void {

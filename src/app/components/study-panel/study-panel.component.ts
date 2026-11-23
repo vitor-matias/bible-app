@@ -476,7 +476,7 @@ export class StudyPanelComponent implements OnChanges {
       .filter((group) => this.isCurrentGroup(group))
       .reduce((total, group) => total + group.entries.length, 0)
     return [
-      `Versículo ${verse.number}`,
+      `Versículo ${verse.numberLabel || verse.number}`,
       references === 1 ? "1 referência" : `${references} referências`,
       this.noteDraft.trim() ? "com nota sua" : "sem nota sua",
     ].join(" · ")
@@ -500,7 +500,7 @@ export class StudyPanelComponent implements OnChanges {
   get selectedVerseLabel(): string {
     const verse = this.selectedVerse
     if (!verse) return ""
-    return this.verseLabel(verse.number)
+    return this.verseLabel(verse)
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -724,17 +724,31 @@ export class StudyPanelComponent implements OnChanges {
     )
   }
 
-  verseLabel(verseNumber: Verse["number"]): string {
+  /**
+   * The verse as it is printed, which is not always where it is stored: a
+   * supplement's "A1" sits at a position past the chapter's own verses. The
+   * position keys marks, notes and links; only what is read and quoted says
+   * the printed number.
+   */
+  verseLabel(verse: Verse): string {
     const chapter = this.chapter?.number ?? ""
     // Verse 0 is the chapter's front matter, where this edition prints the
     // heading and the parallels for the passage that opens the chapter.
     // Those cover the chapter, not its first verse — and "1,0" is not a
     // reference anyone writes — so they are named by the chapter alone.
-    return verseNumber > 0 ? `${chapter},${verseNumber}` : `Capítulo ${chapter}`
+    return verse.number > 0
+      ? `${chapter},${verse.numberLabel || verse.number}`
+      : `Capítulo ${chapter}`
   }
 
   noteLabel(note: VerseNote): string {
-    return `${note.chapter},${note.verse}`
+    // Only the open chapter's verses are known here; a note in another one is
+    // named by its position, as it was before.
+    const verse =
+      note.bookId === this.book?.id && note.chapter === this.chapter?.number
+        ? this.chapter?.verses?.find(({ number }) => number === note.verse)
+        : undefined
+    return `${note.chapter},${verse?.numberLabel || note.verse}`
   }
 
   parseFootnote(footnote: _Footnote): (string | BibleReference)[] {

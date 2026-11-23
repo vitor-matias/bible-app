@@ -308,6 +308,42 @@ describe("SelectionActionsComponent", () => {
     )
   })
 
+  // Esther's additions are stored at positions 37 and on, and printed "A1",
+  // "B1": the position is what the elements, marks and links are keyed by,
+  // the printed number is what a reader would write in a citation.
+  it("cites a supplement by its printed numbers, not its positions", async () => {
+    const written: string[] = []
+    vi.spyOn(navigator.clipboard, "writeText").mockImplementation(
+      (text: string) => {
+        written.push(text)
+        return Promise.resolve()
+      },
+    )
+    const labelled = (number: number, numberLabel?: string): Verse => ({
+      bookId: "mat",
+      chapterNumber: 22,
+      number,
+      verseLabel: String(number),
+      numberLabel,
+      text: [],
+    })
+    fixture.componentRef.setInput("chapter", {
+      ...CHAPTER,
+      verses: [labelled(37, "A1"), labelled(38, "A2"), labelled(39)],
+    })
+    fixture.detectChanges()
+
+    selectVerses(host, 37, 38)
+    expect(component.reference).toBe("22,A1-A2")
+    // The marks still go to the positions the chapter is keyed by.
+    expect(component.verses).toEqual([37, 38])
+
+    selectVerses(host, 37, 37)
+    await component.copy()
+
+    expect(written[0]).toContain("(Mateus 22,A1)")
+  })
+
   it("copies the selected words with their reference", async () => {
     const written: string[] = []
     vi.spyOn(navigator.clipboard, "writeText").mockImplementation(

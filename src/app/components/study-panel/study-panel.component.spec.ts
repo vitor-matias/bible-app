@@ -2399,6 +2399,61 @@ describe("StudyPanelComponent", () => {
     })
   })
 
+  describe("a supplement's verse, by the number printed beside it", () => {
+    // Stored at a position past the chapter's own verses, printed "A1".
+    const supplement: Verse = {
+      ...verse(37, [plain("Mardoqueu disse")]),
+      numberLabel: "A1",
+    }
+    const choose = (): void =>
+      setInputs({
+        book: BOOK,
+        chapter: { bookId: "mat", number: 22, verses: [supplement] },
+        selection: { verse: supplement },
+      })
+
+    it("names it so in the caption and the actions", () => {
+      choose()
+
+      expect(
+        fixture.nativeElement.querySelector(".verse-caption").textContent,
+      ).toContain("Versículo A1")
+      expect(component.selectedVerseLabel).toBe("22,A1")
+    })
+
+    it("cites it so, and still marks it where it is stored", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } })
+      choose()
+
+      await component.copySelectedVerse()
+      component.toggleHighlight("green")
+
+      expect(writeText).toHaveBeenCalledExactlyOnceWith(
+        "Mardoqueu disse (Mateus 22,A1)",
+      )
+      expect(TestBed.inject(HighlightService).colorFor("mat", 22, 37)).toBe(
+        "green",
+      )
+    })
+
+    it("lists its note by the printed number, linked to its position", () => {
+      choose()
+      const note = {
+        bookId: "mat",
+        chapter: 22,
+        verse: 37,
+        text: "x",
+        updatedAt: 1,
+      }
+
+      expect(component.noteLabel(note)).toBe("22,A1")
+      // A note in a chapter that is not open has no verses to read it from.
+      expect(component.noteLabel({ ...note, chapter: 5 })).toBe("5,37")
+      expect(component.noteQueryParams(note)).toEqual({ verseStart: 37 })
+    })
+  })
+
   describe("a verse copied as a citation", () => {
     const target = verse(37, [plain("Amarás ao Senhor")])
     const choose = (book: Book = BOOK, number = 22): void =>

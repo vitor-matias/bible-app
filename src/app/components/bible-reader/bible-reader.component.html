@@ -19,7 +19,7 @@
          is the one row of chrome there is, so the trail shares it rather than
          taking a second one; it also carries the page's heading, which the
          toolbar's book/chapter chip carries everywhere else. -->
-    <study-trail [entries]="trail" (clearTrail)="resetTrail()"></study-trail>
+    <study-trail data-no-swipe [entries]="trail" (clearTrail)="resetTrail()"></study-trail>
   </header>
   <!-- Outside both layouts, because selecting text means the same thing in
        each: it is fixed-positioned against the selection, not the column. -->

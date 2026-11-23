@@ -2585,6 +2585,16 @@ describe("BibleReaderComponent", () => {
       }
     })
 
+    // The trail scrolls sideways when it outgrows the header; a quick finger
+    // along it would otherwise turn the chapter as well.
+    it("keeps a finger on the trail from turning the chapter", () => {
+      studyMode.activate()
+      fixture.detectChanges()
+
+      const trail = fixture.nativeElement.querySelector("study-trail")
+      expect(trail?.hasAttribute("data-no-swipe")).toBe(true)
+    })
+
     it("follows the pointer, and keeps where it was let go", () => {
       studyMode.activate()
       fixture.detectChanges()
