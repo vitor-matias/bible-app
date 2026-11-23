@@ -1,8 +1,10 @@
 .menu-controls {
   display: flex;
   justify-content: space-between;
-  padding: 12px 16px;
-  min-width: 240px;
+  align-items: center;
+  gap: 2px;
+  padding: 12px 8px;
+  min-width: 264px;
 }
 
 /* Round icon buttons. They are menu items underneath, so the menu's arrow
@@ -23,6 +25,36 @@
    the icon to the side. */
 .menu-control ::ng-deep .mat-mdc-menu-item-text {
   display: none;
+}
+
+/* The three that choose how the text looks carry their words under the icon:
+   a tooltip is out of reach on a touch screen. Square-ish, not round, so the
+   words fit; two lines at most. */
+.menu-control.labelled.mat-mdc-menu-item {
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  width: auto;
+  height: auto;
+  min-height: 56px;
+  padding: 4px 0;
+  border-radius: 12px;
+  transform: none;
+}
+
+.menu-control.labelled ::ng-deep .mat-mdc-menu-item-text {
+  display: block;
+  flex: none;
+  min-width: 0;
+  text-align: center;
+}
+
+.menu-control-label {
+  display: block;
+  font-size: 0.6875rem;
+  line-height: 1.15;
+  text-align: center;
 }
 
 .menu-control mat-icon {

@@ -365,4 +365,24 @@ describe("ReaderMenuComponent", () => {
     expect(items).toContain("Partilhar")
     expect(items).not.toContain("Copiar ligação")
   })
+
+  // A tooltip is out of reach on a touch screen: the words show under the icon.
+  it("shows each look button's words under its icon", () => {
+    open("paged", null)
+    const labels = Array.from(
+      document.querySelectorAll(".menu-control.labelled"),
+    ).map((button) => ({
+      aria: button.getAttribute("aria-label")?.toLowerCase() ?? "",
+      text: button.querySelector(".menu-control-label")?.textContent?.trim(),
+    }))
+    expect(labels.map((label) => label.text)).toEqual([
+      expect.stringMatching(/^(Automático|Claro|Escuro)$/),
+      "Página a página",
+      "Justificado",
+    ])
+    // The visible words are part of the accessible name.
+    for (const { aria, text } of labels) {
+      expect(aria).toContain(text?.toLowerCase())
+    }
+  })
 })
