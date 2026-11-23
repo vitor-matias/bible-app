@@ -130,9 +130,10 @@
   width: 9px;
   cursor: col-resize;
   /* The drag is the reader's from the first pixel. Left to the browser, a
-     finger on a divider pans or swipes instead: the pointer events stop
-     arriving, and the reader's swipe handler takes a quick drag for a change
-     of chapter. */
+     finger on a divider pans or swipes instead, and the pointer events stop
+     arriving. This stops that; the reader's own swipe handler still sees the
+     touch, and takes a quick drag for a change of chapter unless the divider
+     says otherwise (data-no-swipe in the template). */
   touch-action: none;
 }
 

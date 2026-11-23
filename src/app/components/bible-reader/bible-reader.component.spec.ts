@@ -2572,6 +2572,19 @@ describe("BibleReaderComponent", () => {
       studyMode.activate()
     })
 
+    // The gesture handler on the page would take a quick finger on a divider
+    // for a swipe to another chapter: the dividers tell it they keep the touch.
+    it("keeps a finger on a divider from turning the chapter", () => {
+      studyMode.activate()
+      fixture.detectChanges()
+
+      const dividers = fixture.nativeElement.querySelectorAll(".study-resizer")
+      expect(dividers.length).toBeGreaterThanOrEqual(2)
+      for (const divider of Array.from<HTMLElement>(dividers)) {
+        expect(divider.hasAttribute("data-no-swipe")).toBe(true)
+      }
+    })
+
     it("follows the pointer, and keeps where it was let go", () => {
       studyMode.activate()
       fixture.detectChanges()

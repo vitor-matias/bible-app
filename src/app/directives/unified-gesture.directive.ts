@@ -190,12 +190,17 @@ export class UnifiedGesturesDirective implements OnInit, OnDestroy {
     }
 
     if (e.touches.length === 1) {
-      // Single touch - potential swipe
+      // Single touch - potential swipe, unless it starts on a control that
+      // takes the drag for itself (data-no-swipe: a column divider): its touch
+      // events reach this host all the same, and the release would turn the
+      // chapter as well as move the control.
+      const keptByControl =
+        e.target instanceof Element && !!e.target.closest("[data-no-swipe]")
       this.swipeStartX = e.touches[0].clientX
       this.swipeStartY = e.touches[0].clientY
       this.swipeSamples = [{ x: this.swipeStartX, time: Date.now() }]
       this.swipeAxis = null
-      this.isSwipeGesture = true
+      this.isSwipeGesture = !keptByControl
       this.isPinchGesture = false
     } else if (e.touches.length === 2) {
       // Two touches - pinch gesture, prevent default to override browser zoom

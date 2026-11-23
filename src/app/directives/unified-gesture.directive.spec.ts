@@ -442,7 +442,11 @@ describe("UnifiedGesturesDirective", () => {
      * A one-finger gesture through `moves`, lifted after `ms`, its points
      * evenly spread in time; or at the given `times`, one per point.
      */
-    function gesture(moves: Point[], ms: number | number[]) {
+    function gesture(
+      moves: Point[],
+      ms: number | number[],
+      target?: EventTarget,
+    ) {
       const times =
         typeof ms === "number"
           ? moves.map((_, i) => (ms * i) / (moves.length - 1))
@@ -457,13 +461,49 @@ describe("UnifiedGesturesDirective", () => {
       const cancelled = vi.fn().mockName("cancelled")
       directive.swipeCancel.subscribe(cancelled)
       const preventDefault = vi.fn().mockName("preventDefault")
-      call("onTouchStart", { touches: [touch(moves[0])] })
+      call("onTouchStart", { touches: [touch(moves[0])], target })
       for (const point of moves.slice(1, -1)) {
         call("onTouchMove", { touches: [touch(point)], preventDefault })
       }
       call("onTouchEnd", { changedTouches: [touch(moves[moves.length - 1])] })
       return { swiped, moved, cancelled, preventDefault }
     }
+
+    // A column divider is dragged by touch: its pointer events take the drag,
+    // but the touch events reach this host all the same, and a quick drag on
+    // it also turned the chapter. `touch-action: none` stops the browser's
+    // panning, not these events.
+    describe("from a control that keeps the touch for itself", () => {
+      const flick: Point[] = [
+        [200, 10],
+        [0, 15],
+      ]
+      const controlWithGrip = () => {
+        const control = document.createElement("div")
+        control.dataset["noSwipe"] = ""
+        const grip = document.createElement("span")
+        control.appendChild(grip)
+        element.appendChild(control)
+        return grip
+      }
+
+      it("is never a swipe, however fast", () => {
+        const { swiped, moved } = gesture(flick, 100, controlWithGrip())
+
+        expect(swiped).not.toHaveBeenCalled()
+        expect(moved).not.toHaveBeenCalled()
+      })
+
+      it("is a swipe from anywhere else", () => {
+        const { swiped } = gesture(
+          flick,
+          100,
+          element.querySelector("h1") as HTMLElement,
+        )
+
+        expect(swiped).toHaveBeenCalled()
+      })
+    })
 
     it("never on a diagonal flick", () => {
       const { swiped } = gesture(

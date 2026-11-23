@@ -39,7 +39,7 @@
 
     <!-- Dividers: drag them, or focus one and use the arrows. Home hands the
          column back to the width the layout chose for it. -->
-    <div class="study-resizer rail-divider" role="separator" aria-orientation="vertical" tabindex="0"
+    <div data-no-swipe class="study-resizer rail-divider" role="separator" aria-orientation="vertical" tabindex="0"
       [attr.aria-label]="'Largura da lista de livros'" [attr.aria-valuenow]="columns.values.rail"
       [attr.aria-valuemin]="columns.limits.rail.min" [attr.aria-valuemax]="columns.limits.rail.max"
       (focus)="columns.announce()" (pointerdown)="columns.start('rail', $event)"
@@ -96,7 +96,7 @@
            the reason to look one up is to have both texts at once. It scrolls on
            its own, so following the parallel never moves the chapter. -->
       @if (parallel) {
-      <div class="study-resizer split-divider" role="separator" aria-orientation="vertical" tabindex="0"
+      <div data-no-swipe class="study-resizer split-divider" role="separator" aria-orientation="vertical" tabindex="0"
         aria-label="Largura da passagem ao lado" [attr.aria-valuenow]="columns.values.split"
         [attr.aria-valuemin]="columns.limits.split.min" [attr.aria-valuemax]="columns.limits.split.max"
         (focus)="columns.announce()" (pointerdown)="columns.start('split', $event)"
@@ -143,7 +143,7 @@
 
     <!-- Dividers: drag them, or focus one and use the arrows. Home hands the
          column back to the width the layout chose for it. -->
-    <div class="study-resizer panel-divider" role="separator" aria-orientation="vertical" tabindex="0"
+    <div data-no-swipe class="study-resizer panel-divider" role="separator" aria-orientation="vertical" tabindex="0"
       [attr.aria-label]="'Largura do aparato'" [attr.aria-valuenow]="columns.values.panel"
       [attr.aria-valuemin]="columns.limits.panel.min" [attr.aria-valuemax]="columns.limits.panel.max"
       (focus)="columns.announce()" (pointerdown)="columns.start('panel', $event)"
