@@ -12,6 +12,7 @@ import {
 import type { Observable, Subscription } from "rxjs"
 import { filter, take } from "rxjs/operators"
 import { TwoActionSnackComponent } from "../components/two-action-snackbar/two-action-snackbar.component"
+import { passageLabel } from "../utils/passage-label"
 import { printedNumber, verseRefValue } from "../utils/verse-ref"
 import { BookService } from "./book.service"
 import { isPanelEntry, pageDepth } from "./depth-location-strategy"
@@ -91,7 +92,8 @@ export class ToastService {
       from.number > 0 ? verseRefValue(from, from.bookId, from.chapterNumber) : 1
     const book = this.bookService.findBook(from.bookId)
     const urlAbrv = this.bookService.getUrlAbrv(book)
-    const message = `Voltar para ${book.shortName} ${from.chapterNumber},${printed}`
+    // As the title and the share write it: "Salmo 23 (22),1", not "Salmos 23,1".
+    const message = `Voltar para ${passageLabel(book, from.chapterNumber, printed)}`
     const goBack = (extras: NavigationExtras = {}) =>
       this.router.navigate([urlAbrv, from.chapterNumber], {
         queryParams: { verseStart, highlight: false },
