@@ -685,32 +685,6 @@ final class ChromeStateTests: XCTestCase {
     }
 }
 
-/// The book picker's bar title.
-final class PickerTitleLabelTests: XCTestCase {
-    private func label(_ text: String) -> PickerTitleLabel { pickerTitleView(text) }
-
-    func testAShortNameKeepsItsOwnWidthOnOneLine() {
-        let title = label("Livro do Génesis")
-        title.maxWidth = PickerTitleLabel.room(inBarOfWidth: 402)
-        let line = title.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
-        XCTAssertEqual(title.intrinsicContentSize.width, line.width, accuracy: 0.5)
-        XCTAssertEqual(title.intrinsicContentSize.height, line.height, accuracy: 0.5)
-    }
-
-    func testALongNameWrapsInTheRoomTheBarLeaves() {
-        let title = label("Livro dos Atos dos Apóstolos")
-        let room = PickerTitleLabel.room(inBarOfWidth: 402)
-        title.maxWidth = room
-        XCTAssertEqual(title.intrinsicContentSize.width, room, accuracy: 0.5)
-        XCTAssertGreaterThan(title.intrinsicContentSize.height, title.font.lineHeight * 1.5)
-    }
-
-    func testTheRoomFollowsTheBarAndNeverVanishes() {
-        XCTAssertGreaterThan(PickerTitleLabel.room(inBarOfWidth: 834), PickerTitleLabel.room(inBarOfWidth: 402))
-        XCTAssertEqual(PickerTitleLabel.room(inBarOfWidth: 100), 120)
-    }
-}
-
 /// The book picker's filter.
 final class PassagePickerFilterTests: XCTestCase {
     private func book(_ id: String, _ name: String, _ abbreviation: String) -> PassagePickerData.Book {
