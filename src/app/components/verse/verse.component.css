@@ -246,10 +246,11 @@ h3:not(:first-child) {
 /* The same for a cross-reference ("Sl 23"), whose line is about 27 px tall.
    Links share lines, and a later link paints over an earlier one, so the box
    may not run into a neighbour's words: it stays within the gap that
-   separates them. Sideways, 4 px each side of the link (a "; " is about 9 px
-   wide), with a floor of 24 px for a bare continuation ("Sl 8; 9"'s 9) which
-   still stays inside that gap. Up and down, 7 px: the least that wrapped lines
-   of the smallest reading size leave between two links. */
+   separates them. Sideways, 0.2em each side of the link, with a floor of 1.4em
+   for a bare continuation ("Sl 8; 9"'s 9): in em, as the "; " between links
+   (about 0.5em) shrinks with the reading size and a fixed floor would not.
+   Up and down, 7 px: the least that wrapped lines of the smallest reading
+   size leave between two links. */
 a.references {
   position: relative;
 }
@@ -264,13 +265,13 @@ a.references::after {
 
 @media (pointer: coarse) {
   a.references::after {
-    width: max(calc(100% + 8px), 24px);
+    width: max(calc(100% + 0.4em), 1.4em);
     height: calc(100% + 14px);
   }
 }
 
 :host-context(.native-chrome) a.references::after {
-  width: max(calc(100% + 8px), 24px);
+  width: max(calc(100% + 0.4em), 1.4em);
   height: calc(100% + 14px);
 }
 

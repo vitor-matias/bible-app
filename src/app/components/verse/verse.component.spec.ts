@@ -1386,7 +1386,10 @@ describe("VerseComponent", () => {
 
         expect(target.position).toBe("absolute")
         expect(Number.parseFloat(target.height)).toBeCloseTo(box.height + 14, 0)
-        expect(Number.parseFloat(target.width)).toBeCloseTo(box.width + 8, 0)
+        expect(Number.parseFloat(target.width)).toBeCloseTo(
+          box.width + 0.4 * Number.parseFloat(getComputedStyle(link).fontSize),
+          0,
+        )
         const below = document.elementFromPoint(
           box.left + box.width / 2,
           box.bottom + 5,
@@ -1396,23 +1399,26 @@ describe("VerseComponent", () => {
 
       // "Sl 8; 9": a later link paints over an earlier one, so the bare "9"
       // must not reach the 8's words.
-      it("does not cover the words of a neighbouring link", () => {
-        const [first, second] = render("Sl 8; 9", [
-          { match: "Sl 8", index: 0 },
-          { match: "9", index: 6 },
-        ])
-        const gap =
-          second.getBoundingClientRect().left -
-          first.getBoundingClientRect().right
-        const target = getComputedStyle(second, "::after")
-        const overhang =
-          (Number.parseFloat(target.width) -
-            second.getBoundingClientRect().width) /
-          2
+      it.each(["20px", "10.6px"])(
+        "does not cover the words of a neighbouring link at %s text",
+        (fontSize) => {
+          fixture.nativeElement.style.fontSize = fontSize
+          const [first, second] = render("Sl 8; 9", [
+            { match: "Sl 8", index: 0 },
+            { match: "9", index: 6 },
+          ])
+          const gap =
+            second.getBoundingClientRect().left -
+            first.getBoundingClientRect().right
+          const target = getComputedStyle(second, "::after")
+          const overhang =
+            (Number.parseFloat(target.width) -
+              second.getBoundingClientRect().width) /
+            2
 
-        expect(Number.parseFloat(target.width)).toBeGreaterThanOrEqual(24)
-        expect(overhang).toBeLessThanOrEqual(gap)
-      })
+          expect(overhang).toBeLessThanOrEqual(gap)
+        },
+      )
     })
 
     // It scrolled on under the sheet, carrying the verse away.
