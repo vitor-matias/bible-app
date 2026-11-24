@@ -59,6 +59,20 @@ export class PreferencesService {
     APP_PROMO_SEEN: "appPromoSeen",
     NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
     RAGGED_TEXT: "raggedText",
+    PASSAGE_PICKER_USED: "passagePickerUsed",
+  }
+
+  /**
+   * Whether the reader has opened the book picker. As getOnboardingSeen, true
+   * when storage is unusable: a hint that can't be remembered would repeat.
+   */
+  getPassagePickerUsed(): boolean {
+    const stored = this.read(this.KEYS.PASSAGE_PICKER_USED)
+    return stored === undefined || stored === "true"
+  }
+
+  setPassagePickerUsed(): void {
+    this.write(this.KEYS.PASSAGE_PICKER_USED, "true")
   }
 
   /** The reader's choice of ragged-right (true) or justified (false) text; null until they make one. */

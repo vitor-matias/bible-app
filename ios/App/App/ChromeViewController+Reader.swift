@@ -114,6 +114,7 @@ extension ChromeViewController {
         if #available(iOS 16.0, *) {
             passageItem.menuRepresentation = UIAction(title: state.passageLabel,
                                                       image: UIImage(systemName: "book")) { [weak self] _ in
+                self?.endPassageHint()
                 self?.plugin.send("passage")
             }
         }

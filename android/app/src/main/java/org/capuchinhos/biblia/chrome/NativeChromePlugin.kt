@@ -72,6 +72,15 @@ class NativeChromePlugin : Plugin() {
         }
     }
 
+    /** A tip on the passage that it opens the books; it goes by itself. */
+    @PluginMethod
+    fun showPassageHint(call: PluginCall) {
+        activity.runOnUiThread {
+            chrome.showPassageHint()
+            call.resolve()
+        }
+    }
+
     /**
      * The sheets resolve with whether they came up: not over another one. One
      * on its way out is waited for, so its closing event comes first.
