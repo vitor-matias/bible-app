@@ -21,9 +21,21 @@ describe("app routes", () => {
   }
 
   // The apps play +365 with their own player (PodcastChrome).
-  it("opens the +365 plan on the web and in the apps", () => {
+  // Until the apps' own +365 players ship with them.
+  it("opens the +365 plan on the web only", () => {
     const plan = routes.find((route) => route.path === "365") as Route
-    expect(plan.canMatch).toBeUndefined()
+    const matches = (native: boolean) => {
+      TestBed.resetTestingModule()
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: NativeChromeService, useValue: { enabled: native } },
+        ],
+      })
+      const [canMatch] = (plan.canMatch ?? []) as (() => boolean)[]
+      return TestBed.runInInjectionContext(canMatch)
+    }
+    expect(matches(false)).toBe(true)
+    expect(matches(true)).toBe(false)
   })
 
   // The web hosts the index in the reader; the native apps keep its own page.

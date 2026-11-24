@@ -1100,18 +1100,19 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     if (!this.native || this.destroyRef.destroyed) return
     // One control at a time: the +365 player while listening, else
     // auto-scroll's (with a 🎧 where +365 reads the chapter).
+    // In the apps' pages the control shows only for a day under way (heldByPlan):
+    // once it lets go, nothing, as nothing there could dismiss a player.
+    if (this.paged() && !this.plan.active()) {
+      this.nativeChrome.setPodcast(null)
+      this.nativeChrome.setAutoScroll(null)
+      return
+    }
     if (this.audioMode()) {
       this.nativeChrome.setAutoScroll(null)
       this.nativeChrome.setPodcast(this.podcastChrome())
       return
     }
     this.nativeChrome.setPodcast(null)
-    // Pages have nothing to scroll: no auto-scroll there, whatever mounted
-    // the control (a +365 day, let go).
-    if (this.paged()) {
-      this.nativeChrome.setAutoScroll(null)
-      return
-    }
     this.nativeChrome.setAutoScroll({
       playing: this.autoScrollEnabled,
       speedLabel: this.autoScrollSpeedLabel,

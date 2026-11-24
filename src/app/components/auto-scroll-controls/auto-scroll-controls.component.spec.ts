@@ -422,6 +422,18 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     expect(lastState()).toBeNull()
   })
 
+  // A day let go keeps the control mounted in pages: no player left there
+  // that nothing could dismiss, even on a chapter +365 reads.
+  it("shows no player in pages without a day under way", async () => {
+    await withEpisode()
+    // Pages make it the +365 player (audioMode) on a chapter +365 reads.
+    fixture.componentRef.setInput("paged", true)
+    fixture.detectChanges()
+    TestBed.tick()
+    expect(lastPodcast()).toBeNull()
+    expect(lastState()).toBeNull()
+  })
+
   it("steps ⏮ ⏭ through the episode's readings, and skips by the app's seconds", async () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
       this: HTMLMediaElement,
