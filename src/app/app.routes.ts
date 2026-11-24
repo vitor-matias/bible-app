@@ -64,9 +64,6 @@ export const routes: Routes = [
   },
   {
     path: "365",
-    // Web only until the apps' own +365 players (PodcastChrome) ship with
-    // them: an App Link to /365 lands on the not-found page there.
-    canMatch: [() => !inject(NativeChromeService).enabled],
     loadComponent: () =>
       import("./components/mais365/mais365.component").then(
         (m) => m.Mais365Component,

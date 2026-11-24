@@ -968,6 +968,16 @@ html.ragged-text .footnotes-container {
   --android-on-surface-variant: #d2c4ba;
 }
 
+/* The iOS sheets' own background (systemBackground in light, the elevated
+   #1C1C1E in dark), for web panels that should read as the app's sheets. */
+.platform-ios {
+  --ios-sheet-background: #ffffff;
+}
+
+.dark-theme .platform-ios {
+  --ios-sheet-background: #1c1c1e;
+}
+
 /* The Android bars' colours (Theme.kt's brown; the palette event sets the
    wallpaper's on the body), for web surfaces that sit among them. */
 .platform-android {

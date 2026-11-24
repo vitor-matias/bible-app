@@ -39,6 +39,19 @@ h1 {
   background: color-mix(in srgb, var(--text-color) 6%, var(--background-color));
 }
 
+/* In the apps, the colour of each system's own sheets (the passage picker's),
+   so the cards read as the app's panels: white on iOS (its dark sheet grey at
+   night), Material's sheet surface on Android. */
+:host-context(.platform-ios) .card {
+  border-radius: 26px;
+  background: var(--ios-sheet-background);
+}
+
+:host-context(.platform-android) .card {
+  border-radius: 16px;
+  background: var(--android-surface-container-low);
+}
+
 .kicker {
   margin: 0;
   font-size: 0.85em;

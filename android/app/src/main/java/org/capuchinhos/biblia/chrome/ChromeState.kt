@@ -58,6 +58,8 @@ data class AutoScrollState(
     val canFaster: Boolean,
     /** False at the page's end, where there's nothing left to play. */
     val canPlay: Boolean = true,
+    /** +365 reads this chapter: a 🎧 (auto-scroll-listen) beside the speeds. */
+    val canListen: Boolean = false,
 ) {
     companion object {
         fun from(json: JSONObject): AutoScrollState {
@@ -69,8 +71,65 @@ data class AutoScrollState(
                 canSlower = json.optBoolean("canSlower"),
                 canFaster = json.optBoolean("canFaster"),
                 canPlay = json.optBoolean("canPlay", true),
+                canListen = json.optBoolean("canListen"),
             )
         }
+    }
+}
+
+/**
+ * The +365 player, in the chapter arrows' place while the reader listens
+ * (PodcastCard): the passage and what plays, the scrubber, then
+ * [⇅ or ✕] ⏮ ↺15 ▶/⏸ ↻15 ⏭ [1×].
+ */
+data class PodcastState(
+    /** "Génesis 2", or "+365 · Dia 1 · Génesis 2" in a day of the plan. */
+    val caption: String,
+    /** What plays, beside the passage the card shows itself: "+365 · Dia 6"; null outside a plan day. */
+    val context: String?,
+    val playing: Boolean,
+    /** Play can be pressed: the chapter's episode is known. */
+    val canPlay: Boolean,
+    /** In the player: ±15 s and the scrubber work. */
+    val loaded: Boolean,
+    /** Seconds into the part, whole, sent at most once a second. */
+    val elapsed: Double,
+    /** The part's length in seconds; 0 while unknown. */
+    val length: Double,
+    val rate: Double,
+    /** In words, for TalkBack: "1,25 vezes". */
+    val rateAccessibilityLabel: String,
+    val canSlower: Boolean,
+    val canFaster: Boolean,
+    /** In a day of the plan. ⏮ and ⏭ show anyway: they step through the episode's readings. */
+    val inPlan: Boolean,
+    /** ⏮'s and ⏭'s names ("Saltar para Salmo 19"); null where there is none (shown disabled). */
+    val previousLabel: String?,
+    val nextLabel: String?,
+    /** ⇅ shows (podcast-scroll): in the scrolling view, outside a plan day. */
+    val canScroll: Boolean,
+    /** ✕ shows (podcast-close) where ⇅ doesn't: in a plan day, and in pages. */
+    val canClose: Boolean,
+) {
+    companion object {
+        fun from(json: JSONObject) = PodcastState(
+            caption = json.optString("caption"),
+            context = json.optNullableString("context"),
+            playing = json.optBoolean("playing"),
+            canPlay = json.optBoolean("canPlay"),
+            loaded = json.optBoolean("loaded"),
+            elapsed = json.optDouble("elapsed", 0.0),
+            length = json.optDouble("length", 0.0),
+            rate = json.optDouble("rate", 1.0),
+            rateAccessibilityLabel = json.optString("rateAccessibilityLabel"),
+            canSlower = json.optBoolean("canSlower"),
+            canFaster = json.optBoolean("canFaster"),
+            inPlan = json.optBoolean("inPlan"),
+            previousLabel = json.optNullableString("previousLabel"),
+            nextLabel = json.optNullableString("nextLabel"),
+            canScroll = json.optBoolean("canScroll"),
+            canClose = json.optBoolean("canClose"),
+        )
     }
 }
 
@@ -114,6 +173,8 @@ data class ChromeState(
     /** The page's background (`#ffffff`), as an ARGB colour; null when the web app doesn't say. */
     val pageColor: Int? = null,
     val autoScroll: AutoScrollState? = null,
+    /** The +365 player, in auto-scroll's place while the reader listens; never both. */
+    val podcast: PodcastState? = null,
     /** A list's filter (the pastoral index): a button in the chapter arrows' place; null on a page with none. */
     val filterPlaceholder: String? = null,
     /** The filter's field has the top bar. */
@@ -157,6 +218,7 @@ data class ChromeState(
                 textSize = call.getObject("textSize", null)?.let(TextSize::from),
                 pageColor = call.getString("pageColor")?.let(::cssHexColor),
                 autoScroll = call.getObject("autoScroll", null)?.let(AutoScrollState::from),
+                podcast = call.getObject("podcast", null)?.let(PodcastState::from),
                 filterPlaceholder = call.getString("filterPlaceholder"),
                 filterOpen = call.getBoolean("filterOpen", false)!!,
                 query = call.getString("query", "")!!,
@@ -192,6 +254,8 @@ fun chromeInsets(
     systemBottom: Float,
     /** The reader's top bar as drawn: taller for large text, shorter on a phone on its side. */
     readerBar: Float = BarMetrics.topBar,
+    /** The +365 card as last drawn (dp); 0 before it is. */
+    podcastCard: Float = 0f,
 ): ChromeInsets {
     if (state.mode == ChromeMode.None) return ChromeInsets(top = systemTop, bottom = systemBottom)
     if (state.mode == ChromeMode.Search) {
@@ -200,13 +264,44 @@ fun chromeInsets(
     if (state.mode != ChromeMode.Reader) return ChromeInsets(top = systemTop + BarMetrics.topBar, bottom = systemBottom)
     // The end of the text stays clear of the arrows' row even while they
     // hide, so the page doesn't grow and shrink with them. Auto-scroll's
-    // control floats over the text, as on iOS: it keeps no row.
+    // control floats over the text, as on iOS: it keeps no row. The +365
+    // card takes the arrows' place, so it counts instead of their row, with
+    // a gap so the web's read-along keeps the line being read clear of it;
+    // its paused ▶ keeps their row.
+    val row = BarMetrics.toolbarOffset + BarMetrics.chapterButton
+    val arrows = if (state.chapterNavigation || state.filterPlaceholder != null || podcastMiniShows(state, collapsed)) row else 0f
     return ChromeInsets(
         top = systemTop + readerBar,
-        bottom = systemBottom +
-            if (state.chapterNavigation || state.filterPlaceholder != null) BarMetrics.toolbarOffset + BarMetrics.chapterButton else 0f,
+        bottom = systemBottom + if (podcastCardShows(state, collapsed)) BarMetrics.toolbarOffset + podcastCard + BarMetrics.floatingGap else arrows,
         collapsed = collapsed,
     )
+}
+
+/**
+ * The +365 card is in the arrows' place: hands-free, as auto-scroll's
+ * control, it stays while playing as the bars hide, and goes with them while
+ * paused. Never over a web panel.
+ */
+fun podcastCardShows(state: ChromeState, collapsed: Boolean): Boolean =
+    state.mode == ChromeMode.Reader && state.podcast != null && !state.inert && (state.podcast.playing || !collapsed)
+
+/** Paused with the bars away, the card leaves "▶ Génesis 12" in its place, to resume. */
+fun podcastMiniShows(state: ChromeState, collapsed: Boolean): Boolean =
+    state.mode == ChromeMode.Reader && state.podcast != null && !state.inert && !state.podcast.playing && collapsed
+
+/**
+ * Where the +365 scrubber is [seconds] after the last state ([elapsed]):
+ * run on by [rate] while playing, never past [length] (unknown at 0).
+ */
+fun podcastPosition(elapsed: Double, seconds: Double, rate: Double, length: Double, playing: Boolean): Double {
+    val at = if (playing) elapsed + seconds * rate else elapsed
+    return if (length > 0) at.coerceIn(0.0, length) else at.coerceAtLeast(0.0)
+}
+
+/** 63 → "1:03", as the web's clock: never below "0:00". */
+fun podcastClock(seconds: Double): String {
+    val whole = kotlin.math.floor(seconds.coerceAtLeast(0.0)).toInt()
+    return "${whole / 60}:${(whole % 60).toString().padStart(2, '0')}"
 }
 
 /**
@@ -260,6 +355,9 @@ object BarMetrics {
 
     /** The chapter arrows' buttons, at the bottom corners: Material's standard FAB. */
     const val chapterButton = 56f
+
+    /** What floats over the text (auto-scroll, +365) keeps this far from the bars and the arrows. */
+    const val floatingGap = 12f
 }
 
 /** The books and chapters the picker offers (utils/passage-picker.ts). */

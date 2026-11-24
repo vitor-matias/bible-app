@@ -107,6 +107,8 @@ enum ReaderMenu {
         // A page that can't have it at all (the pastoral index) leaves it out;
         // a chapter in pages shows it disabled.
         var reading: [UIMenuElement] = state.autoScrollAvailable || state.viewMode != nil ? [autoScroll] : []
+        // The reading plan's page, read and heard a little each day.
+        reading.append(action("+365: ler um pouco por dia", "calendar", "plan", send: send))
         if state.canShare {
             reading.append(action("Partilhar", "square.and.arrow.up", "share", send: send))
         }

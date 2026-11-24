@@ -32,12 +32,8 @@ export type NativeChromeAction =
         | "auto-scroll-listen"
         /** The +365 player's controls (PodcastChrome). */
         | "podcast-toggle"
-        | "podcast-back10"
-        | "podcast-forward10"
         | "podcast-previous"
         | "podcast-next"
-        | "podcast-slower"
-        | "podcast-faster"
         /** One speed button: the next speed, round to the slowest. */
         | "podcast-speed"
         /** ⇅: scroll the text instead of listening. */
@@ -179,7 +175,7 @@ export interface PodcastChrome {
   playing: boolean
   /** Play can be pressed: the chapter's episode is known. */
   canPlay: boolean
-  /** In the player: ±10 s and the scrubber work. */
+  /** In the player: ±15 s and the scrubber work. */
   loaded: boolean
   /**
    * Seconds into the part (the chapter, the reflection), whole: sent at

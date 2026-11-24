@@ -1074,12 +1074,6 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       case "podcast-toggle":
         this.toggleAudio()
         break
-      case "podcast-back10":
-        this.player.skip(-10)
-        break
-      case "podcast-forward10":
-        this.player.skip(10)
-        break
       case "podcast-previous":
         if (this.inPlan()) this.plan.back()
         else this.stepInEpisode(-1)
@@ -1100,12 +1094,6 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         break
       case "podcast-speed":
         this.player.cycleRate()
-        break
-      case "podcast-slower":
-        this.player.stepRate(-1)
-        break
-      case "podcast-faster":
-        this.player.stepRate(1)
         break
       case "podcast-seek":
         this.player.seek(this.chapterStart() + action.seconds)

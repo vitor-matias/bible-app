@@ -235,6 +235,11 @@ class ChromeStateTest {
 class ChromeInsetsTest {
     private val reader = ChromeState(mode = ChromeMode.Reader)
     private val autoScroll = AutoScrollState(false, "1×", "1 linha por segundo", canSlower = true, canFaster = true)
+    private val podcast = PodcastState(
+        "Génesis 12", context = null, playing = false, canPlay = true, loaded = true, elapsed = 0.0, length = 200.0,
+        rate = 1.0, rateAccessibilityLabel = "1 vez", canSlower = true, canFaster = true, inPlan = false,
+        previousLabel = null, nextLabel = null, canScroll = true, canClose = false,
+    )
 
     @Test
     fun coversOnlyTheSystemBarsWithoutBars() {
@@ -273,6 +278,43 @@ class ChromeInsetsTest {
         assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(state, collapsed = true, 24f, 48f))
         val alone = reader.copy(autoScroll = autoScroll)
         assertEquals(ChromeInsets(88f, 48f), chromeInsets(alone, collapsed = false, 24f, 48f))
+    }
+
+    // The +365 card takes the arrows' place, counted instead of their row:
+    // listening frees room rather than adding a layer. A gap over it keeps
+    // the line being read clear.
+    @Test
+    fun countsThePodcastCardInTheArrowsPlace() {
+        val playing = podcast.copy(playing = true)
+        val state = reader.copy(chapterNavigation = true, podcast = playing)
+        val card = 48f + 16f + 150f + 12f
+        assertEquals(ChromeInsets(88f, card), chromeInsets(state, collapsed = false, 24f, 48f, podcastCard = 150f))
+        // Playing, it stays as the bars hide for reading.
+        assertEquals(ChromeInsets(88f, card, collapsed = true), chromeInsets(state, collapsed = true, 24f, 48f, podcastCard = 150f))
+        // Paused, it goes with them, and its ▶ has the arrows' row.
+        val paused = state.copy(podcast = podcast)
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(paused, collapsed = true, 24f, 48f, podcastCard = 150f))
+        assertEquals(ChromeInsets(88f, card), chromeInsets(paused, collapsed = false, 24f, 48f, podcastCard = 150f))
+        // Under a web panel it isn't there.
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f), chromeInsets(state.copy(inert = true), collapsed = false, 24f, 48f, podcastCard = 150f))
+    }
+
+    // The paused ▶ keeps a row even on a page without arrows, so it never covers the text.
+    @Test
+    fun keepsARowForThePausedPlayer() {
+        val paused = reader.copy(podcast = podcast)
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(paused, collapsed = true, 24f, 48f, podcastCard = 150f))
+    }
+
+    // "▶ Génesis 12" only paused with the bars away, and never over a web panel.
+    @Test
+    fun showsThePausedPlayerOnlyWithTheBarsAway() {
+        val paused = reader.copy(chapterNavigation = true, podcast = podcast)
+        assertTrue(podcastMiniShows(paused, collapsed = true))
+        assertFalse(podcastMiniShows(paused, collapsed = false))
+        assertFalse(podcastMiniShows(paused.copy(podcast = podcast.copy(playing = true)), collapsed = true))
+        assertFalse(podcastMiniShows(paused.copy(inert = true), collapsed = true))
+        assertFalse(podcastMiniShows(reader.copy(chapterNavigation = true), collapsed = true))
     }
 
     // Large text makes the bar taller, a phone on its side shorter: the page
@@ -841,5 +883,43 @@ class ClampDetailsTest {
     @Test
     fun aNegativeLimitKeepsNothing() {
         assertEquals("", clampDetails("abc", -1))
+    }
+}
+
+/** The +365 scrubber between the web's once-a-second states. */
+class PodcastPositionTest {
+    @Test
+    fun runsOnByTheRateWhilePlaying() {
+        assertEquals(41.25, podcastPosition(40.0, 1.0, 1.25, 210.4, playing = true), 1e-9)
+        assertEquals(40.0, podcastPosition(40.0, 1.0, 1.25, 210.4, playing = false), 1e-9)
+    }
+
+    @Test
+    fun neverRunsPastTheEnd() {
+        assertEquals(210.4, podcastPosition(210.0, 5.0, 2.0, 210.4, playing = true), 1e-9)
+        // A length not yet known (0) doesn't hold it at 0.
+        assertEquals(3.0, podcastPosition(2.0, 1.0, 1.0, 0.0, playing = true), 1e-9)
+    }
+
+    // As the speed is said in Portuguese, whatever the device's language.
+    @Test
+    fun namesTheSpeedWithADecimalComma() {
+        val device = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.US)
+            assertEquals("1×", podcastSpeedTitle(1.0))
+            assertEquals("1,25×", podcastSpeedTitle(1.25))
+            assertEquals("0,75×", podcastSpeedTitle(0.75))
+            assertEquals("1,5×", podcastSpeedTitle(1.5))
+        } finally {
+            java.util.Locale.setDefault(device)
+        }
+    }
+
+    @Test
+    fun readsAsTheWebsClock() {
+        assertEquals("0:00", podcastClock(-3.0))
+        assertEquals("1:03", podcastClock(63.9))
+        assertEquals("62:03", podcastClock(3723.0))
     }
 }

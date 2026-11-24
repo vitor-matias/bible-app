@@ -57,6 +57,115 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertTrue(autoScroll.canSlower)
         XCTAssertTrue(autoScroll.canFaster)
         XCTAssertFalse(autoScroll.canPlay)
+        XCTAssertTrue(autoScroll.canListen)
+        XCTAssertNil(state.podcast)
+    }
+
+    func testReadsThePodcastPlayer() throws {
+        let state = try fixture("reader-podcast")
+        XCTAssertEqual(state.mode, .reader)
+        XCTAssertNil(state.autoScroll)
+        let podcast = try XCTUnwrap(state.podcast)
+        XCTAssertEqual(podcast.caption, "+365 · Dia 1 · Génesis 2")
+        XCTAssertTrue(podcast.playing)
+        XCTAssertTrue(podcast.canPlay)
+        XCTAssertTrue(podcast.loaded)
+        XCTAssertEqual(podcast.elapsed, 40)
+        XCTAssertEqual(podcast.length, 210.4, accuracy: 0.001)
+        XCTAssertEqual(podcast.rate, 1.25, accuracy: 0.001)
+        XCTAssertEqual(podcast.rateAccessibilityLabel, "1,25 vezes")
+        XCTAssertTrue(podcast.canSlower)
+        XCTAssertTrue(podcast.canFaster)
+        XCTAssertTrue(podcast.inPlan)
+        XCTAssertEqual(podcast.previousLabel, "Voltar a Génesis 1")
+        XCTAssertEqual(podcast.nextLabel, "Saltar para Salmo 19")
+        XCTAssertFalse(podcast.canScroll)
+        XCTAssertEqual(podcast.context, "+365 · Dia 1")
+        XCTAssertTrue(podcast.canClose)
+    }
+
+    func testThePodcastPlayerWithNowhereToGoHasNoLabels() {
+        let podcast = state(["mode": "reader", "podcast": ["caption": "Génesis 2", "context": NSNull(), "previousLabel": NSNull(),
+                                                         "nextLabel": NSNull(), "elapsed": 0, "length": 0]]).podcast
+        XCTAssertNil(podcast?.previousLabel)
+        XCTAssertNil(podcast?.nextLabel)
+        XCTAssertEqual(podcast?.length, 0)
+        XCTAssertEqual(podcast?.rate, 1)
+        XCTAssertNil(podcast?.context)
+        XCTAssertFalse(podcast?.canClose ?? true)
+    }
+
+    // MARK: The player's speed
+
+    func testTheSpeedButtonSaysTheRateAsWrittenInPortuguese() {
+        XCTAssertEqual(PodcastControl.speedTitle(1), "1×")
+        XCTAssertEqual(PodcastControl.speedTitle(1.25), "1,25×")
+        XCTAssertEqual(PodcastControl.speedTitle(0.75), "0,75×")
+        XCTAssertEqual(PodcastControl.speedTitle(2), "2×")
+    }
+
+    // MARK: The player's passage row and left slot
+
+    private func views<T: UIView>(_ type: T.Type, in view: UIView) -> [T] {
+        view.subviews.flatMap { ([$0 as? T].compactMap { $0 }) + views(type, in: $0) }
+    }
+
+    func testThePlayerShowsWhatPlaysAndCloseInAPlanDay() throws {
+        let podcast = try XCTUnwrap(try fixture("reader-podcast").podcast)
+        let control = PodcastControl()
+        var sent: [String] = []
+        control.send = { id, _ in sent.append(id) }
+        control.configure(podcast, passage: "Génesis 2", passageAccessibility: "Génesis, capítulo 2", enabled: true)
+        control.frame = CGRect(x: 0, y: 0, width: 370, height: 200)
+        control.layoutIfNeeded()
+
+        let buttons = views(UIButton.self, in: control)
+        let close = try XCTUnwrap(buttons.first { $0.accessibilityLabel == "Terminar" })
+        let scroll = try XCTUnwrap(buttons.first { $0.accessibilityLabel == "Deslocar o texto em vez de ouvir" })
+        XCTAssertFalse(close.isHidden)
+        XCTAssertTrue(scroll.isHidden)
+        close.sendActions(for: .primaryActionTriggered)
+        XCTAssertEqual(sent, ["podcast-close"])
+
+        XCTAssertTrue(views(UILabel.self, in: control).contains { $0.text == "· +365 · Dia 1" && !$0.isHidden })
+        let passage = try XCTUnwrap(buttons.first { $0.accessibilityHint == "Escolher livro e capítulo" })
+        XCTAssertGreaterThanOrEqual(passage.bounds.height, 44)
+
+        // Outside a plan ⇅ takes the slot, and no context shows.
+        var chapter = podcast
+        chapter.canScroll = true
+        chapter.context = nil
+        control.configure(chapter, passage: "Génesis 2", passageAccessibility: "Génesis, capítulo 2", enabled: true)
+        XCTAssertTrue(close.isHidden)
+        XCTAssertFalse(scroll.isHidden)
+        XCTAssertFalse(views(UILabel.self, in: control).contains { $0.text?.hasPrefix("·") == true && !$0.isHidden })
+    }
+
+    // MARK: The player's scrubber
+
+    func testTheScrubberKeepsItsOwnPositionWhileItAgreesWithTheSecondsSent() {
+        // Run on to 40.7 s, the web's 40 is no reason to jump back.
+        XCTAssertEqual(PodcastControl.resting(shown: 40.7, elapsed: 40, length: 210), 40.7)
+        // A seek elsewhere, or a new part, takes what was sent.
+        XCTAssertEqual(PodcastControl.resting(shown: 40.7, elapsed: 90, length: 210), 90)
+        XCTAssertEqual(PodcastControl.resting(shown: 41.2, elapsed: 40, length: 210), 40)
+        XCTAssertEqual(PodcastControl.resting(shown: nil, elapsed: 40, length: 210), 40)
+        // Never past the end, nor before the start.
+        XCTAssertEqual(PodcastControl.resting(shown: nil, elapsed: 300, length: 210), 210)
+        XCTAssertEqual(PodcastControl.resting(shown: nil, elapsed: -1, length: 210), 0)
+    }
+
+    func testTheScrubberRunsOnByTheRateUpToTheEnd() {
+        XCTAssertEqual(PodcastControl.advanced(40, by: 0.5, rate: 1.25, length: 210), 40.625)
+        XCTAssertEqual(PodcastControl.advanced(209.5, by: 2, rate: 1, length: 210), 210)
+        XCTAssertEqual(PodcastControl.advanced(40, by: -1, rate: 1, length: 210), 40)
+    }
+
+    func testTheScrubberShowsMinutesAndSeconds() {
+        XCTAssertEqual(PodcastControl.clock(0), "0:00")
+        XCTAssertEqual(PodcastControl.clock(67.9), "1:07")
+        XCTAssertEqual(PodcastControl.clock(610), "10:10")
+        XCTAssertEqual(PodcastControl.clock(-3), "0:00")
     }
 
     func testReadsTheReaderWithNothingOptional() throws {
@@ -74,6 +183,7 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertNil(state.bookmarkName)
         XCTAssertNil(state.buildVersion)
         XCTAssertNil(state.autoScroll)
+        XCTAssertNil(state.podcast)
     }
 
     func testReadsTheSearchPage() throws {

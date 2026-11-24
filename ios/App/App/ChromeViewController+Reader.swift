@@ -50,12 +50,22 @@ extension ChromeViewController {
         if let autoScroll = state.autoScroll {
             autoScrollControl.configure(autoScroll, enabled: enabled)
         }
+        if let podcast = state.podcast {
+            podcastControl.configure(podcast, passage: state.passageLabel,
+                                     passageAccessibility: state.passageAccessibilityLabel, enabled: enabled)
+        }
 
+        // The player tucked away, paused, leaves a mini player here: ▶ and the
+        // passage, and a tap resumes rather than showing the bars.
+        let listens = state.podcast != nil
         if var config = compactPassage.configuration {
             config.title = state.passageLabel
+            config.image = listens ? UIImage(systemName: "play.fill") : nil
             compactPassage.configuration = config
         }
-        compactPassage.accessibilityLabel = state.passageAccessibilityLabel
+        compactPassage.accessibilityLabel = listens ? "Ouvir o +365, \(state.passageLabel)"
+            : state.passageAccessibilityLabel
+        compactPassage.accessibilityHint = listens ? nil : "Mostrar os controlos"
         compactPassage.largeContentTitle = state.passageLabel
 
         filterItem.isEnabled = enabled
@@ -78,7 +88,9 @@ extension ChromeViewController {
         // the floating toolbar, which centres it on the screen, under the page;
         // the system toolbar would centre it in its own strip, off the text.
         let leading = usesVerticalBar ? [] : (toolbarLeadingInset > 0 ? [leadingInsetSpace] : []) + arrows
-        let floating = leading + [passageSpaces[0], passageItem, passageSpaces[1]]
+        // While the reader listens the passage is the player's (PodcastControl),
+        // one glass with it: the toolbar keeps the arrows.
+        let floating = leading + (state.podcast == nil ? [passageSpaces[0], passageItem, passageSpaces[1]] : [])
         let system = usesVerticalBar ? arrows : []
         // An item shows in one bar at a time: the bar losing it lets go first.
         let setFloating = { if self.toolbar.items ?? [] != floating { self.toolbar.setItems(floating, animated: false) } }
@@ -130,6 +142,9 @@ extension ChromeViewController {
         } else if let speed = next.autoScroll?.speedAccessibilityLabel,
                   let before = previous.autoScroll?.speedAccessibilityLabel, speed != before {
             announce(speed)
+        } else if let rate = next.podcast?.rateAccessibilityLabel,
+                  let before = previous.podcast?.rateAccessibilityLabel, rate != before {
+            announce(rate)
         }
     }
 
