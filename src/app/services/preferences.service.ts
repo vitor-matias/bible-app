@@ -60,7 +60,6 @@ export class PreferencesService {
     NATIVE_BARS_ONBOARDING_SEEN: "nativeBarsOnboardingSeen",
     RAGGED_TEXT: "raggedText",
     PASSAGE_PICKER_USED: "passagePickerUsed",
-    PASSAGE_PICKER_HINTS: "passagePickerHints",
   }
 
   /**
@@ -74,16 +73,6 @@ export class PreferencesService {
 
   setPassagePickerUsed(): void {
     this.write(this.KEYS.PASSAGE_PICKER_USED, "true")
-  }
-
-  /** How many times the hint at the picker has played. */
-  getPassagePickerHints(): number {
-    const count = Number(this.read(this.KEYS.PASSAGE_PICKER_HINTS))
-    return Number.isInteger(count) && count > 0 ? count : 0
-  }
-
-  setPassagePickerHints(count: number): void {
-    this.write(this.KEYS.PASSAGE_PICKER_HINTS, count.toString())
   }
 
   /** The reader's choice of ragged-right (true) or justified (false) text; null until they make one. */

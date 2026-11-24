@@ -28,10 +28,7 @@ import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
-import {
-  PICKER_HINT_DELAY_MS,
-  PICKER_HINT_MAX,
-} from "../../services/passage-picker-hint.service"
+import { PICKER_HINT_DELAY_MS } from "../../services/passage-picker-hint.service"
 import { ThemeService } from "../../services/theme.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import {
@@ -1417,7 +1414,6 @@ describe("HeaderComponent", () => {
       vi.advanceTimersByTime(1)
       fixture.detectChanges()
       expect(group().classList).toContain("hint")
-      expect(localStorage.getItem("passagePickerHints")).toBe("1")
     })
 
     it("is over with its last cycle", () => {
@@ -1451,15 +1447,6 @@ describe("HeaderComponent", () => {
       expect(localStorage.getItem("passagePickerUsed")).toBe("true")
     })
 
-    it("gives up after a few showings", () => {
-      localStorage.setItem("passagePickerUsed", "false")
-      localStorage.setItem("passagePickerHints", String(PICKER_HINT_MAX))
-      open()
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
-      fixture.detectChanges()
-      expect(group().classList).not.toContain("hint")
-    })
-
     it("waits for the wizard to close", () => {
       localStorage.setItem("passagePickerUsed", "false")
       Object.defineProperty(onboardingServiceSpy, "isOpen", { value: true })
@@ -1467,7 +1454,6 @@ describe("HeaderComponent", () => {
       vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
       fixture.detectChanges()
       expect(group().classList).not.toContain("hint")
-      expect(localStorage.getItem("passagePickerHints")).toBeNull()
     })
 
     // window does not exist while prerendering: its timer isn't scheduled

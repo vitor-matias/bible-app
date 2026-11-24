@@ -1,9 +1,6 @@
 import { TestBed } from "@angular/core/testing"
 import { OnboardingService } from "./onboarding.service"
-import {
-  PassagePickerHintService,
-  PICKER_HINT_MAX,
-} from "./passage-picker-hint.service"
+import { PassagePickerHintService } from "./passage-picker-hint.service"
 
 describe("PassagePickerHintService", () => {
   let service: PassagePickerHintService
@@ -22,13 +19,9 @@ describe("PassagePickerHintService", () => {
 
   afterEach(() => localStorage.clear())
 
-  it("plays for a reader who has not opened the picker, and counts it", () => {
-    expect(service.claim()).toBe(true)
-    expect(localStorage.getItem("passagePickerHints")).toBe("1")
-  })
-
-  it("plays a few times at most", () => {
-    for (let i = 0; i < PICKER_HINT_MAX; i++) expect(service.claim()).toBe(true)
+  it("plays for a reader who has not opened the picker, every time, until they do", () => {
+    for (let i = 0; i < 10; i++) expect(service.claim()).toBe(true)
+    service.markUsed()
     expect(service.claim()).toBe(false)
   })
 
@@ -37,10 +30,9 @@ describe("PassagePickerHintService", () => {
     expect(service.claim()).toBe(false)
   })
 
-  it("does not play over the wizard, nor count it", () => {
+  it("does not play over the wizard", () => {
     onboarding.isOpen = true
     expect(service.claim()).toBe(false)
-    expect(localStorage.getItem("passagePickerHints")).toBeNull()
   })
 
   it("does not play where it can't be remembered", () => {
