@@ -736,8 +736,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   closed(slug: string): void {
     if (!this.wide() && this.slug() === slug) this.expand(null)
     if (!this.native) return
-    // Its title stays in sight as the reader goes down its text (the apps'
-    // CSS), so closing from there puts the row back in view, under the finger.
+    // Closing from down its text puts the row back in view, under the finger.
     afterNextRender(
       () => {
         const theme = document.getElementById(`tema-${slug}`)

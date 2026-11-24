@@ -914,12 +914,14 @@ html.ragged-text .footnotes-container {
   mask-image: linear-gradient(transparent, black 40%);
 }
 
-/* Bars hidden while reading: only the status bar and home indicator remain. */
-.platform-ios.native-chrome-collapsed bible-reader::before {
+/* Bars hidden while reading: only the status bar and home indicator remain.
+   The index's too: a theme opened under the status bar isn't left under the
+   blur. */
+.platform-ios.native-chrome-collapsed :is(bible-reader, pastoral-index)::before {
   height: env(safe-area-inset-top);
 }
 
-.platform-ios.native-chrome-collapsed bible-reader::after {
+.platform-ios.native-chrome-collapsed :is(bible-reader, pastoral-index)::after {
   height: env(safe-area-inset-bottom);
 }
 
