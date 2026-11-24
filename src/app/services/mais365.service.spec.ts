@@ -224,6 +224,27 @@ describe("Mais365Service", () => {
     expect(player.current()?.verses).toEqual([[1, 58.4]])
   })
 
+  // On a slow link the full copy comes once the first reading is well under way.
+  it("keeps where a reading was entered when the full copy comes late", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    const started = plan.start(day)
+    TestBed.tick()
+    const first = day.readings[0].episode
+    at((first.start as number) + 20)
+    http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+    await started
+    TestBed.tick()
+    at((first.end as number) - 1)
+    at((first.end as number) + 0.5)
+    for (const { episode } of day.readings.slice(1)) {
+      at(episode.start as number)
+      at((episode.end as number) - 1)
+      at((episode.end as number) + 0.5)
+    }
+    expect(plan.done()).toEqual([1])
+  })
+
   it("plays the listed copy when the full one can't be had", async () => {
     const plan = await create()
     const started = plan.start(find(plan, 1))

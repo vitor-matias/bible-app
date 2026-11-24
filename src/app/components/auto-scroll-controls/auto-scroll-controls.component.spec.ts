@@ -463,9 +463,11 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     expect(lastState()).toEqual(expect.objectContaining({ canListen: true }))
     // No day was under way: nothing to end.
     expect(end).not.toHaveBeenCalled()
-    TestBed.inject(HttpTestingController)
-      .match(`${apiBaseUrl}/mais365`)
-      .forEach((request) => request.flush({ days: [] }))
+    for (const request of TestBed.inject(HttpTestingController).match(
+      `${apiBaseUrl}/mais365`,
+    )) {
+      request.flush({ days: [] })
+    }
   })
 
   it("steps ⏮ ⏭ through the episode's readings, and skips by the app's seconds", async () => {

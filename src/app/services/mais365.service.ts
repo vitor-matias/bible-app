@@ -178,6 +178,9 @@ export class Mais365Service {
       const day = this.active()
       untracked(() => {
         if (stage === last.stage && day === last.day) return
+        // The same day's full copy (start()) re-adopts the reading for its
+        // timings, but isn't a new entry into it: that stays where it was.
+        const entering = stage !== last.stage || day?.day !== last.day?.day
         last = { day, stage }
         if (!day || stage === null) return
         if (stage === "reflection") {
@@ -201,7 +204,7 @@ export class Mais365Service {
           return
         }
         const reading = day.readings[stage]
-        this.enteredAt.set(stage, this.player.position())
+        if (entering) this.enteredAt.set(stage, this.player.position())
         // Named for the system's player: the chapter, not the whole day.
         this.player.adopt({ ...reading.episode, title: readingLabel(reading) })
         void this.router.navigate(this.link(reading))
