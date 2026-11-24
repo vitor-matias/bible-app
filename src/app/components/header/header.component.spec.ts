@@ -1427,26 +1427,6 @@ describe("HeaderComponent", () => {
       expect(group().classList).toContain("hint")
     })
 
-    it("plays on the chapter the reader moves to from About, after its own wait", async () => {
-      localStorage.setItem("passagePickerUsed", "false")
-      open("about")
-      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS * 2)
-      fixture.detectChanges()
-      expect(group().classList).not.toContain("hint")
-
-      fixture.componentRef.setInput("book", {
-        id: "gen",
-        name: "Livro do Génesis",
-        shortName: "Génesis",
-        abrv: "Gn",
-        chapterCount: 50,
-      })
-      fixture.detectChanges()
-      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
-      fixture.detectChanges()
-      expect(group().classList).toContain("hint")
-    })
-
     it("counts the wait from the page the reader is on", async () => {
       localStorage.setItem("passagePickerUsed", "false")
       open()
@@ -1462,7 +1442,7 @@ describe("HeaderComponent", () => {
       expect(group().classList).toContain("hint")
     })
 
-    it("is away on the About page the header is reused for, and back after it", async () => {
+    it("keeps playing as the header is reused for the About page and back", async () => {
       localStorage.setItem("passagePickerUsed", "false")
       open()
       await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
@@ -1478,7 +1458,7 @@ describe("HeaderComponent", () => {
         chapterCount: 1,
       })
       fixture.detectChanges()
-      expect(group().classList).not.toContain("hint")
+      expect(group().classList).toContain("hint")
 
       fixture.componentRef.setInput("book", gen)
       fixture.detectChanges()
@@ -1560,12 +1540,12 @@ describe("HeaderComponent", () => {
       expect(() => serverFixture.componentInstance.ngOnDestroy()).not.toThrow()
     })
 
-    it("leaves the About page, whose button already asks, alone", async () => {
+    it("plays on the About page too, along with its cycling label", async () => {
       localStorage.setItem("passagePickerUsed", "false")
       open("about")
       await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
       fixture.detectChanges()
-      expect(group().classList).not.toContain("hint")
+      expect(group().classList).toContain("hint")
     })
   })
 

@@ -120,14 +120,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /** The web button is playing its hint that it can be tapped. */
   hinting = false
 
-  /**
-   * The halo on the page: not on the web About page, where the button already
-   * asks — whichever page the header was on when it started, as it is reused
-   * as the reader moves between pages.
-   */
-  get hintVisible(): boolean {
-    return this.hinting && this.book()?.id !== "about"
-  }
   private hintTimeout: number | undefined
 
   bookLabelMode: "title" | "prompt" = "title"
@@ -279,7 +271,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /**
    * Once the chapter has sat a moment, a reader who has never opened the
    * picker gets a cue that the passage is a button: this page's own halo, or
-   * the native bar's tip. Not on the web About page, whose button already asks.
+   * the native bar's tip. The About page too, whose button's cycling label
+   * is a second cue.
    */
   private scheduleHint(): void {
     if (!isPlatformBrowser(this.platformId)) return
@@ -287,13 +280,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.hintTimeout = window.setTimeout(() => {
       this.hintTimeout = undefined
       if (this.destroyed) return
-      // The web's About button already cycles "Escolher livro"; the native
-      // bars' don't, and it's the first page the apps open on.
-      // It waits there for the reader to move on to a chapter.
-      if (!this.native && this.book()?.id === "about") {
-        this.scheduleHint()
-        return
-      }
       const claim = this.pickerHint.claim()
       // The wizard is up: the hint waits for it to close, then plays.
       if (claim === "wait") this.scheduleHint()
