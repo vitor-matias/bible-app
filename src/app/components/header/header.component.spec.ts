@@ -1427,6 +1427,29 @@ describe("HeaderComponent", () => {
       expect(group().classList).toContain("hint")
     })
 
+    it("is away on the About page the header is reused for, and back after it", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      open()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+
+      const gen = fixture.componentRef.instance.book()
+      fixture.componentRef.setInput("book", {
+        id: "about",
+        name: "Sobre a Bíblia dos Capuchinhos",
+        shortName: "Sobre a Bíblia",
+        abrv: "Sobre",
+        chapterCount: 1,
+      })
+      fixture.detectChanges()
+      expect(group().classList).not.toContain("hint")
+
+      fixture.componentRef.setInput("book", gen)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+    })
+
     it("never plays for a reader who has opened the picker", async () => {
       localStorage.setItem("passagePickerUsed", "true")
       open()

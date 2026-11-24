@@ -119,6 +119,15 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   /** The web button is playing its hint that it can be tapped. */
   hinting = false
+
+  /**
+   * The halo on the page: not on the web About page, where the button already
+   * asks — whichever page the header was on when it started, as it is reused
+   * as the reader moves between pages.
+   */
+  get hintVisible(): boolean {
+    return this.hinting && this.book()?.id !== "about"
+  }
   private hintTimeout: number | undefined
 
   bookLabelMode: "title" | "prompt" = "title"
