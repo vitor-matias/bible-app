@@ -27,6 +27,10 @@ import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { Mais365Service, readingLabel } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
+import type {
+  NativeChromeAction,
+  PodcastChrome,
+} from "../../services/native-chrome.types"
 import {
   type ChapterEpisode,
   FOLLOW_PAUSE_MS,
@@ -148,11 +152,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   atEnd = false
 
   private readonly episodes = rxResource({
-    // The apps' native bar has no +365 mode yet: nothing would show it.
     params: () => {
       const bookId = this.bookId()
       const chapter = this.chapter()
-      return bookId && chapter && !this.native ? { bookId, chapter } : undefined
+      return bookId && chapter ? { bookId, chapter } : undefined
     },
     stream: ({ params }) =>
       this.player.episodesFor(params.bookId, params.chapter),
@@ -236,14 +239,19 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   )
 
   constructor() {
+    // The apps draw the player: what it shows goes to them as it changes.
+    effect(() => {
+      if (!this.native) return
+      this.audioMode()
+      this.podcastChrome()
+      this.entry()
+      untracked(() => this.syncNativeChrome())
+    })
     // While it plays, the text follows the reading: eased up when scrolling,
     // turned page by page when paged.
     effect(() => {
       const glide =
-        !this.native &&
-        this.playingThis() &&
-        this.heardHere() &&
-        !!this.entry()?.verses
+        this.playingThis() && this.heardHere() && !!this.entry()?.verses
       untracked(() => (glide ? this.startGlide() : this.stopGlide()))
     })
     effect(() => {
@@ -429,7 +437,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const page = this.scrollElement()
     const reading = this.reading()
     if (!page || !reading) return
-    const view = page.getBoundingClientRect()
+    const view = this.underNativeBars(page.getBoundingClientRect())
     const card = this.host.nativeElement
       .querySelector(".audio-player")
       ?.getBoundingClientRect()
@@ -810,11 +818,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     if (!this.native) return
     this.nativeChrome.actions$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(({ id }) => {
-        if (id === "auto-scroll-toggle") this.toggleAutoScroll()
-        if (id === "auto-scroll-slower") this.decreaseAutoScrollSpeed()
-        if (id === "auto-scroll-faster") this.increaseAutoScrollSpeed()
-      })
+      .subscribe((action) => this.onNativeAction(action))
     this.syncNativeChrome()
   }
 
@@ -824,7 +828,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     // A +365 day plays on into its reflection, on its own page.
     if (!this.player.throughEpisode()) this.player.pause()
     this.stopAutoScroll()
-    if (this.native) this.nativeChrome.setAutoScroll(null)
+    if (this.native) {
+      this.nativeChrome.setAutoScroll(null)
+      this.nativeChrome.setPodcast(null)
+    }
   }
 
   toggleAutoScroll(): void {
@@ -959,8 +966,100 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   /** Sends what these controls show to the native toolbar. */
+  /**
+   * The apps' bars, and the +365 player with them, float over the page: the
+   * part of it they leave clear, as they report it (--native-chrome-*).
+   */
+  private underNativeBars(view: DOMRect): DOMRect {
+    if (!this.native) return view
+    const style = getComputedStyle(document.documentElement)
+    const px = (name: string) =>
+      Number.parseFloat(style.getPropertyValue(name)) || 0
+    const top = view.top + px("--native-chrome-top")
+    const bottom = view.bottom - px("--native-chrome-bottom")
+    return new DOMRect(view.left, top, view.width, Math.max(0, bottom - top))
+  }
+
+  /** The +365 player as the apps draw it (PodcastChrome). */
+  private readonly podcastChrome = computed((): PodcastChrome => {
+    const start = this.chapterStart()
+    const length = this.seekable() ? this.chapterEnd() - start : 0
+    const inPlan = this.inPlan()
+    return {
+      caption: this.caption(),
+      playing: this.playingThis(),
+      canPlay: !!this.entry(),
+      loaded: this.loaded(),
+      // Whole seconds: one bridge message a second at most while playing.
+      elapsed: Math.min(
+        Math.floor(length),
+        Math.max(0, Math.floor(this.player.position() - start)),
+      ),
+      length: Math.round(length * 10) / 10,
+      rate: this.player.rate(),
+      rateAccessibilityLabel: this.rateSpoken(),
+      canSlower: this.player.canSlower(),
+      canFaster: this.player.canFaster(),
+      inPlan,
+      previousLabel: this.backLabel(),
+      nextLabel: this.skipLabel(),
+      canScroll: !this.paged() && !inPlan,
+    }
+  })
+
+  /** A tap on the apps' +365 player (PodcastChrome) or its 🎧. */
+  private onNativeAction(action: NativeChromeAction): void {
+    switch (action.id) {
+      case "auto-scroll-toggle":
+        this.toggleAutoScroll()
+        break
+      case "auto-scroll-slower":
+        this.decreaseAutoScrollSpeed()
+        break
+      case "auto-scroll-faster":
+        this.increaseAutoScrollSpeed()
+        break
+      case "auto-scroll-listen":
+      case "podcast-scroll":
+        this.toggleMode()
+        break
+      case "podcast-toggle":
+        this.toggleAudio()
+        break
+      case "podcast-back10":
+        this.player.skip(-10)
+        break
+      case "podcast-forward10":
+        this.player.skip(10)
+        break
+      case "podcast-previous":
+        this.plan.back()
+        break
+      case "podcast-next":
+        this.plan.skip()
+        break
+      case "podcast-slower":
+        this.player.stepRate(-1)
+        break
+      case "podcast-faster":
+        this.player.stepRate(1)
+        break
+      case "podcast-seek":
+        this.player.seek(this.chapterStart() + action.seconds)
+        break
+    }
+  }
+
   private syncNativeChrome(): void {
     if (!this.native || this.destroyRef.destroyed) return
+    // One control at a time: the +365 player while listening, else
+    // auto-scroll's (with a 🎧 where +365 reads the chapter).
+    if (this.audioMode()) {
+      this.nativeChrome.setAutoScroll(null)
+      this.nativeChrome.setPodcast(this.podcastChrome())
+      return
+    }
+    this.nativeChrome.setPodcast(null)
     this.nativeChrome.setAutoScroll({
       playing: this.autoScrollEnabled,
       speedLabel: this.autoScrollSpeedLabel,
@@ -971,6 +1070,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       canSlower: this.canSlower,
       canFaster: this.canFaster,
       canPlay: !this.atEnd,
+      canListen: !!this.entry(),
     })
   }
 

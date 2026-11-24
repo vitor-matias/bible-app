@@ -2,22 +2,27 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
   inject,
   linkedSignal,
+  type OnDestroy,
   type OnInit,
   signal,
 } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatSliderModule } from "@angular/material/slider"
 import { Meta, Title } from "@angular/platform-browser"
-import { RouterLink } from "@angular/router"
+import { Router, RouterLink } from "@angular/router"
 import {
   Mais365Service,
   type PlanDay,
   readingLabel,
 } from "../../services/mais365.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
 import { PodcastPlayerService } from "../../services/podcast-player.service"
+import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 
 /**
@@ -32,12 +37,16 @@ import { ToastService } from "../../services/toast.service"
   styleUrl: "./mais365.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class Mais365Component implements OnInit {
+export class Mais365Component implements OnInit, OnDestroy {
   protected readonly plan = inject(Mais365Service)
   protected readonly player = inject(PodcastPlayerService)
   protected readonly toast = inject(ToastService)
   private readonly title = inject(Title)
   private readonly meta = inject(Meta)
+  protected readonly nativeChrome = inject(NativeChromeService)
+  private readonly themeService = inject(ThemeService)
+  private readonly router = inject(Router)
+  private readonly destroyRef = inject(DestroyRef)
 
   /** The day shown: the one playing, else today, until another is picked. */
   protected readonly selected = linkedSignal<PlanDay | undefined>(
@@ -86,6 +95,24 @@ export class Mais365Component implements OnInit {
     this.title.setTitle("+365 | Bíblia Sagrada")
     this.meta.updateTag({ name: "robots", content: "noindex" })
     this.plan.load()
+    // The apps' page bars, with their way back, over the page's own.
+    if (this.nativeChrome.enabled) {
+      this.nativeChrome.show({
+        mode: "page",
+        themeMode: this.themeService.currentMode,
+        title: "+365",
+        search: false,
+      })
+      this.nativeChrome.actions$
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe(({ id }) => {
+          if (id === "back") void this.router.navigate(["/"])
+        })
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.nativeChrome.enabled) this.nativeChrome.hide()
   }
 
   /** "Dia 3"; an introduction by what it is, Dia 0 being the first. */

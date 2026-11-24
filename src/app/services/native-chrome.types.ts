@@ -28,6 +28,20 @@ export type NativeChromeAction =
         | "auto-scroll-toggle"
         | "auto-scroll-slower"
         | "auto-scroll-faster"
+        /** The auto-scroll control's 🎧: listen to +365 instead. */
+        | "auto-scroll-listen"
+        /** The +365 player's controls (PodcastChrome). */
+        | "podcast-toggle"
+        | "podcast-back10"
+        | "podcast-forward10"
+        | "podcast-previous"
+        | "podcast-next"
+        | "podcast-slower"
+        | "podcast-faster"
+        /** ⇅: scroll the text instead of listening. */
+        | "podcast-scroll"
+        /** The menu's «+365»: the reading plan's page. */
+        | "plan"
         | "share"
         | "report"
         | "about"
@@ -57,6 +71,8 @@ export type NativeChromeAction =
   | { id: "footnote-link"; index: number }
   | { id: "footnotes-closed" }
   | { id: "search-input"; text: string }
+  /** The +365 scrubber let go: seconds into the part (PodcastChrome.length). */
+  | { id: "podcast-seek"; seconds: number }
   | { id: "search-submit"; text: string }
   | { id: "report-submit"; topic: string; details: string }
 
@@ -135,6 +151,48 @@ export interface AutoScrollChrome {
   canFaster: boolean
   /** False at the page's end, where there's nothing left to play. */
   canPlay: boolean
+  /** +365 reads this chapter: a 🎧 (auto-scroll-listen) beside the speeds. */
+  canListen: boolean
+}
+
+/**
+ * The +365 player floating over the text, as AutoScrollChrome's control
+ * does: caption, scrubber, then ⏮ ⟲10 ▶/⏸ ⟳10 ⏭ and − +. While it is shown
+ * the shells count it in the bottom inset they report, so the web's
+ * read-along keeps the line being read clear of it. Mirrors PodcastState in
+ * NativeChrome.swift and ChromeState.kt.
+ */
+export interface PodcastChrome {
+  /** "Génesis 2", or "+365 · Dia 1 · Génesis 2" in a day of the plan. */
+  caption: string
+  playing: boolean
+  /** Play can be pressed: the chapter's episode is known. */
+  canPlay: boolean
+  /** In the player: ±10 s and the scrubber work. */
+  loaded: boolean
+  /**
+   * Seconds into the part (the chapter, the reflection), whole: sent at
+   * most once a second; while playing, the shells run the scrubber on by
+   * `rate` between updates.
+   */
+  elapsed: number
+  /** The part's length in seconds; 0 while unknown (scrubber disabled). */
+  length: number
+  rate: number
+  /** In words, for VoiceOver/TalkBack: "1,25 vezes". */
+  rateAccessibilityLabel: string
+  canSlower: boolean
+  canFaster: boolean
+  /**
+   * In a day of the plan, ⏮ and ⏭ show (as a pair, so play stays in the
+   * middle); each label is its accessibility label ("Voltar a Génesis 1",
+   * "Saltar para Salmo 19"), null where there is none (shown disabled).
+   */
+  inPlan: boolean
+  previousLabel: string | null
+  nextLabel: string | null
+  /** ⇅ shows (podcast-scroll): in the scrolling view, outside a plan day. */
+  canScroll: boolean
 }
 
 /**
@@ -151,6 +209,11 @@ export type NativeChromeState =
        */
       scrolled: boolean
       autoScroll: AutoScrollChrome | null
+      /**
+       * The +365 player, in place of autoScroll's controls while the reader
+       * listens; null otherwise. Never both.
+       */
+      podcast: PodcastChrome | null
       /**
        * The heading of the section being read, which the Android bar shows
        * under the passage; null before the first one is passed.

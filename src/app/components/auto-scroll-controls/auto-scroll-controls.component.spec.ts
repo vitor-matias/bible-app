@@ -9,6 +9,7 @@ import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Subject } from "rxjs"
 import type { Mock } from "vitest"
+import { apiBaseUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
@@ -288,6 +289,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     enabled: boolean
     actions$: Subject<NativeChromeAction>
     setAutoScroll: Mock
+    setPodcast: Mock
   }
   let autoScroll: SpyObj<AutoScrollService>
   let playing: boolean
@@ -319,6 +321,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       enabled: true,
       actions$: actions,
       setAutoScroll: vi.fn().mockName("setAutoScroll"),
+      setPodcast: vi.fn().mockName("setPodcast"),
     }
     playing = false
     speed = 1
@@ -385,12 +388,75 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
 
   const lastState = () => lastCall(vi.mocked(nativeChrome.setAutoScroll))[0]
 
-  // The apps' native bar has no +365 mode: a lookup would be wasted.
-  it("looks up no +365 episode", () => {
+  const lastPodcast = () => lastCall(vi.mocked(nativeChrome.setPodcast))[0]
+  /** Génesis 30, which +365 reads from 60 s to 300 s in. */
+  const withEpisode = async () => {
     fixture.componentRef.setInput("bookId", "gen")
     fixture.componentRef.setInput("chapter", 30)
+    fixture.componentRef.setInput("bookName", "Génesis")
     fixture.detectChanges()
-    TestBed.inject(HttpTestingController).expectNone(() => true)
+    TestBed.inject(HttpTestingController)
+      .expectOne(`${apiBaseUrl}/audio/gen/30`)
+      .flush({
+        episodes: [
+          {
+            day: 15,
+            title: "Dia 15",
+            url: "https://anchor.fm/s/x/15.m4a",
+            start: 60,
+            end: 300,
+          },
+        ],
+      })
+    await fixture.whenStable()
+    fixture.detectChanges()
+  }
+
+  it("offers 🎧 where +365 reads the chapter", async () => {
+    await withEpisode()
+    expect(lastState()).toEqual(expect.objectContaining({ canListen: true }))
+  })
+
+  it("hands the +365 player to the app, and plays, seeks and swaps back from it", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("play"))
+      return Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("pause"))
+    })
+    await withEpisode()
+    actions.next({ id: "auto-scroll-listen" })
+    TestBed.tick()
+    expect(lastCall(vi.mocked(nativeChrome.setAutoScroll))[0]).toBeNull()
+    expect(lastPodcast()).toEqual(
+      expect.objectContaining({
+        caption: "Génesis 30",
+        playing: false,
+        canPlay: true,
+        inPlan: false,
+        canScroll: true,
+      }),
+    )
+
+    actions.next({ id: "podcast-toggle" })
+    TestBed.tick()
+    expect(lastPodcast()).toEqual(
+      expect.objectContaining({ playing: true, loaded: true }),
+    )
+    const audio = vi.mocked(HTMLMediaElement.prototype.play).mock
+      .contexts[0] as HTMLMediaElement
+    actions.next({ id: "podcast-seek", seconds: 30 })
+    expect(audio.currentTime).toBe(90)
+
+    actions.next({ id: "podcast-scroll" })
+    TestBed.tick()
+    expect(lastPodcast()).toBeNull()
+    expect(lastState()).toEqual(expect.objectContaining({ canListen: true }))
   })
 
   it("draws no web controls; the toolbar shows them", () => {
@@ -404,6 +470,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       canSlower: true,
       canFaster: true,
       canPlay: true,
+      canListen: false,
     })
   })
 

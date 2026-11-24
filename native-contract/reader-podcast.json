@@ -1,0 +1,50 @@
+{
+  "mode": "reader",
+  "themeMode": "dark",
+  "passageLabel": "Deuteronómio 3",
+  "passageShortLabels": [
+    "Dt 3"
+  ],
+  "passageAccessibilityLabel": "Deuteronómio, capítulo 3",
+  "chapterNavigation": true,
+  "canGoPrevious": true,
+  "canGoNext": true,
+  "search": true,
+  "viewMode": "paged",
+  "raggedText": true,
+  "autoScrollVisible": true,
+  "autoScrollAvailable": true,
+  "canShare": true,
+  "canReport": true,
+  "bookmarkColor": "red",
+  "bookmarkName": "vermelho",
+  "buildVersion": "20261018-120000Z",
+  "textSize": {
+    "percent": 120,
+    "min": 80,
+    "max": 200,
+    "canReset": true
+  },
+  "inert": true,
+  "collapsed": true,
+  "scrolled": true,
+  "autoScroll": null,
+  "podcast": {
+    "caption": "+365 · Dia 1 · Génesis 2",
+    "playing": true,
+    "canPlay": true,
+    "loaded": true,
+    "elapsed": 40,
+    "length": 210.4,
+    "rate": 1.25,
+    "rateAccessibilityLabel": "1,25 vezes",
+    "canSlower": true,
+    "canFaster": true,
+    "inPlan": true,
+    "previousLabel": "Voltar a Génesis 1",
+    "nextLabel": "Saltar para Salmo 19",
+    "canScroll": false
+  },
+  "subtitle": "As bem-aventuranças",
+  "pageColor": "#121212"
+}

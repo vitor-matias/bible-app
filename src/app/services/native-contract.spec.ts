@@ -8,12 +8,14 @@ import page from "../../../native-contract/page.json"
 import reader from "../../../native-contract/reader.json"
 import readerFilter from "../../../native-contract/reader-filter.json"
 import readerMinimal from "../../../native-contract/reader-minimal.json"
+import readerPodcast from "../../../native-contract/reader-podcast.json"
 import search from "../../../native-contract/search.json"
 import { lastCall } from "../testing/spy-obj"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import { NativeChromeService } from "./native-chrome.service"
 import type {
   AutoScrollChrome,
+  PodcastChrome,
   ReaderChrome,
   SearchChrome,
   TitledPageChrome,
@@ -104,6 +106,24 @@ const AUTO_SCROLL: AutoScrollChrome = {
   canSlower: true,
   canFaster: true,
   canPlay: false,
+  canListen: true,
+}
+
+const PODCAST: PodcastChrome = {
+  caption: "+365 · Dia 1 · Génesis 2",
+  playing: true,
+  canPlay: true,
+  loaded: true,
+  elapsed: 40,
+  length: 210.4,
+  rate: 1.25,
+  rateAccessibilityLabel: "1,25 vezes",
+  canSlower: true,
+  canFaster: true,
+  inPlan: true,
+  previousLabel: "Voltar a Génesis 1",
+  nextLabel: "Saltar para Salmo 19",
+  canScroll: false,
 }
 
 /**
@@ -205,6 +225,16 @@ describe("the native chrome contract fixtures", () => {
     expect(differences(sent(), reader)).toEqual([])
     expect(driven(sent(), READER)).toEqual(driven(reader, READER))
     expect(sent().autoScroll).toEqual(reader.autoScroll)
+  })
+
+  it("matches what the reader's bars send, with the +365 player in auto-scroll's place", () => {
+    const chrome = service()
+    chrome.show(READER)
+    chrome.setAutoScroll(null)
+    chrome.setPodcast(PODCAST)
+    expect(differences(sent(), readerPodcast)).toEqual([])
+    expect(sent().podcast).toEqual(readerPodcast.podcast)
+    expect(sent().autoScroll).toBeNull()
   })
 
   it("matches what the reader's bars send, with nothing optional", () => {

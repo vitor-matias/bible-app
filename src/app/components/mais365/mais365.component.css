@@ -5,6 +5,12 @@
   color: var(--text-color);
 }
 
+/* Under the apps' bars, which float over the page. */
+:host-context(.native-chrome) .mais365 {
+  padding-top: calc(16px + var(--native-chrome-top, env(safe-area-inset-top)));
+  padding-bottom: calc(32px + var(--native-chrome-bottom, env(safe-area-inset-bottom)));
+}
+
 .back {
   display: inline-flex;
   align-items: center;

@@ -64,9 +64,6 @@ export const routes: Routes = [
   },
   {
     path: "365",
-    // Web only: the apps have no +365 mode yet (an App Link to /365 lands on
-    // the not-found page there rather than a plan their bars can't play).
-    canMatch: [() => !inject(NativeChromeService).enabled],
     loadComponent: () =>
       import("./components/mais365/mais365.component").then(
         (m) => m.Mais365Component,

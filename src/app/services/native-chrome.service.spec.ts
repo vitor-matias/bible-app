@@ -195,6 +195,7 @@ describe("NativeChromeService", () => {
       scrolled: false,
       subtitle: null,
       autoScroll: null,
+      podcast: null,
       pageColor: null,
     })
   })
@@ -449,6 +450,7 @@ describe("NativeChromeService", () => {
       scrolled: false,
       subtitle: null,
       autoScroll: null,
+      podcast: null,
       pageColor: null,
     })
   })
@@ -653,6 +655,7 @@ describe("NativeChromeService", () => {
         canSlower: true,
         canFaster: true,
         canPlay: true,
+        canListen: false,
       })
       tap()
 
@@ -892,6 +895,7 @@ describe("NativeChromeService", () => {
         canSlower: true,
         canFaster: true,
         canPlay: true,
+        canListen: false,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
@@ -920,6 +924,7 @@ describe("NativeChromeService", () => {
         canSlower: true,
         canFaster: true,
         canPlay: true,
+        canListen: false,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
@@ -937,6 +942,42 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBe(true)
 
       service.setAutoScroll({ ...autoScroll, playing: false })
+      expect(collapsed()).toBe(false)
+    })
+
+    // Reading along with +365 is hands-free too.
+    it("hides them while +365 plays, and brings them back on pause or close", () => {
+      const podcast = {
+        caption: "Génesis 2",
+        playing: false,
+        canPlay: true,
+        loaded: true,
+        elapsed: 0,
+        length: 210,
+        rate: 1,
+        rateAccessibilityLabel: "1 vez",
+        canSlower: true,
+        canFaster: true,
+        inPlan: false,
+        previousLabel: null,
+        nextLabel: null,
+        canScroll: true,
+      }
+      service.trackScroll(scroller)
+      service.setPodcast(podcast)
+      expect(collapsed()).toBe(false)
+      service.setPodcast({ ...podcast, playing: true })
+      expect(collapsed()).toBe(true)
+      expect(lastState()).toEqual(
+        expect.objectContaining({ podcast: { ...podcast, playing: true } }),
+      )
+      // The time going on leaves them as they are.
+      service.setPodcast({ ...podcast, playing: true, elapsed: 1 })
+      expect(collapsed()).toBe(true)
+      service.setPodcast({ ...podcast, playing: false, elapsed: 1 })
+      expect(collapsed()).toBe(false)
+      service.setPodcast({ ...podcast, playing: true })
+      service.setPodcast(null)
       expect(collapsed()).toBe(false)
     })
 
@@ -1103,6 +1144,7 @@ describe("NativeChromeService", () => {
           canSlower: true,
           canFaster: true,
           canPlay: true,
+          canListen: false,
         })
         expect(collapsed()).toBe(true)
         line.click()

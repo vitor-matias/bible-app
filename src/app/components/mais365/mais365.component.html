@@ -1,8 +1,11 @@
 <main class="mais365">
+  <!-- The apps' page bars have their own way back and title. -->
+  @if (!nativeChrome.enabled) {
   <a class="back" routerLink="/" aria-label="Voltar à leitura">
     <mat-icon aria-hidden="true">arrow_back</mat-icon> Bíblia
   </a>
   <h1>+365</h1>
+  }
   <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
 
   @if (inReflection() && plan.active(); as day) {
