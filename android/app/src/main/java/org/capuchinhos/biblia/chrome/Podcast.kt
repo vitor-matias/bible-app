@@ -54,9 +54,20 @@ import org.capuchinhos.biblia.R
 /** ▶ and ⏸ say what they start and pause, as auto-scroll's do. */
 internal fun podcastToggleLabel(playing: Boolean): String = if (playing) "Pausar o +365" else "Ouvir o +365"
 
-/** "1×", "1,25×", "0,75×": as the speed is said in Portuguese, whatever the device's language. */
-internal fun podcastSpeedTitle(rate: Double): String =
-    NumberFormat.getNumberInstance(Locale.forLanguageTag("pt-PT")).apply { maximumFractionDigits = 2 }.format(rate) + "×"
+/**
+ * "1×", "1⅒×", "1¼×", "1½×", "¾×": fractions, which read at a glance on a
+ * small button; anything else with the decimal comma, whatever the device's
+ * language. Rounded first: 1.1 − 1 is not quite 0.1 in floating point.
+ */
+internal fun podcastSpeedTitle(rate: Double): String {
+    val whole = kotlin.math.floor(rate)
+    val part = kotlin.math.round((rate - whole) * 100) / 100
+    val fraction = mapOf(0.0 to "", 0.1 to "⅒", 0.25 to "¼", 0.5 to "½", 0.75 to "¾")[part]
+    if (fraction != null) {
+        return (if (whole == 0.0 && fraction.isNotEmpty()) "" else whole.toInt().toString()) + fraction + "×"
+    }
+    return NumberFormat.getNumberInstance(Locale.forLanguageTag("pt-PT")).apply { maximumFractionDigits = 2 }.format(rate) + "×"
+}
 
 /**
  * The +365 player, a card in the chapter arrows' place while the reader

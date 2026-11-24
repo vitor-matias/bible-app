@@ -99,9 +99,14 @@ final class ChromeStateTests: XCTestCase {
 
     func testTheSpeedButtonSaysTheRateAsWrittenInPortuguese() {
         XCTAssertEqual(PodcastControl.speedTitle(1), "1×")
-        XCTAssertEqual(PodcastControl.speedTitle(1.25), "1,25×")
-        XCTAssertEqual(PodcastControl.speedTitle(0.75), "0,75×")
+        XCTAssertEqual(PodcastControl.speedTitle(1.1), "1⅒×")
+        XCTAssertEqual(PodcastControl.speedTitle(1.25), "1¼×")
+        XCTAssertEqual(PodcastControl.speedTitle(1.5), "1½×")
+        XCTAssertEqual(PodcastControl.speedTitle(0.5), "½×")
+        XCTAssertEqual(PodcastControl.speedTitle(0.75), "¾×")
         XCTAssertEqual(PodcastControl.speedTitle(2), "2×")
+        // Not a quarter: the decimal comma.
+        XCTAssertEqual(PodcastControl.speedTitle(1.3), "1,3×")
     }
 
     // MARK: The player's passage row and left slot

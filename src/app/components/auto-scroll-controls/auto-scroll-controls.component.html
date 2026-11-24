@@ -79,16 +79,11 @@
         }
       </div>
       <div class="audio-rate">
-        <button type="button" mat-icon-button aria-label="Diminuir velocidade do +365"
-          [disabled]="!player.canSlower()" (click)="player.stepRate(-1)">
-          <mat-icon>remove</mat-icon>
-        </button>
-        <!-- No number on screen, as in the iOS app: only screen readers hear it. -->
+        <!-- One button, as the apps': on through the speeds, round to the
+             slowest. Screen readers hear the speed in words. -->
+        <button type="button" mat-button class="audio-speed" aria-label="Velocidade do +365"
+          (click)="player.cycleRate()">{{ rateTitle(player.rate()) }}</button>
         <span class="rate visually-hidden" aria-live="polite">{{ rateSpoken() }}</span>
-        <button type="button" mat-icon-button aria-label="Aumentar velocidade do +365"
-          [disabled]="!player.canFaster()" (click)="player.stepRate(1)">
-          <mat-icon>add</mat-icon>
-        </button>
       </div>
     </div>
   </div>

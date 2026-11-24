@@ -335,8 +335,16 @@ final class PodcastControl: UIView {
         send?("podcast-seek", ["seconds": seconds])
     }
 
-    /// "1×", "1,25×", "0,75×": as the speed is said in Portuguese.
+    /// "1×", "1⅒×", "1¼×", "1½×", "¾×": fractions, which read at a glance on
+    /// a small button; anything else with the decimal comma. Rounded first:
+    /// 1.1 − 1 is not quite 0.1 in floating point.
     static func speedTitle(_ rate: Double) -> String {
+        let whole = rate.rounded(.down)
+        let part = ((rate - whole) * 100).rounded() / 100
+        let fractions: [Double: String] = [0: "", 0.1: "⅒", 0.25: "¼", 0.5: "½", 0.75: "¾"]
+        if let fraction = fractions[part] {
+            return (whole == 0 && !fraction.isEmpty ? "" : String(Int(whole))) + fraction + "×"
+        }
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "pt_PT")
         formatter.minimumFractionDigits = 0

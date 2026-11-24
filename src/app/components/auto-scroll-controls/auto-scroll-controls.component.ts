@@ -35,6 +35,7 @@ import {
   type ChapterEpisode,
   FOLLOW_PAUSE_MS,
   PodcastPlayerService,
+  rateTitle,
   SCROLL_KEYS,
 } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
@@ -817,6 +818,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   readonly readingVerse = output<number | null>()
 
   /** The +365 speed in words, for screen readers: "1 vez", "1,25 vezes". */
+  protected readonly rateTitle = rateTitle
   protected readonly rateSpoken = computed(() => {
     const rate = this.player.rate()
     return `${String(rate).replace(".", ",")} ${rate === 1 ? "vez" : "vezes"}`

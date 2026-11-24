@@ -46,16 +46,10 @@
       <button type="button" mat-icon-button aria-label="Avançar 15 segundos" (click)="player.skip(15)">
         <span class="skip-15 forward" aria-hidden="true"><mat-icon>replay</mat-icon><span>15</span></span>
       </button>
-      <button type="button" mat-icon-button aria-label="Diminuir velocidade" [disabled]="!player.canSlower()"
-        (click)="player.stepRate(-1)">
-        <mat-icon>remove</mat-icon>
-      </button>
-      <!-- No number on screen, as in the reader's player: only screen readers hear it. -->
+      <!-- One speed button, as the reader's player. -->
+      <button type="button" mat-flat-button class="speed" aria-label="Velocidade do +365"
+        (click)="player.cycleRate()">{{ rateTitle(player.rate()) }}</button>
       <span class="visually-hidden" aria-live="polite">{{ rateSpoken() }}</span>
-      <button type="button" mat-icon-button aria-label="Aumentar velocidade" [disabled]="!player.canFaster()"
-        (click)="player.stepRate(1)">
-        <mat-icon>add</mat-icon>
-      </button>
       <button type="button" mat-flat-button class="finish" (click)="plan.end()">Terminar</button>
     </div>
   </section>

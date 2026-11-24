@@ -185,25 +185,27 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.currentTime).toBe(85)
   })
 
-  it("steps the speed between 0,75× and 2× with − and +", async () => {
+  it("cycles the speed from ½× to 2× with one button, in fractions", async () => {
     await listen()
     tap(toggle())
-    const slower = () => byLabel("Diminuir velocidade do +365")
-    const faster = () => byLabel("Aumentar velocidade do +365")
+    const speed = () => byLabel("Velocidade do +365")
     const label = () => find(".rate")?.textContent?.trim()
+    expect(speed()?.textContent?.trim()).toBe("1×")
     expect(label()).toBe("1 vez")
 
-    tap(faster())
-    expect(audio().playbackRate).toBe(1.25)
-    expect(label()).toBe("1,25 vezes")
-    tap(faster())
-    tap(faster())
-    expect(label()).toBe("2 vezes")
-    expect(faster()?.disabled).toBe(true)
-
-    for (let i = 0; i < 4; i++) tap(slower())
+    tap(speed())
+    expect(audio().playbackRate).toBe(1.1)
+    expect(speed()?.textContent?.trim()).toBe("1⅒×")
+    expect(label()).toBe("1,1 vezes")
+    const seen = []
+    for (let i = 0; i < 5; i++) {
+      tap(speed())
+      seen.push(speed()?.textContent?.trim())
+    }
+    expect(seen).toEqual(["1¼×", "1½×", "2×", "½×", "¾×"])
     expect(label()).toBe("0,75 vezes")
-    expect(slower()?.disabled).toBe(true)
+    tap(speed())
+    expect(speed()?.textContent?.trim()).toBe("1×")
   })
 
   it("seeks within the episode for the next chapter it reads", async () => {
@@ -442,7 +444,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect.objectContaining({ day: 3, rate: 1 }),
     )
     TestBed.inject(PodcastPlayerService).cycleRate()
-    expect(track).toHaveBeenCalledWith("podcast_speed", { rate: 1.25 })
+    expect(track).toHaveBeenCalledWith("podcast_speed", { rate: 1.1 })
   })
 
   it("keeps the screen on while +365 plays", async () => {
@@ -752,7 +754,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     vi.useFakeTimers()
     stream.currentTime = 280.6
     stream.dispatchEvent(new Event("timeupdate"))
-    tap(byLabel("Aumentar velocidade do +365"))
+    tap(byLabel("Velocidade do +365"))
     stream.currentTime = 280.79
     await vi.advanceTimersByTimeAsync(300)
     fixture.detectChanges()

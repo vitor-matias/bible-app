@@ -901,16 +901,21 @@ class PodcastPositionTest {
         assertEquals(3.0, podcastPosition(2.0, 1.0, 1.0, 0.0, playing = true), 1e-9)
     }
 
-    // As the speed is said in Portuguese, whatever the device's language.
+    // Quarters as fractions; anything else as said in Portuguese, whatever the
+    // device's language.
     @Test
-    fun namesTheSpeedWithADecimalComma() {
+    fun namesTheSpeedInFractions() {
         val device = java.util.Locale.getDefault()
         try {
             java.util.Locale.setDefault(java.util.Locale.US)
             assertEquals("1×", podcastSpeedTitle(1.0))
-            assertEquals("1,25×", podcastSpeedTitle(1.25))
-            assertEquals("0,75×", podcastSpeedTitle(0.75))
-            assertEquals("1,5×", podcastSpeedTitle(1.5))
+            assertEquals("1⅒×", podcastSpeedTitle(1.1))
+            assertEquals("1¼×", podcastSpeedTitle(1.25))
+            assertEquals("½×", podcastSpeedTitle(0.5))
+            assertEquals("¾×", podcastSpeedTitle(0.75))
+            assertEquals("1½×", podcastSpeedTitle(1.5))
+            assertEquals("2×", podcastSpeedTitle(2.0))
+            assertEquals("1,3×", podcastSpeedTitle(1.3))
         } finally {
             java.util.Locale.setDefault(device)
         }

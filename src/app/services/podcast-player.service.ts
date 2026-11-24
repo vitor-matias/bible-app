@@ -20,7 +20,20 @@ export interface ChapterEpisode {
   verses?: [number, number][]
 }
 
-const RATES = [0.75, 1, 1.25, 1.5, 2]
+const RATES = [0.5, 0.75, 1, 1.1, 1.25, 1.5, 2]
+
+/**
+ * "1×", "1⅒×", "1¼×", "1½×", "¾×", as the apps' speed button: fractions,
+ * which read at a glance on a small button; anything else with the decimal
+ * comma. Rounded first: 1.1 − 1 is not quite 0.1 in floating point.
+ */
+export const rateTitle = (rate: number): string => {
+  const whole = Math.floor(rate)
+  const part = Math.round((rate - whole) * 100) / 100
+  const fraction = { 0: "", 0.1: "⅒", 0.25: "¼", 0.5: "½", 0.75: "¾" }[part]
+  if (fraction === undefined) return `${String(rate).replace(".", ",")}×`
+  return `${whole === 0 && fraction ? "" : whole}${fraction}×`
+}
 
 /** How long read-along leaves the text alone after the reader moves it. */
 export const FOLLOW_PAUSE_MS = 6000
@@ -258,12 +271,6 @@ export class PodcastPlayerService {
 
   readonly canSlower = () => this.rate() > RATES[0]
   readonly canFaster = () => this.rate() < RATES[RATES.length - 1]
-
-  /** Steps the playback speed down (-1) or up (1), within 0,75× and 2×. */
-  stepRate(direction: -1 | 1): void {
-    const index = RATES.indexOf(this.rate()) + direction
-    this.setRate(RATES[Math.min(RATES.length - 1, Math.max(0, index))])
-  }
 
   /**
    * The next speed, round from the fastest to the slowest: one button for

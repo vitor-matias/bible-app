@@ -21,7 +21,10 @@ import {
   readingLabel,
 } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
-import { PodcastPlayerService } from "../../services/podcast-player.service"
+import {
+  PodcastPlayerService,
+  rateTitle,
+} from "../../services/podcast-player.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 
@@ -72,6 +75,7 @@ export class Mais365Component implements OnInit, OnDestroy {
       dragging && previous ? previous.value : at,
   })
 
+  protected readonly rateTitle = rateTitle
   protected readonly rateSpoken = computed(() => {
     const rate = this.player.rate()
     return `${String(rate).replace(".", ",")} ${rate === 1 ? "vez" : "vezes"}`

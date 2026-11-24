@@ -523,9 +523,9 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     actions.next({ id: "podcast-skip", seconds: -15 })
     expect(audio.currentTime).toBe(85)
 
-    // One speed button: on through the speeds, round from 2× to 0,75×.
+    // One speed button: on through the speeds, round from 2× to ½×.
     const player = TestBed.inject(PodcastPlayerService)
-    for (const rate of [1.25, 1.5, 2, 0.75, 1]) {
+    for (const rate of [1.1, 1.25, 1.5, 2, 0.5, 0.75, 1]) {
       actions.next({ id: "podcast-speed" })
       expect(player.rate()).toBe(rate)
     }
