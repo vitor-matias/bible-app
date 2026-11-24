@@ -306,10 +306,11 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
         // tooltips are shown, once, and away by themselves.
         val tooltip = rememberTooltipState(isPersistent = true)
         val nudge = remember { Animatable(0f) }
-        val sheetUp = chrome.sheet != null
-        LaunchedEffect(chrome.passageHint, sheetUp) {
+        // Away with the title: a sheet over it, or the bars hiding as the text is read.
+        val titleAway = chrome.sheet != null || chrome.collapsed
+        LaunchedEffect(chrome.passageHint, titleAway) {
             if (!chrome.passageHint) return@LaunchedEffect
-            if (sheetUp) {
+            if (titleAway) {
                 chrome.endPassageHint()
                 return@LaunchedEffect
             }
