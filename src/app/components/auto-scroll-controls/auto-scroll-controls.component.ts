@@ -1089,12 +1089,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         else this.stepInEpisode(1)
         break
       case "podcast-close":
-        // A day ends, not read; a chapter goes back to scrolling.
+        // Listening ends: a day under way ends unread, and the card gives the
+        // toolbar back (not left as the chapter's player).
         if (this.plan.active()) this.plan.end()
-        else {
-          this.player.pause()
-          this.player.mode.set("scroll")
-        }
+        this.player.pause()
+        this.player.mode.set("scroll")
         break
       case "podcast-skip":
         this.player.skip(action.seconds)

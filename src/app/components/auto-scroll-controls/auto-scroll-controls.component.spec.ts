@@ -434,6 +434,40 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     expect(lastState()).toBeNull()
   })
 
+  it("leaves listening on ✕, a day under way ended", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("play"))
+      return Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("pause"))
+    })
+    const plan = TestBed.inject(Mais365Service)
+    const end = vi.spyOn(plan, "end")
+    await withEpisode()
+    actions.next({ id: "auto-scroll-listen" })
+    actions.next({ id: "podcast-toggle" })
+    TestBed.tick()
+    const player = TestBed.inject(PodcastPlayerService)
+    expect(player.playing()).toBe(true)
+
+    actions.next({ id: "podcast-close" })
+    TestBed.tick()
+    expect(player.playing()).toBe(false)
+    expect(player.mode()).toBe("scroll")
+    expect(lastPodcast()).toBeNull()
+    expect(lastState()).toEqual(expect.objectContaining({ canListen: true }))
+    // No day was under way: nothing to end.
+    expect(end).not.toHaveBeenCalled()
+    TestBed.inject(HttpTestingController)
+      .match(`${apiBaseUrl}/mais365`)
+      .forEach((request) => request.flush({ days: [] }))
+  })
+
   it("steps ⏮ ⏭ through the episode's readings, and skips by the app's seconds", async () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
       this: HTMLMediaElement,
