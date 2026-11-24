@@ -52,6 +52,11 @@ import {
   verseLines,
   verseText,
 } from "../../utils/text-search"
+import {
+  printedNumber,
+  resolveVerseKey,
+  verseRefValue,
+} from "../../utils/verse-ref"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 import { getVerseQueryParams } from "../verse/verse.utils"
 
@@ -736,13 +741,33 @@ export class SearchComponent {
       const isIntro = !!targetBook.introSlug
       try {
         if (!isIntro) {
-          await firstValueFrom(
+          const probe = await firstValueFrom(
             this.apiService.getVerse(
               targetBook.id,
               targetChapter,
               targetVerseStart || 1,
             ),
           )
+          // The probe finds a verse by the number it is stored under. Where a
+          // chapter numbers some verses apart (Ester, Ben Sira) that verse
+          // prints another, and the reader opens the printed one: ask the
+          // chapter whether it has it, or "Sir 1,35" would open nothing.
+          if (
+            targetVerseStart &&
+            probe?.numberLabel !== undefined &&
+            printedNumber(probe) !== targetVerseStart
+          ) {
+            const chapter = await firstValueFrom(
+              this.apiService.getChapter(targetBook.id, targetChapter),
+            )
+            if (
+              resolveVerseKey(chapter.verses ?? [], {
+                number: targetVerseStart,
+              }) === undefined
+            ) {
+              throw Object.assign(new Error("No such verse"), { status: 404 })
+            }
+          }
         }
         if (isStale()) return
         const navigated = await this.router.navigate(
@@ -922,7 +947,7 @@ export class SearchComponent {
   }
 
   /**
-   * "23 resultados", "Os 100 mais relevantes" when the search capped it, or
+   * "23 resultados", "Os 100 versículos que melhor correspondem" when the search capped it, or
    * for the stored Bible "12 versículos com estas palavras".
    */
   get resultsHeading(): string {
@@ -933,7 +958,7 @@ export class SearchComponent {
         : `${this.totalResults} versículos com estas palavras`
     }
     if (this.totalResults >= SEARCH_RESULT_CAP) {
-      return `Os ${SEARCH_RESULT_CAP} mais relevantes`
+      return `Os ${SEARCH_RESULT_CAP} versículos que melhor correspondem`
     }
     return this.totalResults === 1
       ? "1 resultado"
@@ -953,9 +978,11 @@ export class SearchComponent {
     const book = this.booksLoaded()
       ? this.findBookById(result.bookId)
       : undefined
+    // As printed, the number the link opens, not the one stored (Ester).
+    const printed = printedNumber(result)
     return book
-      ? passageLabel(book, result.chapterNumber, result.number)
-      : `${result.chapterNumber},${result.number}`
+      ? passageLabel(book, result.chapterNumber, printed)
+      : `${result.chapterNumber},${printed}`
   }
 
   /**
@@ -1046,12 +1073,18 @@ export class SearchComponent {
     return this.bookService.findBook(bookId)
   }
 
+  /** A result's verse as a link names it: by its printed number, which an
+   *  addition's letter goes with (Ester), not the number it is stored under. */
+  verseRef(verse: Verse): string | number {
+    return verseRefValue(verse, verse.bookId, verse.chapterNumber)
+  }
+
   /** A result's or a psalm's address: a real link, which a keyboard, a
    *  screen reader and "open in a new tab" can follow. */
   passageHref(
     bookId: string,
     chapter: number,
-    verseStart?: number,
+    verseStart?: string | number,
     verseEnd?: number,
   ): string {
     const end = verseStart && verseEnd ? `&verseEnd=${verseEnd}` : ""
@@ -1083,7 +1116,7 @@ export class SearchComponent {
     event: MouseEvent,
     bookId: string,
     chapter: number,
-    verseStart?: number,
+    verseStart?: string | number,
     verseEnd?: number,
   ): void {
     if (leftToTheBrowser(event)) return

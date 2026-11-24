@@ -97,7 +97,7 @@
       <ul class="results-list">
         @for (result of searchResults; track $index) {
           <li class="result-item">
-            <a class="result-card" [href]="passageHref(result.bookId, result.chapterNumber, result.number)" (click)="openPassage($event, result.bookId, result.chapterNumber, result.number)">
+            <a class="result-card" [href]="passageHref(result.bookId, result.chapterNumber, verseRef(result))" (click)="openPassage($event, result.bookId, result.chapterNumber, verseRef(result))">
               <strong class="verse-ref">{{ resultReference(result) }}</strong>
               <!-- On one line: Angular keeps a space around text on lines of its
                    own, which put one before the punctuation after a match. -->

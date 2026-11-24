@@ -63,6 +63,31 @@ struct PassagePickerData {
         return testament.title
     }
 
+    /// Whether a book answers to the filter: by its own label, name or abbreviation
+    /// wherever they match, and by its group's name only at the beginning of a word
+    /// ("Pentateuco" finds the group's introduction, as on Android). The testament's
+    /// name is not searched: "Est" is in "Testamento", and every book under it
+    /// answered to that.
+    static func filter(_ query: String, matches book: Book, in group: Group) -> Bool {
+        guard !query.isEmpty else { return true }
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        if [book.label, book.name, book.abbreviation].contains(where: { $0.range(of: query, options: options) != nil }) {
+            return true
+        }
+        guard let heading = group.title else { return false }
+        var searched = heading.startIndex..<heading.endIndex
+        while let found = heading.range(of: query, options: options, range: searched) {
+            if found.lowerBound == heading.startIndex
+                || !heading[heading.index(before: found.lowerBound)].isLetter
+                    && !heading[heading.index(before: found.lowerBound)].isNumber
+            {
+                return true
+            }
+            searched = heading.index(after: found.lowerBound)..<heading.endIndex
+        }
+        return false
+    }
+
     var currentBook: Book? {
         sections.lazy.flatMap(\.groups).flatMap(\.books).first { $0.id == currentBookId }
     }
@@ -161,24 +186,6 @@ private func booksBackButton(for controller: UIViewController) -> UIBarButtonIte
     return UIBarButtonItem(customView: button)
 }
 
-/// A book's name as the bar's title, as the system draws one, but on two
-/// lines when it must: between «‹ Livros» and ✕, «Livro dos Atos dos
-/// Apóstolos» was cut to «Livro dos Atos dos Apó…».
-func pickerTitleView(_ text: String) -> UILabel {
-    let label = UILabel()
-    label.text = text
-    label.font = .systemFont(ofSize: 17, weight: .semibold)
-    label.textColor = .label
-    label.textAlignment = .center
-    label.numberOfLines = 2
-    label.adjustsFontSizeToFitWidth = true
-    label.minimumScaleFactor = 0.75
-    label.accessibilityTraits = .header
-    // Sized by constraints, the bar lets it wrap in the width it has.
-    label.translatesAutoresizingMaskIntoConstraints = false
-    return label
-}
-
 /// The books as tiles, a section per canon group. Shown by name, or by
 /// abbreviation in a denser grid that fits most of a testament on one screen;
 /// the choice is remembered.
@@ -204,7 +211,9 @@ private final class BookListViewController: UICollectionViewController, UISearch
 
     private static func layout(for mode: Mode) -> UICollectionViewLayout {
         switch mode {
-        case .names: return tileLayout(minWidth: 104, height: 56)
+        // Wide: tiles roomy enough for "2 Tessalonicenses" at full size, else
+        // each long name shrinks on its own to the 104 pt tile's width.
+        case .names: return tileLayout(minWidth: 104, regularMinWidth: 150, height: 56)
         case .abbreviations: return tileLayout(minWidth: 52, height: 48)
         }
     }
@@ -300,17 +309,14 @@ private final class BookListViewController: UICollectionViewController, UISearch
 
     private func show(filter: String) {
         let query = filter.trimmingCharacters(in: .whitespaces)
-        // A group's own introduction is found by the group's name ("Pentateuco"), as on Android.
-        func matches(_ book: Book, in group: PassagePickerData.Group, of testament: PassagePickerData.Section) -> Bool {
-            query.isEmpty || [book.label, book.name, book.abbreviation, group.title, testament.title].contains {
-                $0?.range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) != nil
-            }
+        func matches(_ book: Book, in group: PassagePickerData.Group) -> Bool {
+            PassagePickerData.filter(query, matches: book, in: group)
         }
 
         var snapshot = NSDiffableDataSourceSnapshot<String, Book>()
         for testament in data.sections {
             for group in testament.groups {
-                let books = group.books.filter { matches($0, in: group, of: testament) }
+                let books = group.books.filter { matches($0, in: group) }
                 guard !books.isEmpty else { continue }
                 let title = PassagePickerData.sectionTitle(of: group, in: testament, showing: books,
                                                            taken: snapshot.sectionIdentifiers)
@@ -362,8 +368,10 @@ private final class ChapterListViewController: UICollectionViewController {
                 : tileSection(environment, minWidth: 52, height: 48)
         }
         super.init(collectionViewLayout: layout)
-        title = book.name
-        navigationItem.titleView = pickerTitleView(book.name)
+        // The bar's own title, centred by the system: the book as its tile names it
+        // («Génesis», «1 Coríntios»), not «Livro do Génesis» under a button that
+        // already says «Livros».
+        title = book.label
     }
 
     @available(*, unavailable)
@@ -573,9 +581,10 @@ private func tileSection(_ environment: NSCollectionLayoutEnvironment, minWidth:
 }
 
 /// The book grid, with a header above each canon group.
-private func tileLayout(minWidth: CGFloat, height: CGFloat) -> UICollectionViewLayout {
+private func tileLayout(minWidth: CGFloat, regularMinWidth: CGFloat? = nil, height: CGFloat) -> UICollectionViewLayout {
     UICollectionViewCompositionalLayout { _, environment in
-        let section = tileSection(environment, minWidth: minWidth, height: height)
+        let wide = environment.traitCollection.horizontalSizeClass == .regular
+        let section = tileSection(environment, minWidth: wide ? regularMinWidth ?? minWidth : minWidth, height: height)
         let header = NSCollectionLayoutBoundarySupplementaryItem(
             layoutSize: .init(widthDimension: .fractionalWidth(1), heightDimension: .estimated(36)),
             elementKind: UICollectionView.elementKindSectionHeader, alignment: .top)

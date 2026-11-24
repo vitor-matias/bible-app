@@ -98,6 +98,16 @@ final class BookmarksController: UIViewController {
     private let moveRow = UIButton(type: .system)
     private let grid = UIStackView()
     private let footer = UILabel()
+    /// Two lines of the hint's font: the room it is given however many lines the
+    /// current hint takes, so placing the first ribbon (a one-line hint becomes
+    /// two) does not resize the sheet under the finger that placed it.
+    private let hintProbe: UILabel = {
+        let label = UILabel()
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.text = "A\nA"
+        return label
+    }()
     private var editingRibbons = false
 
     init(state: BookmarksSheetState, send: @escaping (String, String) -> Void, onClose: @escaping () -> Void) {
@@ -133,6 +143,7 @@ final class BookmarksController: UIViewController {
         column.addArrangedSubview(moveRow)
         column.addArrangedSubview(grid)
         footer.font = limitedFont(.footnote)
+        hintProbe.font = footer.font
         footer.adjustsFontForContentSizeCategory = true
         footer.textColor = .secondaryLabel
         footer.numberOfLines = 0
@@ -187,7 +198,7 @@ final class BookmarksController: UIViewController {
     /// the move row when there is one.
     private func updatePopoverSize() {
         let width = Self.popoverWidth
-        var height = 8 + 2 * 84 + 10 + 16 + fittingHeight(footer, width: width - 48) + 20
+        var height = 8 + 2 * 84 + 10 + 16 + hintHeight(width: width - 48) + 20
         if state.move != nil {
             height += fittingHeight(moveRow, width: width - 32) + column.spacing
         }
@@ -212,11 +223,17 @@ final class BookmarksController: UIViewController {
         // size; at larger sizes the hint takes more.
         let standard = UITraitCollection(preferredContentSizeCategory: .large)
         let standardHint = 2 * UIFont.preferredFont(forTextStyle: .footnote, compatibleWith: standard).lineHeight
-        var height = 300 + max(0, fittingHeight(footer, width: width - 48) - standardHint)
+        var height = 300 + max(0, hintHeight(width: width - 48) - standardHint)
         if state.move != nil {
             height += fittingHeight(moveRow, width: width - 32) + column.spacing
         }
         return height
+    }
+
+    /// The hint's height: its own, or two lines of it if that is more.
+    private func hintHeight(width: CGFloat) -> CGFloat {
+        hintProbe.font = footer.font
+        return max(fittingHeight(footer, width: width), fittingHeight(hintProbe, width: width))
     }
 
     private func fittingHeight(_ view: UIView, width: CGFloat) -> CGFloat {
@@ -357,7 +374,11 @@ final class BookmarksController: UIViewController {
             }, for: .primaryActionTriggered)
             if used {
                 let badge = UIImageView(image: UIImage(systemName: "minus.circle.fill"))
-                badge.tintColor = .systemRed
+                // Neutral, not red: the ribbons are coloured, red one among them,
+                // so a red badge on it reads as the ribbon's own colour. Taking a
+                // ribbon off loses nothing the reader can't put back, so it is not
+                // a destructive action in HIG's sense either.
+                badge.tintColor = .secondaryLabel
                 badge.backgroundColor = sheetBackground
                 badge.layer.cornerRadius = 11
                 badge.translatesAutoresizingMaskIntoConstraints = false
@@ -385,8 +406,7 @@ final class BookmarksController: UIViewController {
                                 image: UIImage(systemName: "bookmark")) { [weak self] _ in
                 self?.send("bookmark-move", ribbon.color)
             }
-            let remove = UIAction(title: "Remover marcador", image: UIImage(systemName: "bookmark.slash"),
-                                  attributes: .destructive) { [weak self] _ in
+            let remove = UIAction(title: "Remover marcador", image: UIImage(systemName: "bookmark.slash")) { [weak self] _ in
                 self?.send("bookmark-remove", ribbon.color)
             }
             let marked = state.ribbons.contains { $0.current }

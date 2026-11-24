@@ -39,6 +39,11 @@ export class OnboardingService {
     OnboardingResult
   > | null = null
   private nativeOpen = false
+
+  /** Whether the wizard is up, in the web page or the native sheet. */
+  get isOpen(): boolean {
+    return this.dialogRef !== null || this.nativeOpen
+  }
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly router = inject(Router)
 

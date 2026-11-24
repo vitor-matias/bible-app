@@ -97,6 +97,71 @@ describe("VerseSectionComponent", () => {
     ])
   })
 
+  // The printed edition sets a supplement's headings black, bold and italic,
+  // where the main text's are red.
+  it("styles a supplement's heading apart from the others", () => {
+    fixture.componentRef.setInput("changeLine", false)
+    setData(
+      fixture,
+      makeVerse({
+        text: [
+          { type: "section", tag: "s2", text: "Oração", supplement: true },
+          { type: "section", tag: "s2", text: "Banquete" },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+
+    const headings = Array.from(
+      fixture.nativeElement.querySelectorAll(
+        "[data-section-heading]",
+      ) as NodeListOf<HTMLElement>,
+    )
+    expect(
+      headings.map((h) => h.classList.contains("supplementHeading")),
+    ).toEqual([true, false])
+    expect(getComputedStyle(headings[0]).fontStyle).toBe("italic")
+    expect(getComputedStyle(headings[1]).fontStyle).not.toBe("italic")
+  })
+
+  it("sets a supplement heading's dash like the heading, not red", () => {
+    const dash = (supplement: boolean) => {
+      fixture.componentRef.setInput("changeLine", false)
+      setData(
+        fixture,
+        makeVerse({
+          verseLabel: "front",
+          text: [{ type: "section", tag: "s2", text: "Oração", supplement }],
+        }),
+      )
+      fixture.detectChanges()
+      const spans = fixture.nativeElement.querySelectorAll(
+        ".section",
+      ) as NodeListOf<HTMLElement>
+      return spans[spans.length - 1]
+    }
+    // Two headings in a group: the dash follows the last one only.
+    fixture.componentRef.setInput("changeLine", false)
+    setData(
+      fixture,
+      makeVerse({
+        verseLabel: "front",
+        text: [
+          { type: "section", tag: "s2", text: "Oração", supplement: true },
+          { type: "section", tag: "s2", text: "Banquete" },
+        ],
+      }),
+    )
+    fixture.detectChanges()
+    const spans = fixture.nativeElement.querySelectorAll(
+      ".section",
+    ) as NodeListOf<HTMLElement>
+    expect(spans[spans.length - 1].classList).not.toContain("supplementHeading")
+    expect(dash(true).textContent).toContain("—")
+    expect(dash(true).classList).toContain("supplementHeading")
+    expect(dash(false).classList).not.toContain("supplementHeading")
+  })
+
   describe("ngOnChanges — parsedReferences", () => {
     it("should pre-compute references for reference-type text entries", () => {
       fixture.componentRef.setInput("changeLine", false)
@@ -378,6 +443,49 @@ describe("VerseSectionComponent", () => {
       } finally {
         number.remove()
       }
+    })
+
+    // «Diálogo      com      Nicodemos      —»: a justified line the verse text
+    // can't join stretched the heading's spaces (styles.css; Chromium, Firefox).
+    describe("a run-in heading beside the chapter number in justified text", () => {
+      const justifyOf = (beside: boolean, centred: boolean): string => {
+        const host = fixture.nativeElement as HTMLElement
+        // As the reader nests it: .bookBlock > verse-section > .section.
+        const block = document.createElement("div")
+        block.className = "bookBlock"
+        const wrapper = document.createElement("verse-section")
+        host.before(block)
+        block.append(wrapper)
+        wrapper.append(host)
+        try {
+          fixture.componentRef.setInput("changeLine", false)
+          fixture.componentRef.setInput("besideChapterNumber", beside)
+          fixture.componentRef.setInput("nextIsQuote", centred)
+          setData(
+            fixture,
+            makeVerse({
+              text: [
+                { type: "section", tag: "s2", text: "Diálogo com Nicodemos" },
+              ],
+            }),
+          )
+          fixture.detectChanges()
+          return getComputedStyle(host.querySelector(".section") as HTMLElement)
+            .textJustify
+        } finally {
+          block.before(host)
+          block.remove()
+        }
+      }
+
+      it("does not stretch its spaces", () => {
+        expect(justifyOf(true, false)).toBe("none")
+      })
+
+      it("leaves a heading elsewhere, or centred, as it was", () => {
+        expect(justifyOf(false, false)).not.toBe("none")
+        expect(justifyOf(true, true)).not.toBe("none")
+      })
     })
 
     // In justified paged text the space inside a citation stretched:

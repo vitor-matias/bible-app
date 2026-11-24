@@ -311,22 +311,6 @@ final class ChromeStateTests: XCTestCase {
 
     // MARK: Picker and index bars
 
-    // Between «‹ Livros» and ✕ (about 190 pt on a 402 pt iPhone), «Livro dos
-    // Atos dos Apóstolos» was cut to «Livro dos Atos dos Apó…».
-    func testALongBookNameTakesTwoLinesInThePickersBar() {
-        let label = pickerTitleView("Livro dos Atos dos Apóstolos")
-        let lineHeight = label.font.lineHeight
-        let room = CGSize(width: 190, height: CGFloat.greatestFiniteMagnitude)
-        let height = label.textRect(forBounds: CGRect(origin: .zero, size: room), limitedToNumberOfLines: 0).height
-        XCTAssertEqual(height, lineHeight * 2, accuracy: 1)
-        XCTAssertEqual(label.numberOfLines, 2)
-        XCTAssertTrue(label.accessibilityTraits.contains(.header))
-        // A short name stays one line, as the system's title.
-        let short = pickerTitleView("Livro do Êxodo")
-        XCTAssertEqual(short.textRect(forBounds: CGRect(origin: .zero, size: room), limitedToNumberOfLines: 0).height,
-                       lineHeight, accuracy: 1)
-    }
-
     // An image item's title is what VoiceOver reads (and the bar's overflow
     // menu shows): the index's filter is «Filtrar», not its symbol's name.
     func testTheIndexFilterButtonIsLabelled() {
@@ -682,5 +666,42 @@ final class ChromeStateTests: XCTestCase {
         let deadline = Date().addingTimeInterval(20)
         while waiting() && Date() < deadline { wait(0.05) }
         XCTAssertFalse(waiting())
+    }
+}
+
+/// The book picker's filter.
+final class PassagePickerFilterTests: XCTestCase {
+    private func book(_ id: String, _ name: String, _ abbreviation: String) -> PassagePickerData.Book {
+        PassagePickerData.Book(id: id, label: name, name: name, abbreviation: abbreviation, chapters: [])
+    }
+
+    private let history = PassagePickerData.Group(title: "Livros Históricos", books: [])
+
+    private func finds(_ query: String, _ book: PassagePickerData.Book) -> Bool {
+        PassagePickerData.filter(query, matches: book, in: history)
+    }
+
+    // "Est" is in "Testamento": every book of both testaments answered to it, and
+    // Ester was lost among them. The testament's name is not searched at all.
+    func testTheTestamentsNameIsNotSearched() {
+        let rute = book("rt", "Rute", "Rt")
+        XCTAssertTrue(finds("est", book("est", "Ester", "Est")))
+        for query in ["est", "test", "tament", "antigo"] {
+            XCTAssertFalse(finds(query, rute), query)
+        }
+    }
+
+    func testAGroupsNameFindsItsBooksByTheBeginningOfAWord() {
+        let rute = book("rt", "Rute", "Rt")
+        XCTAssertTrue(finds("hist", rute))
+        XCTAssertTrue(finds("livros hist", rute))
+        XCTAssertTrue(finds("HISTÓR", rute))
+        XCTAssertFalse(finds("stóricos", rute))
+        XCTAssertTrue(finds("", rute))
+    }
+
+    func testABookIsFoundWhereverItsOwnNameMatches() {
+        XCTAssertTrue(finds("ute", book("rt", "Rute", "Rt")))
+        XCTAssertTrue(finds("genesis", book("gn", "Génesis", "Gn")))
     }
 }

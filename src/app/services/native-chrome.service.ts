@@ -280,6 +280,12 @@ export class NativeChromeService {
     this.plugin.showPicker(data).catch(() => {})
   }
 
+  /** The bar's tip that the passage opens the books; the app draws it once. */
+  showPassageHint(): void {
+    if (!this.enabled) return
+    this.plugin.showPassageHint().catch(() => {})
+  }
+
   /** Whether the sheet came up; it doesn't over another one. */
   showBookmarks(state: BookmarksSheetState): Promise<boolean> {
     if (!this.enabled) return Promise.resolve(false)

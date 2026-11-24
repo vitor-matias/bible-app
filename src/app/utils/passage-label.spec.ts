@@ -43,6 +43,10 @@ describe("passage labels", () => {
     expect(sharedPassage(luke, 5, "?verseStart=3")).toBe("Lucas 5,3")
     expect(sharedPassage(luke, 5, "?verseStart=3&verseEnd=3")).toBe("Lucas 5,3")
     expect(sharedPassage(luke, 5, "")).toBe("Lucas 5")
+    // An addition's letter is not printed.
+    expect(sharedPassage(luke, 5, "?verseStart=A2&verseEnd=4")).toBe(
+      "Lucas 5,2-4",
+    )
     expect(sharedPassage(psalms, 23, "?verseStart=1&verseEnd=4")).toBe(
       "Salmo 23 (22),1-4",
     )

@@ -1828,6 +1828,45 @@ describe("PastoralIndexComponent", () => {
       expect(getComputedStyle(entry).textAlign).toBe("start")
       expect(getComputedStyle(entry).hyphens).toBe("manual")
     })
+
+    it("leaves an open theme's title in the list, not stuck over its text", async () => {
+      const fixture = await open("amor", true)
+      const title = (fixture.nativeElement as HTMLElement).querySelector(
+        "#tema-amor mat-expansion-panel-header",
+      ) as Element
+      expect(getComputedStyle(title).position).not.toBe("sticky")
+    })
+
+    // Under the status bar the title would sit in the blur meant for the
+    // bar's height, washed out, once the bars have hidden.
+    describe("the status bar's fade over the list in the iOS app", () => {
+      const body = document.body.classList
+      let host: HTMLElement
+      const fade = (edge: "::before" | "::after") =>
+        getComputedStyle(host, edge).height
+
+      beforeEach(() => {
+        host = document.createElement("pastoral-index")
+        host.style.setProperty("--app-chrome-top", "100px")
+        host.style.setProperty("--app-chrome-bottom", "80px")
+        document.body.append(host)
+        body.add("platform-ios", "native-chrome")
+      })
+
+      afterEach(() => {
+        host.remove()
+        body.remove("platform-ios", "native-chrome", "native-chrome-collapsed")
+      })
+
+      it("is as tall as the bars while they show", () => {
+        expect([fade("::before"), fade("::after")]).toEqual(["100px", "80px"])
+      })
+
+      it("shrinks to the safe area once they hide", () => {
+        body.add("native-chrome-collapsed")
+        expect([fade("::before"), fade("::after")]).toEqual(["0px", "0px"])
+      })
+    })
   })
 
   describe("in the apps", () => {
@@ -1886,6 +1925,19 @@ describe("PastoralIndexComponent", () => {
           section.groups.flatMap((group) => group.books.map((book) => book.id)),
       )
       expect(books.at(-1)).toBe("indice")
+    })
+
+    // A reader who only ever opens the books from the index must stop getting
+    // the hint that the passage is a button.
+    it("marks the picker as used when the passage is tapped", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      try {
+        await open(undefined, true)
+        actions.next({ id: "passage" })
+        expect(localStorage.getItem("passagePickerUsed")).toBe("true")
+      } finally {
+        localStorage.removeItem("passagePickerUsed")
+      }
     })
 
     it("goes to the book the picker chose", async () => {

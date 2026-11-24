@@ -813,6 +813,12 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
     left: var(--app-centred-inset);
     right: var(--app-centred-inset);
   }
+
+  /* Android's scrolling copyright has the insets in its own margins, between
+     the arrows: not shifted again. */
+  .platform-android.native-chrome bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) {
+    position: static;
+  }
 }
 
 .native-chrome bible-reader .paged-view-container {
@@ -821,7 +827,7 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
   height: calc(100dvh - var(--app-header-height) - var(--app-chrome-top) - var(--app-reader-gap) - var(--app-inset-bottom));
 }
 
-/* The Android app's pages: the copyright shares the row of the corner
+/* The Android app's chapters, paged or scrolling: the copyright shares the row of the corner
    arrows (ChromeOverlay's ChapterArrows: 56dp, 24dp in from the sides, 16dp
    up), between them, instead of a band of its own above the row, and the
    text takes that band back. The page is a column: the text fills what the
@@ -830,6 +836,22 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
 .platform-android.native-chrome bible-reader .mat-drawer-content:has(> .paged-view-container) {
   display: flex;
   flex-direction: column;
+}
+
+/* A chapter shorter than the screen: the copyright still ends the page, in
+   the arrows' row. */
+.platform-android.native-chrome bible-reader .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The text scrolls: its blocks keep their size rather than shrink to fit. */
+.platform-android.native-chrome bible-reader .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) > * {
+  flex-shrink: 0;
+}
+
+.platform-android.native-chrome bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) {
+  margin-top: auto;
 }
 
 .platform-android.native-chrome bible-reader .paged-view-container {
@@ -843,8 +865,9 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
 }
 
 /* The row is the bottom inset's last 56px: the negative margin takes the
-   copyright down into it. */
-.platform-android.native-chrome bible-reader .fixed-footer {
+   copyright down into it. Scrolling, it ends the text, and the padding the
+   arrows' row needs is under it, not left blank. */
+.platform-android.native-chrome bible-reader .copyright-footer {
   position: static;
   flex: none;
   box-sizing: border-box;
@@ -864,17 +887,17 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
   font-size: calc(18px * var(--copyright-scale));
 }
 
-.platform-android.native-chrome bible-reader .fixed-footer .copyright-details {
+.platform-android.native-chrome bible-reader .copyright-footer .copyright-details {
   font-size: calc(13px * var(--copyright-scale));
 }
 
 /* A phone's width (Material's compact windows): smaller, to fit the row. */
 @media (max-width: 599px) {
-  .platform-android.native-chrome bible-reader .fixed-footer {
+  .platform-android.native-chrome bible-reader .copyright-footer {
     font-size: calc(14px * var(--copyright-scale));
   }
 
-  .platform-android.native-chrome bible-reader .fixed-footer .copyright-details {
+  .platform-android.native-chrome bible-reader .copyright-footer .copyright-details {
     font-size: calc(11px * var(--copyright-scale));
   }
 }
@@ -999,12 +1022,14 @@ html.ragged-text .footnotes-container {
   mask-image: linear-gradient(transparent, black 40%);
 }
 
-/* Bars hidden while reading: only the status bar and home indicator remain. */
-.platform-ios.native-chrome-collapsed bible-reader::before {
+/* Bars hidden while reading: only the status bar and home indicator remain.
+   The index's too: a theme opened under the status bar isn't left under the
+   blur. */
+.platform-ios.native-chrome-collapsed :is(bible-reader, pastoral-index)::before {
   height: env(safe-area-inset-top);
 }
 
-.platform-ios.native-chrome-collapsed bible-reader::after {
+.platform-ios.native-chrome-collapsed :is(bible-reader, pastoral-index)::after {
   height: env(safe-area-inset-bottom);
 }
 
@@ -1096,4 +1121,12 @@ html:has(mat-snack-bar-container) .footnotes-container {
   padding-top: 1px;
   font: 700 8px/1 system-ui, sans-serif;
   letter-spacing: -0.02em;
+}
+
+/* A run-in heading beside the chapter number, dash included, is not stretched:
+   justified, its line (always one the verse text can't join) spread
+   "Diálogo      com      Nicodemos      —" across the column. Chromium and
+   Firefox; Safari has no text-justify. */
+.bookBlock verse-section .section.besideChapterNumber:not(.center) {
+  text-justify: none;
 }

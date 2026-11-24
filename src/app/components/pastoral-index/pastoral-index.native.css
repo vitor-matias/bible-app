@@ -10,7 +10,7 @@
   --mat-expansion-header-hover-state-layer-color: transparent;
 }
 
-/* The bars hide as the text is read: an open theme's title goes up with them. */
+/* The bars hide as the text is read: a theme then opens right under the status bar. */
 :host-context(.native-chrome-collapsed) {
   --page-top: env(safe-area-inset-top);
 }
@@ -34,19 +34,10 @@
   hyphens: manual;
 }
 
-/* Its title stays in sight, and in reach to close it, down a long theme. A
-   panel's own clipping would stop it sticking. */
+/* A theme opens right under the bar, where its title is in the clear. */
 :host(.native) mat-expansion-panel {
-  overflow: visible;
   border-bottom: 0;
-  /* Opens right under the bar, where its title then sticks, by any path. */
   scroll-margin-top: var(--page-top);
-}
-
-:host(.native) mat-expansion-panel.mat-expanded > mat-expansion-panel-header {
-  position: sticky;
-  z-index: 1;
-  top: var(--page-top);
 }
 
 /* ---- iOS: an inset grouped list, with the system's section index ---- */

@@ -48,6 +48,7 @@ describe("NativeChromeService", () => {
     setState: Mock
     setProgress: Mock
     showPicker: Mock
+    showPassageHint: Mock
     showBookmarks: Mock
     updateBookmarks: Mock
     showToast: Mock
@@ -72,6 +73,10 @@ describe("NativeChromeService", () => {
         .mockResolvedValue({ top: 116, bottom: 82 }),
       setProgress: vi.fn().mockName("setProgress").mockResolvedValue(undefined),
       showPicker: vi.fn().mockName("showPicker").mockResolvedValue(undefined),
+      showPassageHint: vi
+        .fn()
+        .mockName("showPassageHint")
+        .mockResolvedValue(undefined),
       showBookmarks: vi
         .fn()
         .mockName("showBookmarks")
@@ -169,6 +174,7 @@ describe("NativeChromeService", () => {
       service.show(READER)
       service.hide()
       service.showPicker({} as PassagePickerData)
+      service.showPassageHint()
       const stop = service.trackScroll(document.createElement("div"))
       stop()
       await vi.advanceTimersByTimeAsync(0)
@@ -178,6 +184,7 @@ describe("NativeChromeService", () => {
       expect(plugin.addListener).not.toHaveBeenCalled()
       expect(plugin.setState).not.toHaveBeenCalled()
       expect(plugin.showPicker).not.toHaveBeenCalled()
+      expect(plugin.showPassageHint).not.toHaveBeenCalled()
     })
   }
 
@@ -420,6 +427,11 @@ describe("NativeChromeService", () => {
     }
     create("ios").showPicker(data)
     expect(plugin.showPicker).toHaveBeenCalledWith(data)
+  })
+
+  it("asks the app for its tip on the passage", () => {
+    create("ios").showPassageHint()
+    expect(plugin.showPassageHint).toHaveBeenCalledTimes(1)
   })
 
   it("removes the bars once the page is gone", async () => {

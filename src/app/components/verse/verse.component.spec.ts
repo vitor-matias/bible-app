@@ -87,6 +87,252 @@ describe("VerseComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // Ester's Greek additions are stored as verses after the one they trail, so
+  // a verse's position is not what the page prints.
+  describe("supplements", () => {
+    const host = () => fixture.nativeElement as HTMLElement
+    const printed = () => host().querySelector(".verseNumber")?.textContent
+
+    it("prints a verse's label, not its position", () => {
+      setData(fixture, makeVerse({ number: 18, numberLabel: "1" }))
+      fixture.detectChanges()
+      expect(printed()).toBe("1")
+    })
+
+    it("prints the position when there is no label", () => {
+      setData(fixture, makeVerse({ number: 5 }))
+      fixture.detectChanges()
+      expect(printed()).toBe("5")
+    })
+
+    it("prints the supplement's letter where the chapter number goes", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 0,
+          verseLabel: "front",
+          chapterNumber: 1,
+          chapterLabel: "A",
+          text: [
+            { type: "section", tag: "s2", text: "Um sonho" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      const mark = host().querySelector(".chapterNumber")
+      expect(mark?.textContent?.trim()).toBe("A")
+      expect(mark?.classList).toContain("supplementMark")
+      expect(getComputedStyle(mark as Element).fontStyle).toBe("italic")
+    })
+
+    it("prints a mid-chapter supplement's letter at its heading, or its first line", () => {
+      const letter = () =>
+        host().querySelector(".chapterNumber")?.textContent?.trim()
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          supplementLetter: "C",
+          text: [
+            { type: "text", text: "Fim." },
+            { type: "section", tag: "s2", text: "Oração" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(letter()).toBe("C")
+
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [{ type: "text", text: "Ao terceiro dia" }] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(0)
+      expect(letter()).toBe("D")
+    })
+
+    it("labels the notes of a supplement's verse with its printed number", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 18,
+          numberLabel: "1",
+          text: [
+            { type: "text", text: "Texto" },
+            { type: "footnote", text: "nota", reference: "1" },
+          ] as TextType[],
+        }),
+      )
+      expect(component.notesLabel).toBe("Notas do versículo 1")
+    })
+
+    it("prints the label on a verse opening with a quote too", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 18,
+          numberLabel: "1",
+          text: [
+            { type: "quote", text: "Poesia", identLevel: 1 },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(
+          ".quoteVerseNumber .verseNumber",
+        )?.textContent,
+      ).toBe("1")
+    })
+
+    it("breaks the line ahead of the chapter number at the closing heading", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(".chapterNumber")
+          ?.previousElementSibling?.tagName,
+      ).toBe("BR")
+    })
+
+    it("prints a supplement's letter beside the first text that shows", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [
+            { type: "text", text: " " },
+            { type: "text", text: "Ao terceiro dia" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(
+        (fixture.nativeElement as HTMLElement)
+          .querySelector(".chapterNumber")
+          ?.textContent?.trim(),
+      ).toBe("D")
+    })
+
+    it("keeps the closing heading, its dash and the chapter number upright", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          supplement: true,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      const style = (selector: string) =>
+        getComputedStyle(host.querySelector(selector) as Element).fontStyle
+      expect(style(".chapterNumber")).toBe("normal")
+      expect(style("[data-section-heading]")).toBe("normal")
+      expect(style(".headingMark:not([data-section-heading])")).toBe("normal")
+    })
+
+    it("puts the number at the first of two consecutive closing headings", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Oração", supplement: true },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          supplementLetter: "C",
+          text: [
+            { type: "text", text: "Fim." },
+            { type: "section", tag: "s2", text: "Oração" },
+            { type: "section", tag: "s2", text: "Outra" },
+          ] as TextType[],
+        }),
+      )
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+    })
+
+    it("puts no line break before a letter that opens the verse's text", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [
+            { type: "text", text: " " },
+            { type: "text", text: "Ao terceiro dia" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector(".chapterNumber")
+          ?.previousElementSibling?.tagName,
+      ).not.toBe("BR")
+    })
+
+    it("marks a supplement's verse, set in italics", () => {
+      setData(fixture, makeVerse({ number: 1, supplement: true }))
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      expect(host.classList).toContain("supplement")
+      expect(getComputedStyle(host).fontStyle).toBe("italic")
+
+      setData(fixture, makeVerse({ number: 2 }))
+      fixture.detectChanges()
+      expect(host.classList).not.toContain("supplement")
+    })
+
+    it("prints the chapter number at the heading ending the supplement", () => {
+      setData(
+        fixture,
+        makeVerse({
+          number: 17,
+          chapterNumber: 1,
+          chapterNumberStarts: true,
+          text: [
+            { type: "text", text: "Fim do sonho." },
+            { type: "section", tag: "s2", text: "Banquete" },
+          ] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(1)
+      expect(host().querySelector(".chapterNumber")?.textContent?.trim()).toBe(
+        "1",
+      )
+    })
+  })
+
   describe("ngOnChanges — chapterNumberDisplayIndex", () => {
     it("should be -1 for regular verses (number > 0)", () => {
       setData(fixture, makeVerse({ number: 5 }))
@@ -1139,6 +1385,66 @@ describe("VerseComponent", () => {
       expect(centre).toBe(asterisk())
     })
 
+    // "Sl 23" was a 24 px tall target on a phone, among the words.
+    describe("a cross-reference's touch target", () => {
+      const render = (
+        text: string,
+        refs: { match: string; index: number }[],
+      ) => {
+        document.body.classList.add("native-chrome")
+        mockBibleRef.extract.mockReturnValue(
+          refs.map((ref) => ({ ...ref, book: "psa", chapter: 8 })),
+        )
+        setData(fixture, makeVerse({ text: [{ type: "references", text }] }))
+        fixture.detectChanges()
+        return Array.from(
+          fixture.nativeElement.querySelectorAll("a.references"),
+        ) as HTMLElement[]
+      }
+      afterEach(() => document.body.classList.remove("native-chrome"))
+
+      it("reaches past the link, outside the text's flow", () => {
+        const [link] = render("Sl 23", [{ match: "Sl 23", index: 0 }])
+        const box = link.getBoundingClientRect()
+        const target = getComputedStyle(link, "::after")
+
+        expect(target.position).toBe("absolute")
+        expect(Number.parseFloat(target.height)).toBeCloseTo(box.height + 14, 0)
+        expect(Number.parseFloat(target.width)).toBeCloseTo(
+          box.width + 0.4 * Number.parseFloat(getComputedStyle(link).fontSize),
+          0,
+        )
+        const below = document.elementFromPoint(
+          box.left + box.width / 2,
+          box.bottom + 5,
+        )
+        expect(below).toBe(link)
+      })
+
+      // "Sl 8; 9": a later link paints over an earlier one, so the bare "9"
+      // must not reach the 8's words.
+      it.each(["20px", "10.6px"])(
+        "does not cover the words of a neighbouring link at %s text",
+        (fontSize) => {
+          fixture.nativeElement.style.fontSize = fontSize
+          const [first, second] = render("Sl 8; 9", [
+            { match: "Sl 8", index: 0 },
+            { match: "9", index: 6 },
+          ])
+          const gap =
+            second.getBoundingClientRect().left -
+            first.getBoundingClientRect().right
+          const target = getComputedStyle(second, "::after")
+          const overhang =
+            (Number.parseFloat(target.width) -
+              second.getBoundingClientRect().width) /
+            2
+
+          expect(overhang).toBeLessThanOrEqual(gap)
+        },
+      )
+    })
+
     // It scrolled on under the sheet, carrying the verse away.
     it("stops auto-scroll as the notes open", () => {
       const autoScroll = play()
@@ -1282,6 +1588,7 @@ describe("VerseComponent", () => {
       fixture.detectChanges()
 
       expect(liturgical().textContent?.trim()).toBe("na liturgia, (22)")
+      expect(liturgical().title).toContain("Numeração litúrgica")
     })
 
     it("carries none where the numberings agree, or outside the Psalms", () => {

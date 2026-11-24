@@ -1,7 +1,6 @@
 package org.capuchinhos.biblia.chrome
 
 import androidx.annotation.DrawableRes
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -70,7 +69,9 @@ fun ChromeOverlay(chrome: ChromeController) {
     val state = chrome.state
     BibleTheme(chrome.themeMode) {
         val page = chrome.pageColor?.let(::Color) ?: pageBackground(isDarkTheme(chrome.themeMode))
-        val barColor = topBarColor(state.scrolled, page)
+        // The page's colour always: the bar doesn't change colour as text scrolls
+        // under it, the progress line under it marks its edge.
+        val barColor = page
         // What shows behind the system bars where the page can't reach them
         // (WebView before 140): the band over the status bar, and the page.
         val statusColor = when (state.mode) {
@@ -111,17 +112,6 @@ fun ChromeOverlay(chrome: ChromeController) {
         // hidden state (SheetQueue).
         chrome.sheet?.let { key(chrome.sheetPresentation) { SheetHost(chrome, it) } }
     }
-}
-
-/**
- * The top bar is the page's colour at rest, so the text is the only object
- * on screen; once text scrolls under it, it takes Material's container colour
- * to stand apart from it.
- */
-@Composable
-private fun topBarColor(scrolled: Boolean, page: Color): Color {
-    val target = if (scrolled) MaterialTheme.colorScheme.surfaceContainer else page
-    return animateColorAsState(target, label = "top bar").value
 }
 
 /** The bar's colours; under a web panel it leaves TalkBack's reading too. */

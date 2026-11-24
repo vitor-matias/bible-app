@@ -28,6 +28,7 @@ import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { NetworkService } from "../../services/network.service"
 import { OnboardingService } from "../../services/onboarding.service"
+import { PICKER_HINT_DELAY_MS } from "../../services/passage-picker-hint.service"
 import { ThemeService } from "../../services/theme.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import {
@@ -1375,6 +1376,179 @@ describe("HeaderComponent", () => {
     })
   })
 
+  describe("the hint that the passage is a button", () => {
+    const group = () =>
+      (fixture.nativeElement as HTMLElement).querySelector(
+        ".bookSelectorButton",
+      ) as HTMLElement
+
+    /** A header opened on a chapter, its hint timer on fake time. */
+    function open(book = "gen"): void {
+      vi.useFakeTimers()
+      fixture = TestBed.createComponent(HeaderComponent)
+      component = fixture.componentInstance
+      fixture.componentRef.setInput("book", {
+        id: book,
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      })
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+    }
+
+    beforeEach(() => localStorage.clear())
+    afterEach(() => {
+      vi.useRealTimers()
+      localStorage.clear()
+    })
+
+    it("plays once the chapter has sat a moment, for a reader who never opened the picker", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      open()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS - 1)
+      fixture.detectChanges()
+      expect(group().classList).not.toContain("hint")
+
+      await vi.advanceTimersByTimeAsync(1)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+    })
+
+    it("keeps playing, the halo coming round again, until the picker is used", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      open()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+    })
+
+    it("counts the wait from the page the reader is on", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      open()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS - 1000)
+      fixture.componentRef.setInput("chapterNumber", 2)
+      fixture.detectChanges()
+
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS - 1)
+      fixture.detectChanges()
+      expect(group().classList).not.toContain("hint")
+      await vi.advanceTimersByTimeAsync(1)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+    })
+
+    it("keeps playing as the header is reused for the About page and back", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      open()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+
+      const gen = fixture.componentRef.instance.book()
+      fixture.componentRef.setInput("book", {
+        id: "about",
+        name: "Sobre a Bíblia dos Capuchinhos",
+        shortName: "Sobre a Bíblia",
+        abrv: "Sobre",
+        chapterCount: 1,
+      })
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+
+      fixture.componentRef.setInput("book", gen)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+    })
+
+    it("never plays for a reader who has opened the picker", async () => {
+      localStorage.setItem("passagePickerUsed", "true")
+      open()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+      expect(group().classList).not.toContain("hint")
+    })
+
+    it("stops as the reader opens the picker, and is not played again", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      open()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+
+      component.showBookSelector()
+      fixture.detectChanges()
+      expect(group().classList).not.toContain("hint")
+      expect(localStorage.getItem("passagePickerUsed")).toBe("true")
+    })
+
+    it("waits for the wizard to close, then plays", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      Object.defineProperty(onboardingServiceSpy, "isOpen", {
+        value: true,
+        writable: true,
+        configurable: true,
+      })
+      open()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+      expect(group().classList).not.toContain("hint")
+
+      ;(onboardingServiceSpy as unknown as { isOpen: boolean }).isOpen = false
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+    })
+
+    // window does not exist while prerendering: its timer isn't scheduled
+    // there, and destroying the header (the render's end) touches no window.
+    it("is not scheduled while server-rendering", async () => {
+      TestBed.resetTestingModule()
+      await TestBed.configureTestingModule({
+        imports: [HeaderComponent, CommonModule],
+        providers: [
+          { provide: Router, useValue: routerSpy },
+          { provide: ActivatedRoute, useValue: {} },
+          { provide: NetworkService, useValue: networkServiceSpy },
+          { provide: ThemeService, useValue: themeServiceSpy },
+          { provide: BookmarkService, useValue: bookmarkServiceSpy },
+          { provide: MatBottomSheet, useValue: bottomSheetSpy },
+          { provide: MatDialog, useValue: dialogSpy },
+          { provide: AnalyticsService, useValue: analyticsServiceSpy },
+          { provide: PLATFORM_ID, useValue: "server" },
+        ],
+      }).compileComponents()
+      const setTimeoutSpy = vi.spyOn(window, "setTimeout")
+      const serverFixture = TestBed.createComponent(HeaderComponent)
+      serverFixture.componentRef.setInput("book", {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      })
+      serverFixture.componentRef.setInput("chapterNumber", 1)
+      serverFixture.componentInstance.ngOnInit()
+
+      expect(setTimeoutSpy).not.toHaveBeenCalledWith(
+        expect.anything(),
+        PICKER_HINT_DELAY_MS,
+      )
+      expect(() => serverFixture.componentInstance.ngOnDestroy()).not.toThrow()
+    })
+
+    it("plays on the About page too, along with its cycling label", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      open("about")
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+    })
+  })
+
   describe("headingLabel", () => {
     it("names an introduction instead of announcing chapter 0", () => {
       // The visible label reads "Introdução"; the h1's accessible name must
@@ -1416,6 +1590,7 @@ describe("HeaderComponent with the iOS native bars", () => {
     show: Mock
     hide: Mock
     showPicker: Mock
+    showPassageHint: Mock
     share: Mock
   }
   let router: SpyObj<Router>
@@ -1445,6 +1620,7 @@ describe("HeaderComponent with the iOS native bars", () => {
       show: vi.fn().mockName("show"),
       hide: vi.fn().mockName("hide"),
       showPicker: vi.fn().mockName("showPicker"),
+      showPassageHint: vi.fn().mockName("showPassageHint"),
       share: vi.fn().mockName("share").mockResolvedValue(true),
     }
     router = createSpyObj("Router", ["navigate"])
@@ -1865,5 +2041,51 @@ describe("HeaderComponent with the iOS native bars", () => {
   it("removes the bars when the reader goes away", () => {
     fixture.destroy()
     expect(nativeChrome.hide).toHaveBeenCalled()
+  })
+
+  describe("the bar's hint that the passage is a button", () => {
+    beforeEach(() => {
+      localStorage.clear()
+      localStorage.setItem("passagePickerUsed", "false")
+      vi.useFakeTimers()
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", genesis)
+      fixture.componentRef.setInput("chapterNumber", 3)
+      fixture.detectChanges()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+      localStorage.clear()
+    })
+
+    it("asks the app for its tip once the chapter has sat a moment", async () => {
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS - 1)
+      expect(nativeChrome.showPassageHint).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(nativeChrome.showPassageHint).toHaveBeenCalledTimes(1)
+    })
+
+    it("plays on the About page too: the bar's passage doesn't cycle its label", async () => {
+      fixture.destroy()
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", {
+        id: "about",
+        name: "Sobre a Bíblia dos Capuchinhos",
+        shortName: "Sobre a Bíblia",
+        abrv: "Sobre",
+        chapterCount: 1,
+      } as Book)
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      expect(nativeChrome.showPassageHint).toHaveBeenCalledTimes(1)
+    })
+
+    it("does not once the picker has been opened, from the bar", async () => {
+      actions.next({ id: "passage" })
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      expect(nativeChrome.showPassageHint).not.toHaveBeenCalled()
+      expect(localStorage.getItem("passagePickerUsed")).toBe("true")
+    })
   })
 })

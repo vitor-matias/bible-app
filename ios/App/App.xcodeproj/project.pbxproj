@@ -24,6 +24,7 @@
 		9582B7C42FEA00000072D4E8 /* ReaderMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B7B42FEA00000072D4E8 /* ReaderMenu.swift */; };
 		9582B7C52FEA00000072D4E8 /* SearchFieldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B7B52FEA00000072D4E8 /* SearchFieldView.swift */; };
 		9582B6952FE9A0000072D4E8 /* PassagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6942FE9A0000072D4E8 /* PassagePicker.swift */; };
+		AAAC36361BE2309C79C89530 /* PassageHint.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBF19C75CD19CA95F08115E8 /* PassageHint.swift */; };
 		9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */; };
 		9582B6992FE9A0000072D4E8 /* BookmarksSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */; };
 		9582B69B2FE9A0000072D4E8 /* FootnotesSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B69A2FE9A0000072D4E8 /* FootnotesSheet.swift */; };
@@ -65,6 +66,7 @@
 		9582B7B42FEA00000072D4E8 /* ReaderMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReaderMenu.swift; sourceTree = "<group>"; };
 		9582B7B52FEA00000072D4E8 /* SearchFieldView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchFieldView.swift; sourceTree = "<group>"; };
 		9582B6942FE9A0000072D4E8 /* PassagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassagePicker.swift; sourceTree = "<group>"; };
+		CBF19C75CD19CA95F08115E8 /* PassageHint.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PassageHint.swift; sourceTree = "<group>"; };
 		9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSheet.swift; sourceTree = "<group>"; };
 		9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarksSheet.swift; sourceTree = "<group>"; };
 		9582B69A2FE9A0000072D4E8 /* FootnotesSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootnotesSheet.swift; sourceTree = "<group>"; };
@@ -131,6 +133,7 @@
 				9582B6982FE9A0000072D4E8 /* BookmarksSheet.swift */,
 				9582B6962FE9A0000072D4E8 /* OnboardingSheet.swift */,
 				9582B6942FE9A0000072D4E8 /* PassagePicker.swift */,
+				CBF19C75CD19CA95F08115E8 /* PassageHint.swift */,
 				9582B6922FE9A0000072D4E8 /* ChromeViewController.swift */,
 				9582B7B12FEA00000072D4E8 /* ChromeViewController+Reader.swift */,
 				9582B7B22FEA00000072D4E8 /* ChromeViewController+Bars.swift */,
@@ -281,6 +284,7 @@
 				9582B6992FE9A0000072D4E8 /* BookmarksSheet.swift in Sources */,
 				9582B6972FE9A0000072D4E8 /* OnboardingSheet.swift in Sources */,
 				9582B6952FE9A0000072D4E8 /* PassagePicker.swift in Sources */,
+				AAAC36361BE2309C79C89530 /* PassageHint.swift in Sources */,
 				9582B6932FE9A0000072D4E8 /* ChromeViewController.swift in Sources */,
 				9582B7C12FEA00000072D4E8 /* ChromeViewController+Reader.swift in Sources */,
 				9582B7C22FEA00000072D4E8 /* ChromeViewController+Bars.swift in Sources */,

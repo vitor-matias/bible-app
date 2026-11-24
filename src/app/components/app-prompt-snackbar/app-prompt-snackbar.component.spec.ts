@@ -55,6 +55,20 @@ describe("AppPromptSnackComponent", () => {
     expect(badge.alt).toBe("Obter no Google Play")
   })
 
+  it("falls back to a 40px text button with the store's name when the badge can't load", () => {
+    const fixture = TestBed.createComponent(AppPromptSnackComponent)
+    fixture.detectChanges()
+    const root: HTMLElement = fixture.nativeElement
+    root.querySelector("img")?.dispatchEvent(new Event("error"))
+    fixture.detectChanges()
+
+    const link = root.querySelector("a.badge") as HTMLAnchorElement
+    expect(root.querySelector("img")).toBeNull()
+    expect(link.textContent?.trim()).toBe("Obter no Google Play")
+    expect(getComputedStyle(link).textDecorationLine).toBe("none")
+    expect(link.getBoundingClientRect().height).toBe(40)
+  })
+
   // Apple's least height on screen; Google's is 28px.
   it("shows the badge 40px tall", () => {
     const badge = badgeLink().querySelector("img") as HTMLImageElement

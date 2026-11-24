@@ -588,6 +588,101 @@ describe("BibleReaderComponent", () => {
       })
     })
 
+    describe("a link's verse in a chapter with a supplement (Ester)", () => {
+      // Addition A is stored as 1-2, the chapter's own verses after it as 3-4.
+      const verse = (number: number, numberLabel: string, supplement = false) =>
+        ({
+          bookId: "gen",
+          chapterNumber: 1,
+          number,
+          numberLabel,
+          ...(supplement ? { supplement: true } : {}),
+          text: [],
+        }) as unknown as Verse
+      const queryTo = (query: [string, string][]) =>
+        (
+          routeMock as unknown as {
+            queryParamMap: BehaviorSubject<Map<string, string>>
+          }
+        ).queryParamMap.next(new Map(query))
+
+      beforeEach(async () => {
+        apiServiceSpy.getChapter.mockReturnValue(
+          of({
+            ...mockChapter,
+            verses: [
+              verse(1, "1", true),
+              verse(2, "2", true),
+              verse(3, "1"),
+              verse(4, "2"),
+            ],
+          } as unknown as Chapter),
+        )
+        fixture.detectChanges()
+        await fixture.whenStable()
+        animationServiceSpy.scrollToVerseElement.mockClear()
+      })
+
+      it("opens the chapter's own verse for its printed number", () => {
+        queryTo([["verseStart", "1"]])
+        expect(
+          animationServiceSpy.scrollToVerseElement.mock.lastCall?.[2],
+        ).toBe(3)
+      })
+
+      it("opens the addition's verse for its letter and number", () => {
+        queryTo([["verseStart", "A2"]])
+        expect(
+          animationServiceSpy.scrollToVerseElement.mock.lastCall?.[2],
+        ).toBe(2)
+      })
+
+      it("runs a range whose end is past the chapter's last verse to it", () => {
+        // Printed 1-2 of the chapter, stored 3-4: an end of 9 is no verse.
+        queryTo([
+          ["verseStart", "2"],
+          ["verseEnd", "9"],
+        ])
+        const call = animationServiceSpy.scrollToVerseElement.mock.lastCall
+        expect([call?.[2], call?.[3]]).toEqual([4, 4])
+      })
+
+      // The pass must still run: it ends the fade-in of a chapter opened from
+      // a link, which would stay invisible otherwise.
+      it("marks no verse for one the chapter lacks, but still runs the pass", () => {
+        queryTo([
+          ["verseStart", "9"],
+          ["verseEnd", "12"],
+        ])
+        const call = animationServiceSpy.scrollToVerseElement.mock.lastCall
+        expect([call?.[2], call?.[3]]).toEqual([-1, undefined])
+      })
+
+      it("does not fall over a parameter given twice", () => {
+        queryTo([["verseStart", ["1", "2"] as unknown as string]])
+        expect(
+          animationServiceSpy.scrollToVerseElement.mock.lastCall?.[2],
+        ).toBe(3)
+      })
+
+      it("takes the end of a range in the start's kind", () => {
+        queryTo([
+          ["verseStart", "A1"],
+          ["verseEnd", "2"],
+        ])
+        const call = animationServiceSpy.scrollToVerseElement.mock.lastCall
+        expect([call?.[2], call?.[3]]).toEqual([1, 2])
+
+        queryTo([
+          ["verseStart", "1"],
+          ["verseEnd", "2"],
+        ])
+        const chapterCall =
+          animationServiceSpy.scrollToVerseElement.mock.lastCall
+        expect([chapterCall?.[2], chapterCall?.[3]]).toEqual([3, 4])
+      })
+    })
+
     it("should not call getChapter if book and chapter didn't change on route update", () => {
       fixture.detectChanges() // Sets up initial sub
       apiServiceSpy.getChapter.mockClear()
@@ -1942,6 +2037,49 @@ describe("BibleReaderComponent", () => {
           ).toBe(500)
         } finally {
           document.body.classList.remove("native-chrome", "platform-android")
+        }
+      })
+
+      // Scrolling, it ended the text above a blank band the arrows' row needs.
+      // With the drawer's real classes (the rules in styles.css want them), a
+      // wide window and unequal side insets, as a phone in landscape: the
+      // centring shift would move it off the gap between the arrows.
+      it("put Android's copyright between the arrows when scrolling too", async () => {
+        document.body.classList.add("native-chrome", "platform-android")
+        const root = document.documentElement.style
+        root.setProperty("--app-inset-left", "48px")
+        root.setProperty("--app-inset-right", "0px")
+        try {
+          expect(frame, "the specs run in a frame").toBeTruthy()
+          if (frame) frame.style.width = "800px"
+          TestBed.resetTestingModule()
+          await setUpTestBed({ imports: [MatSidenavModule] })
+          fixture = TestBed.createComponent(BibleReaderComponent, {
+            inferTagName: true,
+          })
+          component = fixture.componentInstance
+          fixture.detectChanges()
+          component.viewMode = "scrolling"
+          component.chapter = { bookId: "gen", number: 2 } as Chapter
+          component.chapterNumber = 2
+          ;(
+            component as unknown as { cdr: ChangeDetectorRef }
+          ).cdr.markForCheck()
+          fixture.detectChanges()
+          const footer = (fixture.nativeElement as HTMLElement).querySelector(
+            ".mat-drawer-content > .copyright-footer",
+          ) as HTMLElement
+          expect(footer, "a child of the drawer's content").toBeTruthy()
+          const style = getComputedStyle(footer)
+          expect(footer.classList).not.toContain("fixed-footer")
+          expect(style.marginLeft).toBe("136px")
+          expect(style.marginBottom).toBe("-56px")
+          expect(style.minHeight).toBe("56px")
+          expect(style.position).toBe("static")
+        } finally {
+          document.body.classList.remove("native-chrome", "platform-android")
+          root.removeProperty("--app-inset-left")
+          root.removeProperty("--app-inset-right")
         }
       })
 
@@ -3410,7 +3548,7 @@ describe("BibleReaderComponent", () => {
       apiServiceSpy.getChapter.mockReturnValue(
         of(mockChapter as unknown as Chapter),
       )
-      component.getChapter(1, 5, 10, true)
+      component.getChapter(1, { number: 5 }, { number: 10 }, true)
       await vi.advanceTimersByTimeAsync(0)
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
     })
@@ -3604,7 +3742,7 @@ describe("BibleReaderComponent", () => {
       bookServiceSpy.findBook.mockReturnValue(mockBooks[1] as unknown as Book)
       component.book = mockBooks[1] as unknown as Book
 
-      component.getChapter(1, 10)
+      component.getChapter(1, { number: 10 })
       await vi.advanceTimersByTimeAsync(0)
       expect(animationServiceSpy.scrollToVerseElement).toHaveBeenCalled()
     })

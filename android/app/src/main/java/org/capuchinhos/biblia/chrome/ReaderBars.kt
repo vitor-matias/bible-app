@@ -6,6 +6,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -94,7 +95,12 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.floor
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.capuchinhos.biblia.R
 
 // MARK: - Reader
@@ -275,12 +281,16 @@ internal fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: 
 /** Auto-scroll's control keeps this far from the bars and the arrows. */
 private val AUTO_SCROLL_GAP = 12.dp
 
+/** How long between the ▾'s two bobs while the tip is up. */
+private const val PASSAGE_HINT_BOB_EVERY_MS = 8000L
+
 /**
  * "Mateus 5 ▾", the button to the book and chapter picker, with the heading
  * of the section being read under it. The heading is the page's own, which
  * TalkBack reaches there: here it would only be said again at every section.
  * Its name starts with what it shows ("Gn 1, …"), so Voice Access finds it.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled: Boolean, showSubtitle: Boolean) {
     BoxWithConstraints {
@@ -293,53 +303,94 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
         val label = labels[fitted.index]
         val spoken = state.passageAccessibilityLabel
         val name = if (spoken.contains(label, ignoreCase = true)) spoken else "$label, $spoken"
-        Column(
-            Modifier
-                // The text on Material's title keyline; the ripple around it.
-                .offset(x = (-8).dp)
-                .clip(MaterialTheme.shapes.small)
-                .clickable(enabled = enabled, role = Role.Button) { chrome.send("passage") }
-                .clearAndSetSemantics {
-                    contentDescription = name
-                    role = Role.Button
-                    onClick(label = "Escolher livro e capítulo") { chrome.send("passage"); true }
-                    // Said when it changes (an arrow, a swipe), as iOS announces it.
-                    liveRegion = LiveRegionMode.Polite
+        // For a reader who has never opened the picker (the web app decides):
+        // a tip under the title that stays until they tap it, and the ▾
+        // bobbing twice now and then. It goes while the title does (a sheet
+        // or a toast over it, the bars hiding as the text is read) and comes back with it.
+        val tooltip = rememberTooltipState(isPersistent = true)
+        val nudge = remember { Animatable(0f) }
+        val titleAway = chrome.sheet != null || chrome.collapsed || chrome.toast != null
+        LaunchedEffect(chrome.passageHint, titleAway) {
+            if (!chrome.passageHint || titleAway) return@LaunchedEffect
+            try {
+                coroutineScope {
+                    while (true) {
+                        // Shown again if it was dismissed (a touch elsewhere).
+                        if (!tooltip.isVisible) launch { tooltip.show() }
+                        repeat(2) {
+                            nudge.animateTo(5f, tween(200, easing = CubicBezierEasing(0.3f, 0f, 0f, 1f)))
+                            nudge.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy))
+                        }
+                        delay(PASSAGE_HINT_BOB_EVERY_MS)
+                    }
                 }
-                // Android's touch target, however short the text.
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    label,
-                    // Scaled in px: in sp, Android's nonlinear text scaling
-                    // enlarges a smaller size by more, and it overflowed.
-                    style = style.copy(fontSize = with(LocalDensity.current) { (style.fontSize.toPx() * fitted.scale).toSp() }),
-                    maxLines = 1,
-                    // Cut only as a last resort: a passage from the front, as
-                    // the chapter's number is what matters; a name ("Índice")
-                    // at its end.
-                    overflow = when {
-                        fitted.fits -> TextOverflow.Clip
-                        label.any { it.isDigit() } -> TextOverflow.StartEllipsis
-                        else -> TextOverflow.Ellipsis
-                    },
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (fitted.caret) Icon(painterResource(R.drawable.ic_arrow_drop_down), contentDescription = null)
+            } finally {
+                // Cancelled mid-bob, the ▾ would stay where it was.
+                withContext(NonCancellable) { nudge.snapTo(0f) }
+                tooltip.dismiss()
             }
-            if (showSubtitle) {
-                state.subtitle?.let { subtitle ->
-                    AnimatedContent(subtitle, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "section") {
-                        Text(
-                            it,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
+        }
+        TooltipBox(
+            // Shown only by the effect above: no long press or hover of its own.
+            enableUserInput = false,
+            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
+            tooltip = { PlainTooltip { Text("Toque para escolher o livro") } },
+            state = tooltip,
+        ) {
+            Column(
+                Modifier
+                    // The text on Material's title keyline; the ripple around it.
+                    .offset(x = (-8).dp)
+                    .clip(MaterialTheme.shapes.small)
+                    .clickable(enabled = enabled, role = Role.Button) { chrome.endPassageHint(); chrome.send("passage") }
+                    .clearAndSetSemantics {
+                        contentDescription = name
+                        role = Role.Button
+                        onClick(label = "Escolher livro e capítulo") { chrome.endPassageHint(); chrome.send("passage"); true }
+                        // Said when it changes (an arrow, a swipe), as iOS announces it.
+                        liveRegion = LiveRegionMode.Polite
+                    }
+                    // Android's touch target, however short the text.
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        label,
+                        // Scaled in px: in sp, Android's nonlinear text scaling
+                        // enlarges a smaller size by more, and it overflowed.
+                        style = style.copy(fontSize = with(LocalDensity.current) { (style.fontSize.toPx() * fitted.scale).toSp() }),
+                        maxLines = 1,
+                        // Cut only as a last resort: a passage from the front, as
+                        // the chapter's number is what matters; a name ("Índice")
+                        // at its end.
+                        overflow = when {
+                            fitted.fits -> TextOverflow.Clip
+                            label.any { it.isDigit() } -> TextOverflow.StartEllipsis
+                            else -> TextOverflow.Ellipsis
+                        },
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (fitted.caret) {
+                        Icon(
+                            painterResource(R.drawable.ic_arrow_drop_down),
+                            contentDescription = null,
+                            modifier = Modifier.graphicsLayer { translationY = nudge.value.dp.toPx() },
                         )
+                    }
+                }
+                if (showSubtitle) {
+                    state.subtitle?.let { subtitle ->
+                        AnimatedContent(subtitle, transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "section") {
+                            Text(
+                                it,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             }
@@ -574,18 +625,25 @@ private fun versionLine(buildVersion: String?): String? {
 
 // MARK: - Page
 
-/** A plain page: Back, its title, and search. */
+/**
+ * A plain page: Back, its title, and search. The bar keeps the page's colour,
+ * so once the rows scroll under it a hairline marks its edge (a chapter has
+ * its progress line).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PageBar(chrome: ChromeController, state: ChromeState, barColor: Color) {
     val enabled = !state.inert
-    TopAppBar(
-        modifier = Modifier.inert(state.inert),
-        navigationIcon = { BarButton(R.drawable.ic_arrow_back, "Voltar", enabled) { chrome.send("back") } },
-        title = { Text(state.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        actions = {
-            if (state.search) BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
-        },
-        colors = barColors(barColor),
-    )
+    Box {
+        TopAppBar(
+            modifier = Modifier.inert(state.inert),
+            navigationIcon = { BarButton(R.drawable.ic_arrow_back, "Voltar", enabled) { chrome.send("back") } },
+            title = { Text(state.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            actions = {
+                if (state.search) BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
+            },
+            colors = barColors(barColor),
+        )
+        if (state.scrolled) HorizontalDivider(Modifier.align(Alignment.BottomCenter), color = MaterialTheme.colorScheme.outlineVariant)
+    }
 }

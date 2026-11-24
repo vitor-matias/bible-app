@@ -11,7 +11,7 @@
   }
   @if (text.type === 'text' || text.type === 'section') {
   <!-- A heading names the section in the Android bar (NativeChromeService). -->
-  <span class="section" [attr.data-section-heading]="text.type === 'section' ? '' : null">{{text.text}}</span>
+  <span class="section" [class.headingMark]="text.type === 'section'" [class.supplementHeading]="text.type === 'section' && text.supplement" [attr.data-section-heading]="text.type === 'section' ? '' : null">{{text.text}}</span>
   }
   @if(text.type === "references"){
   @if (data().text[data().text.length - 1].type === 'quote' || nextIsQuote()) {
@@ -28,10 +28,10 @@
   </span>
   }
   @if (data().verseLabel === 'front' && isLast && data().text[data().text.length -1].type !== 'quote' && !nextIsQuote()) {
-  <span class="section">&nbsp;— </span>
+  <span class="section headingMark" [class.supplementHeading]="isSupplement">&nbsp;— </span>
   }
   @if (data().verseLabel !== 'front' && isLast && text.type !== 'quote' && !nextIsQuote()) {
-  <span class="section">&nbsp;— </span>
+  <span class="section headingMark" [class.supplementHeading]="isSupplement">&nbsp;— </span>
   }
   }
 </span>

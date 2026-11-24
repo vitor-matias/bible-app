@@ -21,7 +21,7 @@
     <!-- The number and its notes marker, kept on one line together and on
          the line of the verse's first word (.verseMarker). -->
     <span class="verseMarker">
-      <span class="verseNumber">{{ data().number }}</span>
+      <span class="verseNumber">{{ data().numberLabel || data().number }}</span>
       @if(hasFootnotes){
         <ng-container *ngTemplateOutlet="noteMark"></ng-container>
       }
@@ -32,10 +32,14 @@
   <ng-template #elementContent let-text let-i="i" let-isFirst="isFirst" let-isLast="isLast" let-isQuote="isQuote">
     <!-- Chapter Number Display -->
     @if (chapterNumberDisplayIndex === i) {
-      <div #chapterNumber class="chapterNumber">
-        {{ data().chapterNumber }}
+      <!-- Ahead of the float, so it sits beside the heading, not the line of text before it. -->
+      @if (text.type === 'section' && (data().chapterNumberStarts || data().supplementLetter)) {
+        <br>
+      }
+      <div #chapterNumber class="chapterNumber" [class.supplementMark]="!!(data().chapterLabel || data().supplementLetter)">
+        {{ data().chapterLabel || data().supplementLetter || data().chapterNumber }}
         @if (liturgicalNumber) {
-          <span class="liturgicalNumber"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
+          <span class="liturgicalNumber" title="Numeração litúrgica, a dos missais e das leituras da Missa"><span class="visually-hidden">na liturgia, </span>({{ liturgicalNumber }})</span>
         }
       </div>
     }
@@ -45,7 +49,7 @@
       @if (text.type === 'text' || text.type === 'quote') {
         @if (text.type === 'quote' && isFirstDisplayableElement(i) && data().number > 0) {
           <span class="quoteVerseNumber">
-            <span class="verseNumber">{{ data().number }}</span>
+            <span class="verseNumber">{{ data().numberLabel || data().number }}</span>
             @if(hasFootnotes){
               <ng-container *ngTemplateOutlet="noteMark"></ng-container>
             } @else {

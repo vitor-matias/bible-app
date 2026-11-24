@@ -223,8 +223,8 @@ export type NativeChromeState =
       inert: boolean
       collapsed: boolean
       /**
-       * The page's text has scrolled under the top bar. The Android bar is
-       * the page's colour at rest and Material's container colour then.
+       * The page's text has scrolled under the top bar. The Android bar keeps
+       * the page's colour; a page's bar then draws a hairline at its edge.
        */
       scrolled: boolean
       autoScroll: AutoScrollChrome | null
@@ -369,6 +369,11 @@ export interface NativeChromePlugin {
    */
   setProgress(progress: { value: number | null }): Promise<void>
   showPicker(data: PassagePickerData): Promise<void>
+  /**
+   * A tip on the bar's passage that it opens the books, for a reader who never
+   * has. The shell dismisses it by itself, and on a tap of the passage.
+   */
+  showPassageHint(): Promise<void>
   /**
    * The sheets say whether they were presented: not over another sheet, and
    * then no *-closed event follows. One on its way out is waited for, so its
