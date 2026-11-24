@@ -311,6 +311,19 @@ class ChromeController(
     val collapsed: Boolean
         get() = state.mode == ChromeMode.Reader && state.collapsed && (state.inert || !barsStayUp)
 
+    /** The tip on the passage that it opens the books is up (PassageTitle plays it). */
+    var passageHint by mutableStateOf(false)
+        private set
+
+    /** For a reader who has never opened the picker; only where the title shows. */
+    fun showPassageHint() {
+        if (state.mode == ChromeMode.Reader) passageHint = true
+    }
+
+    fun endPassageHint() {
+        passageHint = false
+    }
+
     /** The web app's reading position; null hides the line. */
     fun showProgress(value: Float?) {
         progress = if (state.mode == ChromeMode.Reader) value?.coerceIn(0f, 1f) else null

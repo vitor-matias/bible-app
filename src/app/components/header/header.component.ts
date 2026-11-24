@@ -50,6 +50,10 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
+import {
+  PassagePickerHintService,
+  PICKER_HINT_DELAY_MS,
+} from "../../services/passage-picker-hint.service"
 import { TextAlignService } from "../../services/text-align.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
 import {
@@ -99,6 +103,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private readonly cdr = inject(ChangeDetectorRef)
   readonly analyticsService = inject(AnalyticsService)
   private readonly onboardingService = inject(OnboardingService)
+  private readonly pickerHint = inject(PassagePickerHintService)
 
   readonly book = input.required<Book>()
   readonly chapterNumber = input.required<number>()
@@ -111,6 +116,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   readonly canGoNext = input(false)
   /** What sharing the index says, naming the theme open; its own page knows it. */
   readonly indexShareText = input<string | null>(null)
+
+  /** The web button is playing its hint that it can be tapped. */
+  hinting = false
+  private hintTimeout: number | undefined
 
   bookLabelMode: "title" | "prompt" = "title"
   /** True for the fade-out half of a label swap. */
@@ -255,6 +264,34 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         .subscribe((action) => this.onNativeAction(action))
       this.syncNativeChrome()
     }
+    this.scheduleHint()
+  }
+
+  /**
+   * Once the chapter has sat a moment, a reader who has never opened the
+   * picker gets a cue that the passage is a button: this page's own halo, or
+   * the native bar's tip. Not on the About page, whose button already asks.
+   */
+  private scheduleHint(): void {
+    if (!isPlatformBrowser(this.platformId)) return
+    this.hintTimeout = window.setTimeout(() => {
+      this.hintTimeout = undefined
+      if (this.destroyed || this.book()?.id === "about") return
+      if (!this.pickerHint.claim()) return
+      if (this.native) {
+        this.nativeChrome.showPassageHint()
+      } else {
+        this.hinting = true
+        this.cdr.markForCheck()
+      }
+    }, PICKER_HINT_DELAY_MS)
+  }
+
+  /** The halo's last cycle is over (the group's own animation, not a child's). */
+  endHint(event: AnimationEvent): void {
+    if (event.target !== event.currentTarget) return
+    this.hinting = false
+    this.cdr.markForCheck()
   }
 
   /** Window width, not screen width: a narrow desktop window counts too. The
@@ -355,10 +392,14 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.destroyed = true
     this.unregisterBackCloser()
     this.stopLabelCycle()
+    window.clearTimeout(this.hintTimeout)
     if (this.native) this.nativeChrome.hide()
   }
 
   showBookSelector() {
+    this.pickerHint.markUsed()
+    this.hinting = false
+    this.cdr.markForCheck()
     this.openBookSelector.emit({ open: true })
   }
 
@@ -483,6 +524,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   private onNativeAction(action: NativeChromeAction): void {
     switch (action.id) {
       case "passage":
+        this.pickerHint.markUsed()
         this.nativeChrome.showPicker(
           buildPassagePicker(this.bookService.getBooks(), this.bookmarks, {
             bookId: this.book().id,

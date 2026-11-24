@@ -21,6 +21,7 @@ extension ChromeViewController {
     /// sheet asked for later takes a waiting one's place: the web app follows
     /// only the latest.
     private func presentSheet(_ sheet: UIViewController, done: @escaping (Bool) -> Void) {
+        dismissPassageHint()
         guard let current = presentedViewController else {
             present(sheet, animated: true)
             done(true)

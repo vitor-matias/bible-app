@@ -67,6 +67,7 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { NativeReportService } from "../../services/native-report.service"
 import { OnboardingService } from "../../services/onboarding.service"
+import { PassagePickerHintService } from "../../services/passage-picker-hint.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
 import { SeoService } from "../../services/seo.service"
 import { type ThemeMode, ThemeService } from "../../services/theme.service"
@@ -185,6 +186,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private bookService = inject(BookService)
   private seoService = inject(SeoService)
   private nativeChrome = inject(NativeChromeService)
+  private pickerHint = inject(PassagePickerHintService)
   private themeService = inject(ThemeService)
   private toast = inject(ToastService)
   private onboarding = inject(OnboardingService)
@@ -503,6 +505,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
   private onNativeAction(action: NativeChromeAction): void {
     switch (action.id) {
       case "passage":
+        this.pickerHint.markUsed()
         this.nativeChrome.showPicker(
           buildPassagePicker(this.bookService.getBooks(), this.bookmarks(), {
             bookId: PASTORAL_INDEX_BOOK.id,

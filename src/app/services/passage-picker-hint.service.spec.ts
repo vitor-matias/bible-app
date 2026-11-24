@@ -1,0 +1,57 @@
+import { TestBed } from "@angular/core/testing"
+import { OnboardingService } from "./onboarding.service"
+import {
+  PassagePickerHintService,
+  PICKER_HINT_MAX,
+} from "./passage-picker-hint.service"
+
+describe("PassagePickerHintService", () => {
+  let service: PassagePickerHintService
+  let onboarding: { isOpen: boolean }
+
+  beforeEach(() => {
+    localStorage.clear()
+    localStorage.setItem("passagePickerUsed", "false")
+    onboarding = { isOpen: false }
+    TestBed.resetTestingModule()
+    TestBed.configureTestingModule({
+      providers: [{ provide: OnboardingService, useValue: onboarding }],
+    })
+    service = TestBed.inject(PassagePickerHintService)
+  })
+
+  afterEach(() => localStorage.clear())
+
+  it("plays for a reader who has not opened the picker, and counts it", () => {
+    expect(service.claim()).toBe(true)
+    expect(localStorage.getItem("passagePickerHints")).toBe("1")
+  })
+
+  it("plays a few times at most", () => {
+    for (let i = 0; i < PICKER_HINT_MAX; i++) expect(service.claim()).toBe(true)
+    expect(service.claim()).toBe(false)
+  })
+
+  it("never plays once the picker has been opened", () => {
+    service.markUsed()
+    expect(service.claim()).toBe(false)
+  })
+
+  it("does not play over the wizard, nor count it", () => {
+    onboarding.isOpen = true
+    expect(service.claim()).toBe(false)
+    expect(localStorage.getItem("passagePickerHints")).toBeNull()
+  })
+
+  it("does not play where it can't be remembered", () => {
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("denied")
+    })
+    TestBed.resetTestingModule()
+    TestBed.configureTestingModule({
+      providers: [{ provide: OnboardingService, useValue: onboarding }],
+    })
+    expect(TestBed.inject(PassagePickerHintService).claim()).toBe(false)
+    vi.restoreAllMocks()
+  })
+})

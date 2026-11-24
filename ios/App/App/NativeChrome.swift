@@ -152,6 +152,7 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "setState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showPicker", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showPassageHint", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showOnboarding", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "showBookmarks", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updateBookmarks", returnType: CAPPluginReturnPromise),
@@ -183,6 +184,14 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         let data = PassagePickerData(call)
         DispatchQueue.main.async {
             self.chrome?.presentPicker(data)
+            call.resolve()
+        }
+    }
+
+    /// A tip over the passage that it opens the books; it goes by itself.
+    @objc func showPassageHint(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.chrome?.presentPassageHint()
             call.resolve()
         }
     }

@@ -43,6 +43,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// bars stay hidden and the floating ones above are used.
     var usesVerticalBar = false
     var collapsed = false
+    /// The tip over the passage, while it shows (PassageHint.swift).
+    var passageHintView: PassageHintView?
     /// Bars meant to be on screen; a fade-out may still be running for others.
     var shownBars = Set<ObjectIdentifier>()
     var reportedInsets = ChromeInsets()
@@ -220,6 +222,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let previous = state
         state = next
         let animated = previous.mode != .none || next.mode != .none
+        if next.mode != .reader || next.collapsed || next.passageLabel != previous.passageLabel {
+            dismissPassageHint()
+        }
 
         // The in-app theme can differ from the device's. Applied to the whole
         // window, so sheets, menus and the keyboard match it, not just the bars.
@@ -366,6 +371,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             return attributes
         }
         let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
+            self?.dismissPassageHint()
             self?.plugin.send("passage")
         })
         button.accessibilityHint = "Escolher livro e capítulo"
