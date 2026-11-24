@@ -446,6 +446,50 @@ describe("Mais365Service", () => {
     expect(track).toHaveBeenLastCalledWith("plan_day_end", { day: 3, stage: 0 })
   })
 
+  it("tells Umami where a day stopped when its stream ends, and nothing once heard out", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
+    at((day.readings[1].episode.start as number) + 1)
+    // The stream failed (the player forgets it): stage() is null by now.
+    player.current.set(null)
+    TestBed.tick()
+    expect(track).toHaveBeenLastCalledWith("plan_day_end", { day: 1, stage: 1 })
+
+    track.mockClear()
+    await start(plan, day)
+    hearAll(day)
+    at(day.reflection + 1)
+    at(day.duration)
+    player.current.set(null)
+    TestBed.tick()
+    expect(track).not.toHaveBeenCalledWith("plan_day_end", expect.anything())
+  })
+
+  it("has no days, rather than failing, while the list can't be had", async () => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: PodcastPlayerService, useValue: player },
+        { provide: Router, useValue: { navigate } },
+        { provide: BookService, useValue: { findBookById: () => undefined } },
+        { provide: AnalyticsService, useValue: { track } },
+      ],
+    })
+    http = TestBed.inject(HttpTestingController)
+    const plan = TestBed.inject(Mais365Service)
+    plan.load()
+    TestBed.tick()
+    http
+      .expectOne(`${apiBaseUrl}/mais365`)
+      .flush("", { status: 500, statusText: "Server Error" })
+    await TestBed.inject(ApplicationRef).whenStable()
+    expect(plan.plan.error()).toBeTruthy()
+    expect(plan.days()).toEqual([])
+    expect(plan.today()).toBeUndefined()
+  })
+
   it("leaves a day unread when a reading was jumped over or landed in late", async () => {
     const plan = await create()
     const day = find(plan, 1)

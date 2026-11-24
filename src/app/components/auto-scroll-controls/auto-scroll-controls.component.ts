@@ -137,9 +137,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     if (this.inPlan()) {
       return { previous: this.backLabel(), next: this.skipLabel() }
     }
-    const at = this.inEpisode()
-    const before = at?.day.readings[at.index - 1]
-    const after = at?.day.readings[at.index + 1]
+    const before = this.neighbour(-1)?.reading
+    const after = this.neighbour(1)?.reading
     return {
       previous: before ? `Voltar a ${readingLabel(before)}` : null,
       next: after ? `Saltar para ${readingLabel(after)}` : null,
@@ -149,8 +148,20 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   /** ⏮ ⏭ outside a plan day: its episode's day, started at that reading. */
   private stepInEpisode(by: -1 | 1): void {
     const at = this.inEpisode()
-    if (!at?.day.readings[at.index + by]) return
-    void this.plan.start(at.day, at.index + by)
+    const to = this.neighbour(by)
+    if (at && to) void this.plan.start(at.day, to.index)
+  }
+
+  /** The nearest reading before or after with timings: untimed ones can't be sought. */
+  private neighbour(by: -1 | 1) {
+    const at = this.inEpisode()
+    if (!at) return null
+    const { readings } = at.day
+    for (let i = at.index + by; i >= 0 && i < readings.length; i += by) {
+      if (readings[i].episode.start != null)
+        return { reading: readings[i], index: i }
+    }
+    return null
   }
 
   /** A day of the plan playing, its readings or reflection: ⏮ ⏭ in the transport. */

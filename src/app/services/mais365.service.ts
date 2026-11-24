@@ -92,7 +92,10 @@ export class Mais365Service {
         .get<{ days: PlanDay[] }>(`${apiBaseUrl}/mais365`)
         .pipe(map(({ days }) => days)),
   })
-  readonly days = computed(() => this.plan.value() ?? [])
+  // value() throws while the list failed: none, so the page can offer a retry.
+  readonly days = computed(() =>
+    this.plan.hasValue() ? this.plan.value() : [],
+  )
   readonly done = signal<number[]>(this.storedDone())
   readonly today = computed(
     (): PlanDay | undefined =>
@@ -131,6 +134,8 @@ export class Mais365Service {
   private readonly heard = new Set<number>()
   /** Where each reading was entered, to tell playing it from landing late. */
   private readonly enteredAt = new Map<number, number>()
+  /** The last place the day was at: stage() is null once its stream is gone. */
+  private reached: number | "reflection" | null = null
 
   private allHeard(day: PlanDay): boolean {
     return day.readings.every(
@@ -183,6 +188,7 @@ export class Mais365Service {
         const entering = stage !== last.stage || day?.day !== last.day?.day
         last = { day, stage }
         if (!day || stage === null) return
+        this.reached = stage
         if (stage === "reflection") {
           // Its own span, so play and pause go on from here, not a chapter's top.
           this.player.throughFrom.set(day.reflection)
@@ -368,7 +374,7 @@ export class Mais365Service {
   end(): void {
     const day = this.active()
     // Ended before its reflection: where the listener left it.
-    const stage = this.stage()
+    const stage = this.stage() ?? this.reached
     if (day && stage !== "reflection") {
       void this.analytics.track("plan_day_end", { day: day.day, stage })
     }
@@ -379,6 +385,7 @@ export class Mais365Service {
   /** Lets the player go back to chapters, playing or not. */
   private release(): void {
     this.active.set(null)
+    this.reached = null
     this.player.throughEpisode.set(false)
     this.player.throughFrom.set(0)
   }

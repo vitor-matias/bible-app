@@ -499,7 +499,16 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
             theme: "Dia 15",
             url: "u",
             duration: 1300,
-            readings: [reading(29), reading(30), reading(31)],
+            // Génesis 29 untimed (no heading found): ⏮ steps over it.
+            readings: [
+              reading(28),
+              {
+                ...reading(29),
+                episode: { ...reading(29).episode, start: null },
+              },
+              reading(30),
+              reading(31),
+            ],
             reflection: 900,
           },
         ],
@@ -509,12 +518,14 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     expect(lastPodcast()).toEqual(
       expect.objectContaining({
         inPlan: false,
-        previousLabel: "Voltar a Génesis 29",
+        previousLabel: "Voltar a Génesis 28",
         nextLabel: "Saltar para Génesis 31",
       }),
     )
+    actions.next({ id: "podcast-previous" })
+    expect(start).toHaveBeenCalledWith(expect.objectContaining({ day: 15 }), 0)
     actions.next({ id: "podcast-next" })
-    expect(start).toHaveBeenCalledWith(expect.objectContaining({ day: 15 }), 2)
+    expect(start).toHaveBeenCalledWith(expect.objectContaining({ day: 15 }), 3)
 
     actions.next({ id: "podcast-toggle" })
     const audio = vi.mocked(HTMLMediaElement.prototype.play).mock

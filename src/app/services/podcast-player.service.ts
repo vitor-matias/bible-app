@@ -434,7 +434,12 @@ export class PodcastPlayerService {
       this.guardChapter(audio)
     })
     audio.addEventListener("timeupdate", () => {
-      this.position.set(audio.currentTime)
+      // A new source's load reports 0:00 before its #t= start applies: not a
+      // place to follow (the reader would turn to the day's first reading).
+      const loading = audio.readyState < HTMLMediaElement.HAVE_METADATA
+      if (!loading || audio.currentTime >= (this.current()?.start ?? 0)) {
+        this.position.set(audio.currentTime)
+      }
       this.guardChapter(audio)
     })
     // A live or unknown length reads Infinity or NaN: no position to pick.

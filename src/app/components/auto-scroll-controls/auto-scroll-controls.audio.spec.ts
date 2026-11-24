@@ -672,6 +672,18 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.currentTime).toBe(56.5)
   })
 
+  // Setting a new src resets the element to 0:00 and says so before #t= applies.
+  it("keeps the chapter's start while a new source still loads", async () => {
+    await listen()
+    tap(toggle())
+    const player = TestBed.inject(PodcastPlayerService)
+    expect(player.position()).toBe(56.5)
+    const stream = audio()
+    stream.currentTime = 0
+    stream.dispatchEvent(new Event("timeupdate"))
+    expect(player.position()).toBe(56.5)
+  })
+
   it("brings a stream that starts before the chapter to its start", async () => {
     await listen()
     tap(toggle())
