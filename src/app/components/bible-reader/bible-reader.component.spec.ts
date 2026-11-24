@@ -2038,6 +2038,35 @@ describe("BibleReaderComponent", () => {
         }
       })
 
+      // Scrolling, it ended the text above a blank band the arrows' row needs.
+      it("put Android's copyright between the arrows when scrolling too", () => {
+        document.body.classList.add("native-chrome", "platform-android")
+        try {
+          fixture = TestBed.createComponent(BibleReaderComponent, {
+            inferTagName: true,
+          })
+          component = fixture.componentInstance
+          fixture.detectChanges()
+          component.viewMode = "scrolling"
+          component.chapter = { bookId: "gen", number: 2 } as Chapter
+          component.chapterNumber = 2
+          ;(
+            component as unknown as { cdr: ChangeDetectorRef }
+          ).cdr.markForCheck()
+          fixture.detectChanges()
+          const footer = (fixture.nativeElement as HTMLElement).querySelector(
+            ".copyright-footer",
+          ) as HTMLElement
+          const style = getComputedStyle(footer)
+          expect(footer.classList).not.toContain("fixed-footer")
+          expect(style.marginLeft).toBe("88px")
+          expect(style.marginBottom).toBe("-56px")
+          expect(style.minHeight).toBe("56px")
+        } finally {
+          document.body.classList.remove("native-chrome", "platform-android")
+        }
+      })
+
       it("keep a tablet's margins inside each of its two columns", () => {
         const { view, chapter } = pagedAt(1024)
 
