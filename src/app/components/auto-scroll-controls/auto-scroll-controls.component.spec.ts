@@ -412,6 +412,14 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     fixture.detectChanges()
   }
 
+  // A +365 day mounts the control in pages too; let go, it plays nothing there.
+  it("shows no auto-scroll in pages", () => {
+    fixture.componentRef.setInput("paged", true)
+    fixture.detectChanges()
+    TestBed.tick()
+    expect(lastState()).toBeNull()
+  })
+
   it("offers 🎧 where +365 reads the chapter", async () => {
     await withEpisode()
     expect(lastState()).toEqual(expect.objectContaining({ canListen: true }))

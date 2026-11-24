@@ -1060,6 +1060,12 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       return
     }
     this.nativeChrome.setPodcast(null)
+    // Pages have nothing to scroll: no auto-scroll there, whatever mounted
+    // the control (a +365 day, let go).
+    if (this.paged()) {
+      this.nativeChrome.setAutoScroll(null)
+      return
+    }
     this.nativeChrome.setAutoScroll({
       playing: this.autoScrollEnabled,
       speedLabel: this.autoScrollSpeedLabel,

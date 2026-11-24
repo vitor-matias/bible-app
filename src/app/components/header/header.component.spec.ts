@@ -1718,6 +1718,11 @@ describe("HeaderComponent with the iOS native bars", () => {
     expect(router.navigate).toHaveBeenCalledWith(["/search"])
   })
 
+  it("opens the +365 plan from the menu", () => {
+    actions.next({ id: "plan" })
+    expect(router.navigate).toHaveBeenCalledWith(["/365"])
+  })
+
   it("sets the chosen theme and shows it as chosen", () => {
     nativeChrome.show.mockClear()
     actions.next({ id: "theme-dark" })
