@@ -207,6 +207,19 @@ describe("Mais365Service", () => {
     expect(plan.isActive(find(plan, 1))).toBe(true)
   })
 
+  // Safari lets play() through only within the tap, not a request later.
+  it("starts playing within the tap, before the full copy comes", async () => {
+    const plan = await create()
+    const started = plan.start(find(plan, 1))
+    expect(player.toggle).toHaveBeenCalled()
+    expect(player.current()?.url).toBe("dia1")
+    http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(find(plan, 1)))
+    await started
+    TestBed.tick()
+    // The reading adopted again, with its timings.
+    expect(player.current()?.verses).toEqual([[1, 58.4]])
+  })
+
   it("plays the listed copy when the full one can't be had", async () => {
     const plan = await create()
     const started = plan.start(find(plan, 1))

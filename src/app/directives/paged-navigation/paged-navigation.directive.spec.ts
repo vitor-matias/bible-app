@@ -236,6 +236,12 @@ describe("PagedNavigationDirective", () => {
         behavior: "smooth",
       })
       expect(hostComponent.nextChapterCalled).toBe(false)
+
+      // Read-along's turn with reduced motion jumps.
+      hostComponent.directive.nextPage("auto")
+      expect(container.scrollTo).toHaveBeenLastCalledWith(
+        expect.objectContaining({ behavior: "auto" }),
+      )
     })
 
     it("should emit nextChapter when on last page", () => {

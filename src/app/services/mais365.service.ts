@@ -183,14 +183,21 @@ export class Mais365Service {
   }
 
   /**
-   * Plays a day through: its first reading, and on from there. Its full copy
-   * first, for the verse timings read-along follows; without it (offline,
+   * Plays a day through: its first reading, and on from there. It starts at
+   * once, within the tap (Safari refuses a play() a network wait away), then
+   * takes the day's full copy for the verse timings read-along follows: the
+   * stage effect adopts the reading again with them. Without it (offline,
    * say) it plays all the same.
    */
   async start(listed: PlanDay): Promise<void> {
-    const day = await firstValueFrom(
+    this.begin(listed)
+    const full = await firstValueFrom(
       this.http.get<PlanDay>(`${apiBaseUrl}/mais365/${listed.day}`),
-    ).catch(() => listed)
+    ).catch(() => null)
+    if (full && this.active()?.day === listed.day) this.active.set(full)
+  }
+
+  private begin(day: PlanDay): void {
     this.player.throughEpisode.set(true)
     this.player.throughFrom.set(0)
     this.player.mode.set("audio")
