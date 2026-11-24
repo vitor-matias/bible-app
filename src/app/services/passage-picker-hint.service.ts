@@ -20,8 +20,13 @@ export class PassagePickerHintService {
     this.preferences.setPassagePickerUsed()
   }
 
-  /** Whether to play the hint now. */
-  claim(): boolean {
-    return !this.preferences.getPassagePickerUsed() && !this.onboarding.isOpen
+  /**
+   * What to do about the hint now: play it, wait (the wizard is up: try again
+   * later), or done with it (the picker has been used, or this can't be
+   * remembered).
+   */
+  claim(): "play" | "wait" | "done" {
+    if (this.preferences.getPassagePickerUsed()) return "done"
+    return this.onboarding.isOpen ? "wait" : "play"
   }
 }

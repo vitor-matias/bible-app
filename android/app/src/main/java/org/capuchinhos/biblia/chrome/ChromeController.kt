@@ -315,9 +315,9 @@ class ChromeController(
     var passageHint by mutableStateOf(false)
         private set
 
-    /** For a reader who has never opened the picker; only while the title shows. */
+    /** For a reader who has never opened the picker: it stays until they tap the title. */
     fun showPassageHint() {
-        if (state.mode == ChromeMode.Reader && !collapsed) passageHint = true
+        if (state.mode == ChromeMode.Reader) passageHint = true
     }
 
     fun endPassageHint() {

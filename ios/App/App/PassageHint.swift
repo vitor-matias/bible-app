@@ -45,14 +45,19 @@ final class PassageHintView: UIVisualEffectView {
 }
 
 extension ChromeViewController {
-    /// How long the tip stays if the reader does nothing.
-    private static let passageHintSeconds = 6.0
+    /// Asked for by the web app, for a reader who has never opened the books:
+    /// the tip stays until they tap the passage. It goes while the passage
+    /// does (a sheet over it, the bars hiding) and comes back with it.
+    func showPassageHint() {
+        passageHintPending = true
+        presentPassageHint()
+    }
 
     /// A tip above the toolbar, from the passage. Not while another sheet is
     /// up, the bars are away, or the passage lives in the Duo's vertical bar,
     /// where there's no room above it.
     func presentPassageHint() {
-        guard passageHintView == nil, presentedViewController == nil, state.mode == .reader,
+        guard passageHintPending, passageHintView == nil, presentedViewController == nil, state.mode == .reader,
               !collapsed, !usesVerticalBar, passageButton.window != nil else { return }
         let hint = PassageHintView()
         hint.translatesAutoresizingMaskIntoConstraints = false
@@ -74,17 +79,19 @@ extension ChromeViewController {
             hint.alpha = 1
             hint.transform = .identity
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.passageHintSeconds) { [weak self, weak hint] in
-            guard let hint, self?.passageHintView === hint else { return }
-            self?.dismissPassageHint()
-        }
     }
 
-    /// Away at once on a tap of the passage, a sheet, the bars hiding or the
-    /// chapter changing: it is only worth showing while it points at something.
+    /// Off the screen for now: the bars hiding, a sheet, the chapter changing.
+    /// It is still wanted, and comes back (see `apply`).
     func dismissPassageHint() {
         guard let hint = passageHintView else { return }
         passageHintView = nil
         UIView.animate(withDuration: 0.2, animations: { hint.alpha = 0 }, completion: { _ in hint.removeFromSuperview() })
+    }
+
+    /// The reader used the passage: no more tip.
+    func endPassageHint() {
+        passageHintPending = false
+        dismissPassageHint()
     }
 }

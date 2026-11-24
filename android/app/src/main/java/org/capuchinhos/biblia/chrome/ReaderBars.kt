@@ -95,10 +95,12 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.floor
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.capuchinhos.biblia.R
 
 // MARK: - Reader
@@ -279,8 +281,8 @@ internal fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: 
 /** Auto-scroll's control keeps this far from the bars and the arrows. */
 private val AUTO_SCROLL_GAP = 12.dp
 
-/** How long the tip stays on the title if the reader does nothing. */
-private const val PASSAGE_HINT_MS = 5000L
+/** How long between the ▾'s two bobs while the tip is up. */
+private const val PASSAGE_HINT_BOB_EVERY_MS = 8000L
 
 /**
  * "Mateus 5 ▾", the button to the book and chapter picker, with the heading
@@ -302,31 +304,30 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
         val spoken = state.passageAccessibilityLabel
         val name = if (spoken.contains(label, ignoreCase = true)) spoken else "$label, $spoken"
         // For a reader who has never opened the picker (the web app decides):
-        // a tip under the title, and the ▾ bobbing twice, as Material's own
-        // tooltips are shown, once, and away by themselves.
+        // a tip under the title that stays until they tap it, and the ▾
+        // bobbing twice now and then. It goes while the title does (a sheet
+        // over it, the bars hiding as the text is read) and comes back with it.
         val tooltip = rememberTooltipState(isPersistent = true)
         val nudge = remember { Animatable(0f) }
-        // Away with the title: a sheet over it, or the bars hiding as the text is read.
         val titleAway = chrome.sheet != null || chrome.collapsed
         LaunchedEffect(chrome.passageHint, titleAway) {
-            if (!chrome.passageHint) return@LaunchedEffect
-            if (titleAway) {
-                chrome.endPassageHint()
-                return@LaunchedEffect
-            }
+            if (!chrome.passageHint || titleAway) return@LaunchedEffect
             try {
                 coroutineScope {
-                    launch { tooltip.show() }
-                    repeat(2) {
-                        nudge.animateTo(5f, tween(200, easing = CubicBezierEasing(0.3f, 0f, 0f, 1f)))
-                        nudge.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy))
+                    while (true) {
+                        // Shown again if it was dismissed (a touch elsewhere).
+                        if (!tooltip.isVisible) launch { tooltip.show() }
+                        repeat(2) {
+                            nudge.animateTo(5f, tween(200, easing = CubicBezierEasing(0.3f, 0f, 0f, 1f)))
+                            nudge.animateTo(0f, spring(dampingRatio = Spring.DampingRatioNoBouncy))
+                        }
+                        delay(PASSAGE_HINT_BOB_EVERY_MS)
                     }
-                    delay(PASSAGE_HINT_MS)
-                    tooltip.dismiss()
                 }
             } finally {
+                // Cancelled mid-bob, the ▾ would stay where it was.
+                withContext(NonCancellable) { nudge.snapTo(0f) }
                 tooltip.dismiss()
-                chrome.endPassageHint()
             }
         }
         TooltipBox(

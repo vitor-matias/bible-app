@@ -20,19 +20,21 @@ describe("PassagePickerHintService", () => {
   afterEach(() => localStorage.clear())
 
   it("plays for a reader who has not opened the picker, every time, until they do", () => {
-    for (let i = 0; i < 10; i++) expect(service.claim()).toBe(true)
+    for (let i = 0; i < 10; i++) expect(service.claim()).toBe("play")
     service.markUsed()
-    expect(service.claim()).toBe(false)
+    expect(service.claim()).toBe("done")
   })
 
   it("never plays once the picker has been opened", () => {
     service.markUsed()
-    expect(service.claim()).toBe(false)
+    expect(service.claim()).toBe("done")
   })
 
-  it("does not play over the wizard", () => {
+  it("waits while the wizard is up, and plays once it has closed", () => {
     onboarding.isOpen = true
-    expect(service.claim()).toBe(false)
+    expect(service.claim()).toBe("wait")
+    onboarding.isOpen = false
+    expect(service.claim()).toBe("play")
   })
 
   it("does not play where it can't be remembered", () => {
@@ -43,7 +45,7 @@ describe("PassagePickerHintService", () => {
     TestBed.configureTestingModule({
       providers: [{ provide: OnboardingService, useValue: onboarding }],
     })
-    expect(TestBed.inject(PassagePickerHintService).claim()).toBe(false)
+    expect(TestBed.inject(PassagePickerHintService).claim()).toBe("done")
     vi.restoreAllMocks()
   })
 })

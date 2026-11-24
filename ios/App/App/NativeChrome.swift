@@ -188,10 +188,10 @@ public class NativeChromePlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    /// A tip over the passage that it opens the books; it goes by itself.
+    /// A tip over the passage that it opens the books; it stays until it's used.
     @objc func showPassageHint(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
-            self.chrome?.presentPassageHint()
+            self.chrome?.showPassageHint()
             call.resolve()
         }
     }

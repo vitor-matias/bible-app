@@ -1927,6 +1927,19 @@ describe("PastoralIndexComponent", () => {
       expect(books.at(-1)).toBe("indice")
     })
 
+    // A reader who only ever opens the books from the index must stop getting
+    // the hint that the passage is a button.
+    it("marks the picker as used when the passage is tapped", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      try {
+        await open(undefined, true)
+        actions.next({ id: "passage" })
+        expect(localStorage.getItem("passagePickerUsed")).toBe("true")
+      } finally {
+        localStorage.removeItem("passagePickerUsed")
+      }
+    })
+
     it("goes to the book the picker chose", async () => {
       await open(undefined, true)
       const navigate = vi

@@ -280,7 +280,10 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       // The web's About button already cycles "Escolher livro"; the native
       // bars' don't, and it's the first page the apps open on.
       if (!this.native && this.book()?.id === "about") return
-      if (!this.pickerHint.claim()) return
+      const claim = this.pickerHint.claim()
+      // The wizard is up: the hint waits for it to close, then plays.
+      if (claim === "wait") this.scheduleHint()
+      if (claim !== "play") return
       if (this.native) {
         this.nativeChrome.showPassageHint()
       } else {
@@ -288,13 +291,6 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.cdr.markForCheck()
       }
     }, PICKER_HINT_DELAY_MS)
-  }
-
-  /** The halo's last cycle is over (the group's own animation, not a child's). */
-  endHint(event: AnimationEvent): void {
-    if (event.target !== event.currentTarget) return
-    this.hinting = false
-    this.cdr.markForCheck()
   }
 
   /** Window width, not screen width: a narrow desktop window counts too. The

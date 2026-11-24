@@ -45,6 +45,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     var collapsed = false
     /// The tip over the passage, while it shows (PassageHint.swift).
     var passageHintView: PassageHintView?
+    /// The web app asked for it and the reader hasn't yet used the passage.
+    var passageHintPending = false
     /// Bars meant to be on screen; a fade-out may still be running for others.
     var shownBars = Set<ObjectIdentifier>()
     var reportedInsets = ChromeInsets()
@@ -321,6 +323,10 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
         setNeedsStatusBarAppearanceUpdate()
         view.layoutIfNeeded()
+        // Still wanted, and its passage is back on screen.
+        if passageHintPending, passageHintView == nil {
+            DispatchQueue.main.async { [weak self] in self?.presentPassageHint() }
+        }
     }
 
     lazy var moreItem: UIBarButtonItem = {
@@ -371,7 +377,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             return attributes
         }
         let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
-            self?.dismissPassageHint()
+            self?.endPassageHint()
             self?.plugin.send("passage")
         })
         button.accessibilityHint = "Escolher livro e capítulo"

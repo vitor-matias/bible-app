@@ -60,24 +60,29 @@
   font-size: large;
 }
 
-/* A halo that swells off the button and fades, twice, for a reader who hasn't
-   yet found that it opens the books. Inside the toolbar's clip: a few pixels. */
+/* A halo that swells off the button and fades, twice, then rests a while and
+   does it again, for as long as the reader hasn't found that it opens the
+   books. Inside the toolbar's clip: a few pixels. */
 .bookSelectorButton.hint {
-  animation: picker-hint 1.4s ease-out 2;
+  animation: picker-hint 8s ease-out infinite;
 }
 
 @keyframes picker-hint {
-  0% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgb(250 235 215 / 0.9);
-  }
-  60% {
-    transform: scale(1.04);
-    box-shadow: 0 0 0 4px rgb(250 235 215 / 0);
-  }
+  0%,
+  17.5%,
+  35%,
   100% {
     transform: scale(1);
     box-shadow: 0 0 0 0 rgb(250 235 215 / 0);
+  }
+  0.1%,
+  17.6% {
+    box-shadow: 0 0 0 0 rgb(250 235 215 / 0.9);
+  }
+  9%,
+  26.5% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 4px rgb(250 235 215 / 0);
   }
 }
 
@@ -85,10 +90,12 @@
 @media (prefers-reduced-motion: reduce) {
   @keyframes picker-hint {
     0%,
+    35%,
     100% {
       box-shadow: 0 0 0 0 rgb(250 235 215 / 0);
     }
-    50% {
+    9%,
+    26.5% {
       box-shadow: 0 0 0 3px rgb(250 235 215 / 0.9);
     }
   }

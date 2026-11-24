@@ -1404,41 +1404,41 @@ describe("HeaderComponent", () => {
       localStorage.clear()
     })
 
-    it("plays once the chapter has sat a moment, for a reader who never opened the picker", () => {
+    it("plays once the chapter has sat a moment, for a reader who never opened the picker", async () => {
       localStorage.setItem("passagePickerUsed", "false")
       open()
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS - 1)
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS - 1)
       fixture.detectChanges()
       expect(group().classList).not.toContain("hint")
 
-      vi.advanceTimersByTime(1)
+      await vi.advanceTimersByTimeAsync(1)
       fixture.detectChanges()
       expect(group().classList).toContain("hint")
     })
 
-    it("is over with its last cycle", () => {
+    it("keeps playing, the halo coming round again, until the picker is used", async () => {
       localStorage.setItem("passagePickerUsed", "false")
       open()
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
       fixture.detectChanges()
 
-      group().dispatchEvent(new Event("animationend"))
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000)
       fixture.detectChanges()
-      expect(group().classList).not.toContain("hint")
+      expect(group().classList).toContain("hint")
     })
 
-    it("never plays for a reader who has opened the picker", () => {
+    it("never plays for a reader who has opened the picker", async () => {
       localStorage.setItem("passagePickerUsed", "true")
       open()
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
       fixture.detectChanges()
       expect(group().classList).not.toContain("hint")
     })
 
-    it("stops as the reader opens the picker, and is not played again", () => {
+    it("stops as the reader opens the picker, and is not played again", async () => {
       localStorage.setItem("passagePickerUsed", "false")
       open()
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
       fixture.detectChanges()
 
       component.showBookSelector()
@@ -1447,13 +1447,22 @@ describe("HeaderComponent", () => {
       expect(localStorage.getItem("passagePickerUsed")).toBe("true")
     })
 
-    it("waits for the wizard to close", () => {
+    it("waits for the wizard to close, then plays", async () => {
       localStorage.setItem("passagePickerUsed", "false")
-      Object.defineProperty(onboardingServiceSpy, "isOpen", { value: true })
+      Object.defineProperty(onboardingServiceSpy, "isOpen", {
+        value: true,
+        writable: true,
+        configurable: true,
+      })
       open()
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
       fixture.detectChanges()
       expect(group().classList).not.toContain("hint")
+
+      ;(onboardingServiceSpy as unknown as { isOpen: boolean }).isOpen = false
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
     })
 
     // window does not exist while prerendering: its timer isn't scheduled
@@ -1493,10 +1502,10 @@ describe("HeaderComponent", () => {
       expect(() => serverFixture.componentInstance.ngOnDestroy()).not.toThrow()
     })
 
-    it("leaves the About page, whose button already asks, alone", () => {
+    it("leaves the About page, whose button already asks, alone", async () => {
       localStorage.setItem("passagePickerUsed", "false")
       open("about")
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
       fixture.detectChanges()
       expect(group().classList).not.toContain("hint")
     })
@@ -2006,14 +2015,14 @@ describe("HeaderComponent with the iOS native bars", () => {
       localStorage.clear()
     })
 
-    it("asks the app for its tip once the chapter has sat a moment", () => {
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS - 1)
+    it("asks the app for its tip once the chapter has sat a moment", async () => {
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS - 1)
       expect(nativeChrome.showPassageHint).not.toHaveBeenCalled()
-      vi.advanceTimersByTime(1)
+      await vi.advanceTimersByTimeAsync(1)
       expect(nativeChrome.showPassageHint).toHaveBeenCalledTimes(1)
     })
 
-    it("plays on the About page too: the bar's passage doesn't cycle its label", () => {
+    it("plays on the About page too: the bar's passage doesn't cycle its label", async () => {
       fixture.destroy()
       fixture = TestBed.createComponent(HeaderComponent)
       fixture.componentRef.setInput("book", {
@@ -2025,13 +2034,13 @@ describe("HeaderComponent with the iOS native bars", () => {
       } as Book)
       fixture.componentRef.setInput("chapterNumber", 1)
       fixture.detectChanges()
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
       expect(nativeChrome.showPassageHint).toHaveBeenCalledTimes(1)
     })
 
-    it("does not once the picker has been opened, from the bar", () => {
+    it("does not once the picker has been opened, from the bar", async () => {
       actions.next({ id: "passage" })
-      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
       expect(nativeChrome.showPassageHint).not.toHaveBeenCalled()
       expect(localStorage.getItem("passagePickerUsed")).toBe("true")
     })
