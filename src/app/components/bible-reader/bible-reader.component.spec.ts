@@ -2257,6 +2257,15 @@ describe("BibleReaderComponent", () => {
       )
       reader.lookUpChapterAudio()
       expect(reader.menuControlVisible()).toBe(false)
+
+      // A day that let go still holds its card's place, but plays nothing
+      // in a chapter +365 doesn't read: no «Esconder» for a player not there.
+      episodesFor.mockReturnValue(of([]))
+      reader.lookUpChapterAudio()
+      ;(
+        component as unknown as { heldByPlan: { set(v: boolean): void } }
+      ).heldByPlan.set(true)
+      expect(reader.menuControlVisible()).toBeNull()
     })
 
     it("hides at the first «Esconder» with the preference on and a day holding it", () => {

@@ -190,10 +190,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
    */
   protected menuControlVisible(): boolean | null {
     const shown = this.showAutoScrollControls || this.heldByPlan()
+    // A day under way plays its part whatever the chapter; one let go
+    // (held only to keep its card) plays nothing here.
     const nothingHere =
       this.effectiveViewMode === "paged" &&
       !this.chapterAudio() &&
-      !this.heldByPlan()
+      !this.plan.active()
     return nothingHere ? null : shown
   }
 
