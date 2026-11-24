@@ -392,7 +392,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     this.destroyed = true
     this.unregisterBackCloser()
     this.stopLabelCycle()
-    window.clearTimeout(this.hintTimeout)
+    clearTimeout(this.hintTimeout)
     if (this.native) this.nativeChrome.hide()
   }
 

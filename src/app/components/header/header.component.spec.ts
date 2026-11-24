@@ -1470,6 +1470,43 @@ describe("HeaderComponent", () => {
       expect(localStorage.getItem("passagePickerHints")).toBeNull()
     })
 
+    // window does not exist while prerendering: its timer isn't scheduled
+    // there, and destroying the header (the render's end) touches no window.
+    it("is not scheduled while server-rendering", async () => {
+      TestBed.resetTestingModule()
+      await TestBed.configureTestingModule({
+        imports: [HeaderComponent, CommonModule],
+        providers: [
+          { provide: Router, useValue: routerSpy },
+          { provide: ActivatedRoute, useValue: {} },
+          { provide: NetworkService, useValue: networkServiceSpy },
+          { provide: ThemeService, useValue: themeServiceSpy },
+          { provide: BookmarkService, useValue: bookmarkServiceSpy },
+          { provide: MatBottomSheet, useValue: bottomSheetSpy },
+          { provide: MatDialog, useValue: dialogSpy },
+          { provide: AnalyticsService, useValue: analyticsServiceSpy },
+          { provide: PLATFORM_ID, useValue: "server" },
+        ],
+      }).compileComponents()
+      const setTimeoutSpy = vi.spyOn(window, "setTimeout")
+      const serverFixture = TestBed.createComponent(HeaderComponent)
+      serverFixture.componentRef.setInput("book", {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      })
+      serverFixture.componentRef.setInput("chapterNumber", 1)
+      serverFixture.componentInstance.ngOnInit()
+
+      expect(setTimeoutSpy).not.toHaveBeenCalledWith(
+        expect.anything(),
+        PICKER_HINT_DELAY_MS,
+      )
+      expect(() => serverFixture.componentInstance.ngOnDestroy()).not.toThrow()
+    })
+
     it("leaves the About page, whose button already asks, alone", () => {
       localStorage.setItem("passagePickerUsed", "false")
       open("about")
