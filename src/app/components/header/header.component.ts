@@ -270,13 +270,16 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   /**
    * Once the chapter has sat a moment, a reader who has never opened the
    * picker gets a cue that the passage is a button: this page's own halo, or
-   * the native bar's tip. Not on the About page, whose button already asks.
+   * the native bar's tip. Not on the web About page, whose button already asks.
    */
   private scheduleHint(): void {
     if (!isPlatformBrowser(this.platformId)) return
     this.hintTimeout = window.setTimeout(() => {
       this.hintTimeout = undefined
-      if (this.destroyed || this.book()?.id === "about") return
+      if (this.destroyed) return
+      // The web's About button already cycles "Escolher livro"; the native
+      // bars' don't, and it's the first page the apps open on.
+      if (!this.native && this.book()?.id === "about") return
       if (!this.pickerHint.claim()) return
       if (this.native) {
         this.nativeChrome.showPassageHint()

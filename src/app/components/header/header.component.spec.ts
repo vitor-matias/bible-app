@@ -2027,6 +2027,22 @@ describe("HeaderComponent with the iOS native bars", () => {
       expect(nativeChrome.showPassageHint).toHaveBeenCalledTimes(1)
     })
 
+    it("plays on the About page too: the bar's passage doesn't cycle its label", () => {
+      fixture.destroy()
+      fixture = TestBed.createComponent(HeaderComponent)
+      fixture.componentRef.setInput("book", {
+        id: "about",
+        name: "Sobre a Bíblia dos Capuchinhos",
+        shortName: "Sobre a Bíblia",
+        abrv: "Sobre",
+        chapterCount: 1,
+      } as Book)
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+      vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
+      expect(nativeChrome.showPassageHint).toHaveBeenCalledTimes(1)
+    })
+
     it("does not once the picker has been opened, from the bar", () => {
       actions.next({ id: "passage" })
       vi.advanceTimersByTime(PICKER_HINT_DELAY_MS)
