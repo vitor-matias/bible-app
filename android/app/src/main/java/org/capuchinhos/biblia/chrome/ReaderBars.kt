@@ -574,18 +574,25 @@ private fun versionLine(buildVersion: String?): String? {
 
 // MARK: - Page
 
-/** A plain page: Back, its title, and search. */
+/**
+ * A plain page: Back, its title, and search. The bar keeps the page's colour,
+ * so once the rows scroll under it a hairline marks its edge (a chapter has
+ * its progress line).
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PageBar(chrome: ChromeController, state: ChromeState, barColor: Color) {
     val enabled = !state.inert
-    TopAppBar(
-        modifier = Modifier.inert(state.inert),
-        navigationIcon = { BarButton(R.drawable.ic_arrow_back, "Voltar", enabled) { chrome.send("back") } },
-        title = { Text(state.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        actions = {
-            if (state.search) BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
-        },
-        colors = barColors(barColor),
-    )
+    Box {
+        TopAppBar(
+            modifier = Modifier.inert(state.inert),
+            navigationIcon = { BarButton(R.drawable.ic_arrow_back, "Voltar", enabled) { chrome.send("back") } },
+            title = { Text(state.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+            actions = {
+                if (state.search) BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
+            },
+            colors = barColors(barColor),
+        )
+        if (state.scrolled) HorizontalDivider(Modifier.align(Alignment.BottomCenter), color = MaterialTheme.colorScheme.outlineVariant)
+    }
 }

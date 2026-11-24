@@ -146,8 +146,8 @@ export type NativeChromeState =
       inert: boolean
       collapsed: boolean
       /**
-       * The page's text has scrolled under the top bar. The Android bar is
-       * the page's colour at rest and Material's container colour then.
+       * The page's text has scrolled under the top bar. The Android bar keeps
+       * the page's colour; a page's bar then draws a hairline at its edge.
        */
       scrolled: boolean
       autoScroll: AutoScrollChrome | null
