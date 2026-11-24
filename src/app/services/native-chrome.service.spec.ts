@@ -949,6 +949,7 @@ describe("NativeChromeService", () => {
     it("hides them while +365 plays, and brings them back on pause or close", () => {
       const podcast = {
         caption: "Génesis 2",
+        context: null,
         playing: false,
         canPlay: true,
         loaded: true,
@@ -962,6 +963,7 @@ describe("NativeChromeService", () => {
         previousLabel: null,
         nextLabel: null,
         canScroll: true,
+        canClose: false,
       }
       service.trackScroll(scroller)
       service.setPodcast(podcast)

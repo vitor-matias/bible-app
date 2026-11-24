@@ -1072,3 +1072,28 @@ html:has(mat-snack-bar-container) .footnotes-container {
     opacity: 1 !important;
   }
 }
+
+/* ±15 s for +365, as the apps' players have: Material Symbols has replay_10
+   and _30 but no 15, so the circular arrow with the number set in it
+   (mirrored going forward). Used by the player card and the plan's page. */
+.skip-15 {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skip-15.forward .mat-icon {
+  transform: scaleX(-1);
+}
+
+.skip-15 > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 1px;
+  font: 700 8px/1 system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}

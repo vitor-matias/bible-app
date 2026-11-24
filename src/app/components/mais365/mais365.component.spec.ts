@@ -153,13 +153,13 @@ describe("Mais365Component", () => {
     fixture.detectChanges()
     button("Voltar a Salmo 19")?.click()
     expect(plan.back).toHaveBeenCalled()
-    // Back 10 s near its start stays in the reflection.
+    // Back 15 s near its start stays in the reflection.
     player.position.set(692)
-    button("Recuar 10 segundos")?.click()
+    button("Recuar 15 segundos")?.click()
     expect(player.seek).toHaveBeenLastCalledWith(688.72)
 
-    button("Avançar 10 segundos")?.click()
-    expect(player.skip).toHaveBeenCalledWith(10)
+    button("Avançar 15 segundos")?.click()
+    expect(player.skip).toHaveBeenCalledWith(15)
     const slider = (fixture.nativeElement as HTMLElement).querySelector(
       "input[matSliderThumb]",
     ) as HTMLInputElement

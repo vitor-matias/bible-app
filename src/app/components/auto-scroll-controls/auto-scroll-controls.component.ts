@@ -1023,8 +1023,17 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const start = this.chapterStart()
     const length = this.seekable() ? this.chapterEnd() - start : 0
     const inPlan = this.inPlan()
+    const day = this.plan.active()
+    const reflection = !!this.reflection()
     return {
       caption: this.caption(),
+      // An introduction is all of its "reflection": just +365.
+      context:
+        day && inPlan
+          ? day.readings.length
+            ? `+365 · Dia ${day.day}${reflection ? " · Reflexão" : ""}`
+            : "+365"
+          : null,
       playing: this.playingThis(),
       canPlay: !!this.entry(),
       loaded: this.loaded(),
@@ -1042,6 +1051,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       previousLabel: this.episodeLabels().previous,
       nextLabel: this.episodeLabels().next,
       canScroll: !this.paged() && !inPlan,
+      canClose: this.paged() || inPlan,
     }
   })
 
@@ -1077,6 +1087,14 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       case "podcast-next":
         if (this.inPlan()) this.plan.skip()
         else this.stepInEpisode(1)
+        break
+      case "podcast-close":
+        // A day ends, not read; a chapter goes back to scrolling.
+        if (this.plan.active()) this.plan.end()
+        else {
+          this.player.pause()
+          this.player.mode.set("scroll")
+        }
         break
       case "podcast-skip":
         this.player.skip(action.seconds)

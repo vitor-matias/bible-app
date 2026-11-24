@@ -11,6 +11,7 @@ import { rxResource } from "@angular/core/rxjs-interop"
 import { Router } from "@angular/router"
 import { firstValueFrom, map } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
 import {
   type ChapterEpisode,
@@ -66,6 +67,7 @@ export class Mais365Service {
   private readonly router = inject(Router)
   private readonly books = inject(BookService)
   private readonly http = inject(HttpClient)
+  private readonly analytics = inject(AnalyticsService)
 
   /**
    * A reading's address as the reader has it (/gn/1, not /gen/1): no redirect
@@ -114,13 +116,58 @@ export class Mais365Service {
     const at = this.player.position()
     if (at >= day.reflection) return "reflection"
     let reading = 0
+    // Readings without timings (no heading found) can't be placed: skipped.
     day.readings.forEach(({ episode }, index) => {
-      if ((episode.start ?? 0) <= at) reading = index
+      if (episode.start != null && episode.start <= at) reading = index
     })
     return reading
   })
 
+  /**
+   * The readings of the day under way heard through: entered near their
+   * start and played across their end, not jumped over or scrubbed into.
+   * The day is read once every timed one is (allHeard).
+   */
+  private readonly heard = new Set<number>()
+  /** Where each reading was entered, to tell playing it from landing late. */
+  private readonly enteredAt = new Map<number, number>()
+
+  private allHeard(day: PlanDay): boolean {
+    return day.readings.every(
+      ({ episode }, index) =>
+        episode.start == null || episode.end == null || this.heard.has(index),
+    )
+  }
+
   constructor() {
+    // First, so the stage below sees a last reading heard before it ends
+    // the day. A reading heard: played across its end in one go, having been
+    // entered near its start (⏭ and «Ouvir e ler» land on it).
+    let previousAt = 0
+    effect(() => {
+      const day = this.active()
+      const at = this.player.position()
+      untracked(() => {
+        const playing = !!day && this.player.current()?.url === day.url
+        if (playing) {
+          day.readings.forEach(({ episode: { start, end } }, index) => {
+            const entered = this.enteredAt.get(index)
+            const fromStart =
+              entered != null && start != null && entered <= start + 5
+            if (
+              fromStart &&
+              end != null &&
+              previousAt < end &&
+              at >= end &&
+              at - previousAt < 3
+            ) {
+              this.heard.add(index)
+            }
+          })
+        }
+        previousAt = at
+      })
+    })
     // Per day: another day started at the same stage still takes it up.
     let last: { day: PlanDay | null; stage: number | "reflection" | null } = {
       day: null,
@@ -144,12 +191,17 @@ export class Mais365Service {
             start: day.reflection,
             end: day.duration,
           })
-          // Heard its readings; an introduction counts once heard out.
-          if (day.readings.length) this.markDone(day.day, true)
+          void this.analytics.track("plan_reflection", { day: day.day })
+          // Its readings all heard, not skipped; an introduction counts
+          // once heard out (below).
+          if (day.readings.length && this.allHeard(day)) {
+            this.markDone(day.day, true, "heard")
+          }
           void this.router.navigate(["/365"])
           return
         }
         const reading = day.readings[stage]
+        this.enteredAt.set(stage, this.player.position())
         // Named for the system's player: the chapter, not the whole day.
         this.player.adopt({ ...reading.episode, title: readingLabel(reading) })
         void this.router.navigate(this.link(reading))
@@ -169,8 +221,10 @@ export class Mais365Service {
       const day = this.active()
       if (!day || this.player.current()) return
       untracked(() => {
-        if (this.player.position() >= day.duration - 5) {
-          this.markDone(day.day, true)
+        // Heard out: an introduction, or a day whose readings all were.
+        const heardOut = this.player.position() >= day.duration - 5
+        if (heardOut && (!day.readings.length || this.allHeard(day))) {
+          this.markDone(day.day, true, "heard")
         }
         this.end()
       })
@@ -191,6 +245,12 @@ export class Mais365Service {
    */
   async start(listed: PlanDay, at = 0): Promise<void> {
     this.begin(listed, at)
+    // From the plan's page, or joined from a chapter's ⏮ ⏭ (at > 0).
+    void this.analytics.track("plan_day_start", {
+      day: listed.day,
+      at,
+      from: at > 0 ? "episode" : "plan",
+    })
     const full = await firstValueFrom(
       this.http.get<PlanDay>(`${apiBaseUrl}/mais365/${listed.day}`),
     ).catch(() => null)
@@ -199,6 +259,8 @@ export class Mais365Service {
 
   /** Starts `day` at its reading `at` (its first, or one stepped to by ⏮ ⏭). */
   private begin(day: PlanDay, at = 0): void {
+    this.heard.clear()
+    this.enteredAt.clear()
     this.player.throughEpisode.set(true)
     this.player.throughFrom.set(0)
     this.player.mode.set("audio")
@@ -253,7 +315,10 @@ export class Mais365Service {
     const day = this.active()
     const stage = this.stage()
     if (!day || typeof stage !== "number") return null
-    return day.readings[stage + 1] ?? "reflection"
+    return (
+      day.readings.find((r, i) => i > stage && r.episode.start != null) ??
+      "reflection"
+    )
   })
 
   /** The reading before: the day's previous one, or from the reflection its last. */
@@ -261,8 +326,12 @@ export class Mais365Service {
     const day = this.active()
     const stage = this.stage()
     if (!day || stage === null || !day.readings.length) return null
-    if (stage === "reflection") return day.readings[day.readings.length - 1]
-    return day.readings[stage - 1] ?? null
+    const before = stage === "reflection" ? day.readings.length : stage
+    // The nearest one with timings: one without can't be sought.
+    const timed = day.readings
+      .slice(0, before)
+      .filter((r) => r.episode.start != null)
+    return timed.at(-1) ?? null
   })
 
   /** Back to the start of the day's previous reading. */
@@ -292,6 +361,12 @@ export class Mais365Service {
 
   /** Ends the session (the reflection skipped, or the episode over). */
   end(): void {
+    const day = this.active()
+    // Ended before its reflection: where the listener left it.
+    const stage = this.stage()
+    if (day && stage !== "reflection") {
+      void this.analytics.track("plan_day_end", { day: day.day, stage })
+    }
     this.player.pause()
     this.release()
   }
@@ -303,7 +378,18 @@ export class Mais365Service {
     this.player.throughFrom.set(0)
   }
 
-  markDone(day: number, done: boolean): void {
+  /** `how`: heard through (its readings, or an introduction), or by hand. */
+  markDone(
+    day: number,
+    done: boolean,
+    how: "heard" | "marked" = "marked",
+  ): void {
+    if (this.done().includes(day) !== done) {
+      void this.analytics.track("plan_day_done", {
+        day,
+        how: done ? how : "unmarked",
+      })
+    }
     const days = this.done().filter((d) => d !== day)
     this.done.set(done ? [...days, day] : days)
     try {

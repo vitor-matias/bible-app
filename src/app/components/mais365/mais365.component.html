@@ -36,15 +36,15 @@
         <mat-icon>skip_previous</mat-icon>
       </button>
       }
-      <button type="button" mat-icon-button aria-label="Recuar 10 segundos" (click)="skipBack(day)">
-        <mat-icon>replay_10</mat-icon>
+      <button type="button" mat-icon-button aria-label="Recuar 15 segundos" (click)="skipBack(day)">
+        <span class="skip-15" aria-hidden="true"><mat-icon>replay</mat-icon><span>15</span></span>
       </button>
       <button type="button" mat-fab class="play" [attr.aria-label]="player.playing() ? 'Pausar' : 'Ouvir'"
         (click)="plan.toggle()">
         <mat-icon>{{ player.playing() ? 'pause' : 'play_arrow' }}</mat-icon>
       </button>
-      <button type="button" mat-icon-button aria-label="Avançar 10 segundos" (click)="player.skip(10)">
-        <mat-icon>forward_10</mat-icon>
+      <button type="button" mat-icon-button aria-label="Avançar 15 segundos" (click)="player.skip(15)">
+        <span class="skip-15 forward" aria-hidden="true"><mat-icon>replay</mat-icon><span>15</span></span>
       </button>
       <button type="button" mat-icon-button aria-label="Diminuir velocidade" [disabled]="!player.canSlower()"
         (click)="player.stepRate(-1)">

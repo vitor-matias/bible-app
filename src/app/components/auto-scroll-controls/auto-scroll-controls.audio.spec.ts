@@ -168,9 +168,9 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(audio().src).toBe(day3.url)
   })
 
-  it("skips 10 s back and forward once the chapter is in the player", async () => {
+  it("skips 15 s back and forward once the chapter is in the player", async () => {
     await listen()
-    expect(byLabel("Recuar 10 segundos")?.disabled).toBe(true)
+    expect(byLabel("Recuar 15 segundos")?.disabled).toBe(true)
 
     tap(toggle())
     const stream = audio()
@@ -178,11 +178,11 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       value: HTMLMediaElement.HAVE_METADATA,
     })
     stream.currentTime = 100
-    tap(byLabel("Avançar 10 segundos"))
-    expect(stream.currentTime).toBe(110)
-    tap(byLabel("Recuar 10 segundos"))
-    tap(byLabel("Recuar 10 segundos"))
-    expect(stream.currentTime).toBe(90)
+    tap(byLabel("Avançar 15 segundos"))
+    expect(stream.currentTime).toBe(115)
+    tap(byLabel("Recuar 15 segundos"))
+    tap(byLabel("Recuar 15 segundos"))
+    expect(stream.currentTime).toBe(85)
   })
 
   it("steps the speed between 0,75× and 2× with − and +", async () => {
@@ -311,7 +311,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     tap(toggle())
     await fixture.whenStable()
     fixture.detectChanges()
-    expect(byLabel("Avançar 10 segundos")?.disabled).toBe(false)
+    expect(byLabel("Avançar 15 segundos")?.disabled).toBe(false)
 
     stream.src = "about:blank"
     tap(toggle())
@@ -321,8 +321,8 @@ describe("AutoScrollControlsComponent +365 mode", () => {
   it("skips from the chapter's start while the stream still loads", async () => {
     await listen()
     tap(toggle())
-    tap(byLabel("Avançar 10 segundos"))
-    expect(audio().currentTime).toBe(66.5)
+    tap(byLabel("Avançar 15 segundos"))
+    expect(audio().currentTime).toBe(71.5)
   })
 
   it("stops playing when the chapter changes", async () => {
@@ -368,6 +368,9 @@ describe("AutoScrollControlsComponent +365 mode", () => {
 
     handlers.get("seekto")?.({ action: "seekto", seekTime: 30 })
     expect(stream.currentTime).toBe(86.5)
+    // The headphones' or lock screen's skip, with no offset: the app's 15 s.
+    handlers.get("seekforward")?.({ action: "seekforward" })
+    expect(stream.currentTime).toBe(101.5)
   })
 
   it("says the day and the reading's place in it, and steps through its readings", async () => {
@@ -415,7 +418,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       "+365 · Dia 3 · Êxodo 6",
     )
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
-    expect(byLabel("Recuar 10 segundos")?.disabled).toBe(false)
+    expect(byLabel("Recuar 15 segundos")?.disabled).toBe(false)
     expect(
       (
         fixture.componentInstance as unknown as { heardHere: () => boolean }
@@ -427,6 +430,19 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     tap(toggle())
     tap(byLabel("Voltar a Êxodo 5"))
     expect(stream.currentTime).toBe(56.5)
+  })
+
+  it("tells Umami each start of playback and each new speed", async () => {
+    const track = vi.mocked(TestBed.inject(AnalyticsService).track)
+    await listen()
+    tap(toggle())
+    TestBed.tick()
+    expect(track).toHaveBeenCalledWith(
+      "podcast_play",
+      expect.objectContaining({ day: 3, rate: 1 }),
+    )
+    TestBed.inject(PodcastPlayerService).cycleRate()
+    expect(track).toHaveBeenCalledWith("podcast_speed", { rate: 1.25 })
   })
 
   it("keeps the screen on while +365 plays", async () => {
@@ -501,7 +517,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     // Back 10 s near its start stays in the reflection.
     stream.currentTime = 905
     stream.dispatchEvent(new Event("timeupdate"))
-    tap(byLabel("Recuar 10 segundos"))
+    tap(byLabel("Recuar 15 segundos"))
     expect(stream.currentTime).toBe(900)
   })
 
@@ -646,11 +662,11 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       value: HTMLMediaElement.HAVE_METADATA,
     })
     stream.currentTime = 275
-    tap(byLabel("Avançar 10 segundos"))
+    tap(byLabel("Avançar 15 segundos"))
     expect(stream.currentTime).toBe(280.8)
 
     stream.currentTime = 60
-    tap(byLabel("Recuar 10 segundos"))
+    tap(byLabel("Recuar 15 segundos"))
     expect(stream.currentTime).toBe(56.5)
   })
 
@@ -724,9 +740,9 @@ describe("AutoScrollControlsComponent +365 mode", () => {
   it("adds up skips made before the stream loads", async () => {
     await listen()
     tap(toggle())
-    tap(byLabel("Avançar 10 segundos"))
-    tap(byLabel("Avançar 10 segundos"))
-    expect(audio().currentTime).toBe(76.5)
+    tap(byLabel("Avançar 15 segundos"))
+    tap(byLabel("Avançar 15 segundos"))
+    expect(audio().currentTime).toBe(86.5)
   })
 
   it("times the chapter's end again when the speed changes near it", async () => {

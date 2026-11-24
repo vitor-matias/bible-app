@@ -8,6 +8,7 @@ import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
 import { apiBaseUrl } from "../config"
 import { lastCall } from "../testing/spy-obj"
+import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
 import { Mais365Service, type PlanDay, readingLabel } from "./mais365.service"
 import {
@@ -128,6 +129,7 @@ describe("Mais365Service", () => {
   let navigate: ReturnType<typeof vi.fn>
 
   let http: HttpTestingController
+  let track: ReturnType<typeof vi.fn>
 
   /** The service with the plan loaded, as the plan's page loads it. */
   const create = async () => {
@@ -138,6 +140,7 @@ describe("Mais365Service", () => {
         { provide: PodcastPlayerService, useValue: player },
         { provide: Router, useValue: { navigate } },
         { provide: BookService, useValue: { findBookById: () => undefined } },
+        { provide: AnalyticsService, useValue: { track } },
       ],
     })
     http = TestBed.inject(HttpTestingController)
@@ -165,6 +168,7 @@ describe("Mais365Service", () => {
   beforeEach(() => {
     localStorage.removeItem("mais365Done")
     navigate = vi.fn().mockResolvedValue(true)
+    track = vi.fn().mockResolvedValue(undefined)
     player = {
       current: signal<ChapterEpisode | null>(null),
       position: signal(0),
@@ -333,6 +337,8 @@ describe("Mais365Service", () => {
     expect(player.seek).toHaveBeenLastCalledWith(day.reflection)
     expect(plan.stage()).toBe("reflection")
     expect(plan.next()).toBeNull()
+    // Skipped through, not heard: not read.
+    expect(plan.done()).toEqual([])
 
     expect(player.throughFrom()).toBe(day.reflection)
     plan.back()
@@ -345,10 +351,20 @@ describe("Mais365Service", () => {
     expect(plan.previous()).toBeNull()
   })
 
-  it("marks the day done at its reflection, and goes to the plan's page", async () => {
+  /** Plays each reading from its start across its end, as listening does. */
+  const hearAll = (day: PlanDay) => {
+    for (const { episode } of day.readings) {
+      at(episode.start as number)
+      at((episode.end as number) - 1)
+      at((episode.end as number) + 0.5)
+    }
+  }
+
+  it("marks the day done at its reflection once every reading was heard, and goes to the plan's page", async () => {
     const plan = await create()
     const day = find(plan, 1)
     await start(plan, day)
+    hearAll(day)
     at(day.reflection + 1)
     expect(plan.stage()).toBe("reflection")
     expect(plan.done()).toEqual([1])
@@ -358,6 +374,83 @@ describe("Mais365Service", () => {
     expect(player.current()?.title).toBe("Reflexão: No princípio")
     // Back 10 s stays in it.
     expect(player.throughFrom()).toBe(day.reflection)
+  })
+
+  it("tells Umami how a day goes: started, its reflection, read by ear or by hand, left", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
+    expect(track).toHaveBeenCalledWith("plan_day_start", {
+      day: 1,
+      at: 0,
+      from: "plan",
+    })
+    hearAll(day)
+    at(day.reflection + 1)
+    expect(track).toHaveBeenCalledWith("plan_reflection", { day: 1 })
+    expect(track).toHaveBeenCalledWith("plan_day_done", {
+      day: 1,
+      how: "heard",
+    })
+    plan.markDone(1, false)
+    expect(track).toHaveBeenLastCalledWith("plan_day_done", {
+      day: 1,
+      how: "unmarked",
+    })
+    plan.markDone(3, true)
+    expect(track).toHaveBeenLastCalledWith("plan_day_done", {
+      day: 3,
+      how: "marked",
+    })
+
+    await start(plan, find(plan, 3))
+    at(100)
+    plan.end()
+    expect(track).toHaveBeenLastCalledWith("plan_day_end", { day: 3, stage: 0 })
+  })
+
+  it("leaves a day unread when a reading was jumped over or landed in late", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
+    const [first, second, third] = day.readings.map((r) => r.episode)
+    at(first.start as number)
+    at((first.end as number) - 1)
+    at((first.end as number) + 0.5)
+    // Scrubbed into the middle of the second: its end crossed, but not heard.
+    at((second.start as number) + 60)
+    at((second.end as number) - 1)
+    at((second.end as number) + 0.5)
+    at(third.start as number)
+    at((third.end as number) - 1)
+    at((third.end as number) + 0.5)
+    expect(plan.stage()).toBe("reflection")
+    expect(plan.done()).toEqual([])
+  })
+
+  it("passes over a reading without timings in ⏮ ⏭ and the stage", async () => {
+    player.seek = vi.fn((seconds: number) => at(seconds))
+    const plan = await create()
+    // Dia 3 with its second reading's heading never found.
+    const untimed: PlanDay = {
+      ...find(plan, 3),
+      readings: find(plan, 3).readings.map((r, i) =>
+        i === 1
+          ? { ...r, episode: { ...r.episode, start: null, end: null } }
+          : r,
+      ),
+    }
+    const started = plan.start(untimed)
+    http.expectOne(`${apiBaseUrl}/mais365/3`).flush(full(untimed))
+    await started
+    TestBed.tick()
+    expect(plan.stage()).toBe(0)
+    plan.skip()
+    expect(player.seek).toHaveBeenLastCalledWith(492.1)
+    expect(plan.stage()).toBe(2)
+    plan.back()
+    expect(player.seek).toHaveBeenLastCalledWith(56.5)
+    expect(plan.stage()).toBe(0)
   })
 
   it("plays an introduction where it is, done only once heard out", async () => {

@@ -111,6 +111,7 @@ const AUTO_SCROLL: AutoScrollChrome = {
 
 const PODCAST: PodcastChrome = {
   caption: "+365 · Dia 1 · Génesis 2",
+  context: "+365 · Dia 1",
   playing: true,
   canPlay: true,
   loaded: true,
@@ -124,6 +125,7 @@ const PODCAST: PodcastChrome = {
   previousLabel: "Voltar a Génesis 1",
   nextLabel: "Saltar para Salmo 19",
   canScroll: false,
+  canClose: true,
 }
 
 /**

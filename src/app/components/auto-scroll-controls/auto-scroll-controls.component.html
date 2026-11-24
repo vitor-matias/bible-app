@@ -57,18 +57,18 @@
           <mat-icon>skip_previous</mat-icon>
         </button>
         }
-        <button type="button" mat-icon-button class="skip-back" aria-label="Recuar 10 segundos" [disabled]="!loaded()"
-          (click)="player.skip(-10)">
-          <mat-icon>replay_10</mat-icon>
+        <button type="button" mat-icon-button class="skip-back" aria-label="Recuar 15 segundos" [disabled]="!loaded()"
+          (click)="player.skip(-15)">
+          <span class="skip-15" aria-hidden="true"><mat-icon>replay</mat-icon><span>15</span></span>
         </button>
         <button class="auto-scroll-toggle audio-toggle" type="button" mat-fab
           [attr.aria-label]="playingThis() ? 'Pausar o +365' : 'Ouvir o +365'" [attr.aria-pressed]="playingThis()"
           [disabled]="!entry()" (click)="toggleAudio()">
           <mat-icon>{{ playingThis() ? 'pause' : 'play_arrow' }}</mat-icon>
         </button>
-        <button type="button" mat-icon-button class="skip-forward" aria-label="Avançar 10 segundos"
-          [disabled]="!loaded()" (click)="player.skip(10)">
-          <mat-icon>forward_10</mat-icon>
+        <button type="button" mat-icon-button class="skip-forward" aria-label="Avançar 15 segundos"
+          [disabled]="!loaded()" (click)="player.skip(15)">
+          <span class="skip-15 forward" aria-hidden="true"><mat-icon>replay</mat-icon><span>15</span></span>
         </button>
         @if (inPlan()) {
         <!-- Kept, disabled, in the reflection: play stays in the middle. -->

@@ -42,6 +42,8 @@ export type NativeChromeAction =
         | "podcast-speed"
         /** ⇅: scroll the text instead of listening. */
         | "podcast-scroll"
+        /** ✕ «Terminar»: stop listening; a day under way ends, not read. */
+        | "podcast-close"
         /** The menu's «+365»: the reading plan's page. */
         | "plan"
         | "share"
@@ -169,6 +171,11 @@ export interface AutoScrollChrome {
 export interface PodcastChrome {
   /** "Génesis 2", or "+365 · Dia 1 · Génesis 2" in a day of the plan. */
   caption: string
+  /**
+   * What plays, beside the passage the shell shows itself: "+365 · Dia 6",
+   * "+365 · Dia 1 · Reflexão"; null outside a day of the plan.
+   */
+  context: string | null
   playing: boolean
   /** Play can be pressed: the chapter's episode is known. */
   canPlay: boolean
@@ -200,6 +207,11 @@ export interface PodcastChrome {
   nextLabel: string | null
   /** ⇅ shows (podcast-scroll): in the scrolling view, outside a plan day. */
   canScroll: boolean
+  /**
+   * ✕ shows (podcast-close) where ⇅ doesn't: in a plan day, and in pages,
+   * so the card always has a way out in its first slot.
+   */
+  canClose: boolean
 }
 
 /**

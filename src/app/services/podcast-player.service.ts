@@ -2,6 +2,7 @@ import { HttpClient } from "@angular/common/http"
 import { effect, Injectable, inject, signal, untracked } from "@angular/core"
 import { catchError, map, type Observable, of } from "rxjs"
 import { apiBaseUrl } from "../config"
+import { AnalyticsService } from "./analytics.service"
 import { KeepAwakeService } from "./keep-awake.service"
 
 /** A +365 episode that reads a chapter, as bible-api's /audio lists it. */
@@ -148,7 +149,25 @@ export class PodcastPlayerService {
     this.play(audio, episode)
   }
 
+  private readonly analytics = inject(AnalyticsService)
+
   constructor() {
+    // Each start or resume of playback, with what plays.
+    let wasPlaying = false
+    effect(() => {
+      const playing = this.playing()
+      untracked(() => {
+        const current = this.current()
+        if (playing && !wasPlaying && current) {
+          void this.analytics.track("podcast_play", {
+            day: current.day,
+            title: current.title,
+            rate: this.rate(),
+          })
+        }
+        wasPlaying = playing
+      })
+    })
     // Read along, the phone mustn't lock while +365 plays.
     const keepAwake = inject(KeepAwakeService)
     effect(() => {
@@ -256,6 +275,9 @@ export class PodcastPlayerService {
   }
 
   private setRate(next: number): void {
+    if (next !== this.rate()) {
+      void this.analytics.track("podcast_speed", { rate: next })
+    }
     this.rate.set(next)
     if (this.audio) {
       // The default survives a new src, which resets playbackRate to it.
@@ -373,8 +395,9 @@ export class PodcastPlayerService {
           seekTime != null &&
           this.seek((this.current()?.start ?? 0) + seekTime),
       ],
-      ["seekbackward", ({ seekOffset }) => this.skip(-(seekOffset ?? 10))],
-      ["seekforward", ({ seekOffset }) => this.skip(seekOffset ?? 10)],
+      // The app's own ±15 s where the system names no offset.
+      ["seekbackward", ({ seekOffset }) => this.skip(-(seekOffset ?? 15))],
+      ["seekforward", ({ seekOffset }) => this.skip(seekOffset ?? 15)],
     ]
     for (const [action, handler] of handlers) {
       try {

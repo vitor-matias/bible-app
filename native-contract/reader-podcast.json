@@ -31,6 +31,7 @@
   "autoScroll": null,
   "podcast": {
     "caption": "+365 · Dia 1 · Génesis 2",
+    "context": "+365 · Dia 1",
     "playing": true,
     "canPlay": true,
     "loaded": true,
@@ -43,7 +44,8 @@
     "inPlan": true,
     "previousLabel": "Voltar a Génesis 1",
     "nextLabel": "Saltar para Salmo 19",
-    "canScroll": false
+    "canScroll": false,
+    "canClose": true
   },
   "subtitle": "As bem-aventuranças",
   "pageColor": "#121212"
