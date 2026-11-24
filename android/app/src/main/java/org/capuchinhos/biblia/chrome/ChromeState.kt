@@ -80,7 +80,7 @@ data class ChromeState(
     val inert: Boolean = false,
     /** Hidden while reading, to leave the page to the text. */
     val collapsed: Boolean = false,
-    /** The page's text has scrolled under the top bar, which then stands apart from it. */
+    /** The page's text has scrolled under the top bar: a page's bar then draws a hairline at its edge. */
     val scrolled: Boolean = false,
     /** "system", "light" or "dark": the in-app theme, which can differ from the device's. */
     val themeMode: String = "system",
