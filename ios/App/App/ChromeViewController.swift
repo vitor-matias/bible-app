@@ -224,7 +224,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let previous = state
         state = next
         let animated = previous.mode != .none || next.mode != .none
-        if next.mode != .reader || next.collapsed || next.passageLabel != previous.passageLabel {
+        if next.mode != .reader || next.collapsed || next.filterOpen || next.passageLabel != previous.passageLabel {
             dismissPassageHint()
         }
 
