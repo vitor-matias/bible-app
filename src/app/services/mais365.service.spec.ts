@@ -1,13 +1,114 @@
-import { signal } from "@angular/core"
+import { provideHttpClient } from "@angular/common/http"
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from "@angular/common/http/testing"
+import { ApplicationRef, signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
+import { apiBaseUrl } from "../config"
 import { lastCall } from "../testing/spy-obj"
 import { BookService } from "./book.service"
-import { Mais365Service } from "./mais365.service"
+import { Mais365Service, type PlanDay, readingLabel } from "./mais365.service"
 import {
   type ChapterEpisode,
   PodcastPlayerService,
 } from "./podcast-player.service"
+
+const episode = (day: number, url: string, start: number, end: number) => ({
+  day,
+  title: `Dia ${day}`,
+  url,
+  start,
+  end,
+})
+/** The plan as bible-api's /v1/mais365 lists it: no verse timings. */
+const PLAN: PlanDay[] = [
+  {
+    day: 0,
+    title: "Introdução à Criação do Mundo",
+    theme: "Introdução à Criação do Mundo",
+    url: "dia0",
+    duration: 2269,
+    readings: [],
+    reflection: 0,
+  },
+  {
+    day: 1,
+    title: "No princípio",
+    theme: "No princípio",
+    priest: "Padre Miguel Vasconcelos",
+    url: "dia1",
+    duration: 1344,
+    readings: [
+      {
+        bookId: "gen",
+        bookName: "Génesis",
+        chapter: 1,
+        episode: episode(1, "dia1", 58.4, 357.5),
+      },
+      {
+        bookId: "gen",
+        bookName: "Génesis",
+        chapter: 2,
+        episode: episode(1, "dia1", 362.5, 572.86),
+      },
+      {
+        bookId: "psa",
+        bookName: "Salmo",
+        chapter: 19,
+        episode: episode(1, "dia1", 577.32, 688.72),
+      },
+    ],
+    reflection: 688.72,
+  },
+  {
+    day: 3,
+    title: "A Arca de Noé",
+    theme: "A Arca de Noé",
+    url: "dia3",
+    duration: 1103,
+    readings: [
+      {
+        bookId: "gen",
+        bookName: "Génesis",
+        chapter: 5,
+        episode: episode(3, "dia3", 56.5, 280.8),
+      },
+      {
+        bookId: "gen",
+        bookName: "Génesis",
+        chapter: 6,
+        episode: episode(3, "dia3", 280.8, 492.1),
+      },
+      {
+        bookId: "pro",
+        bookName: "Provérbios",
+        chapter: 1,
+        range: [1, 7],
+        episode: { ...episode(3, "dia3", 492.1, 600), range: [1, 7] },
+      },
+    ],
+    reflection: 600,
+  },
+  {
+    day: 6.5,
+    title: "Introdução aos Patriarcas",
+    theme: "Introdução aos Patriarcas",
+    url: "intro2",
+    duration: 2631,
+    readings: [],
+    reflection: 0,
+  },
+]
+/** A day in full, as /v1/mais365/:day answers: verse timings and all. */
+const full = (day: PlanDay): PlanDay => ({
+  ...day,
+  readings: day.readings.map((reading) => ({
+    ...reading,
+    episode: { ...reading.episode, verses: [[1, reading.episode.start ?? 0]] },
+  })),
+})
 
 describe("Mais365Service", () => {
   let player: {
@@ -26,15 +127,35 @@ describe("Mais365Service", () => {
   }
   let navigate: ReturnType<typeof vi.fn>
 
-  const create = () => {
+  let http: HttpTestingController
+
+  /** The service with the plan loaded, as the plan's page loads it. */
+  const create = async () => {
     TestBed.configureTestingModule({
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: PodcastPlayerService, useValue: player },
         { provide: Router, useValue: { navigate } },
         { provide: BookService, useValue: { findBookById: () => undefined } },
       ],
     })
-    return TestBed.inject(Mais365Service)
+    http = TestBed.inject(HttpTestingController)
+    const plan = TestBed.inject(Mais365Service)
+    plan.load()
+    TestBed.tick()
+    http.expectOne(`${apiBaseUrl}/mais365`).flush({ days: PLAN })
+    await TestBed.inject(ApplicationRef).whenStable()
+    return plan
+  }
+  const find = (plan: Mais365Service, n: number) =>
+    plan.days().find(({ day }) => day === n) as PlanDay
+  /** start(), its full copy answered. */
+  const start = async (plan: Mais365Service, day: PlanDay) => {
+    const started = plan.start(day)
+    http.expectOne(`${apiBaseUrl}/mais365/${day.day}`).flush(full(day))
+    await started
+    TestBed.tick()
   }
   const at = (seconds: number) => {
     player.position.set(seconds)
@@ -63,47 +184,82 @@ describe("Mais365Service", () => {
     }
   })
 
-  afterEach(() => localStorage.removeItem("mais365Done"))
-
-  it("starts with Dia 0, the introduction, and puts each introduction after its day", () => {
-    const plan = create()
-    expect(plan.today().day).toBe(0)
-    expect(plan.today().title).toBe("Introdução à Criação do Mundo")
-    const days = plan.days.map(({ day }) => day)
-    expect(days.slice(0, 7)).toEqual([0, 1, 2, 3, 4, 5, 6.5])
+  afterEach(() => {
+    localStorage.removeItem("mais365Done")
+    http?.verify()
   })
 
-  it("makes today the first day not done, and remembers what is done", () => {
-    create().markDone(0, true)
+  it("asks for the plan only once its page does", () => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    })
+    http = TestBed.inject(HttpTestingController)
+    const plan = TestBed.inject(Mais365Service)
+    TestBed.tick()
+    http.expectNone(`${apiBaseUrl}/mais365`)
+    expect(plan.today()).toBeUndefined()
+  })
+
+  it("plays a day from its full copy, the one read-along follows", async () => {
+    const plan = await create()
+    await start(plan, find(plan, 1))
+    expect(plan.active()?.readings[0].episode.verses).toEqual([[1, 58.4]])
+    expect(plan.isActive(find(plan, 1))).toBe(true)
+  })
+
+  it("plays the listed copy when the full one can't be had", async () => {
+    const plan = await create()
+    const started = plan.start(find(plan, 1))
+    http
+      .expectOne(`${apiBaseUrl}/mais365/1`)
+      .flush(null, { status: 500, statusText: "Server Error" })
+    await started
+    expect(plan.active()).toBe(find(plan, 1))
+  })
+
+  it("names a reading of part of a chapter by its verses", async () => {
+    const plan = await create()
+    expect(readingLabel(find(plan, 3).readings[2])).toBe("Provérbios 1,1-7")
+    expect(readingLabel(find(plan, 3).readings[0])).toBe("Génesis 5")
+  })
+
+  it("starts with Dia 0, the introduction, and puts each introduction after its day", async () => {
+    const plan = await create()
+    expect(plan.today()?.day).toBe(0)
+    expect(plan.today()?.title).toBe("Introdução à Criação do Mundo")
+    expect(plan.days().map(({ day }) => day)).toEqual([0, 1, 3, 6.5])
+  })
+
+  it("makes today the first day not done, and remembers what is done", async () => {
+    ;(await create()).markDone(0, true)
     TestBed.resetTestingModule()
-    const plan = create()
-    expect(plan.today().day).toBe(1)
+    const plan = await create()
+    expect(plan.today()?.day).toBe(1)
     plan.markDone(0, false)
-    expect(plan.today().day).toBe(0)
+    expect(plan.today()?.day).toBe(0)
   })
 
-  it("starts afresh when what is stored is not a list of days", () => {
+  it("starts afresh when what is stored is not a list of days", async () => {
     localStorage.setItem("mais365Done", "{}")
-    expect(create().today().day).toBe(0)
+    expect((await create()).today()?.day).toBe(0)
     TestBed.resetTestingModule()
     localStorage.setItem("mais365Done", '[1, "x", null, 0]')
-    expect(create().done()).toEqual([1, 0])
+    expect((await create()).done()).toEqual([1, 0])
   })
 
-  it("starts a day from its first reading even when that reading is paused further on", () => {
+  it("starts a day from its first reading even when that reading is paused further on", async () => {
     player.seek = vi.fn()
-    const plan = create()
-    const day = plan.days.find(({ day }) => day === 1) as (typeof plan.days)[0]
+    const plan = await create()
+    const day = find(plan, 1)
     player.isCurrent.mockReturnValue(true)
-    plan.start(day)
+    await start(plan, day)
     expect(player.seek).toHaveBeenCalledWith(day.readings[0].episode.start)
   })
 
-  it("lets the day go, unmarked and still playing, when another stream is played", () => {
-    const plan = create()
-    const day = plan.days.find(({ day }) => day === 3) as (typeof plan.days)[0]
-    plan.start(day)
-    TestBed.tick()
+  it("lets the day go, unmarked and still playing, when another stream is played", async () => {
+    const plan = await create()
+    const day = find(plan, 3)
+    await start(plan, day)
     // A chapter of Dia 4, played by hand.
     player.current.set({
       day: 4,
@@ -122,44 +278,40 @@ describe("Mais365Service", () => {
     expect(plan.done()).toEqual([])
   })
 
-  it("names the first reading of a day started while another was at its first", () => {
-    const plan = create()
-    const find = (n: number) =>
-      plan.days.find(({ day }) => day === n) as (typeof plan.days)[0]
-    plan.start(find(1))
-    TestBed.tick()
+  it("names the first reading of a day started while another was at its first", async () => {
+    const plan = await create()
+    await start(plan, find(plan, 1))
     expect(player.current()?.title).toBe("Génesis 1")
-    plan.start(find(3))
-    TestBed.tick()
+    await start(plan, find(plan, 3))
     expect(player.current()?.title).toBe("Génesis 5")
   })
 
-  it("turns to each reading as the podcast reaches it", () => {
-    const plan = create()
-    const day = plan.days.find(({ day }) => day === 1) as (typeof plan.days)[0]
-    plan.start(day)
-    TestBed.tick()
+  it("turns to each reading as the podcast reaches it", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
     expect(player.throughEpisode()).toBe(true)
     expect(lastCall(navigate)).toEqual([["/", "gen", 1]])
 
     at(day.readings[1].episode.start as number)
     expect(lastCall(navigate)).toEqual([["/", "gen", 2]])
+    // The full copy's, timings and all.
     expect(player.current()).toEqual({
-      ...day.readings[1].episode,
+      ...plan.active()?.readings[1].episode,
       title: "Génesis 2",
     })
+    expect(player.current()?.verses).toEqual([[1, 362.5]])
 
     at(day.readings[2].episode.start as number)
     expect(lastCall(navigate)).toEqual([["/", "psa", 19]])
     expect(plan.done()).toEqual([])
   })
 
-  it("skips to the next reading, and from the last to the reflection", () => {
+  it("skips to the next reading, and from the last to the reflection", async () => {
     player.seek = vi.fn((seconds: number) => at(seconds))
-    const plan = create()
-    const day = plan.days.find(({ day }) => day === 1) as (typeof plan.days)[0]
-    plan.start(day)
-    TestBed.tick()
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
     plan.skip()
     expect(player.seek).toHaveBeenLastCalledWith(day.readings[1].episode.start)
     expect(lastCall(navigate)).toEqual([["/", "gen", 2]])
@@ -180,11 +332,10 @@ describe("Mais365Service", () => {
     expect(plan.previous()).toBeNull()
   })
 
-  it("marks the day done at its reflection, and goes to the plan's page", () => {
-    const plan = create()
-    const day = plan.days.find(({ day }) => day === 1) as (typeof plan.days)[0]
-    plan.start(day)
-    TestBed.tick()
+  it("marks the day done at its reflection, and goes to the plan's page", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
     at(day.reflection + 1)
     expect(plan.stage()).toBe("reflection")
     expect(plan.done()).toEqual([1])
@@ -196,11 +347,10 @@ describe("Mais365Service", () => {
     expect(player.throughFrom()).toBe(day.reflection)
   })
 
-  it("plays an introduction where it is, done only once heard out", () => {
-    const plan = create()
-    const intro = plan.days[0]
-    plan.start(intro)
-    TestBed.tick()
+  it("plays an introduction where it is, done only once heard out", async () => {
+    const plan = await create()
+    const intro = find(plan, 0)
+    await start(plan, intro)
     expect(plan.stage()).toBe("reflection")
     expect(plan.done()).toEqual([])
     // Named as itself for the system's player, not as a reflection.
@@ -214,10 +364,9 @@ describe("Mais365Service", () => {
     expect(player.throughEpisode()).toBe(false)
   })
 
-  it("leaves an introduction stopped early not done", () => {
-    const plan = create()
-    plan.start(plan.days[0])
-    TestBed.tick()
+  it("leaves an introduction stopped early not done", async () => {
+    const plan = await create()
+    await start(plan, find(plan, 0))
     at(60)
     player.current.set(null) // the stream failed
     TestBed.tick()

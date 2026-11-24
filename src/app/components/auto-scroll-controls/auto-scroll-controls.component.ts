@@ -25,7 +25,7 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatSliderModule } from "@angular/material/slider"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
-import { Mais365Service } from "../../services/mais365.service"
+import { Mais365Service, readingLabel } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import {
   type ChapterEpisode,
@@ -72,6 +72,13 @@ const clock = (seconds: number): string => {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`
 }
 
+/**
+ * How far ahead of a verse's timed start its mark moves on, seconds: the
+ * position comes in timeupdates a quarter second apart, and the mark fades
+ * in, so on the dot it showed about 0.4 s late (owner's test, Nov 2026).
+ */
+const VERSE_LEAD = 0.35
+
 @Component({
   selector: "app-auto-scroll-controls",
   standalone: true,
@@ -105,7 +112,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     if (!next) return null
     return next === "reflection"
       ? "Saltar para a reflexão"
-      : `Saltar para ${next.bookName} ${next.chapter}`
+      : `Saltar para ${readingLabel(next)}`
   })
 
   /** A day of the plan playing, its readings or reflection: ⏮ ⏭ in the transport. */
@@ -114,7 +121,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   /** "Voltar a Génesis 1"; null on the day's first reading. */
   protected readonly backLabel = computed(() => {
     const previous = this.plan.previous()
-    return previous ? `Voltar a ${previous.bookName} ${previous.chapter}` : null
+    return previous ? `Voltar a ${readingLabel(previous)}` : null
   })
 
   /** "+365 · Dia 1 · Génesis 1" while a day of the plan plays here. */
@@ -325,7 +332,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const at = this.player.position()
     let verse: number | null = null
     for (const [number, start] of verses) {
-      if (start > at + 0.05) break
+      if (start > at + VERSE_LEAD) break
       verse = number
     }
     return verse

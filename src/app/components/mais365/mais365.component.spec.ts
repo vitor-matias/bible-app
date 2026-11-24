@@ -38,8 +38,17 @@ const day1: PlanDay = {
 
 describe("Mais365Component", () => {
   let fixture: ComponentFixture<Mais365Component>
+  const resource = {
+    isLoading: signal(false),
+    error: signal<unknown>(undefined),
+    reload: vi.fn(),
+  }
   const plan = {
-    days: [intro, day1],
+    plan: resource,
+    days: signal<PlanDay[]>([intro, day1]),
+    load: vi.fn(),
+    isActive: (day: PlanDay | undefined) =>
+      !!day && plan.active()?.day === day.day,
     done: signal<number[]>([]),
     today: signal(intro),
     active: signal<PlanDay | null>(null),
@@ -79,6 +88,9 @@ describe("Mais365Component", () => {
     )
 
   beforeEach(() => {
+    plan.days.set([intro, day1])
+    resource.isLoading.set(false)
+    resource.error.set(undefined)
     plan.active.set(null)
     plan.stage.set(null)
     TestBed.configureTestingModule({
@@ -90,6 +102,20 @@ describe("Mais365Component", () => {
     })
     fixture = TestBed.createComponent(Mais365Component)
     fixture.detectChanges()
+  })
+
+  it("asks for the plan, and says so while it loads or when it can't", () => {
+    expect(plan.load).toHaveBeenCalled()
+    plan.days.set([])
+    resource.isLoading.set(true)
+    fixture.detectChanges()
+    expect(text()).toContain("A carregar o plano…")
+    resource.isLoading.set(false)
+    resource.error.set(new Error("offline"))
+    fixture.detectChanges()
+    expect(text()).toContain("Não foi possível carregar o plano")
+    button("Tentar novamente")?.click()
+    expect(resource.reload).toHaveBeenCalled()
   })
 
   it("shows today's introduction, its priests, and plays it with «Ouvir»", () => {

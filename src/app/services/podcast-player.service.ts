@@ -3,7 +3,6 @@ import { effect, Injectable, inject, signal, untracked } from "@angular/core"
 import { catchError, map, type Observable, of } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { KeepAwakeService } from "./keep-awake.service"
-import { TEST_EPISODES } from "./podcast-test-episodes"
 
 /** A +365 episode that reads a chapter, as bible-api's /audio lists it. */
 export interface ChapterEpisode {
@@ -14,6 +13,8 @@ export interface ChapterEpisode {
   start: number | null
   /** Seconds where it ends; null when unknown (the episode's end, then). */
   end: number | null
+  /** [first, last] verse, when only part of the chapter is read that day. */
+  range?: [number, number]
   /** [verse, seconds] where each verse starts, for following the reading. */
   verses?: [number, number][]
 }
@@ -85,8 +86,6 @@ export class PodcastPlayerService {
 
   /** The episodes that read a chapter, earliest day first; [] when none. */
   episodesFor(bookId: string, chapter: number): Observable<ChapterEpisode[]> {
-    const hardcoded = TEST_EPISODES[`${bookId}/${chapter}`]
-    if (hardcoded) return of(hardcoded)
     return this.http
       .get<{ episodes: ChapterEpisode[] }>(
         `${apiBaseUrl}/audio/${bookId}/${chapter}`,

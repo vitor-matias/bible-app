@@ -18,6 +18,10 @@ h1 {
   margin: 16px 0 4px;
 }
 
+.status {
+  margin: 0 0 24px;
+}
+
 .intro {
   margin: 0 0 24px;
   opacity: 0.75;

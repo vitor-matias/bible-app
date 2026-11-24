@@ -12,7 +12,11 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatSliderModule } from "@angular/material/slider"
 import { Meta, Title } from "@angular/platform-browser"
 import { RouterLink } from "@angular/router"
-import { Mais365Service, type PlanDay } from "../../services/mais365.service"
+import {
+  Mais365Service,
+  type PlanDay,
+  readingLabel,
+} from "../../services/mais365.service"
 import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { ToastService } from "../../services/toast.service"
 
@@ -36,9 +40,10 @@ export class Mais365Component implements OnInit {
   private readonly meta = inject(Meta)
 
   /** The day shown: the one playing, else today, until another is picked. */
-  protected readonly selected = linkedSignal<PlanDay>(
+  protected readonly selected = linkedSignal<PlanDay | undefined>(
     () => this.plan.active() ?? this.plan.today(),
   )
+  protected readonly readingLabel = readingLabel
 
   protected readonly inReflection = computed(
     () => this.plan.stage() === "reflection",
@@ -80,6 +85,7 @@ export class Mais365Component implements OnInit {
   ngOnInit(): void {
     this.title.setTitle("+365 | Bíblia Sagrada")
     this.meta.updateTag({ name: "robots", content: "noindex" })
+    this.plan.load()
   }
 
   /** "Dia 3"; an introduction by what it is, Dia 0 being the first. */
@@ -94,12 +100,12 @@ export class Mais365Component implements OnInit {
 
   /** A reading of the day under way that the podcast has gone past. */
   protected passed(day: PlanDay, index: number): boolean {
-    if (this.plan.active() !== day) return false
+    if (!this.plan.isActive(day)) return false
     const stage = this.plan.stage()
     return stage === "reflection" || (stage !== null && index < stage)
   }
 
   protected playingDay(day: PlanDay): boolean {
-    return this.plan.active() === day && this.player.playing()
+    return this.plan.isActive(day) && this.player.playing()
   }
 }

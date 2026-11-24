@@ -281,7 +281,7 @@ h3:not(:first-child) {
   /* With the highlight's own fade, which this shorthand would otherwise drop. */
   transition:
     background-color 0.4s ease,
-    text-decoration-color 0.4s ease;
+    text-decoration-color 0.15s ease;
 }
 
 :host(.verse-reading) .verseRun:not(a) {

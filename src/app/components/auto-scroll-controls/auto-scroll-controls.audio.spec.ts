@@ -134,15 +134,6 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
   })
 
-  it("plays the hardcoded Dia 1–5 chapters without asking the API", async () => {
-    render("gen", 1)
-    await fixture.whenStable()
-    fixture.detectChanges()
-    tap(modeToggle())
-    tap(toggle())
-    expect(audio().src).toMatch(/^https:\/\/anchor\.fm\/.+#t=58\.4$/)
-  })
-
   it("pauses and resumes on the next touches", async () => {
     await listen()
     tap(toggle())
@@ -785,6 +776,16 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       at(65)
       at(71)
       expect(read.filter((verse) => verse !== null)).toEqual([1, 2, 3])
+    })
+
+    it("moves the mark on a moment before the verse is heard", async () => {
+      await listen([withVerses])
+      tap(toggle())
+      at(63.5)
+      expect(read.at(-1)).toBe(1)
+      // Verse 2 is timed at 64: its mark is on by 63.7.
+      at(63.7)
+      expect(read.at(-1)).toBe(2)
     })
 
     describe("glide", () => {

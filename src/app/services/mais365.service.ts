@@ -1,3 +1,4 @@
+import { HttpClient } from "@angular/common/http"
 import {
   computed,
   effect,
@@ -6,10 +7,11 @@ import {
   signal,
   untracked,
 } from "@angular/core"
+import { rxResource } from "@angular/core/rxjs-interop"
 import { Router } from "@angular/router"
+import { firstValueFrom, map } from "rxjs"
+import { apiBaseUrl } from "../config"
 import { BookService } from "./book.service"
-import { TEST_INTROS } from "./mais365-test-intros"
-import { TEST_PLAN } from "./mais365-test-plan"
 import {
   type ChapterEpisode,
   PodcastPlayerService,
@@ -20,8 +22,16 @@ export interface PlanReading {
   bookId: string
   bookName: string
   chapter: number
+  /** [first, last] verse, when only part of the chapter is read (Provérbios 1,1-7). */
+  range?: [number, number]
   episode: ChapterEpisode
 }
+
+/** "Génesis 12", or "Provérbios 1,1-7" for part of a chapter. */
+export const readingLabel = ({ bookName, chapter, range }: PlanReading) =>
+  range
+    ? `${bookName} ${chapter},${range[0]}${range[1] === range[0] ? "" : `-${range[1]}`}`
+    : `${bookName} ${chapter}`
 
 /** A day of +365: its episode's readings, then its reflection. */
 export interface PlanDay {
@@ -55,6 +65,7 @@ export class Mais365Service {
   private readonly player = inject(PodcastPlayerService)
   private readonly router = inject(Router)
   private readonly books = inject(BookService)
+  private readonly http = inject(HttpClient)
 
   /**
    * A reading's address as the reader has it (/gn/1, not /gen/1): no redirect
@@ -66,16 +77,31 @@ export class Mais365Service {
     return ["/", abrv, reading.chapter]
   }
 
-  /** The days, with the introductions after the day they came out with. */
-  readonly days: PlanDay[] = [...TEST_PLAN, ...TEST_INTROS].sort(
-    (a, b) => a.day - b.day,
-  )
+  /** Asked for by the plan's page: every reader page has this service. */
+  private readonly wanted = signal(false)
+  /**
+   * The days from bible-api (the introductions after the day they came out
+   * with), light: without verse timings, which start() fetches for its day.
+   */
+  readonly plan = rxResource({
+    params: () => (this.wanted() ? true : undefined),
+    stream: () =>
+      this.http
+        .get<{ days: PlanDay[] }>(`${apiBaseUrl}/mais365`)
+        .pipe(map(({ days }) => days)),
+  })
+  readonly days = computed(() => this.plan.value() ?? [])
   readonly done = signal<number[]>(this.storedDone())
   readonly today = computed(
-    () =>
-      this.days.find((day) => !this.done().includes(day.day)) ??
-      this.days[this.days.length - 1],
+    (): PlanDay | undefined =>
+      this.days().find((day) => !this.done().includes(day.day)) ??
+      this.days().at(-1),
   )
+
+  /** Loads the days, once. */
+  load(): void {
+    this.wanted.set(true)
+  }
 
   /** The day being played through, if any. */
   readonly active = signal<PlanDay | null>(null)
@@ -125,10 +151,7 @@ export class Mais365Service {
         }
         const reading = day.readings[stage]
         // Named for the system's player: the chapter, not the whole day.
-        this.player.adopt({
-          ...reading.episode,
-          title: `${reading.bookName} ${reading.chapter}`,
-        })
+        this.player.adopt({ ...reading.episode, title: readingLabel(reading) })
         void this.router.navigate(this.link(reading))
       })
     })
@@ -154,8 +177,20 @@ export class Mais365Service {
     })
   }
 
-  /** Plays a day through: its first reading, and on from there. */
-  start(day: PlanDay): void {
+  /** The day being played through is this one (a light or a full copy of it). */
+  isActive(day: PlanDay | undefined): boolean {
+    return !!day && this.active()?.day === day.day
+  }
+
+  /**
+   * Plays a day through: its first reading, and on from there. Its full copy
+   * first, for the verse timings read-along follows; without it (offline,
+   * say) it plays all the same.
+   */
+  async start(listed: PlanDay): Promise<void> {
+    const day = await firstValueFrom(
+      this.http.get<PlanDay>(`${apiBaseUrl}/mais365/${listed.day}`),
+    ).catch(() => listed)
     this.player.throughEpisode.set(true)
     this.player.throughFrom.set(0)
     this.player.mode.set("audio")
