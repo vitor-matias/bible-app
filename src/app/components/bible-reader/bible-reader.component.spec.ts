@@ -2062,6 +2062,10 @@ describe("BibleReaderComponent", () => {
           expect(style.marginLeft).toBe("88px")
           expect(style.marginBottom).toBe("-56px")
           expect(style.minHeight).toBe("56px")
+          // Its margins have the insets: the centring shift of wide windows
+          // (unequal insets, as a phone in landscape) would move it off the
+          // gap between the arrows.
+          expect(style.position).toBe("static")
         } finally {
           document.body.classList.remove("native-chrome", "platform-android")
         }

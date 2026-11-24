@@ -728,6 +728,12 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
     left: var(--app-centred-inset);
     right: var(--app-centred-inset);
   }
+
+  /* Android's scrolling copyright has the insets in its own margins, between
+     the arrows: not shifted again. */
+  .platform-android.native-chrome bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) {
+    position: static;
+  }
 }
 
 .native-chrome bible-reader .paged-view-container {
@@ -745,6 +751,22 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
 .platform-android.native-chrome bible-reader .mat-drawer-content:has(> .paged-view-container) {
   display: flex;
   flex-direction: column;
+}
+
+/* A chapter shorter than the screen: the copyright still ends the page, in
+   the arrows' row. */
+.platform-android.native-chrome bible-reader .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The text scrolls: its blocks keep their size rather than shrink to fit. */
+.platform-android.native-chrome bible-reader .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) > * {
+  flex-shrink: 0;
+}
+
+.platform-android.native-chrome bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) {
+  margin-top: auto;
 }
 
 .platform-android.native-chrome bible-reader .paged-view-container {
