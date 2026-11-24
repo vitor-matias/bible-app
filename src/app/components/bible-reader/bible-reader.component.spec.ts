@@ -2039,9 +2039,19 @@ describe("BibleReaderComponent", () => {
       })
 
       // Scrolling, it ended the text above a blank band the arrows' row needs.
-      it("put Android's copyright between the arrows when scrolling too", () => {
+      // With the drawer's real classes (the rules in styles.css want them), a
+      // wide window and unequal side insets, as a phone in landscape: the
+      // centring shift would move it off the gap between the arrows.
+      it("put Android's copyright between the arrows when scrolling too", async () => {
         document.body.classList.add("native-chrome", "platform-android")
+        const root = document.documentElement.style
+        root.setProperty("--app-inset-left", "48px")
+        root.setProperty("--app-inset-right", "0px")
         try {
+          expect(frame, "the specs run in a frame").toBeTruthy()
+          if (frame) frame.style.width = "800px"
+          TestBed.resetTestingModule()
+          await setUpTestBed({ imports: [MatSidenavModule] })
           fixture = TestBed.createComponent(BibleReaderComponent, {
             inferTagName: true,
           })
@@ -2055,19 +2065,19 @@ describe("BibleReaderComponent", () => {
           ).cdr.markForCheck()
           fixture.detectChanges()
           const footer = (fixture.nativeElement as HTMLElement).querySelector(
-            ".copyright-footer",
+            ".mat-drawer-content > .copyright-footer",
           ) as HTMLElement
+          expect(footer, "a child of the drawer's content").toBeTruthy()
           const style = getComputedStyle(footer)
           expect(footer.classList).not.toContain("fixed-footer")
-          expect(style.marginLeft).toBe("88px")
+          expect(style.marginLeft).toBe("136px")
           expect(style.marginBottom).toBe("-56px")
           expect(style.minHeight).toBe("56px")
-          // Its margins have the insets: the centring shift of wide windows
-          // (unequal insets, as a phone in landscape) would move it off the
-          // gap between the arrows.
           expect(style.position).toBe("static")
         } finally {
           document.body.classList.remove("native-chrome", "platform-android")
+          root.removeProperty("--app-inset-left")
+          root.removeProperty("--app-inset-right")
         }
       })
 
