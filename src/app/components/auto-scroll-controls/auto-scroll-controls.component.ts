@@ -929,7 +929,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   /** Notes the reader's own wheel, drag and scroll keys, for read-along. */
   private watchReader(): void {
     const element = this.scrollElement()
-    if (!element || this.native) return
+    // In the apps too: read-along glides there, and a swipe must hold it off.
+    if (!element) return
     this.ngZone.runOutsideAngular(() => {
       element.addEventListener("wheel", this.noteReaderMoved, { passive: true })
       element.addEventListener("touchmove", this.noteReaderMoved, {

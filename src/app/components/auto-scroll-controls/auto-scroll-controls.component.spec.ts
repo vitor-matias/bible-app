@@ -467,6 +467,16 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     expect(lastState()).toEqual(expect.objectContaining({ canListen: true }))
   })
 
+  // Read-along glides in the apps too: a swipe of the reader's holds it off.
+  it("notices the reader's own swipe", () => {
+    const moved = () =>
+      (fixture.componentInstance as unknown as { readerMovedAt: number })
+        .readerMovedAt
+    expect(moved()).toBe(0)
+    page.dispatchEvent(new TouchEvent("touchmove"))
+    expect(moved()).toBeGreaterThan(0)
+  })
+
   it("draws no web controls; the toolbar shows them", () => {
     expect(
       fixture.nativeElement.querySelector(".auto-scroll-controls"),
