@@ -119,6 +119,39 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       : `Saltar para ${readingLabel(next)}`
   })
 
+  /**
+   * The chapter heard outside a day of the plan, placed in its episode's
+   * day: what the apps' ⏮ ⏭ step to (the episode's readings).
+   */
+  private readonly inEpisode = computed(() => {
+    const entry = this.entry()
+    const bookId = this.bookId()
+    const chapter = this.chapter()
+    if (this.inPlan() || !entry || !bookId || !chapter) return null
+    return this.plan.episodeReadings(entry.day, bookId, chapter)
+  })
+
+  /** The apps' ⏮ ⏭ labels: the plan day's, else the episode's. */
+  private readonly episodeLabels = computed(() => {
+    if (this.inPlan()) {
+      return { previous: this.backLabel(), next: this.skipLabel() }
+    }
+    const at = this.inEpisode()
+    const before = at?.day.readings[at.index - 1]
+    const after = at?.day.readings[at.index + 1]
+    return {
+      previous: before ? `Voltar a ${readingLabel(before)}` : null,
+      next: after ? `Saltar para ${readingLabel(after)}` : null,
+    }
+  })
+
+  /** ⏮ ⏭ outside a plan day: its episode's day, started at that reading. */
+  private stepInEpisode(by: -1 | 1): void {
+    const at = this.inEpisode()
+    if (!at?.day.readings[at.index + by]) return
+    void this.plan.start(at.day, at.index + by)
+  }
+
   /** A day of the plan playing, its readings or reflection: ⏮ ⏭ in the transport. */
   protected readonly inPlan = computed(() => this.plan.stage() !== null)
 
@@ -239,6 +272,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   )
 
   constructor() {
+    // Listening in the apps, ⏮ ⏭ step through the episode's day: the days.
+    effect(() => {
+      if (this.native && this.audioMode()) untracked(() => this.plan.load())
+    })
     // The apps draw the player: what it shows goes to them as it changes.
     effect(() => {
       if (!this.native) return
@@ -1002,8 +1039,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       canSlower: this.player.canSlower(),
       canFaster: this.player.canFaster(),
       inPlan,
-      previousLabel: this.backLabel(),
-      nextLabel: this.skipLabel(),
+      previousLabel: this.episodeLabels().previous,
+      nextLabel: this.episodeLabels().next,
       canScroll: !this.paged() && !inPlan,
     }
   })
@@ -1034,10 +1071,18 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         this.player.skip(10)
         break
       case "podcast-previous":
-        this.plan.back()
+        if (this.inPlan()) this.plan.back()
+        else this.stepInEpisode(-1)
         break
       case "podcast-next":
-        this.plan.skip()
+        if (this.inPlan()) this.plan.skip()
+        else this.stepInEpisode(1)
+        break
+      case "podcast-skip":
+        this.player.skip(action.seconds)
+        break
+      case "podcast-speed":
+        this.player.cycleRate()
         break
       case "podcast-slower":
         this.player.stepRate(-1)

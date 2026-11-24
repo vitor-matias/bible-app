@@ -12,8 +12,10 @@ import type { Mock } from "vitest"
 import { apiBaseUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { Mais365Service } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
@@ -418,6 +420,67 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     fixture.detectChanges()
     TestBed.tick()
     expect(lastState()).toBeNull()
+  })
+
+  it("steps ⏮ ⏭ through the episode's readings, and skips by the app's seconds", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("play"))
+      return Promise.resolve()
+    })
+    const plan = TestBed.inject(Mais365Service)
+    const start = vi.spyOn(plan, "start").mockResolvedValue()
+    await withEpisode()
+    actions.next({ id: "auto-scroll-listen" })
+    TestBed.tick()
+    // Listening, the days are asked for: Génesis 30 is Dia 15's second reading.
+    const reading = (chapter: number) => ({
+      bookId: "gen",
+      bookName: "Génesis",
+      chapter,
+      episode: { day: 15, title: "Dia 15", url: "u", start: 0, end: 10 },
+    })
+    TestBed.inject(HttpTestingController)
+      .expectOne(`${apiBaseUrl}/mais365`)
+      .flush({
+        days: [
+          {
+            day: 15,
+            title: "Dia 15",
+            theme: "Dia 15",
+            url: "u",
+            duration: 1300,
+            readings: [reading(29), reading(30), reading(31)],
+            reflection: 900,
+          },
+        ],
+      })
+    await fixture.whenStable()
+    TestBed.tick()
+    expect(lastPodcast()).toEqual(
+      expect.objectContaining({
+        inPlan: false,
+        previousLabel: "Voltar a Génesis 29",
+        nextLabel: "Saltar para Génesis 31",
+      }),
+    )
+    actions.next({ id: "podcast-next" })
+    expect(start).toHaveBeenCalledWith(expect.objectContaining({ day: 15 }), 2)
+
+    actions.next({ id: "podcast-toggle" })
+    const audio = vi.mocked(HTMLMediaElement.prototype.play).mock
+      .contexts[0] as HTMLMediaElement
+    audio.currentTime = 100
+    actions.next({ id: "podcast-skip", seconds: -15 })
+    expect(audio.currentTime).toBe(85)
+
+    // One speed button: on through the speeds, round from 2× to 0,75×.
+    const player = TestBed.inject(PodcastPlayerService)
+    for (const rate of [1.25, 1.5, 2, 0.75, 1]) {
+      actions.next({ id: "podcast-speed" })
+      expect(player.rate()).toBe(rate)
+    }
   })
 
   it("offers 🎧 where +365 reads the chapter", async () => {

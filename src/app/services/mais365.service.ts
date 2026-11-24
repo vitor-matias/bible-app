@@ -189,20 +189,21 @@ export class Mais365Service {
    * stage effect adopts the reading again with them. Without it (offline,
    * say) it plays all the same.
    */
-  async start(listed: PlanDay): Promise<void> {
-    this.begin(listed)
+  async start(listed: PlanDay, at = 0): Promise<void> {
+    this.begin(listed, at)
     const full = await firstValueFrom(
       this.http.get<PlanDay>(`${apiBaseUrl}/mais365/${listed.day}`),
     ).catch(() => null)
     if (full && this.active()?.day === listed.day) this.active.set(full)
   }
 
-  private begin(day: PlanDay): void {
+  /** Starts `day` at its reading `at` (its first, or one stepped to by ⏮ ⏭). */
+  private begin(day: PlanDay, at = 0): void {
     this.player.throughEpisode.set(true)
     this.player.throughFrom.set(0)
     this.player.mode.set("audio")
     this.player.collapsed.set(false)
-    const first = day.readings[0]
+    const first = day.readings[at] ?? day.readings[0]
     if (!first) {
       // An introduction: played whole, here.
       this.player.position.set(0)
@@ -227,6 +228,24 @@ export class Mais365Service {
     if (!this.player.isCurrent(first.episode) || !this.player.playing()) {
       this.player.toggle(first.episode)
     }
+  }
+
+  /**
+   * Where a chapter stands in its episode's day, outside a day being played:
+   * what ⏮ ⏭ step to (the episode's readings, not the chapter's neighbours).
+   * Needs the days loaded (load()).
+   */
+  episodeReadings(
+    day: number,
+    bookId: string,
+    chapter: number,
+  ): { day: PlanDay; index: number } | null {
+    const listed = this.days().find((d) => d.day === day)
+    const index =
+      listed?.readings.findIndex(
+        (r) => r.bookId === bookId && r.chapter === chapter,
+      ) ?? -1
+    return listed && index >= 0 ? { day: listed, index } : null
   }
 
   /** What follows the reading being heard: the next one, or the reflection. */

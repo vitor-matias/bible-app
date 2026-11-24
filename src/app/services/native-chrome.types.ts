@@ -38,6 +38,8 @@ export type NativeChromeAction =
         | "podcast-next"
         | "podcast-slower"
         | "podcast-faster"
+        /** One speed button: the next speed, round to the slowest. */
+        | "podcast-speed"
         /** ⇅: scroll the text instead of listening. */
         | "podcast-scroll"
         /** The menu's «+365»: the reading plan's page. */
@@ -71,6 +73,8 @@ export type NativeChromeAction =
   | { id: "footnote-link"; index: number }
   | { id: "footnotes-closed" }
   | { id: "search-input"; text: string }
+  /** Back (negative) or on by `seconds`: the apps' own skip lengths (±15 s). */
+  | { id: "podcast-skip"; seconds: number }
   /** The +365 scrubber let go: seconds into the part (PodcastChrome.length). */
   | { id: "podcast-seek"; seconds: number }
   | { id: "search-submit"; text: string }
@@ -184,9 +188,12 @@ export interface PodcastChrome {
   canSlower: boolean
   canFaster: boolean
   /**
-   * In a day of the plan, ⏮ and ⏭ show (as a pair, so play stays in the
-   * middle); each label is its accessibility label ("Voltar a Génesis 1",
-   * "Saltar para Salmo 19"), null where there is none (shown disabled).
+   * ⏮ ⏭ step through the episode's readings: in a day of the plan, its own
+   * (and on to the reflection); listening to a chapter, the readings of its
+   * episode's day, which starts that day there. Each label is the button's
+   * accessibility label ("Voltar a Génesis 1", "Saltar para Salmo 19"),
+   * null where there is none (shown disabled). The web's own card shows
+   * them only `inPlan`.
    */
   inPlan: boolean
   previousLabel: string | null

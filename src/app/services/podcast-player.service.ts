@@ -243,7 +243,19 @@ export class PodcastPlayerService {
   /** Steps the playback speed down (-1) or up (1), within 0,75× and 2×. */
   stepRate(direction: -1 | 1): void {
     const index = RATES.indexOf(this.rate()) + direction
-    const next = RATES[Math.min(RATES.length - 1, Math.max(0, index))]
+    this.setRate(RATES[Math.min(RATES.length - 1, Math.max(0, index))])
+  }
+
+  /**
+   * The next speed, round from the fastest to the slowest: one button for
+   * all of them, as podcast apps have (the iOS app's "1×").
+   */
+  cycleRate(): void {
+    const index = RATES.indexOf(this.rate())
+    this.setRate(RATES[(index + 1) % RATES.length])
+  }
+
+  private setRate(next: number): void {
     this.rate.set(next)
     if (this.audio) {
       // The default survives a new src, which resets playbackRate to it.
