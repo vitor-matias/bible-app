@@ -195,11 +195,13 @@ extension ChromeViewController {
     }
 
     /// One glass layer, not two: auto-scroll's controls step aside while a
-    /// toast shows where they are.
+    /// toast shows where they are, as the passage's tip does.
     private func setToastShowing(_ showing: Bool) {
         toastShowing = showing
         view.layoutIfNeeded()
         fadeAutoScrollForToast()
+        // The passage's tip sits where a toast does: it steps aside, and comes back.
+        if showing { dismissPassageHint() } else { presentPassageHint() }
     }
 
     /// Also once the reader drops auto-scroll's control onto a toast, or off one.

@@ -331,6 +331,8 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
             }
         }
         TooltipBox(
+            // Shown only by the effect above: no long press or hover of its own.
+            enableUserInput = false,
             positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below),
             tooltip = { PlainTooltip { Text("Toque para escolher o livro") } },
             state = tooltip,
