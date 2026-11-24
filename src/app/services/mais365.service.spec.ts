@@ -245,6 +245,22 @@ describe("Mais365Service", () => {
     expect(plan.done()).toEqual([1])
   })
 
+  // An introduction is all reflection, entered on the light copy already.
+  it("tells Umami of a reflection once, when the full copy comes after it", async () => {
+    const plan = await create()
+    const intro = find(plan, 0)
+    const started = plan.start(intro)
+    TestBed.tick()
+    http.expectOne(`${apiBaseUrl}/mais365/0`).flush(full(intro))
+    await started
+    TestBed.tick()
+    const reflections = track.mock.calls.filter(
+      ([name]) => name === "plan_reflection",
+    )
+    expect(reflections).toEqual([["plan_reflection", { day: 0 }]])
+    expect(navigate).toHaveBeenCalledTimes(1)
+  })
+
   it("plays the listed copy when the full one can't be had", async () => {
     const plan = await create()
     const started = plan.start(find(plan, 1))

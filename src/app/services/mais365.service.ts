@@ -194,6 +194,8 @@ export class Mais365Service {
             start: day.reflection,
             end: day.duration,
           })
+          // The full copy: its timings only, not a second entry.
+          if (!entering) return
           void this.analytics.track("plan_reflection", { day: day.day })
           // Its readings all heard, not skipped; an introduction counts
           // once heard out (below).
