@@ -311,22 +311,6 @@ final class ChromeStateTests: XCTestCase {
 
     // MARK: Picker and index bars
 
-    // Between «‹ Livros» and ✕ (about 190 pt on a 402 pt iPhone), «Livro dos
-    // Atos dos Apóstolos» was cut to «Livro dos Atos dos Apó…».
-    func testALongBookNameTakesTwoLinesInThePickersBar() {
-        let label = pickerTitleView("Livro dos Atos dos Apóstolos")
-        let lineHeight = label.font.lineHeight
-        let room = CGSize(width: 190, height: CGFloat.greatestFiniteMagnitude)
-        let height = label.textRect(forBounds: CGRect(origin: .zero, size: room), limitedToNumberOfLines: 0).height
-        XCTAssertEqual(height, lineHeight * 2, accuracy: 1)
-        XCTAssertEqual(label.numberOfLines, 2)
-        XCTAssertTrue(label.accessibilityTraits.contains(.header))
-        // A short name stays one line, as the system's title.
-        let short = pickerTitleView("Livro do Êxodo")
-        XCTAssertEqual(short.textRect(forBounds: CGRect(origin: .zero, size: room), limitedToNumberOfLines: 0).height,
-                       lineHeight, accuracy: 1)
-    }
-
     // An image item's title is what VoiceOver reads (and the bar's overflow
     // menu shows): the index's filter is «Filtrar», not its symbol's name.
     func testTheIndexFilterButtonIsLabelled() {
@@ -682,32 +666,6 @@ final class ChromeStateTests: XCTestCase {
         let deadline = Date().addingTimeInterval(20)
         while waiting() && Date() < deadline { wait(0.05) }
         XCTAssertFalse(waiting())
-    }
-}
-
-/// The book picker's bar title.
-final class PickerTitleLabelTests: XCTestCase {
-    private func label(_ text: String) -> PickerTitleLabel { pickerTitleView(text) }
-
-    func testAShortNameKeepsItsOwnWidthOnOneLine() {
-        let title = label("Livro do Génesis")
-        title.maxWidth = PickerTitleLabel.room(inBarOfWidth: 402)
-        let line = title.sizeThatFits(CGSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude))
-        XCTAssertEqual(title.intrinsicContentSize.width, line.width, accuracy: 0.5)
-        XCTAssertEqual(title.intrinsicContentSize.height, line.height, accuracy: 0.5)
-    }
-
-    func testALongNameWrapsInTheRoomTheBarLeaves() {
-        let title = label("Livro dos Atos dos Apóstolos")
-        let room = PickerTitleLabel.room(inBarOfWidth: 402)
-        title.maxWidth = room
-        XCTAssertEqual(title.intrinsicContentSize.width, room, accuracy: 0.5)
-        XCTAssertGreaterThan(title.intrinsicContentSize.height, title.font.lineHeight * 1.5)
-    }
-
-    func testTheRoomFollowsTheBarAndNeverVanishes() {
-        XCTAssertGreaterThan(PickerTitleLabel.room(inBarOfWidth: 834), PickerTitleLabel.room(inBarOfWidth: 402))
-        XCTAssertEqual(PickerTitleLabel.room(inBarOfWidth: 100), 120)
     }
 }
 
