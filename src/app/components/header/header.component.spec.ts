@@ -1427,6 +1427,41 @@ describe("HeaderComponent", () => {
       expect(group().classList).toContain("hint")
     })
 
+    it("plays on the chapter the reader moves to from About, after its own wait", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      open("about")
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS * 2)
+      fixture.detectChanges()
+      expect(group().classList).not.toContain("hint")
+
+      fixture.componentRef.setInput("book", {
+        id: "gen",
+        name: "Livro do Génesis",
+        shortName: "Génesis",
+        abrv: "Gn",
+        chapterCount: 50,
+      })
+      fixture.detectChanges()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+    })
+
+    it("counts the wait from the page the reader is on", async () => {
+      localStorage.setItem("passagePickerUsed", "false")
+      open()
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS - 1000)
+      fixture.componentRef.setInput("chapterNumber", 2)
+      fixture.detectChanges()
+
+      await vi.advanceTimersByTimeAsync(PICKER_HINT_DELAY_MS - 1)
+      fixture.detectChanges()
+      expect(group().classList).not.toContain("hint")
+      await vi.advanceTimersByTimeAsync(1)
+      fixture.detectChanges()
+      expect(group().classList).toContain("hint")
+    })
+
     it("is away on the About page the header is reused for, and back after it", async () => {
       localStorage.setItem("passagePickerUsed", "false")
       open()

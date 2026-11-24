@@ -37,6 +37,17 @@ describe("PassagePickerHintService", () => {
     expect(service.claim()).toBe("play")
   })
 
+  it("stays done for the session when storage refuses the write", () => {
+    // The probe passes (the first read caches the storage); the write then fails.
+    expect(service.claim()).toBe("play")
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("full")
+    })
+    service.markUsed()
+    expect(service.claim()).toBe("done")
+    vi.restoreAllMocks()
+  })
+
   it("does not play where it can't be remembered", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("denied")

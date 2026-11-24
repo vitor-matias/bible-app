@@ -15,8 +15,12 @@ export class PassagePickerHintService {
   private readonly preferences = inject(PreferencesService)
   private readonly onboarding = inject(OnboardingService)
 
+  /** Kept here too: a write that storage refuses still ends the hint for this session. */
+  private usedThisSession = false
+
   /** The reader opened the picker: it needs no hint. */
   markUsed(): void {
+    this.usedThisSession = true
     this.preferences.setPassagePickerUsed()
   }
 
@@ -26,7 +30,9 @@ export class PassagePickerHintService {
    * remembered).
    */
   claim(): "play" | "wait" | "done" {
-    if (this.preferences.getPassagePickerUsed()) return "done"
+    if (this.usedThisSession || this.preferences.getPassagePickerUsed()) {
+      return "done"
+    }
     return this.onboarding.isOpen ? "wait" : "play"
   }
 }

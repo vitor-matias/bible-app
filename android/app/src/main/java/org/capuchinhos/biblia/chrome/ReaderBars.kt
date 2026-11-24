@@ -306,10 +306,10 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
         // For a reader who has never opened the picker (the web app decides):
         // a tip under the title that stays until they tap it, and the ▾
         // bobbing twice now and then. It goes while the title does (a sheet
-        // over it, the bars hiding as the text is read) and comes back with it.
+        // or a toast over it, the bars hiding as the text is read) and comes back with it.
         val tooltip = rememberTooltipState(isPersistent = true)
         val nudge = remember { Animatable(0f) }
-        val titleAway = chrome.sheet != null || chrome.collapsed
+        val titleAway = chrome.sheet != null || chrome.collapsed || chrome.toast != null
         LaunchedEffect(chrome.passageHint, titleAway) {
             if (!chrome.passageHint || titleAway) return@LaunchedEffect
             try {

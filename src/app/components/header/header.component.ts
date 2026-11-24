@@ -283,12 +283,17 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
    */
   private scheduleHint(): void {
     if (!isPlatformBrowser(this.platformId)) return
+    clearTimeout(this.hintTimeout)
     this.hintTimeout = window.setTimeout(() => {
       this.hintTimeout = undefined
       if (this.destroyed) return
       // The web's About button already cycles "Escolher livro"; the native
       // bars' don't, and it's the first page the apps open on.
-      if (!this.native && this.book()?.id === "about") return
+      // It waits there for the reader to move on to a chapter.
+      if (!this.native && this.book()?.id === "about") {
+        this.scheduleHint()
+        return
+      }
       const claim = this.pickerHint.claim()
       // The wizard is up: the hint waits for it to close, then plays.
       if (claim === "wait") this.scheduleHint()
@@ -319,6 +324,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes["book"] || changes["chapterNumber"]) {
       this.updateBookmarkState()
+      // The wait is for a chapter that has sat: a new page starts it again.
+      if (this.hintTimeout !== undefined) this.scheduleHint()
     }
     if (changes["book"]) {
       // The native bar has no room for the prompt; its button is plainly one.
