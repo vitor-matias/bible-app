@@ -12,6 +12,7 @@ import { BibleReferenceService } from "./bible-reference.service"
 import { BookService } from "./book.service"
 import { NativeChromeService } from "./native-chrome.service"
 import type { FootnotesSheetState } from "./native-chrome.types"
+import { PodcastPlayerService } from "./podcast-player.service"
 import { PreferencesService } from "./preferences.service"
 import { SystemTextSizeService } from "./system-text-size.service"
 import { TextAlignService } from "./text-align.service"
@@ -44,7 +45,10 @@ export class NativeFootnotesService {
   private readonly router = inject(Router)
   private readonly analytics = inject(AnalyticsService)
   private readonly toast = inject(ToastService)
+  private readonly player = inject(PodcastPlayerService)
   private session?: Subscription
+  /** Lets the +365 player go on, paused while the sheet is up. */
+  private release?: (resume?: boolean) => void
 
   get enabled(): boolean {
     return this.nativeChrome.enabled
@@ -64,6 +68,11 @@ export class NativeFootnotesService {
     title: string,
   ): void {
     this.session?.unsubscribe()
+    // A note read over the text pauses +365, as the website's sheet does:
+    // resumed once it closes, left paused for a reference followed.
+    this.release?.()
+    const release = this.player.hold()
+    this.release = release
     const links: FootnoteLink[] = []
     const notes = entries.flatMap(({ footnotes, verse }) =>
       footnotes.map((footnote) => ({
@@ -104,10 +113,15 @@ export class NativeFootnotesService {
     // shell waits for a sheet on its way out to go before presenting.
     let presented = false
     const session = this.nativeChrome.actions$.subscribe((action) => {
-      if (action.id === "footnotes-closed" && presented) session.unsubscribe()
+      if (action.id === "footnotes-closed" && presented) {
+        session.unsubscribe()
+        release()
+      }
       if (action.id !== "footnote-link") return
       const link = links[action.index]
       if (!link) return
+      // Elsewhere now: a +365 day going on would take the reader back.
+      release(false)
       this.router.navigate(
         link.commands,
         link.queryParams ? { queryParams: link.queryParams } : {},
@@ -119,7 +133,10 @@ export class NativeFootnotesService {
     // this.
     void this.nativeChrome.showFootnotes(state).then((up) => {
       presented = up
-      if (!up) session.unsubscribe()
+      if (!up) {
+        session.unsubscribe()
+        release()
+      }
     })
   }
 
