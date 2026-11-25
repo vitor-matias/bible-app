@@ -316,7 +316,9 @@ a.references::after {
     text-decoration-color 0.15s ease;
 }
 
-:host(.verse-reading) .verseRun:not(a) {
+/* Not the space before its number, which justified text widens (the
+   highlight's stroke does need it, to run on into the number). */
+:host(.verse-reading) .verseRun:not(a, .verseLead) {
   text-decoration-color: color-mix(in srgb, currentColor 28%, transparent);
 }
 

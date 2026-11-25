@@ -87,6 +87,19 @@ describe("VerseComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // Read along (+365): the verse is underlined, not the space before its
+  // number, which justified text widens.
+  it("underlines the verse being read, not the space before its number", () => {
+    setData(fixture, makeVerse({ number: 2 }))
+    fixture.nativeElement.classList.add("verse-reading")
+    fixture.detectChanges()
+    const color = (selector: string) =>
+      getComputedStyle(fixture.nativeElement.querySelector(selector))
+        .textDecorationColor
+    expect(color(".verseLead")).toBe("rgba(0, 0, 0, 0)")
+    expect(color(".verseRun:not(.verseLead)")).not.toBe("rgba(0, 0, 0, 0)")
+  })
+
   // Ester's Greek additions are stored as verses after the one they trail, so
   // a verse's position is not what the page prints.
   describe("supplements", () => {
