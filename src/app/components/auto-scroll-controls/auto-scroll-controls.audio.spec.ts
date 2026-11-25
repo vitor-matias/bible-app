@@ -109,17 +109,26 @@ describe("AutoScrollControlsComponent +365 mode", () => {
   // The fake streams (anchor.fm/s/x/…) are fetched for real and fail, on a
   // slow network after a test has moved on to them: the player would drop
   // the stream mid-test. Only the browser's own media errors are kept from
-  // it (captured on the way down); the ones the specs dispatch still reach it.
-  const realMediaError = (event: Event) => {
-    if (event.isTrusted && event.target instanceof HTMLMediaElement) {
-      event.stopImmediatePropagation()
-    }
-  }
-  beforeEach(() => window.addEventListener("error", realMediaError, true))
-  afterEach(() => {
-    window.removeEventListener("error", realMediaError, true)
-    http.verify()
+  // it; the ones the specs dispatch still reach it. Kept at the elements'
+  // own listeners: they're never in the page, so their errors (which don't
+  // bubble) never pass through the window.
+  beforeEach(() => {
+    const listen = EventTarget.prototype.addEventListener
+    vi.spyOn(HTMLMediaElement.prototype, "addEventListener").mockImplementation(
+      function (this: HTMLMediaElement, type, listener, options) {
+        const real =
+          type === "error" && listener
+            ? (event: Event) => {
+                if (event.isTrusted) return
+                if (typeof listener === "function") listener.call(this, event)
+                else listener.handleEvent(event)
+              }
+            : listener
+        listen.call(this, type, real, options)
+      },
+    )
   })
+  afterEach(() => http.verify())
 
   // Over the text, dark theme above all, they were too see-through at 85% on
   // a 60% pill; a touch see-through, alike, at 90% on the card's glass.
