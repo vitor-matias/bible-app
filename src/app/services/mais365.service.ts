@@ -291,6 +291,8 @@ export class Mais365Service {
   private begin(day: PlanDay, at = 0): void {
     this.heard.clear()
     this.enteredAt.clear()
+    // The day before's stage would stand for this one's if it never plays.
+    this.reached = null
     this.player.throughEpisode.set(true)
     this.player.throughFrom.set(0)
     this.player.mode.set("audio")

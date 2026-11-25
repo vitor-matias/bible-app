@@ -496,6 +496,30 @@ describe("Mais365Service", () => {
     expect(track).not.toHaveBeenCalledWith("plan_day_end", expect.anything())
   })
 
+  // Another day started from the plan's page, the browser refusing to play
+  // it: its end fell back on the day before's stage («reflection»), so went
+  // untold.
+  it("tells Umami a new day's end, not the day before's stage", async () => {
+    const plan = await create()
+    const first = find(plan, 1)
+    await start(plan, first)
+    hearAll(first)
+    at(first.reflection + 1)
+
+    track.mockClear()
+    const third = find(plan, 3)
+    const started = plan.start(third)
+    // play() refused: the player forgets the stream before any of it plays.
+    player.current.set(null)
+    http.expectOne(`${apiBaseUrl}/mais365/3`).flush(full(third))
+    await started
+    TestBed.tick()
+    expect(track).toHaveBeenLastCalledWith("plan_day_end", {
+      day: 3,
+      stage: null,
+    })
+  })
+
   it("has no days, rather than failing, while the list can't be had", async () => {
     TestBed.configureTestingModule({
       providers: [

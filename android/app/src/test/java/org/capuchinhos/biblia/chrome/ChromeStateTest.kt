@@ -291,19 +291,21 @@ class ChromeInsetsTest {
         assertEquals(ChromeInsets(88f, card), chromeInsets(state, collapsed = false, 24f, 48f, podcastCard = 150f))
         // Playing, it stays as the bars hide for reading.
         assertEquals(ChromeInsets(88f, card, collapsed = true), chromeInsets(state, collapsed = true, 24f, 48f, podcastCard = 150f))
-        // Paused, it goes with them, and its ▶ has the arrows' row.
+        // Paused, it goes with them into its ▶, but keeps its room, as under a
+        // web panel: the paged view laid its pages out again each time.
         val paused = state.copy(podcast = podcast)
-        assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(paused, collapsed = true, 24f, 48f, podcastCard = 150f))
+        assertEquals(ChromeInsets(88f, card, collapsed = true), chromeInsets(paused, collapsed = true, 24f, 48f, podcastCard = 150f))
         assertEquals(ChromeInsets(88f, card), chromeInsets(paused, collapsed = false, 24f, 48f, podcastCard = 150f))
-        // Under a web panel it isn't there.
-        assertEquals(ChromeInsets(88f, 48f + 16f + 56f), chromeInsets(state.copy(inert = true), collapsed = false, 24f, 48f, podcastCard = 150f))
+        assertEquals(ChromeInsets(88f, card), chromeInsets(state.copy(inert = true), collapsed = false, 24f, 48f, podcastCard = 150f))
+        // Before the card is first drawn, its ▶'s row.
+        assertEquals(ChromeInsets(88f, 48f + 16f + 56f), chromeInsets(state, collapsed = false, 24f, 48f))
     }
 
-    // The paused ▶ keeps a row even on a page without arrows, so it never covers the text.
+    // The paused ▶ keeps the card's room even on a page without arrows, so it never covers the text.
     @Test
-    fun keepsARowForThePausedPlayer() {
+    fun keepsRoomForThePausedPlayer() {
         val paused = reader.copy(podcast = podcast)
-        assertEquals(ChromeInsets(88f, 48f + 16f + 56f, collapsed = true), chromeInsets(paused, collapsed = true, 24f, 48f, podcastCard = 150f))
+        assertEquals(ChromeInsets(88f, 48f + 16f + 150f + 12f, collapsed = true), chromeInsets(paused, collapsed = true, 24f, 48f, podcastCard = 150f))
     }
 
     // "▶ Génesis 12" only paused with the bars away, and never over a web panel.

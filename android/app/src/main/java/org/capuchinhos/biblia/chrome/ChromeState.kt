@@ -266,13 +266,17 @@ fun chromeInsets(
     // hide, so the page doesn't grow and shrink with them. Auto-scroll's
     // control floats over the text, as on iOS: it keeps no row. The +365
     // card takes the arrows' place, so it counts instead of their row, with
-    // a gap so the web's read-along keeps the line being read clear of it;
-    // its paused ▶ keeps their row.
+    // a gap so the web's read-along keeps the line being read clear of it.
+    // It keeps that room tucked into its paused ▶ or under a web panel too,
+    // as iOS does: the paged view, sized by it, laid its pages out again each
+    // time the card hid or showed.
     val row = BarMetrics.toolbarOffset + BarMetrics.chapterButton
-    val arrows = if (state.chapterNavigation || state.filterPlaceholder != null || podcastMiniShows(state, collapsed)) row else 0f
+    val arrows = if (state.chapterNavigation || state.filterPlaceholder != null) row else 0f
+    val card = BarMetrics.toolbarOffset + podcastCard + BarMetrics.floatingGap
     return ChromeInsets(
         top = systemTop + readerBar,
-        bottom = systemBottom + if (podcastCardShows(state, collapsed)) BarMetrics.toolbarOffset + podcastCard + BarMetrics.floatingGap else arrows,
+        // Before the card is first drawn, its ▶'s row at least.
+        bottom = systemBottom + if (state.podcast != null) maxOf(card, row) else arrows,
         collapsed = collapsed,
     )
 }
