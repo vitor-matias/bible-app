@@ -27,3 +27,10 @@ export async function moreContrast(active: boolean): Promise<void> {
     features: active ? [{ name: "prefers-contrast", value: "more" }] : [],
   })
 }
+
+/** Emulates print media, in which the computed styles are the printed page's. */
+export async function printMedia(active: boolean): Promise<void> {
+  await cdp().send("Emulation.setEmulatedMedia", {
+    media: active ? "print" : "",
+  })
+}

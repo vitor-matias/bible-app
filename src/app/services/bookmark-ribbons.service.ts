@@ -32,18 +32,19 @@ export function isRibbonColor(color: string | null | undefined): boolean {
 /**
  * The CSS colour to paint a ribbon in: its tone for the theme's surfaces
  * (`--ribbon-<color>` in styles.css), or, with `surface: "light"`, the tone
- * for a surface that stays light in both themes (the web header's buttons).
+ * for a surface that stays light in both themes (the web header's buttons),
+ * or, with `"dark"`, the tone for one that stays dark in both.
  * Null for no ribbon; an unknown colour is painted as stored.
  */
 export function ribbonColor(
   color: string | null | undefined,
-  surface: "theme" | "light" = "theme",
+  surface: "theme" | "light" | "dark" = "theme",
 ): string | null {
   if (!color) return null
   if (!isRibbonColor(color)) return color
-  return surface === "light"
-    ? `var(--ribbon-light-${color})`
-    : `var(--ribbon-${color})`
+  return surface === "theme"
+    ? `var(--ribbon-${color})`
+    : `var(--ribbon-${surface}-${color})`
 }
 
 /** A ribbon's spoken name ("Vermelho"), by the colour a bookmark stores. */

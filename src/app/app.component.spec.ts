@@ -113,11 +113,30 @@ describe("AppComponent", () => {
   })
 
   describe("Vercel Speed Insights", () => {
-    const speedInsightsScripts = () =>
-      document.head.querySelectorAll('script[src*="speed-insights"]')
+    /**
+     * The script the page was asked to load, caught on its way in. Inserted for
+     * real it would run: it keeps timers and idle callbacks going after this
+     * spec, and one landing while a later spec has fake timers throws outside
+     * any test — which failed the whole run, depending on how long the specs
+     * between took.
+     */
+    let speedInsightsScripts: HTMLScriptElement[]
 
     beforeEach(() => {
-      for (const script of Array.from(speedInsightsScripts())) script.remove()
+      speedInsightsScripts = []
+      const append = document.head.appendChild.bind(document.head)
+      vi.spyOn(document.head, "appendChild").mockImplementation(((
+        node: Node,
+      ) => {
+        if (
+          node instanceof HTMLScriptElement &&
+          node.src.includes("speed-insights")
+        ) {
+          speedInsightsScripts.push(node)
+          return node
+        }
+        return append(node)
+      }) as typeof document.head.appendChild)
     })
 
     const servedFrom = (hostname: string) => {
@@ -127,7 +146,7 @@ describe("AppComponent", () => {
     it("is not loaded in the native apps", () => {
       servedFrom("localhost")
       TestBed.createComponent(AppComponent)
-      expect(speedInsightsScripts().length).toBe(0)
+      expect(speedInsightsScripts.length).toBe(0)
     })
 
     // The website is nginx: the script 404'd on every page.
@@ -135,14 +154,14 @@ describe("AppComponent", () => {
       ;(Capacitor.isNativePlatform as Mock).mockReturnValue(false)
       servedFrom("biblia.capuchinhos.org")
       TestBed.createComponent(AppComponent)
-      expect(speedInsightsScripts().length).toBe(0)
+      expect(speedInsightsScripts.length).toBe(0)
     })
 
     it("is loaded on the Vercel deployment", () => {
       ;(Capacitor.isNativePlatform as Mock).mockReturnValue(false)
       servedFrom("bible-app-ten-psi.vercel.app")
       TestBed.createComponent(AppComponent)
-      expect(speedInsightsScripts().length).toBe(1)
+      expect(speedInsightsScripts.length).toBe(1)
     })
   })
 

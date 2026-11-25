@@ -2537,6 +2537,15 @@ describe("SearchComponent", () => {
       expect(router.navigate).toHaveBeenCalledWith(["/", "psa", 95], {})
     })
 
+    it("opens directly when the leaflet leaves out the comma before the verses", async () => {
+      referenceService.extract.mockReturnValue([
+        { match: "Sl 23,1-6", index: 0, book: "Sl", chapter: 23 },
+      ])
+      await component.onSearchSubmit("Sl 23 (22) 1-6")
+
+      expect(referenceService.extract).toHaveBeenCalledWith("Sl 23,1-6")
+    })
+
     // «Jo 3,16; Sl 94 (95)» offered «Escolher o Salmo 94» second.
     it("keeps the pair in a later reference", async () => {
       const found: Record<string, BibleReference[]> = {
