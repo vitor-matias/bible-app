@@ -680,9 +680,9 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(player().current()?.title).toBe("Êxodo 5")
 
       // Its end is where the next segment began, maybe within the last word:
-      // it plays 0.15 s on before the next part takes over.
+      // it plays 0.05 s on before the next part takes over.
       vi.useFakeTimers()
-      endPart(playing, 1300.1)
+      endPart(playing, 1300.02)
       expect(stream.paused).toBe(true)
       playing.currentTime = 1300.5
       await vi.advanceTimersByTimeAsync(300)
