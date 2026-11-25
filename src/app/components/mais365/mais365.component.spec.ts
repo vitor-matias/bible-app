@@ -155,6 +155,24 @@ describe("Mais365Component", () => {
     expect(plan.start).toHaveBeenCalledWith(day1)
   })
 
+  // Another day picked during a reflection: the two cards touched.
+  it("sets another day's card apart from the reflection's", () => {
+    plan.active.set(day1)
+    plan.stage.set("reflection")
+    player.position.set(700)
+    fixture.detectChanges()
+    button("Introdução à Criação do Mundo")?.click()
+    fixture.detectChanges()
+    const host = fixture.nativeElement as HTMLElement
+    const reflection = (
+      host.querySelector(".reflection") as HTMLElement
+    ).getBoundingClientRect()
+    const picked = (
+      host.querySelector(".today") as HTMLElement
+    ).getBoundingClientRect()
+    expect(picked.top - reflection.bottom).toBeGreaterThanOrEqual(16)
+  })
+
   it("shows the reflection with its priest and readings, to move through", () => {
     plan.active.set(day1)
     plan.stage.set("reflection")

@@ -40,6 +40,12 @@
   background: var(--android-surface-container-low);
 }
 
+/* Another day picked during a reflection: its card under the player's,
+   apart from it (they touched). */
+.card ~ .card {
+  margin-top: 16px;
+}
+
 .kicker {
   margin: 0;
   font-size: 0.85em;
@@ -234,10 +240,15 @@
     padding-inline: 32px;
   }
 
+  /* Two cards can be taller than the window: then the column scrolls in
+     place, its foot still in reach. */
   .today-column {
     position: sticky;
     top: calc(var(--app-header-height, 0px) + 24px);
     align-self: start;
+    max-height: calc(100dvh - var(--app-header-height, 0px) - 48px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .days-title {
