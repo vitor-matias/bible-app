@@ -184,6 +184,15 @@
   display: flex;
 }
 
+/* Round and 40px, as the buttons beside it: it was a 64px pill. */
+.audio-speed {
+  --mat-button-text-container-shape: 50%;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
 /* Every play button, scrolling or listening: the controls' brown, round,
    with their highlight on it (over the arrows' look it would otherwise
    take as a .floating-nav-button). */
@@ -326,6 +335,14 @@
 .audio-collapse .mat-icon,
 .audio-expand .mat-icon {
   color: var(--ink);
+}
+
+/* 18px, in the middle of its 24px button: the icon took Material's 24px
+   (the token doesn't reach it), poking out of its own hover circle. */
+.audio-collapse .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
 }
 
 /* Tucked away: play and «show» in a small pill where the card was. */

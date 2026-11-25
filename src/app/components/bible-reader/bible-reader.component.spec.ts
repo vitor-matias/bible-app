@@ -2369,7 +2369,7 @@ describe("BibleReaderComponent", () => {
       expect(component["readingVerse"]()).toBeNull()
     })
 
-    it("leaves «Mostrar o +365» out of the menu in pages +365 doesn't read", () => {
+    it("leaves «Mostrar o leitor» out of the menu in pages +365 doesn't read", () => {
       fixture.detectChanges()
       component.showAutoScrollControls = false
       component.chapter = { bookId: "exo", number: 1, verses: [] } as Chapter

@@ -1,6 +1,7 @@
 import { signal } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter } from "@angular/router"
+import { page } from "vitest/browser"
 import { Mais365Service, type PlanDay } from "../../services/mais365.service"
 import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { Mais365Component } from "./mais365.component"
@@ -258,6 +259,29 @@ describe("Mais365Component", () => {
         expect(pill()?.textContent).toContain("arrow_downward")
       })
     })
+  })
+
+  // A wide screen's card, half the page: the third wrapped onto a row alone.
+  it("fits the day's buttons in one row on a wide screen", async () => {
+    await page.viewport(1400, 900)
+    try {
+      plan.done.set([1])
+      button("No princípio")?.click()
+      fixture.detectChanges()
+      const rows = () =>
+        new Set(
+          Array.from(
+            (fixture.nativeElement as HTMLElement).querySelectorAll(
+              ".today .actions > *",
+            ),
+            (button) => Math.round(button.getBoundingClientRect().top),
+          ),
+        ).size
+      expect(text()).toContain("Marcar como não lido")
+      expect(rows()).toBe(1)
+    } finally {
+      await page.viewport(800, 600)
+    }
   })
 
   // Hosted on the web, the page sits in the reader's text and takes its size.

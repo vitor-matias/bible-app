@@ -1595,6 +1595,25 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     }
   })
 
+  // The speed was a 64px pill beside 40px circles, and the chevron's 24px
+  // icon poked out of its 24px button's hover circle.
+  it("sizes the speed as its neighbours, and the chevron inside its button", async () => {
+    await listen()
+    const box = (selector: string) =>
+      (find(selector) as HTMLElement).getBoundingClientRect()
+    const speed = box(".audio-speed")
+    expect([speed.width, speed.height]).toEqual([40, 40])
+    expect(getComputedStyle(find(".audio-speed") as Element).borderRadius).toBe(
+      "50%",
+    )
+    const button = box(".audio-collapse")
+    const icon = box(".audio-collapse .mat-icon")
+    expect(icon.left).toBeGreaterThanOrEqual(button.left)
+    expect(icon.right).toBeLessThanOrEqual(button.right)
+    expect(icon.top).toBeGreaterThanOrEqual(button.top)
+    expect(icon.bottom).toBeLessThanOrEqual(button.bottom)
+  })
+
   it("fits its rows inside --audio-card-height", async () => {
     await listen()
     const card = find(".audio-player") as HTMLElement

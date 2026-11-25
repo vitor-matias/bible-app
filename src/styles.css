@@ -711,11 +711,6 @@ bible-reader:has(.mat-drawer.mat-drawer-opened) .auto-scroll-controls {
     grid-column: 3;
   }
 
-  body .auto-scroll-controls .audio-speed {
-    min-width: 48px;
-    padding: 0 8px;
-  }
-
   body .auto-scroll-controls .plan-skip {
     order: 3;
   }

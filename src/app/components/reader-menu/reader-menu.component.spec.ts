@@ -117,7 +117,7 @@ describe("ReaderMenuComponent", () => {
   it("offers the +365 player in the paged view, where nothing scrolls", () => {
     open("paged", true)
 
-    expect(menuItem("Esconder o +365")).toBeTruthy()
+    expect(menuItem("Esconder o leitor")).toBeTruthy()
     expect(document.body.textContent).not.toContain("deslocamento automático")
     expect(document.body.textContent).not.toContain("Indisponível")
   })
@@ -169,7 +169,7 @@ describe("ReaderMenuComponent", () => {
       .openMenu()
     fixture.detectChanges()
 
-    menuItem("Esconder o +365").click()
+    menuItem("Esconder o leitor").click()
     expect(fixture.componentInstance.toggles()).toBe(1)
 
     fixture.componentInstance.viewMode.set("scrolling")

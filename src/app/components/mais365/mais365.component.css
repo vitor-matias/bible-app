@@ -117,6 +117,8 @@
 .mais365 {
   --mat-button-filled-container-color: antiquewhite;
   --mat-button-filled-label-text-color: #543d27;
+  /* The theme's 14px, set here: the day's three fit a row by it. */
+  --mat-button-filled-label-text-size: 14px;
   --mat-fab-container-color: antiquewhite;
   --mat-fab-foreground-color: #543d27;
   --mat-icon-button-icon-color: #543d27;
@@ -142,6 +144,12 @@
 /* The header pills' outline, so they hold on the card in either theme. */
 .card .actions .mat-mdc-button-base {
   border: 1px solid color-mix(in srgb, #543d27 35%, transparent);
+}
+
+/* Less side room than Material's 24px: the day's three in one row on a wide
+   screen's card, «Marcar como não lido» too. */
+.today .actions .mat-mdc-button-base {
+  padding-inline: 16px;
 }
 
 .transport .mat-mdc-icon-button {
