@@ -277,6 +277,20 @@ describe("Mais365Service", () => {
     expect(player.current()?.verses).toEqual([[1, 58.4]])
   })
 
+  // Dia 7's Provérbios 1,8-19: the book opens at verse 8, not the top.
+  it("opens a reading from part of a chapter at its first verse", async () => {
+    const plan = await create()
+    const day = find(plan, 3)
+    const started = plan.start(day, 2)
+    http.expectOne(`${apiBaseUrl}/mais365/3`).flush(full(day))
+    await started
+    TestBed.tick()
+    expect(navigate).toHaveBeenCalledWith(["/", "pro", 1], {
+      queryParams: { verseStart: 1, highlight: false },
+    })
+    expect(plan.query(day.readings[0])).toBeNull()
+  })
+
   it("plays the listed copy when the full one can't be had", async () => {
     const plan = await create()
     const started = plan.start(find(plan, 1))

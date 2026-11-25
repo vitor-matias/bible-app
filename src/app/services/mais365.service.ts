@@ -79,6 +79,24 @@ export class Mais365Service {
     return ["/", abrv, reading.chapter]
   }
 
+  /**
+   * A reading from part of a chapter (Provérbios 1,8-19) opens at its first
+   * verse, not the chapter's top; unmarked, as the read-along marks it.
+   */
+  query(reading: PlanReading): { verseStart: number; highlight: false } | null {
+    return reading.range
+      ? { verseStart: reading.range[0], highlight: false }
+      : null
+  }
+
+  /** Turns the reader to a reading, at its first verse. */
+  private open(reading: PlanReading): void {
+    const queryParams = this.query(reading)
+    void (queryParams
+      ? this.router.navigate(this.link(reading), { queryParams })
+      : this.router.navigate(this.link(reading)))
+  }
+
   /** Asked for by the plan's page: every reader page has this service. */
   private readonly wanted = signal(false)
   /**
@@ -216,7 +234,7 @@ export class Mais365Service {
         // Named for the system's player: the chapter, not the whole day.
         this.player.adopt({ ...reading.episode, title: readingLabel(reading) })
         // Once: the full copy's re-adoption mustn't take the reader back.
-        if (entering) void this.router.navigate(this.link(reading))
+        if (entering) this.open(reading)
       })
     })
     // The episode over (or failed): the session with it.
@@ -298,7 +316,7 @@ export class Mais365Service {
       this.player.position.set(first.episode.start ?? 0)
     }
     this.active.set(day)
-    void this.router.navigate(this.link(first))
+    this.open(first)
     if (!this.player.isCurrent(first.episode) || !this.player.playing()) {
       this.player.toggle(first.episode)
     }

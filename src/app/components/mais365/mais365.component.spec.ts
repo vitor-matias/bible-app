@@ -60,6 +60,7 @@ describe("Mais365Component", () => {
       reading.bookId,
       reading.chapter,
     ],
+    query: () => null,
     start: vi.fn(),
     end: vi.fn(),
     toggle: vi.fn(),
