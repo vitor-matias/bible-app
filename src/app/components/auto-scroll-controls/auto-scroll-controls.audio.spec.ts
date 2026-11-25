@@ -127,6 +127,8 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     await answer([day3])
     const controls = find(".auto-scroll-controls") as HTMLElement
     expect(getComputedStyle(controls).opacity).toBe("1")
+    // ▶ as solid as the pill beside it.
+    expect(getComputedStyle(toggle() as HTMLElement).opacity).toBe("1")
     const pill = find(".auto-scroll-speed") as HTMLElement
     const alpha = getComputedStyle(pill).backgroundColor.match(/[\d.]+(?=\)$)/)
     // An rgba() of at least 0.9, or an opaque rgb().

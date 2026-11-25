@@ -38,16 +38,8 @@
 }
 
 .floating-nav-button {
-  opacity: 0.8;
-  transition: opacity 0.3s;
   color: var(--cap-brown);
   background-color: var(--highlight-color);
-}
-
-@media (hover: hover) {
-  .floating-nav-button:hover {
-    opacity: 1;
-  }
 }
 
 @media (max-width: 768px) {
