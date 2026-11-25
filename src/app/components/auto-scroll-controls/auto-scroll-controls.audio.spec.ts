@@ -762,9 +762,12 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     it("starts the first part at its first verse too, past the day's announcement", async () => {
       await listen([{ ...first, verses: [[1, 1004.8]] }, second])
       tap(toggle())
-      expect((play.mock.contexts[0] as HTMLAudioElement).src).toBe(
-        `${first.url}#t=1004`,
-      )
+      expect(
+        play.mock.contexts.some(
+          (element: unknown) =>
+            (element as HTMLAudioElement).src === `${first.url}#t=1004`,
+        ),
+      ).toBe(true)
     })
 
     // The lock screen's play and pause, on the part playing, not the standby.
@@ -784,6 +787,23 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       handlers.get("play")?.({ action: "play" })
       expect(playing.paused).toBe(false)
       expect(player().playing()).toBe(true)
+    })
+
+    // Salmo 119's first part is also Dia 43's first reading.
+    it("leaves the parts aside while a day plays its episode through", async () => {
+      await listen([first, second, third])
+      tap(toggle())
+      player().pause()
+      player().throughEpisode.set(true)
+      player().toggle(first)
+      const stream = play.mock.contexts.find((element: unknown) =>
+        (element as HTMLAudioElement).src.startsWith(first.url),
+      ) as HTMLAudioElement
+      stream.currentTime = 1295
+      player().skip(15)
+      expect(player().current()?.range).toEqual([1, 56])
+      expect(stream.src).toBe(`${first.url}#t=1000`)
+      expect(stream.currentTime).toBe(1310)
     })
 
     it("lets the next part's loading say nothing of what plays", async () => {

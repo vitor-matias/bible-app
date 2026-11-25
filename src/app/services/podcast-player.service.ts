@@ -153,7 +153,13 @@ export class PodcastPlayerService {
     seconds: number,
   ): { elapsed: number; length: number } | null {
     const current = this.current()
-    if (!current || !this.chain.some((part) => samePart(part, current))) {
+    // Not in a +365 day, which plays its episode through: a chapter's parts
+    // left from before would send ±15 s or the lock screen to another day.
+    if (
+      this.throughEpisode() ||
+      !current ||
+      !this.chain.some((part) => samePart(part, current))
+    ) {
       return null
     }
     return partsTime(this.chain, current, seconds)

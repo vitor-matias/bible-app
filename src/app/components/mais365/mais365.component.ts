@@ -8,6 +8,7 @@ import {
   type OnDestroy,
   type OnInit,
   signal,
+  untracked,
 } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
@@ -52,9 +53,26 @@ export class Mais365Component implements OnInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef)
 
   /** The day shown: the one playing, else today, until another is picked. */
-  protected readonly selected = linkedSignal<PlanDay | undefined>(
-    () => this.plan.active() ?? this.plan.today(),
-  )
+  /**
+   * The day on the card: the one playing, else today's, until another is
+   * picked. Marking a day read moves today on, but not the card, so its
+   * «Lido ✓» shows (and can be undone): only a day started or ended, or the
+   * days loaded again, set it afresh.
+   */
+  protected readonly selected = linkedSignal<
+    { active: PlanDay | null; days: PlanDay[] },
+    PlanDay | undefined
+  >({
+    source: () => ({ active: this.plan.active(), days: this.plan.days() }),
+    computation: ({ active, days }, previous) => {
+      if (active) return active
+      const kept = previous?.value
+      const sameSession = previous?.source.active === active
+      return sameSession && kept && days.some((day) => day.day === kept.day)
+        ? kept
+        : untracked(this.plan.today)
+    },
+  })
   protected readonly readingLabel = readingLabel
 
   protected readonly inReflection = computed(

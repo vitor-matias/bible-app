@@ -87,6 +87,8 @@ describe("Mais365Component", () => {
 
   beforeEach(() => {
     plan.days.set([intro, day1])
+    plan.today.set(intro)
+    plan.done.set([])
     resource.isLoading.set(false)
     resource.error.set(undefined)
     plan.active.set(null)
@@ -100,6 +102,21 @@ describe("Mais365Component", () => {
     })
     fixture = TestBed.createComponent(Mais365Component)
     fixture.detectChanges()
+  })
+
+  it("keeps a day just marked read on the card, to show it and to undo it", () => {
+    plan.today.set(day1)
+    plan.days.set([intro, day1, { ...day1, day: 2, title: "Dia 2" }])
+    fixture.detectChanges()
+    // As the service: marked, today moves on to the next day.
+    plan.markDone.mockImplementationOnce((day: number) => {
+      plan.done.set([day])
+      plan.today.set({ ...day1, day: 2, title: "Dia 2" })
+    })
+    button("Marcar como lido")?.click()
+    fixture.detectChanges()
+    expect(text()).toContain("Lido ✓")
+    expect(button("Marcar como não lido")).toBeDefined()
   })
 
   it("asks for the plan, and says so while it loads or when it can't", () => {
