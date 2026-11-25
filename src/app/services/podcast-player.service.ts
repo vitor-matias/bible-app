@@ -522,11 +522,19 @@ export class PodcastPlayerService {
     this.duration.set(Number.isFinite(standby.duration) ? standby.duration : 0)
     this.position.set(next.start ?? 0)
     standby.playbackRate = this.rate()
-    this.play(standby, next)
+    // Stopped before the next starts: started first, iOS let the jingle
+    // after the ending part through for a moment.
     ending.pause()
+    this.play(standby, next)
+    // The system's player follows the element that played last: told of the
+    // part again on the new one, or the lock screen loses it till the next.
+    this.retellSession = true
     const after = this.nextPart()
     if (after) this.prepare(after)
   }
+
+  /** The system's player told afresh, after the parts' elements swap. */
+  private retellSession = false
 
   private clearEndTimer(): void {
     clearTimeout(this.endTimer)
@@ -636,10 +644,13 @@ export class PodcastPlayerService {
     const artist = this.throughEpisode()
       ? `+365 · Dia ${current.day}`
       : "Bíblia Sagrada"
+    session.playbackState = this.playing() ? "playing" : "paused"
     if (
+      this.retellSession ||
       session.metadata?.title !== current.title ||
       session.metadata?.artist !== artist
     ) {
+      this.retellSession = false
       session.metadata = new MediaMetadata({
         title: current.title,
         artist,
