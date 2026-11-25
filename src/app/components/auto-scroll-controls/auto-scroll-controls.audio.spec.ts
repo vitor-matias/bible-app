@@ -121,13 +121,14 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     http.verify()
   })
 
-  // Over the text, dark theme above all, they were too see-through.
-  it("draws its controls solid enough to read over the text", async () => {
+  // Over the text, dark theme above all, they were too see-through at 85% on
+  // a 60% pill; a touch see-through, alike, at 90% on the card's glass.
+  it("draws its controls solid enough to read over the text, alike", async () => {
     render("exo", 5)
     await answer([day3])
     const controls = find(".auto-scroll-controls") as HTMLElement
-    expect(getComputedStyle(controls).opacity).toBe("1")
-    // ▶ as solid as the pill beside it.
+    expect(getComputedStyle(controls).opacity).toBe("0.9")
+    // ▶ no fainter than the pill beside it.
     expect(getComputedStyle(toggle() as HTMLElement).opacity).toBe("1")
     const pill = find(".auto-scroll-speed") as HTMLElement
     const alpha = getComputedStyle(pill).backgroundColor.match(/[\d.]+(?=\)$)/)

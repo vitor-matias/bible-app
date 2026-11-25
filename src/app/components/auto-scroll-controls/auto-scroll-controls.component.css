@@ -11,6 +11,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  /* A touch see-through, ▶ and the pill alike (the card is solid). */
+  opacity: 0.9;
   font-family: "Roboto", sans-serif;
 }
 
