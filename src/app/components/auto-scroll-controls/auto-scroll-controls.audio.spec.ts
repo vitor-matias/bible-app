@@ -106,7 +106,20 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     fixture = TestBed.createComponent(AutoScrollControlsComponent)
   })
 
-  afterEach(() => http.verify())
+  // The fake streams (anchor.fm/s/x/…) are fetched for real and fail, on a
+  // slow network after a test has moved on to them: the player would drop
+  // the stream mid-test. Only the browser's own media errors are kept from
+  // it (captured on the way down); the ones the specs dispatch still reach it.
+  const realMediaError = (event: Event) => {
+    if (event.isTrusted && event.target instanceof HTMLMediaElement) {
+      event.stopImmediatePropagation()
+    }
+  }
+  beforeEach(() => window.addEventListener("error", realMediaError, true))
+  afterEach(() => {
+    window.removeEventListener("error", realMediaError, true)
+    http.verify()
+  })
 
   it("offers no +365 mode for a chapter no episode reads", async () => {
     render("exo", 5)
