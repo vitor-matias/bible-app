@@ -478,16 +478,17 @@ bible-reader .books-loading {
   /* The auto-scroll controls take the foot of the screen, centred, 16px up
      and 48px tall (auto-scroll-controls.component.css): at 320 px they
      covered the arrows' corners, at 393 px they ran beside them. The arrows,
-     and a toast above them, go 20px higher while they show. */
+     and a toast above them, go 32px higher while they show: the copyright
+     centred between them, three lines tall, clears the controls too. */
   body:has(.auto-scroll-controls)
     .floating-nav-button:is(.prev-chapter, .next-chapter) {
-    bottom: calc(72px + var(--app-inset-bottom));
+    bottom: calc(84px + var(--app-inset-bottom));
   }
 
   body:not(.native-chrome):has(.auto-scroll-controls)
     .cdk-overlay-pane
     .mat-mdc-snack-bar-container {
-    margin-bottom: calc(128px + var(--app-inset-bottom));
+    margin-bottom: calc(140px + var(--app-inset-bottom));
   }
 }
 
@@ -538,33 +539,34 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
   (max-width: 768px) and (min-height: 501px) {
   body:has(.auto-scroll-controls:not(.placed) .audio-player)
     .floating-nav-button:is(.prev-chapter, .next-chapter) {
-    bottom: calc(var(--audio-card-height) + 24px + var(--app-inset-bottom));
+    bottom: calc(var(--audio-card-height) + 36px + var(--app-inset-bottom));
   }
 
   body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
     .cdk-overlay-pane
     .mat-mdc-snack-bar-container {
-    margin-bottom: calc(var(--audio-card-height) + 80px + var(--app-inset-bottom));
+    margin-bottom: calc(var(--audio-card-height) + 92px + var(--app-inset-bottom));
   }
 }
 
 /* A phone, scrolling, on the web: the copyright ends the chapter between
    the ‹ › arrows, in their row, as in the apps, not in a band under them
    (it ran behind them). Its sides clear the arrows (24px in, 48px wide, and
-   16px of air); its bottom is theirs: 72px up, or level with them over the
+   16px of air); its bottom is theirs: 84px up, or level with them over the
    «Ouvir» card (whose room under the text is the card's and 32px, the
-   arrows' bottom 8px less). */
+   arrows' bottom 4px more). */
 @media (max-width: 768px) {
   /* Android's own sizes on a phone (14px over 11px, lines at 1.25), to keep
-     to three lines or so between the arrows; as tall as they are at least,
-     and centred so, when it's short. */
+     to three lines or so between the arrows; the box is the arrows' own
+     48px, its text centred on them and spilling evenly above and below,
+     with the room above for it. */
   body:not(.native-chrome) bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) {
     width: auto;
-    min-height: 48px;
+    height: 48px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    margin: 0 calc(88px + var(--app-inset-right)) 0 calc(88px + var(--app-inset-left));
+    margin: 24px calc(88px + var(--app-inset-right)) 0 calc(88px + var(--app-inset-left));
     padding: 0;
     font-size: 14px;
     line-height: 1.25;
@@ -575,14 +577,14 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
   }
 
   body:not(.native-chrome) bible-reader .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) {
-    padding-bottom: calc(72px + var(--app-inset-bottom));
+    padding-bottom: calc(84px + var(--app-inset-bottom));
   }
 
   body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
     bible-reader
     .mat-drawer-content
     > .copyright-footer:not(.fixed-footer) {
-    margin-bottom: -8px;
+    margin-bottom: 4px;
   }
 }
 
