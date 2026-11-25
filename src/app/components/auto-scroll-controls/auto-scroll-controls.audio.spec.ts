@@ -461,6 +461,38 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(track).toHaveBeenCalledWith("podcast_speed", { rate: 1.1 })
   })
 
+  // For the › arrow set on top of the card on a phone held sideways.
+  it("publishes the card's height for what sits on top of it", async () => {
+    await listen()
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    const card = (find(".audio-player") as HTMLElement).getBoundingClientRect()
+    expect(
+      document.documentElement.style.getPropertyValue(
+        "--audio-card-live-height",
+      ),
+    ).toBe(`${Math.round(card.height)}px`)
+    fixture.destroy()
+    expect(
+      document.documentElement.style.getPropertyValue(
+        "--audio-card-live-height",
+      ),
+    ).toBe("")
+  })
+
+  // The lock screen: a chapter is the Bible's, only a day of the plan +365's.
+  it("names a chapter's audio the Bible's, and a plan day's +365's", async () => {
+    await listen()
+    tap(toggle())
+    TestBed.tick()
+    expect(navigator.mediaSession.metadata?.artist).toBe("Bíblia Sagrada")
+    const player = TestBed.inject(PodcastPlayerService)
+    player.throughEpisode.set(true)
+    player.position.set(100)
+    TestBed.tick()
+    expect(navigator.mediaSession.metadata?.artist).toBe("+365 · Dia 3")
+  })
+
   it("keeps the screen on while +365 plays", async () => {
     const keepAwake = TestBed.inject(KeepAwakeService)
     const start = vi.spyOn(keepAwake, "start")

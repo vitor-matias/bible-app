@@ -930,10 +930,42 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * The card's height as --audio-card-live-height, for what sits on top of
+   * it (the › arrow, on a phone held sideways): one line of caption or two,
+   * a day of the plan's buttons. The card comes and goes (tucked, scrolling
+   * instead), so it's looked for again whenever the controls change.
+   */
+  private publishCardHeight(): void {
+    if (typeof ResizeObserver === "undefined") return
+    const root = document.documentElement
+    const host = this.host.nativeElement
+    const sizes = new ResizeObserver(([entry]) => {
+      const height = Math.round(entry.target.getBoundingClientRect().height)
+      root.style.setProperty("--audio-card-live-height", `${height}px`)
+    })
+    const watch = () => {
+      sizes.disconnect()
+      const card = host.querySelector(".audio-player")
+      if (card) sizes.observe(card)
+    }
+    const changes = new MutationObserver(watch)
+    changes.observe(host, { childList: true, subtree: true })
+    watch()
+    this.destroyRef.onDestroy(() => {
+      sizes.disconnect()
+      changes.disconnect()
+      root.style.removeProperty("--audio-card-live-height")
+    })
+  }
+
   ngOnInit(): void {
     this.followEnd()
     this.watchReader()
-    if (typeof window !== "undefined" && !this.native) this.watchDesktop()
+    if (typeof window !== "undefined" && !this.native) {
+      this.watchDesktop()
+      this.publishCardHeight()
+    }
     if (!this.native) return
     this.nativeChrome.actions$
       .pipe(takeUntilDestroyed(this.destroyRef))

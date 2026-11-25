@@ -125,13 +125,6 @@
       </button>
       }
       }
-      @if ((showAutoScrollControls || heldByPlan()) && drawerContent && bookBlock) {
-      <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
-        [bookId]="chapter.bookId" [chapter]="chapter.number"
-        [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'"
-        (readingVerse)="onReadingVerse($event)" (pageTurn)="onPageTurn($event)">
-      </app-auto-scroll-controls>
-      }
       @if (canGoNext) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button next-chapter" mat-mini-fab aria-label="Capítulo seguinte"
@@ -148,6 +141,15 @@
       }
     </mat-drawer-content>
   </mat-drawer-container>
+  <!-- Outside the scroller: iOS Safari clips a fixed element inside it to its
+       box, which cut the card's shadow and, shortened, the card itself. -->
+  @if (!isPage && chapter && (showAutoScrollControls || heldByPlan()) && drawerContent && bookBlock) {
+  <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
+    [bookId]="chapter.bookId" [chapter]="chapter.number"
+    [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'"
+    (readingVerse)="onReadingVerse($event)" (pageTurn)="onPageTurn($event)">
+  </app-auto-scroll-controls>
+  }
 </div>
 } @else if (showLoading) {
 <!-- Shown after a moment (styles.css), so a quick load never flashes it. -->

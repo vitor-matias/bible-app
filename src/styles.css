@@ -541,6 +541,13 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
   }
 }
 
+/* The «Ouvir» controls live outside the reader's scroller (iOS Safari clips
+   fixed elements inside it): over an open book list they'd show, which
+   covered them while they were inside. */
+bible-reader:has(.mat-drawer.mat-drawer-opened) .auto-scroll-controls {
+  visibility: hidden;
+}
+
 /* A phone held sideways (landscape, at most 500px tall): too low for the
    card below the text, but with width to spare. The card sits in the bottom
    right corner instead, as tall as its rows (the timeline, ±15 s round ▶,
@@ -550,10 +557,13 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
 @media (orientation: landscape) and (max-height: 500px) {
   :root {
     --audio-side-width: 176px;
+    /* Its right edge: into the side's safe area, which is mostly margin
+       around the notch, as far as the notch leaves room. */
+    --audio-side-right: max(8px, calc(var(--app-inset-right) - 20px));
   }
 
   body .auto-scroll-controls.audio:not(.placed):has(.audio-player) {
-    right: calc(8px + var(--app-inset-right));
+    right: var(--audio-side-right);
     bottom: calc(8px + var(--app-inset-bottom));
     left: auto;
     transform: none;
@@ -667,8 +677,28 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
     padding-right: calc(var(--audio-side-width) + 16px);
   }
 
+  /* The scrolling text as wide as the room between the ‹ arrow and the
+     card, not the 55% a wide screen gets. */
+  body:has(.auto-scroll-controls:not(.placed) .audio-player)
+    bible-reader
+    .mat-drawer-content:not(:has(.paged-view-container))
+    .bookBlock {
+    max-width: none;
+    margin-left: calc(88px + var(--app-inset-left));
+    margin-right: 16px;
+  }
+
+  /* The › arrow on top of the card, centred over it: the text has the
+     card's side to itself. */
   body:has(.auto-scroll-controls:not(.placed) .audio-player) .floating-nav-button.next-chapter {
-    right: calc(var(--audio-side-width) + 24px + env(safe-area-inset-right));
+    top: auto;
+    transform: none;
+    right: calc(var(--audio-side-right) + (var(--audio-side-width) - 48px) / 2);
+    /* The card's height as it measures it (AutoScrollControlsComponent). */
+    bottom: calc(
+      8px + var(--app-inset-bottom) + var(--audio-card-live-height, 186px) +
+        12px
+    );
   }
 
   /* The pages' copyright line too. */

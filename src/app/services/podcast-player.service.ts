@@ -630,10 +630,17 @@ export class PodcastPlayerService {
       session.metadata = null
       return
     }
-    if (session.metadata?.title !== current.title) {
+    // A chapter is the Bible's; only a day of the plan is +365's.
+    const artist = this.throughEpisode()
+      ? `+365 · Dia ${current.day}`
+      : "Bíblia Sagrada"
+    if (
+      session.metadata?.title !== current.title ||
+      session.metadata?.artist !== artist
+    ) {
       session.metadata = new MediaMetadata({
         title: current.title,
-        artist: "+365",
+        artist,
         album: "Bíblia Sagrada",
         artwork: [
           {
