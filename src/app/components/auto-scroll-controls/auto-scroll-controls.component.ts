@@ -53,6 +53,8 @@ const SPEED_LIMIT_TOLERANCE = 0.001
  * closing this share of the distance per second, until the verse's top
  * touches the area's upper edge.
  */
+/** A part heard straight on starts this long before its first verse. */
+const PART_LEAD = 0.3
 const READING_AREA = 0.75
 /** Where a desktop reader dragged the card, and the width they gave it. */
 const POSITION_KEY = "audioCardPosition"
@@ -231,9 +233,44 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     )
   })
 
-  protected readonly entry = computed(
-    () => this.planEntry() ?? this.episodes.value()?.[0],
-  )
+  /**
+   * A chapter read only in parts, over several days (Salmo 119, Provérbios
+   * 1–6): its parts in order, played as one; null for one read whole.
+   */
+  private readonly parts = computed(() => {
+    const episodes = this.episodes.value() ?? []
+    if (episodes.length < 2 || episodes.some((e) => !e.range)) return null
+    return (
+      [...episodes]
+        .sort((a, b) => (a.range?.[0] ?? 0) - (b.range?.[0] ?? 0))
+        // Heard as one chapter: past each later day's announcement ("Provérbios
+        // 3, 5 a 8"), straight on to its first verse.
+        .map((part, i) => {
+          const first = part.verses?.[0]?.[1]
+          return i === 0 || first === undefined
+            ? part
+            : {
+                ...part,
+                // To the hundredth, as the API gives times ("#t=1029.86").
+                start: Math.max(
+                  part.start ?? 0,
+                  Math.round((first - PART_LEAD) * 100) / 100,
+                ),
+              }
+        })
+    )
+  })
+
+  protected readonly entry = computed(() => {
+    const parts = this.parts()
+    return (
+      this.planEntry() ??
+      // The part playing, once the chapter has gone on to it.
+      parts?.find((part) => this.player.isCurrent(part)) ??
+      parts?.[0] ??
+      this.episodes.value()?.[0]
+    )
+  })
 
   /**
    * The episode the last finished lookup found, kept through the next one:
@@ -853,11 +890,14 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       return
     }
     // Named for the system's player: the chapter, not the episode's day.
+    const title = `${this.bookName()} ${this.chapter()}`
+    const parts = this.parts() ?? []
+    const rest = parts.slice(parts.indexOf(entry as ChapterEpisode) + 1)
     if (entry) {
-      this.player.toggle({
-        ...entry,
-        title: `${this.bookName()} ${this.chapter()}`,
-      })
+      this.player.toggle(
+        { ...entry, title },
+        rest.map((part) => ({ ...part, title })),
+      )
     }
   }
 

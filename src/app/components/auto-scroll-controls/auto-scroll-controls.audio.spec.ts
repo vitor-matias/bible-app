@@ -586,6 +586,95 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stop).toHaveBeenCalled()
   })
 
+  // Salmo 119 is read over Dia 43–45, a third a day.
+  describe("a chapter read in parts", () => {
+    const part = (
+      day: number,
+      range: [number, number],
+      start: number,
+    ): ChapterEpisode => ({
+      day,
+      title: `Dia ${day}`,
+      url: `https://anchor.fm/s/x/podcast/play/${day}.m4a`,
+      start,
+      end: start + 300,
+      range,
+    })
+    const first = part(43, [1, 56], 1000)
+    const second = part(44, [57, 120], 1100)
+    const third = part(45, [121, 176], 1200)
+    // Each day announces its part before reading it: "Salmo 119, 57 a 120".
+    second.verses = [[57, 1108.3]]
+    const player = () => TestBed.inject(PodcastPlayerService)
+    const sources = () =>
+      play.mock.contexts.map(
+        (element: unknown) => (element as HTMLAudioElement).src,
+      )
+    const endPart = (stream: HTMLAudioElement, end: number) => {
+      stream.currentTime = end
+      stream.dispatchEvent(new Event("timeupdate"))
+      fixture.detectChanges()
+    }
+
+    it("plays them in order as one, the next already loaded, without a pause between", async () => {
+      // Listed by day, not necessarily in the chapter's order.
+      await listen([second, third, first])
+      tap(toggle())
+      await fixture.whenStable()
+      const stream = audio()
+      // The first part plays; the second loaded on the other element, played
+      // muted within the tap so Safari lets it play later, and set back.
+      // The second past its day's announcement, just before its first verse.
+      expect(sources()).toEqual([`${first.url}#t=1000`, `${second.url}#t=1108`])
+      const playing = play.mock.contexts[0] as HTMLAudioElement
+      expect(playing.paused).toBe(false)
+      expect(stream.paused).toBe(true)
+      expect(stream.muted).toBe(false)
+      expect(stream.currentTime).toBe(1108)
+      expect(player().current()?.title).toBe("Êxodo 5")
+
+      endPart(playing, 1300)
+      // On at once: the loaded element plays, the ended one stops.
+      expect(stream.paused).toBe(false)
+      expect(playing.paused).toBe(true)
+      expect(player().current()?.range).toEqual([57, 120])
+      expect(player().position()).toBe(1108)
+      expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+      // The third now loads where the first played.
+      expect(playing.src).toBe(`${third.url}#t=1200`)
+
+      endPart(stream, 1400)
+      expect(playing.paused).toBe(false)
+      expect(player().current()?.range).toEqual([121, 176])
+
+      // The chapter's last part ends: it stops there.
+      endPart(playing, 1500)
+      expect(playing.paused).toBe(true)
+      expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+    })
+
+    it("lets the next part's loading say nothing of what plays", async () => {
+      await listen([first, second])
+      tap(toggle())
+      await fixture.whenStable()
+      const loading = audio()
+      loading.dispatchEvent(new Event("pause"))
+      loading.dispatchEvent(new Event("error"))
+      fixture.detectChanges()
+      expect(player().playing()).toBe(true)
+      expect(player().current()?.range).toEqual([1, 56])
+    })
+
+    it("stops loading the next part when something else plays", async () => {
+      await listen([first, second])
+      tap(toggle())
+      await fixture.whenStable()
+      const standby = audio()
+      player().toggle(day3)
+      expect(standby.getAttribute("src")).toBeNull()
+    })
+  })
+
   it("pauses where the chapter's reading ends, and plays it again from its start", async () => {
     await listen()
     tap(toggle())

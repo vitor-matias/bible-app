@@ -67,6 +67,13 @@ const streamUrl = ({ url, start }: ChapterEpisode): string =>
 export class PodcastPlayerService {
   private http = inject(HttpClient)
   private audio?: HTMLAudioElement
+  /**
+   * A chapter read in parts, over several days' episodes (Salmo 119,
+   * Provérbios 1–6): the parts still to come, and a second element with the
+   * next one loaded at its start, so it goes on without a gap.
+   */
+  private queue: ChapterEpisode[] = []
+  private standby?: HTMLAudioElement
 
   /** The episode loaded in the player, playing or paused. */
   readonly current = signal<ChapterEpisode | null>(null)
@@ -118,10 +125,11 @@ export class PodcastPlayerService {
 
   /**
    * Pauses or resumes a chapter's entry already in the player; any other
-   * plays from where its chapter starts. Chapters read in one episode share
-   * its stream, so moving between them seeks instead of reloading.
+   * plays from where its chapter starts, and then the parts in `then` (the
+   * rest of a chapter read over several days). Chapters read in one episode
+   * share its stream, so moving between them seeks instead of reloading.
    */
-  toggle(episode: ChapterEpisode): void {
+  toggle(episode: ChapterEpisode, then: ChapterEpisode[] = []): void {
     this.audio ??= this.createAudio()
     const audio = this.audio
     if (this.isCurrent(episode)) {
@@ -145,6 +153,7 @@ export class PodcastPlayerService {
       this.current()?.url === episode.url &&
       audio.readyState >= HTMLMediaElement.HAVE_METADATA
     this.current.set(episode)
+    this.queue = then
     if (loaded) {
       audio.currentTime = episode.start ?? 0
       // The seek lands with a later timeupdate; till then the last chapter's
@@ -160,6 +169,9 @@ export class PodcastPlayerService {
       this.position.set(episode.start ?? 0)
     }
     this.play(audio, episode)
+    // Within this tap: Safari lets an element play later only once it has.
+    if (then[0]) this.prepare(then[0], true)
+    else this.standby?.removeAttribute("src")
   }
 
   private readonly analytics = inject(AnalyticsService)
@@ -259,9 +271,55 @@ export class PodcastPlayerService {
       this.guardChapter(audio)
       return
     }
+    const next = this.queue[0]
+    if (next && this.standby) {
+      this.continueWith(next)
+      return
+    }
     audio.pause()
     audio.currentTime = end
     this.position.set(end)
+  }
+
+  /**
+   * Loads a part on the standby element, at its start. `unlock` plays it
+   * muted for a moment, within the user's tap, so it may play later.
+   */
+  private prepare(part: ChapterEpisode, unlock = false): void {
+    this.standby ??= this.createAudio()
+    const standby = this.standby
+    standby.preload = "auto"
+    standby.defaultPlaybackRate = this.rate()
+    standby.src = streamUrl(part)
+    if (!unlock) return
+    standby.muted = true
+    const unmute = () => {
+      standby.muted = false
+    }
+    standby.play().then(() => {
+      if (standby !== this.audio) {
+        standby.pause()
+        standby.currentTime = part.start ?? 0
+      }
+      unmute()
+    }, unmute)
+  }
+
+  /** The next part, already loaded: the elements swap, with no pause between. */
+  private continueWith(next: ChapterEpisode): void {
+    const ending = this.audio
+    const standby = this.standby
+    if (!ending || !standby) return
+    this.audio = standby
+    this.standby = ending
+    this.queue = this.queue.slice(1)
+    this.current.set(next)
+    this.duration.set(Number.isFinite(standby.duration) ? standby.duration : 0)
+    this.position.set(next.start ?? 0)
+    standby.playbackRate = this.rate()
+    this.play(standby, next)
+    ending.pause()
+    if (this.queue[0]) this.prepare(this.queue[0])
   }
 
   private clearEndTimer(): void {
@@ -286,10 +344,11 @@ export class PodcastPlayerService {
       void this.analytics.track("podcast_speed", { rate: next })
     }
     this.rate.set(next)
-    if (this.audio) {
+    for (const audio of [this.audio, this.standby]) {
+      if (!audio) continue
       // The default survives a new src, which resets playbackRate to it.
-      this.audio.defaultPlaybackRate = next
-      this.audio.playbackRate = next
+      audio.defaultPlaybackRate = next
+      audio.playbackRate = next
     }
   }
 
@@ -418,22 +477,28 @@ export class PodcastPlayerService {
   private createAudio(): HTMLAudioElement {
     this.handleMediaSession()
     const audio = new Audio()
+    // Only the element playing speaks for the player: not the standby one,
+    // loading the next part (or unlocked, muted, for it).
+    const on = (type: string, listener: () => void) =>
+      audio.addEventListener(type, () => {
+        if (audio === this.audio) listener()
+      })
     audio.preload = "none"
     audio.defaultPlaybackRate = this.rate()
-    audio.addEventListener("play", () => this.playing.set(true))
-    audio.addEventListener("pause", () => {
+    on("play", () => this.playing.set(true))
+    on("pause", () => {
       this.clearEndTimer()
       this.playing.set(false)
     })
     // A move or a new speed changes when the end comes: time it afresh.
-    audio.addEventListener("seeking", () => this.clearEndTimer())
-    audio.addEventListener("ratechange", () => {
+    on("seeking", () => this.clearEndTimer())
+    on("ratechange", () => {
       this.clearEndTimer()
       // A new speed brings the end sooner or later: time it at once, as the
       // next timeupdate may only come after it.
       this.guardChapter(audio)
     })
-    audio.addEventListener("timeupdate", () => {
+    on("timeupdate", () => {
       // A new source's load reports 0:00 before its #t= start applies: not a
       // place to follow (the reader would turn to the day's first reading).
       const loading = audio.readyState < HTMLMediaElement.HAVE_METADATA
@@ -443,13 +508,13 @@ export class PodcastPlayerService {
       this.guardChapter(audio)
     })
     // A live or unknown length reads Infinity or NaN: no position to pick.
-    audio.addEventListener("durationchange", () =>
+    on("durationchange", () =>
       this.duration.set(Number.isFinite(audio.duration) ? audio.duration : 0),
     )
     // A stream that ended or failed is not resumed: play() would restart an
     // ended one at 0:00 and keep failing on a broken load.
-    audio.addEventListener("ended", () => this.forget())
-    audio.addEventListener("error", () => this.forget())
+    on("ended", () => this.forget())
+    on("error", () => this.forget())
     return audio
   }
 }
