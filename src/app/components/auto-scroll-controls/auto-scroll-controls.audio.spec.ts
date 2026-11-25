@@ -5,6 +5,7 @@ import {
 } from "@angular/common/http/testing"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
+import { page } from "vitest/browser"
 import { apiBaseUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
@@ -1359,6 +1360,36 @@ describe("AutoScrollControlsComponent +365 mode", () => {
 
   // The reader keeps --audio-card-height clear under the card (styles.css):
   // its rows must fit that height, or the text's last lines go under them.
+  // styles.css: a phone held sideways has no height to spare under the text.
+  it("stands down the right edge on a low landscape screen, the text left of it", async () => {
+    const scroller = document.createElement("bible-reader")
+    const content = document.createElement("div")
+    content.className = "mat-drawer-content"
+    scroller.append(content)
+    document.body.append(scroller)
+    await page.viewport(932, 430)
+    try {
+      await listen()
+      const card = (
+        find(".audio-player") as HTMLElement
+      ).getBoundingClientRect()
+      expect(Math.round(card.width)).toBe(104)
+      expect(card.right).toBeGreaterThan(900)
+      // Down the side, from under the header to the bottom.
+      expect(card.height).toBeGreaterThan(300)
+      // The text keeps clear of it: the card's width and a margin.
+      expect(getComputedStyle(content).paddingRight).toBe("120px")
+      // ▶ first, alone on its row; ±15 s side by side under it.
+      const top = (selector: string) =>
+        (find(selector) as HTMLElement).getBoundingClientRect().top
+      expect(top(".skip-back")).toBeGreaterThan(top(".audio-toggle"))
+      expect(top(".skip-back")).toBe(top(".skip-forward"))
+    } finally {
+      await page.viewport(800, 600)
+      scroller.remove()
+    }
+  })
+
   it("fits its rows inside --audio-card-height", async () => {
     await listen()
     const card = find(".audio-player") as HTMLElement

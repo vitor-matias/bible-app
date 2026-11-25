@@ -503,7 +503,8 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
    bottom-right corner (its left edge at 100vw - 384px) beside the text:
    the scrolling text, at most 48rem wide and centred, clears it from 1536px;
    the pages' columns, 65% wide less 3vw a side from 1400px, from 1873px. */
-@media (max-width: 1535px) {
+@media (max-width: 1535px) and (orientation: portrait),
+  (max-width: 1535px) and (min-height: 501px) {
   /* The scroller ends above the card, as the pages do: no line, and no verse
      being read, ever goes under it. Its container already stops at the
      bottom inset: less the card and its gap. */
@@ -512,7 +513,8 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
   }
 }
 
-@media (max-width: 1872px) {
+@media (max-width: 1872px) and (orientation: portrait),
+  (max-width: 1872px) and (min-height: 501px) {
   body:has(.auto-scroll-controls:not(.placed) .audio-player) .paged-view-container {
     height: calc(
       100dvh - var(--app-header-height) - var(--app-chrome-top) - 15px -
@@ -525,7 +527,8 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px) and (orientation: portrait),
+  (max-width: 768px) and (min-height: 501px) {
   body:has(.auto-scroll-controls:not(.placed) .audio-player)
     .floating-nav-button:is(.prev-chapter, .next-chapter) {
     bottom: calc(var(--audio-card-height) + 24px + var(--app-inset-bottom));
@@ -535,6 +538,124 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
     .cdk-overlay-pane
     .mat-mdc-snack-bar-container {
     margin-bottom: calc(var(--audio-card-height) + 80px + var(--app-inset-bottom));
+  }
+}
+
+/* A phone held sideways (landscape, at most 500px tall): too low for the
+   card below the text, but with width to spare. The card stands down the
+   right edge instead, its controls stacked, and the text (scrolling or in
+   pages) and the › arrow move left of it, keeping all of their height. Here,
+   not in the card's stylesheet, which is at its size budget. */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --audio-side-width: 104px;
+  }
+
+  body .auto-scroll-controls.audio:not(.placed):has(.audio-player) {
+    top: calc(var(--app-header-height) + 8px);
+    bottom: calc(8px + var(--app-inset-bottom));
+    right: calc(8px + var(--app-inset-right));
+    left: auto;
+    transform: none;
+  }
+
+  /* Over the width a desktop's card was given (inline), and its resizing
+     (the card's own .movable rule weighs as much as three classes). */
+  body .auto-scroll-controls.audio .audio-player {
+    width: var(--audio-side-width) !important;
+    min-width: 0;
+    height: 100%;
+    max-height: calc(100dvh - var(--app-header-height) - 16px);
+    resize: none;
+    grid-template-rows: auto auto 1fr;
+    gap: 6px;
+    padding: 26px 6px 8px;
+  }
+
+  body .auto-scroll-controls .audio-caption {
+    white-space: normal;
+    font-size: 11px;
+    line-height: 13px;
+  }
+
+  /* Hide, at the top in the middle, over the caption. */
+  body .auto-scroll-controls .audio-collapse {
+    top: 2px;
+    right: calc(50% - 12px);
+  }
+
+  /* The slider over the times. */
+  body .auto-scroll-controls .audio-progress {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    row-gap: 0;
+  }
+
+  body .auto-scroll-controls .audio-position {
+    order: -1;
+    flex: 1 0 100%;
+  }
+
+  body .auto-scroll-controls .audio-time {
+    min-width: 0;
+    font-size: 10px;
+  }
+
+  /* Two buttons a row: ▶ alone and first, then ±15 s, ⏮ ⏭ (a day of the
+     plan), and the speed beside ⇅. */
+  body .auto-scroll-controls .audio-buttons {
+    grid-template-columns: 1fr 1fr;
+    align-content: space-evenly;
+    justify-items: center;
+    row-gap: 4px;
+  }
+
+  body .auto-scroll-controls .audio-transport {
+    display: contents;
+  }
+
+  body .auto-scroll-controls .audio-toggle {
+    grid-column: 1 / -1;
+    order: 1;
+  }
+
+  body .auto-scroll-controls .skip-back {
+    order: 2;
+  }
+
+  body .auto-scroll-controls .skip-forward {
+    order: 3;
+  }
+
+  body .auto-scroll-controls .plan-back {
+    order: 4;
+  }
+
+  body .auto-scroll-controls .plan-skip {
+    order: 5;
+  }
+
+  body .auto-scroll-controls .audio-rate {
+    order: 6;
+    justify-self: center;
+  }
+
+  body .auto-scroll-controls .audio-buttons > :first-child {
+    order: 7;
+    justify-self: center;
+  }
+
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) bible-reader .mat-drawer-content {
+    padding-right: calc(var(--audio-side-width) + 16px);
+  }
+
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .floating-nav-button.next-chapter {
+    right: calc(var(--audio-side-width) + 24px + env(safe-area-inset-right));
+  }
+
+  /* The pages' copyright line too. */
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .fixed-footer {
+    right: calc(var(--audio-side-width) + 16px + var(--app-inset-right, 0px));
   }
 }
 
@@ -557,7 +678,8 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
 /* With room beside the card (360px, and an arrow and its margins each
    side), the arrows sit level with its row of buttons instead of above it:
    that row's middle is 6px of padding and half its 44px up the card. */
-@media (min-width: 520px) and (max-width: 768px) {
+@media (min-width: 520px) and (max-width: 768px) and (orientation: portrait),
+  (min-width: 520px) and (max-width: 768px) and (min-height: 501px) {
   body:has(.auto-scroll-controls:not(.placed) .audio-player)
     .floating-nav-button:is(.prev-chapter, .next-chapter) {
     bottom: calc(20px + var(--app-inset-bottom));
