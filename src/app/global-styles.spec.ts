@@ -28,6 +28,12 @@ describe("global styles", () => {
 
   // Swapping in the reader's font (then PT Serif) rewrapped the prerendered
   // chapter once it was on screen, which alone made for a CLS of 0.75 on /gn/1.
+  it("doesn't zoom on a double tap, while pinching still can", () => {
+    expect(getComputedStyle(document.documentElement).touchAction).toBe(
+      "manipulation",
+    )
+  })
+
   it("does not swap the reader's font in after the text has painted", () => {
     const faces = Array.from(document.fonts).filter((face) =>
       face.family.includes("Literata"),
