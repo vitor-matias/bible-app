@@ -696,12 +696,18 @@ describe("AutoScrollControlsComponent +365 mode", () => {
 
       // Its end is where the next segment began, maybe within the last word:
       // it plays 0.05 s on before the next part takes over.
+      TestBed.tick()
+      const told = navigator.mediaSession.metadata
       vi.useFakeTimers()
       endPart(playing, 1300.02)
       expect(stream.paused).toBe(true)
       playing.currentTime = 1300.5
       await vi.advanceTimersByTimeAsync(300)
       fixture.detectChanges()
+      TestBed.tick()
+      // The system's player told of the part again, on the new element.
+      expect(navigator.mediaSession.metadata).not.toBe(told)
+      expect(navigator.mediaSession.playbackState).toBe("playing")
       // On at once: the loaded element plays, the ended one stops.
       expect(stream.paused).toBe(false)
       expect(playing.paused).toBe(true)
@@ -1248,6 +1254,19 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         const rested = page.scrollTop
         vi.advanceTimersByTime(2000)
         expect(page.scrollTop).toBe(rested)
+      })
+
+      // At 2× the reading runs twice as fast: so does the glide, or it lags.
+      it("glides at the reading's pace: twice as fast at 2×", async () => {
+        TestBed.inject(PodcastPlayerService).cycleRate()
+        TestBed.inject(PodcastPlayerService).cycleRate()
+        TestBed.inject(PodcastPlayerService).cycleRate()
+        TestBed.inject(PodcastPlayerService).cycleRate()
+        expect(TestBed.inject(PodcastPlayerService).rate()).toBe(2)
+        await playAt(67)
+        // Half the time it takes at 1× (settled within 7 s, there).
+        vi.advanceTimersByTime(3500)
+        expect(Math.abs(page.scrollTop - 162.5)).toBeLessThanOrEqual(1.5)
       })
 
       it("once slowing down, lands where it was headed and rests, whatever the reading does", async () => {

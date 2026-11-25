@@ -584,9 +584,12 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const fits = box.height <= area.bottom - area.top
     // What goes to the upper edge: the verse's top, or the line being read.
     const lead = fits ? box.top : point
+    // At the reading's pace: 2× reads twice the text, so the glide goes, and
+    // rests, at twice the pace too, or it fell behind.
+    const pace = this.player.rate()
     if (!this.settling) {
       // Rested a while after landing before it may set off again.
-      if (Date.now() - this.landedAt < GLIDE_REST_MS) return
+      if (Date.now() - this.landedAt < GLIDE_REST_MS / pace) return
       const inside = fits
         ? box.top >= area.top && box.bottom <= area.bottom
         : point >= area.top && point <= area.bottom
@@ -610,8 +613,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     let aim =
       Math.sign(offset) *
       Math.min(
-        Math.max(Math.abs(offset) / GLIDE_SECONDS, GLIDE_MIN_SPEED),
-        GLIDE_MAX_SPEED,
+        Math.max(
+          (Math.abs(offset) * pace) / GLIDE_SECONDS,
+          GLIDE_MIN_SPEED * pace,
+        ),
+        GLIDE_MAX_SPEED * pace,
       )
     if (this.landingAt !== undefined) {
       // Slowing down only: never faster than it goes now.
@@ -621,7 +627,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       // The slowdown begins: from here it lands, on this spot.
       this.landingAt = page.scrollTop + offset
     }
-    const change = GLIDE_ACCEL * seconds
+    const change = GLIDE_ACCEL * pace * seconds
     this.glideSpeed += Math.min(
       change,
       Math.max(-change, aim - this.glideSpeed),
