@@ -1568,6 +1568,33 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     })
   }
 
+  // styles.css: with room beside the card, the ‹ › arrows sat level with its
+  // row of buttons, low against it; they're centred on it.
+  it("centres the chapter arrows on the card beside them", async () => {
+    const arrow = document.createElement("button")
+    arrow.className = "floating-nav-button next-chapter"
+    arrow.style.cssText = "position: fixed; right: 16px; height: 48px"
+    document.body.append(arrow)
+    await page.viewport(615, 900)
+    try {
+      await listen()
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      const card = (
+        find(".audio-player") as HTMLElement
+      ).getBoundingClientRect()
+      const box = arrow.getBoundingClientRect()
+      expect(box.left).toBeGreaterThanOrEqual(card.right)
+      expect((box.top + box.bottom) / 2).toBeCloseTo(
+        (card.top + card.bottom) / 2,
+        0,
+      )
+    } finally {
+      await page.viewport(800, 600)
+      arrow.remove()
+    }
+  })
+
   it("fits its rows inside --audio-card-height", async () => {
     await listen()
     const card = find(".audio-player") as HTMLElement

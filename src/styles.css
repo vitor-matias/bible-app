@@ -771,13 +771,16 @@ bible-reader:has(.mat-drawer.mat-drawer-opened) .auto-scroll-controls {
 }
 
 /* With room beside the card (360px, and an arrow and its margins each
-   side), the arrows sit level with its row of buttons instead of above it:
-   that row's middle is 6px of padding and half its 44px up the card. */
+   side), the arrows sit beside it instead of above it, centred on it: it is
+   16px up, and they are 48px tall. */
 @media (min-width: 520px) and (max-width: 768px) and (orientation: portrait),
   (min-width: 520px) and (max-width: 768px) and (min-height: 501px) {
   body:has(.auto-scroll-controls:not(.placed) .audio-player)
     .floating-nav-button:is(.prev-chapter, .next-chapter) {
-    bottom: calc(20px + var(--app-inset-bottom));
+    bottom: calc(
+      16px + (var(--audio-card-live-height, var(--audio-card-height)) - 48px) / 2 +
+        var(--app-inset-bottom)
+    );
   }
 
   body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
