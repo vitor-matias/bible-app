@@ -100,7 +100,7 @@
   <h2 class="days-title">Dias</h2>
   <ul class="days">
     @for (day of plan.days(); track day.day) {
-    <li>
+    <li [attr.data-next]="day.day === plan.today()?.day ? '' : null">
       <button type="button" class="day" [class.selected]="day.day === selected()?.day" [class.done]="isDone(day)"
         [attr.aria-pressed]="day.day === selected()?.day" (click)="selected.set(day)">
         <span class="day-number">{{ label(day) }}</span>
@@ -111,5 +111,14 @@
     }
   </ul>
   </div>
+  }
+  <!-- Scrolled away from the next day to read: a way back to it. -->
+  @if (nextAway(); as away) {
+  @if (plan.today(); as next) {
+  <button type="button" mat-flat-button class="to-next" (click)="toNext()">
+    <mat-icon>{{ away === 'up' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+    {{ label(next) }}
+  </button>
+  }
   }
 </div>

@@ -261,7 +261,7 @@ describe("Mais365Service", () => {
     expect(navigate).toHaveBeenCalledTimes(1)
   })
 
-  // The reader may have gone elsewhere (back to /365, a cross-reference)
+  // The reader may have gone elsewhere (back to /mais365, a cross-reference)
   // before the full copy came.
   it("doesn't take the reader back to the reading when the full copy comes", async () => {
     const plan = await create()
@@ -435,7 +435,7 @@ describe("Mais365Service", () => {
     at(day.reflection + 1)
     expect(plan.stage()).toBe("reflection")
     expect(plan.done()).toEqual([1])
-    expect(lastCall(navigate)).toEqual([["/365"]])
+    expect(lastCall(navigate)).toEqual([["/mais365"]])
     // The reflection's own span: play goes on from here, not a chapter's top.
     expect(player.current()?.start).toBe(day.reflection)
     expect(player.current()?.title).toBe("Reflexão: No princípio")

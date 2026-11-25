@@ -1,7 +1,5 @@
-/* The app's own type, not the text's: the reader that hosts it on the web
-   sizes its text by the reader's setting. */
+/* Hosted on the web, in the reader's text: its size, the reader's A+ and A−. */
 .mais365 {
-  font-size: 1rem;
   max-width: 36em;
   margin: 0 auto;
   padding: 24px 16px 64px;
@@ -200,6 +198,21 @@
 
 .day-done {
   opacity: 0.7;
+}
+
+/* Back to the next day to read, over the foot of the page. */
+.to-next {
+  position: fixed;
+  bottom: calc(24px + var(--app-inset-bottom, 0px));
+  left: 50%;
+  translate: -50% 0;
+  z-index: 2;
+  border: 1px solid color-mix(in srgb, #543d27 35%, transparent);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
+}
+
+:host-context(.native-chrome) .to-next {
+  bottom: calc(16px + var(--native-chrome-bottom, env(safe-area-inset-bottom)));
 }
 
 /* Room for both on a wide screen: the day's card stays in view on the left

@@ -181,7 +181,7 @@ describe("ToastService", () => {
     }
     expect(data.message).toBe("Voltar ao plano de leitura")
     data.returnUrl()
-    expect(navigate).toHaveBeenCalledWith(["/365"], {})
+    expect(navigate).toHaveBeenCalledWith(["/mais365"], {})
   })
 
   describe("showReturn", () => {

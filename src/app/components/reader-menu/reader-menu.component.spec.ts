@@ -68,7 +68,7 @@ describe("ReaderMenuComponent", () => {
       document.querySelectorAll<HTMLElement>(".mat-mdc-menu-item"),
     ).find((item) => item.textContent?.includes("+365: ler um pouco por dia"))
     entry?.click()
-    expect(navigate).toHaveBeenCalledWith(["/365"])
+    expect(navigate).toHaveBeenCalledWith(["/mais365"])
   })
 
   it("offers the text alignment with a view mode, or when asked for", () => {

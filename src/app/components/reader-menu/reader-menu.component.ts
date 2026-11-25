@@ -198,7 +198,7 @@ export class ReaderMenuComponent {
 
   /** The +365 reading plan's page. */
   openPlan(): void {
-    void this.router.navigate(["/365"])
+    void this.router.navigate(["/mais365"])
   }
 
   openHelp(): void {

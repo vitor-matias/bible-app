@@ -597,7 +597,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         this.openAbout()
         break
       case "plan":
-        void this.router.navigate(["/365"])
+        void this.router.navigate(["/mais365"])
         break
       case "help":
         this.onboardingService.open("menu")

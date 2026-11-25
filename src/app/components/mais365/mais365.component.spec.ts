@@ -202,4 +202,69 @@ describe("Mais365Component", () => {
     expect(text()).toContain("Dia 1 · Reflexão")
     expect(picked()).toBe("Introdução à Criação do Mundo")
   })
+
+  describe("a way back to the next day to read", () => {
+    const days = Array.from({ length: 80 }, (_, i) => ({
+      ...day1,
+      day: i + 1,
+      title: `Dia ${i + 1}`,
+    }))
+    const pill = () =>
+      (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>(
+        ".to-next",
+      )
+
+    beforeEach(() => {
+      plan.days.set([intro, ...days])
+      fixture.detectChanges()
+    })
+
+    afterEach(() => window.scrollTo(0, 0))
+
+    it("shows once the next day is scrolled away, and takes the reader back", async () => {
+      plan.today.set(days[2])
+      fixture.detectChanges()
+      await fixture.whenStable()
+      expect(pill()).toBeNull()
+
+      window.scrollTo(0, document.documentElement.scrollHeight)
+      await vi.waitFor(() => {
+        fixture.detectChanges()
+        expect(pill()?.textContent).toContain("Dia 3")
+      })
+      expect(pill()?.textContent).toContain("arrow_upward")
+
+      const scroll = vi
+        .spyOn(Element.prototype, "scrollIntoView")
+        .mockImplementation(() => {})
+      button("Dia 5")?.click()
+      pill()?.click()
+      fixture.detectChanges()
+      expect(scroll).toHaveBeenCalledWith(
+        expect.objectContaining({ block: "center" }),
+      )
+      expect(scroll.mock.contexts[0]).toBe(
+        (fixture.nativeElement as HTMLElement).querySelector("[data-next]"),
+      )
+      // Its card too, in place of the day picked.
+      expect(text()).toContain("Dia 3 · Hoje")
+    })
+
+    it("points down to a next day below", async () => {
+      plan.today.set(days[79])
+      fixture.detectChanges()
+      await vi.waitFor(() => {
+        fixture.detectChanges()
+        expect(pill()?.textContent).toContain("arrow_downward")
+      })
+    })
+  })
+
+  // Hosted on the web, the page sits in the reader's text and takes its size.
+  it("takes the size of the text around it", () => {
+    const host = fixture.nativeElement as HTMLElement
+    host.style.fontSize = "20px"
+    const page = host.querySelector(".mais365") as HTMLElement
+    expect(getComputedStyle(page).fontSize).toBe("20px")
+  })
 })

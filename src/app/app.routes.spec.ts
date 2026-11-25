@@ -24,7 +24,7 @@ describe("app routes", () => {
   // The web hosts the +365 plan in the reader, under its header (it showed
   // none); the apps keep its own page, under their bars.
   it("opens the +365 plan in the reader on the web, the page itself natively", () => {
-    const [web, native] = routes.filter((route) => route.path === "365")
+    const [web, native] = routes.filter((route) => route.path === "mais365")
 
     expect(web.component).toBe(BibleReaderComponent)
     expect(web.resolve?.["indexPage"]).toBe(native.loadComponent)
@@ -37,6 +37,16 @@ describe("app routes", () => {
     const [canMatch] = (web.canMatch ?? []) as (() => boolean)[]
     expect(TestBed.runInInjectionContext(canMatch)).toBe(false)
     expect(native.canMatch).toBeUndefined()
+  })
+
+  // Its first address, /365, in links already shared.
+  it("takes /365 to /mais365", async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter(routes)] })
+    const harness = await RouterTestingHarness.create()
+
+    await harness.navigateByUrl("/365")
+
+    expect(TestBed.inject(Location).path()).toBe("/mais365")
   })
 
   // The web hosts the index in the reader; the native apps keep its own page.

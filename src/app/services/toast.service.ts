@@ -129,8 +129,9 @@ export class ToastService {
   showReturnToPlan(): void {
     this.showWayBack(
       "Voltar ao plano de leitura",
-      (extras: NavigationExtras = {}) => this.router.navigate(["/365"], extras),
-      (url) => url.split(/[?#]/)[0] === "/365",
+      (extras: NavigationExtras = {}) =>
+        this.router.navigate(["/mais365"], extras),
+      (url) => url.split(/[?#]/)[0] === "/mais365",
     )
   }
 

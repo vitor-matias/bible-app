@@ -226,7 +226,7 @@ export class Mais365Service {
           if (day.readings.length && this.allHeard(day)) {
             this.markDone(day.day, true, "heard")
           }
-          void this.router.navigate(["/365"])
+          void this.router.navigate(["/mais365"])
           return
         }
         const reading = day.readings[stage]

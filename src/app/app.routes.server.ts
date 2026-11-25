@@ -12,7 +12,7 @@ export const serverRoutes: ServerRoute[] = [
   // Search results are user-specific and noindexed.
   { path: "search", renderMode: RenderMode.Client },
   // The reader's own progress, kept in the browser.
-  { path: "365", renderMode: RenderMode.Client },
+  { path: "mais365", renderMode: RenderMode.Client },
   {
     path: ":book/:chapter",
     renderMode: RenderMode.Prerender,

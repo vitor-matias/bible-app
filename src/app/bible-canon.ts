@@ -160,7 +160,7 @@ export const PASTORAL_INDEX_BOOK: Book = {
 
 /** The +365 plan's page, as the header names it when the reader hosts it. */
 export const MAIS365_BOOK: Book = {
-  id: "365",
+  id: "mais365",
   abrv: "+365",
   shortName: "+365",
   name: "+365",

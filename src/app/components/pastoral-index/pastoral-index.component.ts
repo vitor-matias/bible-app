@@ -520,7 +520,7 @@ export class PastoralIndexComponent implements OnInit, OnDestroy {
         void this.router.navigate(["/search"])
         break
       case "plan":
-        void this.router.navigate(["/365"])
+        void this.router.navigate(["/mais365"])
         break
       case "filter":
         this.filterOpen.set(true)

@@ -1,8 +1,10 @@
 import {
+  afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
   DestroyRef,
+  ElementRef,
   inject,
   linkedSignal,
   type OnDestroy,
@@ -51,6 +53,50 @@ export class Mais365Component implements OnInit, OnDestroy {
   private readonly themeService = inject(ThemeService)
   private readonly router = inject(Router)
   private readonly destroyRef = inject(DestroyRef)
+  private readonly host =
+    inject<ElementRef<HTMLElement>>(ElementRef).nativeElement
+
+  /** Where the next day to read is, scrolled out of sight: above or below. */
+  protected readonly nextAway = signal<"up" | "down" | null>(null)
+  private readonly nextRow =
+    typeof IntersectionObserver === "undefined"
+      ? undefined
+      : new IntersectionObserver(([entry]) => {
+          if (!entry) return
+          this.nextAway.set(
+            entry.isIntersecting
+              ? null
+              : entry.boundingClientRect.top < 0
+                ? "up"
+                : "down",
+          )
+        })
+
+  constructor() {
+    // The row moves as the days load and as a day is marked read.
+    afterRenderEffect(() => {
+      this.plan.today()
+      this.plan.days()
+      this.nextRow?.disconnect()
+      this.nextAway.set(null)
+      const row = this.host.querySelector("[data-next]")
+      if (row) this.nextRow?.observe(row)
+    })
+    this.destroyRef.onDestroy(() => this.nextRow?.disconnect())
+  }
+
+  /** Back to the next day to read: its row in view, its card shown. */
+  protected toNext(): void {
+    const next = this.plan.today()
+    if (!next) return
+    this.selected.set(next)
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)")
+      .matches
+    this.host.querySelector("[data-next]")?.scrollIntoView({
+      block: "center",
+      behavior: smooth ? "smooth" : "auto",
+    })
+  }
 
   /** The day shown: the one playing, else today, until another is picked. */
   /**

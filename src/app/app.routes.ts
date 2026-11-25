@@ -70,15 +70,17 @@ export const routes: Routes = [
   },
   // The web hosts the +365 plan in the reader too, under its header; the
   // apps' bars are native.
+  // Its first address, kept for links already shared.
+  { path: "365", redirectTo: "mais365", pathMatch: "full" },
   {
-    path: "365",
+    path: "mais365",
     component: BibleReaderComponent,
     data: { pageBook: MAIS365_BOOK },
     canMatch: [() => !inject(NativeChromeService).enabled],
     resolve: { indexPage: loadMais365Page },
   },
   {
-    path: "365",
+    path: "mais365",
     loadComponent: loadMais365Page,
   },
   {
