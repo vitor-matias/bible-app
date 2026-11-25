@@ -555,10 +555,21 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
    «Ouvir» card (whose room under the text is the card's and 32px, the
    arrows' bottom 8px less). */
 @media (max-width: 768px) {
+  /* A size down, as Android's, to keep to three or four lines between the
+     arrows; as tall as they are at least, and centred so, when it's short. */
   body:not(.native-chrome) bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) {
     width: auto;
+    min-height: 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
     margin: 0 calc(88px + var(--app-inset-right)) 0 calc(88px + var(--app-inset-left));
     padding: 0;
+    font-size: 16px;
+  }
+
+  body:not(.native-chrome) bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) .copyright-details {
+    font-size: 12px;
   }
 
   body:not(.native-chrome) bible-reader .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) {
