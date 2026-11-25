@@ -70,8 +70,10 @@ export class NativeFootnotesService {
     this.session?.unsubscribe()
     // A note read over the text pauses +365, as the website's sheet does:
     // resumed once it closes, left paused for a reference followed.
-    this.release?.()
+    // The new hold first: let go before it, the last sheet's would resume
+    // the player under this one.
     const release = this.player.hold()
+    this.release?.()
     this.release = release
     const links: FootnoteLink[] = []
     const notes = entries.flatMap(({ footnotes, verse }) =>

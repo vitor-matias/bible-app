@@ -73,9 +73,10 @@ const reload = (audio: HTMLAudioElement, src: string): void => {
 /**
  * How long a part goes on past its end when another follows: its end is where
  * Whisper's next segment begins, which can fall within the last word (Pv 3:24's
- * «agradável»).
+ * «agradável»). Not much more: the end-of-reading jingle can follow at once
+ * (heard at 0.5 s).
  */
-const PART_TAIL = 0.5
+const PART_TAIL = 0.3
 
 const samePart = (a: ChapterEpisode, b: ChapterEpisode): boolean =>
   a.url === b.url && a.start === b.start
@@ -221,6 +222,9 @@ export class PodcastPlayerService {
         audio.pause()
         return
       }
+      // Left by a +365 day (which plays its reading alone): from here, the
+      // chapter's parts go on, the next one made ready within this tap.
+      const adopted = this.adoptParts(parts)
       // Stopped at the chapter's end, play reads it again from the top. Not
       // in a +365 day, paused between two readings: it goes on to the next.
       if (
@@ -237,6 +241,8 @@ export class PodcastPlayerService {
         audio.currentTime = episode.start ?? 0
       }
       this.play(audio, episode)
+      const next = adopted ? this.nextPart() : undefined
+      if (next) this.prepare(next, true)
       return
     }
     const loaded =
@@ -270,7 +276,8 @@ export class PodcastPlayerService {
    * Moves to a time into the whole chapter, when it's read in parts: into
    * whichever part holds it. Otherwise a second of the episode, as seek().
    */
-  seekChapter(seconds: number): void {
+  seekChapter(seconds: number, parts: ChapterEpisode[] = []): void {
+    this.adoptParts(parts)
     const place = partAt(this.chain, seconds)
     if (!place || !this.chainTime(0)) {
       this.seek(seconds)
@@ -283,6 +290,25 @@ export class PodcastPlayerService {
 
   /** Where a part loaded by jumpTo is to start, until its metadata comes. */
   private loadingAt?: number
+
+  /**
+   * Takes a chapter's parts as the ones in play when the part in the player
+   * is among them and they aren't already; whether it did.
+   */
+  private adoptParts(parts: ChapterEpisode[]): boolean {
+    const current = this.current()
+    if (
+      !current ||
+      parts === this.chain ||
+      !parts.some((part) => samePart(part, current)) ||
+      (this.chain.length === parts.length &&
+        this.chain.every((part, i) => samePart(part, parts[i])))
+    ) {
+      return false
+    }
+    this.chain = parts
+    return true
+  }
 
   /** Another part of the chapter, loaded at a second of it. */
   private jumpTo(part: ChapterEpisode, at: number, play: boolean): void {
@@ -613,6 +639,16 @@ export class PodcastPlayerService {
           else this.seek((this.current()?.start ?? 0) + seekTime)
         },
       ],
+      // Play and pause on the part playing: left to the browser, they could
+      // reach the other element, loading the next part (the lock screen did).
+      [
+        "play",
+        () => {
+          const current = this.current()
+          if (current && !this.playing()) this.toggle(current)
+        },
+      ],
+      ["pause", () => this.pause()],
       // The app's own ±15 s where the system names no offset.
       ["seekbackward", ({ seekOffset }) => this.skip(-(seekOffset ?? 15))],
       ["seekforward", ({ seekOffset }) => this.skip(seekOffset ?? 15)],

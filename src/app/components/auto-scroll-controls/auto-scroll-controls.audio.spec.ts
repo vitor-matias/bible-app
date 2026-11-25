@@ -634,7 +634,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(player().current()?.title).toBe("Êxodo 5")
 
       // Its end is where the next segment began, maybe within the last word:
-      // it plays half a second on before the next part takes over.
+      // it plays 0.3 s on before the next part takes over.
       vi.useFakeTimers()
       endPart(playing, 1300.2)
       expect(stream.paused).toBe(true)
@@ -733,6 +733,56 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       tap(toggle())
       expect(player().current()?.range).toEqual([1, 56])
       expect(player().position()).toBe(1000)
+      expect(player().playing()).toBe(true)
+    })
+
+    // A +365 day plays its reading alone; «Terminar» leaves it in the player.
+    it("goes on through the parts after a day left its first in the player", async () => {
+      await listen([first, second, third])
+      // No await between: the fake streams' load errors would end it.
+      player().toggle(first)
+      player().pause()
+      // The player's own, by its stream: not whichever played first.
+      const playing = play.mock.contexts.find((element: unknown) =>
+        (element as HTMLAudioElement).src.startsWith(first.url),
+      ) as HTMLAudioElement
+      tap(toggle())
+      // Resumed from the card: the second part made ready within the tap.
+      expect(audio().src).toBe(`${second.url}#t=1108`)
+      endPart(playing, 1301)
+      expect(player().current()?.range).toEqual([57, 120])
+
+      // And the slider's time is the whole chapter's, once handed the parts.
+      player().toggle(first)
+      player().pause()
+      player().seekChapter(600, [first, second, third])
+      expect(player().current()?.range).toEqual([121, 176])
+    })
+
+    it("starts the first part at its first verse too, past the day's announcement", async () => {
+      await listen([{ ...first, verses: [[1, 1004.8]] }, second])
+      tap(toggle())
+      expect((play.mock.contexts[0] as HTMLAudioElement).src).toBe(
+        `${first.url}#t=1004`,
+      )
+    })
+
+    // The lock screen's play and pause, on the part playing, not the standby.
+    it("answers the system's play and pause on the part playing", async () => {
+      const handlers = new Map<string, MediaSessionActionHandler | null>()
+      vi.spyOn(navigator.mediaSession, "setActionHandler").mockImplementation(
+        (action, handler) => {
+          handlers.set(action, handler)
+        },
+      )
+      await listen([first, second])
+      tap(toggle())
+      const playing = play.mock.contexts[0] as HTMLAudioElement
+      handlers.get("pause")?.({ action: "pause" })
+      expect(playing.paused).toBe(true)
+      expect(player().playing()).toBe(false)
+      handlers.get("play")?.({ action: "play" })
+      expect(playing.paused).toBe(false)
       expect(player().playing()).toBe(true)
     })
 

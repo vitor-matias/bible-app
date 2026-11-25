@@ -248,11 +248,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     return (
       [...episodes]
         .sort((a, b) => (a.range?.[0] ?? 0) - (b.range?.[0] ?? 0))
-        // Heard as one chapter: past each later day's announcement ("Provérbios
-        // 3, 5 a 8"), straight on to its first verse.
-        .map((part, i) => {
+        // Heard as one chapter: past each day's announcement ("Provérbios 3,
+        // 1 a 4"), straight to its first verse, the first part's too.
+        .map((part) => {
           const first = part.verses?.[0]?.[1]
-          return i === 0 || first === undefined
+          return first === undefined
             ? part
             : {
                 ...part,
@@ -345,7 +345,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   /** The slider, or the apps' scrubber: within the part, or across the parts. */
   protected seekTo(seconds: number): void {
-    if (this.whole()) this.player.seekChapter(seconds)
+    if (this.whole()) this.player.seekChapter(seconds, this.parts() ?? [])
     else this.player.seek(seconds)
   }
 

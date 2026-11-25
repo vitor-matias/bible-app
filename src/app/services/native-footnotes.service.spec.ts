@@ -65,9 +65,13 @@ describe("NativeFootnotesService", () => {
 
   // The +365 player's hold() and what lets it go, one per sheet.
   let releases: Mock[]
+  // Holds and releases in the order they came, as the player counts them.
+  let order: string[]
   const player = {
     hold: () => {
-      const release = vi.fn()
+      const n = releases.length
+      order.push(`hold ${n}`)
+      const release = vi.fn(() => order.push(`release ${n}`))
       releases.push(release)
       return release
     },
@@ -75,6 +79,7 @@ describe("NativeFootnotesService", () => {
 
   beforeEach(() => {
     releases = []
+    order = []
     actions = new Subject()
     nativeChrome = {
       enabled: true,
@@ -292,6 +297,8 @@ describe("NativeFootnotesService", () => {
     service.open([footnote], verse)
     service.open([footnote], verse)
     expect(releases[1]).toHaveBeenCalledWith()
+    // The new hold before the last one goes: never none, which resumes.
+    expect(order.indexOf("hold 2")).toBeLessThan(order.indexOf("release 1"))
   })
 
   // Over another sheet none comes up, and no footnotes-closed would follow.
