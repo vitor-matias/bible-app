@@ -1570,8 +1570,9 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       }
     })
 
-    // styles.css: scrolling, the text ends above the card, not under it.
-    it("ends the scrolling text above the docked card, not under it", async () => {
+    // styles.css: scrolling, room after the last line to bring it above the
+    // card; not a shorter scroller, which iOS Safari clips the card to.
+    it("leaves room under the scrolling text for the docked card", async () => {
       const reader = document.createElement("div")
       reader.style.height = "500px"
       const scroller = document.createElement("div")
@@ -1584,10 +1585,11 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       document.body.append(reader)
       try {
         await listen()
-        // The card's 106px and its 32px of gap.
-        expect(scroller.getBoundingClientRect().height).toBe(362)
-        drag(find(".audio-caption") as Element, [300, 200])
         expect(scroller.getBoundingClientRect().height).toBe(500)
+        // The card's 106px and its 32px of gap.
+        expect(getComputedStyle(scroller).paddingBottom).toBe("138px")
+        drag(find(".audio-caption") as Element, [300, 200])
+        expect(getComputedStyle(scroller).paddingBottom).toBe("0px")
       } finally {
         reader.remove()
         material.remove()

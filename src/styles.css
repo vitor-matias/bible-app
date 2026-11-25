@@ -488,7 +488,7 @@ bible-reader .books-loading {
    --audio-card-height tall, 16px up on a phone and 24px elsewhere. While it
    shows there, docked (not dragged elsewhere on a desktop, nor tucked into
    its pill), everything below keeps clear of it, from that one height: the text
-   (a scroller and pages that end above it), the
+   (room after the last line when scrolling, shorter columns when paged), the
    pages' copyright line just above it, and on a phone the ‹ › arrows and a
    toast above them. */
 :root {
@@ -505,11 +505,11 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
    the pages' columns, 65% wide less 3vw a side from 1400px, from 1873px. */
 @media (max-width: 1535px) and (orientation: portrait),
   (max-width: 1535px) and (min-height: 501px) {
-  /* The scroller ends above the card, as the pages do: no line, and no verse
-     being read, ever goes under it. Its container already stops at the
-     bottom inset: less the card and its gap. */
+  /* Room after the last line, to scroll it above the card; the verse being
+     read is kept above it by the read-along. Not a shorter scroller: iOS
+     Safari clips the fixed card and arrows, inside it, to its box. */
   body:has(.auto-scroll-controls:not(.placed) .audio-player) .mat-drawer-content:not(:has(.paged-view-container)) {
-    height: calc(100% - var(--audio-card-height) - 32px);
+    padding-bottom: var(--audio-card-room);
   }
 }
 
