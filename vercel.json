@@ -9,7 +9,7 @@
                 },
                 {
                     "key": "Permissions-Policy",
-                    "value": "accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=(), clipboard-write=(self), screen-wake-lock=(self)"
+                    "value": "accelerometer=(), autoplay=(self), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=(), clipboard-write=(self), screen-wake-lock=(self)"
                 },
                 {
                     "key": "Cross-Origin-Opener-Policy",

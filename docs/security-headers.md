@@ -27,8 +27,10 @@ default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4
 
 `Permissions-Policy` turns off what the app never uses (camera, microphone,
 geolocation, payment, sensors, USB, …, `browsing-topics`) and keeps `clipboard-write`
-(«Copiar ligação») and `screen-wake-lock` (the reader keeps the screen awake while it
-scrolls) for the site itself. `web-share` («Partilhar») is not listed: its default is
+(«Copiar ligação»), `screen-wake-lock` (the reader keeps the screen awake while it
+scrolls) and `autoplay` for the site itself. `autoplay` because a chapter read over
+several days (Salmo 119, Provérbios 1–6) plays its parts as one: each next part starts
+by itself, without a tap, when the one before ends. `web-share` («Partilhar») is not listed: its default is
 already `self`, and Chrome logs "Unrecognized feature: 'web-share'" on every page where
 it does not support Web Share.
 
@@ -70,7 +72,7 @@ Append to `/etc/nginx/snippets/security-headers.conf`:
 
 ```nginx
 add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; media-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
-add_header Permissions-Policy "accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=(), clipboard-write=(self), screen-wake-lock=(self)" always;
+add_header Permissions-Policy "accelerometer=(), autoplay=(self), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=(), clipboard-write=(self), screen-wake-lock=(self)" always;
 add_header Cross-Origin-Opener-Policy "same-origin" always;
 ```
 
