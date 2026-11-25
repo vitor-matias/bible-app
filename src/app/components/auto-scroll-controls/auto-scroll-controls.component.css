@@ -310,6 +310,8 @@
   height: 18px;
   font-size: 18px;
   color: var(--muted);
+  /* Lying down: two rows of dots, as a sheet's grabber. */
+  rotate: 90deg;
 }
 
 .audio-player.movable :is(button, mat-slider) {

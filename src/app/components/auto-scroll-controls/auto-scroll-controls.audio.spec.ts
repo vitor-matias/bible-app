@@ -1677,9 +1677,12 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(right).toBeLessThanOrEqual(window.innerWidth - 8)
     })
 
-    it("shows a grip to drag it by, on a desktop only", async () => {
+    it("shows a grip to drag it by, on a desktop only, lying down", async () => {
       await listen()
-      expect(find(".audio-grip")).not.toBeNull()
+      const grip = find(".audio-grip") as HTMLElement
+      expect(grip).not.toBeNull()
+      // Two rows of dots: the upright icon turned on its side.
+      expect(getComputedStyle(grip).rotate).toBe("90deg")
     })
 
     it("fits narrowed to 230px", async () => {
