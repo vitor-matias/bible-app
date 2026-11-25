@@ -261,6 +261,22 @@ describe("Mais365Service", () => {
     expect(navigate).toHaveBeenCalledTimes(1)
   })
 
+  // The reader may have gone elsewhere (back to /365, a cross-reference)
+  // before the full copy came.
+  it("doesn't take the reader back to the reading when the full copy comes", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    const started = plan.start(day)
+    TestBed.tick()
+    const before = navigate.mock.calls.length
+    http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+    await started
+    TestBed.tick()
+    expect(navigate).toHaveBeenCalledTimes(before)
+    // Its timings are taken up all the same.
+    expect(player.current()?.verses).toEqual([[1, 58.4]])
+  })
+
   it("plays the listed copy when the full one can't be had", async () => {
     const plan = await create()
     const started = plan.start(find(plan, 1))

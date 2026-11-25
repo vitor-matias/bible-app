@@ -215,7 +215,8 @@ export class Mais365Service {
         if (entering) this.enteredAt.set(stage, this.player.position())
         // Named for the system's player: the chapter, not the whole day.
         this.player.adopt({ ...reading.episode, title: readingLabel(reading) })
-        void this.router.navigate(this.link(reading))
+        // Once: the full copy's re-adoption mustn't take the reader back.
+        if (entering) void this.router.navigate(this.link(reading))
       })
     })
     // The episode over (or failed): the session with it.
