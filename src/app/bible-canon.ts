@@ -158,6 +158,15 @@ export const PASTORAL_INDEX_BOOK: Book = {
   chapterCount: 0,
 }
 
+/** The +365 plan's page, as the header names it when the reader hosts it. */
+export const MAIS365_BOOK: Book = {
+  id: "365",
+  abrv: "+365",
+  shortName: "+365",
+  name: "+365",
+  chapterCount: 0,
+}
+
 /** A group with no books, named after its one entry, as `withIntros` makes. */
 export const PASTORAL_INDEX_GROUP: CanonGroup = {
   name: PASTORAL_INDEX_BOOK.id,

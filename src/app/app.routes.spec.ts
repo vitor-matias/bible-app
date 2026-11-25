@@ -3,6 +3,7 @@ import { TestBed } from "@angular/core/testing"
 import { provideRouter, type Route } from "@angular/router"
 import { RouterTestingHarness } from "@angular/router/testing"
 import { routes } from "./app.routes"
+import { MAIS365_BOOK } from "./bible-canon"
 import { BibleReaderComponent } from "./components/bible-reader/bible-reader.component"
 import { NotFoundComponent } from "./components/not-found/not-found.component"
 import { NativeChromeService } from "./services/native-chrome.service"
@@ -20,11 +21,22 @@ describe("app routes", () => {
     })
   }
 
-  // The apps play +365 with their own player (PodcastChrome).
-  // The apps play +365 with their own player (PodcastChrome).
-  it("opens the +365 plan on the web and in the apps", () => {
-    const plan = routes.find((route) => route.path === "365") as Route
-    expect(plan.canMatch).toBeUndefined()
+  // The web hosts the +365 plan in the reader, under its header (it showed
+  // none); the apps keep its own page, under their bars.
+  it("opens the +365 plan in the reader on the web, the page itself natively", () => {
+    const [web, native] = routes.filter((route) => route.path === "365")
+
+    expect(web.component).toBe(BibleReaderComponent)
+    expect(web.resolve?.["indexPage"]).toBe(native.loadComponent)
+    expect(web.data?.["pageBook"]).toBe(MAIS365_BOOK)
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: NativeChromeService, useValue: { enabled: true } },
+      ],
+    })
+    const [canMatch] = (web.canMatch ?? []) as (() => boolean)[]
+    expect(TestBed.runInInjectionContext(canMatch)).toBe(false)
+    expect(native.canMatch).toBeUndefined()
   })
 
   // The web hosts the index in the reader; the native apps keep its own page.

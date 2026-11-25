@@ -132,12 +132,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private indexState = inject(PastoralIndexState)
 
   /**
-   * The Índice Bíblico-Pastoral's page, on the web, where the reader hosts it
-   * as it does the About page: resolved by its route, so it stays in its own
-   * chunk and still renders while prerendering.
+   * A page the reader hosts on the web, as it does the About page: the Índice
+   * Bíblico-Pastoral, or the +365 plan. Resolved by its route, so it stays in
+   * its own chunk and still renders while prerendering.
    */
   readonly indexPage: Type<unknown> | undefined =
     this.route.snapshot.data["indexPage"]
+
+  /** How the header names a hosted page other than the index (+365). */
+  readonly pageBook: Book | undefined = this.route.snapshot.data["pageBook"]
 
   /** The index as the header names it: the theme open, for its ribbon and share. */
   readonly indexBook = computed<Book>(() => ({
@@ -447,7 +450,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     // Its page needs neither the books nor a route to read: it is all here.
     if (this.indexPage) {
-      this.book = PASTORAL_INDEX_BOOK
+      this.book = this.pageBook ?? PASTORAL_INDEX_BOOK
       this.getChapter(1)
       return
     }

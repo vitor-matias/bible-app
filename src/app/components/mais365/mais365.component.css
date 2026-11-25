@@ -1,4 +1,7 @@
+/* The app's own type, not the text's: the reader that hosts it on the web
+   sizes its text by the reader's setting. */
 .mais365 {
+  font-size: 1rem;
   max-width: 36em;
   margin: 0 auto;
   padding: 24px 16px 64px;
@@ -9,19 +12,6 @@
 :host-context(.native-chrome) .mais365 {
   padding-top: calc(16px + var(--native-chrome-top, env(safe-area-inset-top)));
   padding-bottom: calc(32px + var(--native-chrome-bottom, env(safe-area-inset-bottom)));
-}
-
-.back {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: inherit;
-  text-decoration: none;
-  opacity: 0.75;
-}
-
-h1 {
-  margin: 16px 0 4px;
 }
 
 .status {
@@ -210,4 +200,26 @@ h1 {
 
 .day-done {
   opacity: 0.7;
+}
+
+/* Room for both on a wide screen: the day's card stays in view on the left
+   while the days scroll by on the right. */
+@media (min-width: 960px) {
+  .mais365 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 48px;
+    max-width: 68rem;
+    padding-inline: 32px;
+  }
+
+  .today-column {
+    position: sticky;
+    top: calc(var(--app-header-height, 0px) + 24px);
+    align-self: start;
+  }
+
+  .days-title {
+    margin-top: 0;
+  }
 }

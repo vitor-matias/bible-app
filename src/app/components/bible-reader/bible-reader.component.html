@@ -1,8 +1,8 @@
 @if (book) {
 <div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()"
   (swipeMove)="onSwipeMove($event)" (swipeCancel)="onSwipeCancel()" (textSizeChange)="onTextSizeChange($event)">
-  <header class="reader-header" [book]="indexPage ? indexBook() : book"
-    [indexShareText]="indexPage ? indexShareText() : null" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
+  <header class="reader-header" [book]="indexPage && !pageBook ? indexBook() : book"
+    [indexShareText]="indexPage && !pageBook ? indexShareText() : null" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
     [autoScrollControlsVisible]="menuControlVisible()" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize($event)"

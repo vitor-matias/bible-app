@@ -1,11 +1,6 @@
-<main class="mais365">
-  <!-- The apps' page bars have their own way back and title. -->
-  @if (!nativeChrome.enabled) {
-  <a class="back" routerLink="/" aria-label="Voltar à leitura">
-    <mat-icon aria-hidden="true">arrow_back</mat-icon> Bíblia
-  </a>
-  <h1>+365</h1>
-  }
+<!-- Named by the reader's header on the web, by the apps' bars natively. -->
+<div class="mais365" [attr.role]="nativeChrome.enabled ? 'main' : null">
+  <div class="today-column">
   <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
 
   @if (inReflection() && plan.active(); as day) {
@@ -99,7 +94,9 @@
   }
   }
 
+  </div>
   @if (plan.days().length) {
+  <div class="days-column">
   <h2 class="days-title">Dias</h2>
   <ul class="days">
     @for (day of plan.days(); track day.day) {
@@ -113,5 +110,6 @@
     </li>
     }
   </ul>
+  </div>
   }
-</main>
+</div>

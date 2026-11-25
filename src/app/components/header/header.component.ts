@@ -27,6 +27,7 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
+import { MAIS365_BOOK } from "../../bible-canon"
 import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import {
@@ -132,11 +133,17 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     return isIndexBookmark(this.book().id)
   }
 
+  /** A page of the app's, not a book's text: About, the index, the +365 plan. */
+  get isPage(): boolean {
+    const { id } = this.book()
+    return id === "about" || id === MAIS365_BOOK.id || this.isIndex
+  }
+
   /** Accessible name for the h1, whose visible label cycles on the home page. */
   get headingLabel(): string {
     const book = this.book()
     if (!book) return ""
-    if (book.id === "about" || this.isIndex) return book.name
+    if (this.isPage) return book.name
     // A standalone introduction is already named after itself.
     if (book.introSlug) return book.name
     const chapterNumber = this.chapterNumber()
@@ -436,6 +443,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   shareText(): string {
     const book = this.book()
     if (!book || book.id === "about") return "Leia a Bíblia nesta app."
+    if (book.id === MAIS365_BOOK.id) return "A Bíblia num ano, com o +365."
     if (this.isIndex) return this.indexShareText() ?? book.name
     const search = typeof window === "undefined" ? "" : window.location.search
     return sharedPassage(book, this.chapterNumber(), search)

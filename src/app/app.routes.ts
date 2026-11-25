@@ -1,5 +1,6 @@
 import { inject } from "@angular/core"
 import { type Routes } from "@angular/router"
+import { MAIS365_BOOK } from "./bible-canon"
 import { chapterExists } from "./chapter-exists.guard"
 import { BibleReaderComponent } from "./components/bible-reader/bible-reader.component"
 import { NativeChromeService } from "./services/native-chrome.service"
@@ -8,6 +9,11 @@ import {
   PLAY_STORE_URL,
   redirectTo,
 } from "./store-redirect.guard"
+
+const loadMais365Page = () =>
+  import("./components/mais365/mais365.component").then(
+    (m) => m.Mais365Component,
+  )
 
 const loadIndexPage = () =>
   import("./components/pastoral-index/pastoral-index.component").then(
@@ -62,12 +68,18 @@ export const routes: Routes = [
     path: "indice/:slug",
     loadComponent: loadIndexPage,
   },
+  // The web hosts the +365 plan in the reader too, under its header; the
+  // apps' bars are native.
   {
     path: "365",
-    loadComponent: () =>
-      import("./components/mais365/mais365.component").then(
-        (m) => m.Mais365Component,
-      ),
+    component: BibleReaderComponent,
+    data: { pageBook: MAIS365_BOOK },
+    canMatch: [() => !inject(NativeChromeService).enabled],
+    resolve: { indexPage: loadMais365Page },
+  },
+  {
+    path: "365",
+    loadComponent: loadMais365Page,
   },
   {
     path: ":book/:chapter",

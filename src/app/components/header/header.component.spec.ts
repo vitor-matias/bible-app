@@ -9,6 +9,7 @@ import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import type { Mock } from "vitest"
+import { MAIS365_BOOK } from "../../bible-canon"
 import { PRIVACY_POLICY_URL } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
@@ -1199,6 +1200,21 @@ describe("HeaderComponent", () => {
       expect(component.shareText()).toBe("Índice Bíblico-Pastoral")
       fixture.componentRef.setInput("indexShareText", "Ler Amor no Índice.")
       expect(component.shareText()).toBe("Ler Amor no Índice.")
+    })
+
+    // On the web the reader hosts the +365 plan under this header: it showed
+    // no header at all, on its own page.
+    it("names the +365 plan plainly, with no chapter button", () => {
+      fixture.componentRef.setInput("book", MAIS365_BOOK)
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+
+      const heading = (fixture.nativeElement as HTMLElement).querySelector(
+        "h1",
+      ) as HTMLElement
+      expect(heading.getAttribute("aria-label")).toBe("+365")
+      expect(heading.querySelectorAll("mat-button-toggle").length).toBe(1)
+      expect(component.shareText()).toBe("A Bíblia num ano, com o +365.")
     })
 
     // The audit's complaint: with two stacked labels crossfading, both stayed

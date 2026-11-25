@@ -23,6 +23,7 @@ import {
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject, throwError } from "rxjs"
 import type { Mock } from "vitest"
+import { MAIS365_BOOK } from "../../bible-canon"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { indexBookmarkLabel } from "../../pastoral-index-bookmarks"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -3970,6 +3971,32 @@ describe("BibleReaderComponent", () => {
       fixture.destroy()
       expect(stop).toHaveBeenCalledTimes(2)
     })
+  })
+
+  // On the web the reader hosts the +365 plan too: it had no header.
+  it("hosts the +365 plan under its header, named as it", async () => {
+    TestBed.resetTestingModule()
+    ;(routeMock as { snapshot: { data: object } }).snapshot.data = {
+      indexPage: IndexPageStub,
+      pageBook: MAIS365_BOOK,
+    }
+    await setUpTestBed({ imports: [NgComponentOutlet, MatSidenavModule] })
+    fixture = TestBed.createComponent(BibleReaderComponent, {
+      inferTagName: true,
+    })
+    fixture.detectChanges()
+    await fixture.whenStable()
+    const host = fixture.nativeElement as HTMLElement
+
+    expect(fixture.componentInstance.book).toBe(MAIS365_BOOK)
+    const header = host.querySelector("header") as unknown as {
+      book: Book
+      indexShareText: string | null
+    }
+    expect(header.book).toBe(MAIS365_BOOK)
+    expect(header.indexShareText).toBeNull()
+    expect(host.querySelector(".index-block index-page-stub")).not.toBeNull()
+    expect(preferencesServiceSpy.setLastBookId).not.toHaveBeenCalled()
   })
 
   // On the web the reader hosts the index, as it does the About page.
