@@ -1519,6 +1519,30 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       }
     })
 
+    // styles.css: scrolling, the text ends above the card, not under it.
+    it("ends the scrolling text above the docked card, not under it", async () => {
+      const reader = document.createElement("div")
+      reader.style.height = "500px"
+      const scroller = document.createElement("div")
+      scroller.className = "mat-drawer-content"
+      reader.append(scroller)
+      // Full height from a stylesheet, as Material's: an inline one would win.
+      const material = document.createElement("style")
+      material.textContent = ".mat-drawer-content { height: 100% }"
+      document.head.append(material)
+      document.body.append(reader)
+      try {
+        await listen()
+        // The card's 106px and its 32px of gap.
+        expect(scroller.getBoundingClientRect().height).toBe(362)
+        drag(find(".audio-caption") as Element, [300, 200])
+        expect(scroller.getBoundingClientRect().height).toBe(500)
+      } finally {
+        reader.remove()
+        material.remove()
+      }
+    })
+
     it("isn't dragged by its controls", async () => {
       await listen()
       drag(toggle() as Element, [300, 200])
