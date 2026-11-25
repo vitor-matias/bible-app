@@ -180,6 +180,9 @@ describe("Mais365Component", () => {
     ) as HTMLInputElement
     expect(slider.min).toBe("688.72")
     expect(slider.max).toBe("1344")
+    // Said as the times beside it show it: into the reflection, not the day.
+    fixture.detectChanges()
+    expect(slider.getAttribute("aria-valuetext")).toBe("0:03 de 10:55")
     expect(button("Velocidade do +365")?.textContent?.trim()).toBe("1×")
     button("Velocidade do +365")?.click()
     expect(player.cycleRate).toHaveBeenCalled()

@@ -110,8 +110,16 @@ export class Mais365Component implements OnInit, OnDestroy {
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`
   }
 
-  protected readonly spokenTime = (seconds: number): string =>
-    this.time(seconds)
+  /**
+   * For screen readers, into the reflection, as the times beside the slider
+   * show it (not into the whole episode): "0:03 de 10:55".
+   */
+  protected readonly spokenTime = (seconds: number): string => {
+    const day = this.plan.active()
+    const start = day?.reflection ?? 0
+    const end = day?.duration ?? seconds
+    return `${this.time(seconds - start)} de ${this.time(end - start)}`
+  }
 
   ngOnInit(): void {
     this.title.setTitle("+365 | Bíblia Sagrada")
