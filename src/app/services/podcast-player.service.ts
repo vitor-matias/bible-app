@@ -16,6 +16,13 @@ export interface ChapterEpisode {
   end: number | null
   /** [first, last] verse, when only part of the chapter is read that day. */
   range?: [number, number]
+  /** Read in part: where its heading's chapter name ends ("Provérbios 3"). */
+  titleEnd?: number
+  /**
+   * A stretch not to be heard, jumped over: a chapter heard whole leaves out
+   * its first part's "1 a 4" after the chapter's name.
+   */
+  skip?: [number, number]
   /** [verse, seconds] where each verse starts, for following the reading. */
   verses?: [number, number][]
 }
@@ -381,10 +388,11 @@ export class PodcastPlayerService {
     // its fragment will seek to; what is written here then wins over that.
     // A skip already asked for still reads back from currentTime, so taps
     // add up: 56.5, 66.5, 76.5.
+    // A part jumped to and still loading: from where it is to start.
     const from =
       audio.readyState >= HTMLMediaElement.HAVE_METADATA
         ? audio.currentTime
-        : Math.max(current.start ?? 0, audio.currentTime)
+        : (this.loadingAt ?? Math.max(current.start ?? 0, audio.currentTime))
     // A chapter in parts: on into the next part, or back into the one before.
     const whole = this.chainTime(from)
     if (whole) {
@@ -431,12 +439,29 @@ export class PodcastPlayerService {
     ) {
       audio.currentTime = this.withinChapter(audio.currentTime)
     }
+    this.guardSkip(audio)
     if (end == null || !this.playing() || this.endTimer) return
     const left = (end - audio.currentTime) / audio.playbackRate
     if (left <= 0) this.stopAtEnd(audio)
     else if (left < 1) {
       this.endTimer = setTimeout(() => this.stopAtEnd(audio), left * 1000)
     }
+  }
+
+  /** Over the part's skip, to the millisecond as its end: not a word of it. */
+  private skipTimer?: ReturnType<typeof setTimeout>
+
+  private guardSkip(audio: HTMLAudioElement): void {
+    const skip = this.current()?.skip
+    if (!skip || !this.playing() || this.skipTimer) return
+    const jump = () => {
+      this.skipTimer = undefined
+      const at = audio.currentTime
+      if (at >= skip[0] - 0.05 && at < skip[1]) audio.currentTime = skip[1]
+    }
+    const left = (skip[0] - audio.currentTime) / audio.playbackRate
+    if (left <= 0) jump()
+    else if (left < 1) this.skipTimer = setTimeout(jump, left * 1000)
   }
 
   private stopAtEnd(audio: HTMLAudioElement): void {
@@ -504,6 +529,8 @@ export class PodcastPlayerService {
   private clearEndTimer(): void {
     clearTimeout(this.endTimer)
     this.endTimer = undefined
+    clearTimeout(this.skipTimer)
+    this.skipTimer = undefined
   }
 
   readonly canSlower = () => this.rate() > RATES[0]
@@ -537,6 +564,8 @@ export class PodcastPlayerService {
     const within = this.withinChapter(seconds)
     this.audio.currentTime = within
     this.position.set(within)
+    // A part still loading where jumpTo sent it: here instead, once loaded.
+    if (this.loadingAt !== undefined) this.loadingAt = within
   }
 
   /** Where the stream is right now, finer than position's timeupdates. */

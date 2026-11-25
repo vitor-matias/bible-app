@@ -249,19 +249,21 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       [...episodes]
         .sort((a, b) => (a.range?.[0] ?? 0) - (b.range?.[0] ?? 0))
         // Heard as one chapter: past each day's announcement ("Provérbios 3,
-        // 1 a 4"), straight to its first verse, the first part's too.
-        .map((part) => {
+        // 5 a 8"), straight to its first verse. The first part says the
+        // chapter's name, then skips the verses named ("1 a 4"), where the
+        // API says where that name ends.
+        .map((part, i) => {
           const first = part.verses?.[0]?.[1]
-          return first === undefined
-            ? part
-            : {
-                ...part,
-                // To the hundredth, as the API gives times ("#t=1029.86").
-                start: Math.max(
-                  part.start ?? 0,
-                  Math.round((first - PART_LEAD) * 100) / 100,
-                ),
-              }
+          if (first === undefined) return part
+          // To the hundredth, as the API gives times ("#t=1029.86").
+          const verse = Math.max(
+            part.start ?? 0,
+            Math.round((first - PART_LEAD) * 100) / 100,
+          )
+          const named = i === 0 && part.titleEnd !== undefined
+          return named && part.titleEnd !== undefined && part.titleEnd < verse
+            ? { ...part, skip: [part.titleEnd, verse] as [number, number] }
+            : { ...part, start: verse }
         })
     )
   })

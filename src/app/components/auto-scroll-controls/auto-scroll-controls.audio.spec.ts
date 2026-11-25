@@ -708,6 +708,24 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(stream.src).toBe(`${first.url}#t=1030`)
     })
 
+    // Paused, a part jumped to waits to load: what's done meanwhile counts.
+    it("keeps a seek or a skip made while a part jumped to still loads", async () => {
+      await listen([first, second, third])
+      tap(toggle())
+      player().pause()
+      const stream = play.mock.contexts.find((element: unknown) =>
+        (element as HTMLAudioElement).src.startsWith(first.url),
+      ) as HTMLAudioElement
+      // 6:40 in, then 7:30: both in the second part (from 1108).
+      player().seekChapter(400)
+      expect(stream.src).toBe(`${second.url}#t=1208`)
+      player().seekChapter(450)
+      player().skip(15)
+      stream.dispatchEvent(new Event("loadedmetadata"))
+      expect(stream.currentTime).toBe(1273)
+      expect(player().position()).toBe(1273)
+    })
+
     it("skips 15 s on into the next part, or back into the one before", async () => {
       await listen([first, second, third])
       tap(toggle())
@@ -760,6 +778,28 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(player().current()?.range).toEqual([121, 176])
     })
 
+    // "Provérbios 3, 1 a 4": the chapter's name, then verse 1.
+    it("says the chapter's name, then skips the first part's verses named", async () => {
+      await listen([
+        { ...first, titleEnd: 1002, verses: [[1, 1004.8]] },
+        second,
+      ])
+      tap(toggle())
+      const stream = play.mock.contexts.find((element: unknown) =>
+        (element as HTMLAudioElement).src.startsWith(first.url),
+      ) as HTMLAudioElement
+      // From the heading, the chapter's name and all.
+      expect(stream.src).toBe(`${first.url}#t=1000`)
+      stream.currentTime = 1002.1
+      stream.dispatchEvent(new Event("timeupdate"))
+      expect(stream.currentTime).toBe(1004)
+      // Not again, played on.
+      stream.currentTime = 1010
+      stream.dispatchEvent(new Event("timeupdate"))
+      expect(stream.currentTime).toBe(1010)
+    })
+
+    // Without the API's titleEnd: as before, at the first verse.
     it("starts the first part at its first verse too, past the day's announcement", async () => {
       await listen([{ ...first, verses: [[1, 1004.8]] }, second])
       tap(toggle())
@@ -1361,34 +1401,84 @@ describe("AutoScrollControlsComponent +365 mode", () => {
   // The reader keeps --audio-card-height clear under the card (styles.css):
   // its rows must fit that height, or the text's last lines go under them.
   // styles.css: a phone held sideways has no height to spare under the text.
-  it("stands down the right edge on a low landscape screen, the text left of it", async () => {
-    const scroller = document.createElement("bible-reader")
-    const content = document.createElement("div")
-    content.className = "mat-drawer-content"
-    scroller.append(content)
-    document.body.append(scroller)
-    await page.viewport(932, 430)
-    try {
-      await listen()
-      const card = (
-        find(".audio-player") as HTMLElement
-      ).getBoundingClientRect()
-      expect(Math.round(card.width)).toBe(104)
-      expect(card.right).toBeGreaterThan(900)
-      // Down the side, from under the header to the bottom.
-      expect(card.height).toBeGreaterThan(300)
-      // The text keeps clear of it: the card's width and a margin.
-      expect(getComputedStyle(content).paddingRight).toBe("120px")
-      // ▶ first, alone on its row; ±15 s side by side under it.
-      const top = (selector: string) =>
-        (find(selector) as HTMLElement).getBoundingClientRect().top
-      expect(top(".skip-back")).toBeGreaterThan(top(".audio-toggle"))
-      expect(top(".skip-back")).toBe(top(".skip-forward"))
-    } finally {
-      await page.viewport(800, 600)
-      scroller.remove()
-    }
-  })
+  // A big phone (wide enough, in this browser, for a desktop's movable card)
+  // and the lowest: 375px, of which the header takes 56px.
+  for (const [width, height, inPlan] of [
+    [932, 430, false],
+    [932, 430, true],
+    [667, 375, false],
+    [667, 375, true],
+  ] as const) {
+    it(`sits in the right corner on a low landscape screen (${width}x${height}${inPlan ? ", a day of the plan" : ""}), the text left of it`, async () => {
+      const scroller = document.createElement("bible-reader")
+      const content = document.createElement("div")
+      content.className = "mat-drawer-content"
+      scroller.append(content)
+      document.body.append(scroller)
+      await page.viewport(width, height)
+      try {
+        await listen()
+        if (inPlan) {
+          vi.spyOn(TestBed.inject(Router), "navigate").mockResolvedValue(true)
+          tap(toggle())
+          TestBed.inject(Mais365Service).active.set({
+            day: 3,
+            title: "A Arca de Noé",
+            theme: "A Arca de Noé",
+            url: day3.url,
+            duration: 1103,
+            readings: [
+              { bookId: "exo", bookName: "Êxodo", chapter: 5, episode: day3 },
+            ],
+            reflection: 900,
+          })
+          audio().currentTime = 950
+          audio().dispatchEvent(new Event("timeupdate"))
+          TestBed.tick()
+          fixture.detectChanges()
+          expect(find(".plan-back")).not.toBeNull()
+        }
+        const box = (selector: string) =>
+          (find(selector) as HTMLElement).getBoundingClientRect()
+        const card = box(".audio-player")
+        // A desktop's wider minimum (a plan day's 264px) gives way too.
+        if (width > 768) expect(find(".audio-player.movable")).not.toBeNull()
+        // Narrow, in the bottom right corner, under the header.
+        expect(Math.round(card.width)).toBe(176)
+        expect(card.right).toBeGreaterThan(width - 17)
+        expect(card.right).toBeLessThanOrEqual(width)
+        expect(card.bottom).toBeGreaterThan(height - 17)
+        expect(card.bottom).toBeLessThanOrEqual(height)
+        expect(card.top).toBeGreaterThan(56)
+        // The text keeps clear of it: the card's width and a margin.
+        expect(getComputedStyle(content).paddingRight).toBe("192px")
+        // Nothing spills out of the card, and every button can be tapped.
+        for (const part of fixture.nativeElement.querySelectorAll(
+          ".audio-player :is(button, mat-slider, .audio-time, .audio-caption)",
+        ) as NodeListOf<HTMLElement>) {
+          const inner = part.getBoundingClientRect()
+          expect(inner.left).toBeGreaterThanOrEqual(card.left)
+          expect(inner.right).toBeLessThanOrEqual(card.right)
+          expect(inner.top).toBeGreaterThanOrEqual(card.top)
+          expect(inner.bottom).toBeLessThanOrEqual(card.bottom)
+          if (part.tagName === "BUTTON") {
+            expect(inner.width).toBeGreaterThanOrEqual(40)
+            expect(inner.height).toBeGreaterThanOrEqual(40)
+          }
+        }
+        // The timeline over ▶, the biggest, between ±15 s; the rest below.
+        const play = box(".audio-toggle")
+        expect(play.top).toBeGreaterThan(box(".audio-position").top)
+        expect(play.width).toBeGreaterThan(box(".skip-back").width)
+        expect(box(".skip-back").right).toBeLessThanOrEqual(play.left)
+        expect(box(".skip-forward").left).toBeGreaterThanOrEqual(play.right)
+        expect(box(".audio-speed").top).toBeGreaterThanOrEqual(play.bottom)
+      } finally {
+        await page.viewport(800, 600)
+        scroller.remove()
+      }
+    })
+  }
 
   it("fits its rows inside --audio-card-height", async () => {
     await listen()

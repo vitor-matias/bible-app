@@ -542,107 +542,125 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
 }
 
 /* A phone held sideways (landscape, at most 500px tall): too low for the
-   card below the text, but with width to spare. The card stands down the
-   right edge instead, its controls stacked, and the text (scrolling or in
-   pages) and the › arrow move left of it, keeping all of their height. Here,
-   not in the card's stylesheet, which is at its size budget. */
+   card below the text, but with width to spare. The card sits in the bottom
+   right corner instead, as tall as its rows (the timeline, ±15 s round ▶,
+   then the rest), and the text (scrolling or in pages) and the › arrow move
+   left of it, keeping all of their height. Here, not in the card's
+   stylesheet, which is at its size budget. */
 @media (orientation: landscape) and (max-height: 500px) {
   :root {
-    --audio-side-width: 104px;
+    --audio-side-width: 176px;
   }
 
   body .auto-scroll-controls.audio:not(.placed):has(.audio-player) {
-    top: calc(var(--app-header-height) + 8px);
-    bottom: calc(8px + var(--app-inset-bottom));
     right: calc(8px + var(--app-inset-right));
+    bottom: calc(8px + var(--app-inset-bottom));
     left: auto;
     transform: none;
   }
 
-  /* Over the width a desktop's card was given (inline), and its resizing
-     (the card's own .movable rule weighs as much as three classes). */
+  /* Over the width a desktop's card was given (inline), its resizing and
+     its narrow-card shrinking (the card's own .movable rule weighs as much
+     as three classes). */
   body .auto-scroll-controls.audio .audio-player {
     width: var(--audio-side-width) !important;
-    min-width: 0;
-    height: 100%;
-    max-height: calc(100dvh - var(--app-header-height) - 16px);
+    min-width: 0 !important;
+    height: auto;
     resize: none;
-    grid-template-rows: auto auto 1fr;
-    gap: 6px;
-    padding: 26px 6px 8px;
+    container-type: normal;
+    grid-template-rows: none;
+    gap: 4px;
+    padding: 12px 12px 8px;
   }
 
+  body .auto-scroll-controls .audio-grip {
+    display: none;
+  }
+
+  /* Up to two lines, from the left, clear of the hide button. */
   body .auto-scroll-controls .audio-caption {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    padding-right: 30px;
     white-space: normal;
-    font-size: 11px;
-    line-height: 13px;
+    text-align: start;
   }
 
-  /* Hide, at the top in the middle, over the caption. */
+  /* Hide: the card's top right corner, a full 40px to tap. */
   body .auto-scroll-controls .audio-collapse {
-    top: 2px;
-    right: calc(50% - 12px);
+    top: 0;
+    right: 2px;
+    --mat-icon-button-state-layer-size: 40px;
+    padding: 11px;
   }
 
-  /* The slider over the times. */
+  /* The slider over the times, one at each end of it. */
   body .auto-scroll-controls .audio-progress {
     flex-wrap: wrap;
     justify-content: space-between;
-    row-gap: 0;
+    gap: 0;
   }
 
   body .auto-scroll-controls .audio-position {
     order: -1;
-    flex: 1 0 100%;
+    flex: none;
+    width: 100%;
+    margin: -4px 0 -12px;
   }
 
   body .auto-scroll-controls .audio-time {
     min-width: 0;
-    font-size: 10px;
+    font-size: 11px;
   }
 
-  /* Two buttons a row: ▶ alone and first, then ±15 s, ⏮ ⏭ (a day of the
-     plan), and the speed beside ⇅. */
+  /* Three to a row: ±15 s round a bigger ▶, then ⏮ speed ⏭ in a day of the
+     plan, or ⇅ and the speed under ±15 s. */
   body .auto-scroll-controls .audio-buttons {
-    grid-template-columns: 1fr 1fr;
-    align-content: space-evenly;
+    grid-template-columns: repeat(3, 1fr);
     justify-items: center;
-    row-gap: 4px;
+    row-gap: 2px;
+    margin-top: 4px;
+    --mat-icon-button-state-layer-size: 40px;
+    --mat-button-text-container-height: 40px;
   }
 
   body .auto-scroll-controls .audio-transport {
     display: contents;
   }
 
-  body .auto-scroll-controls .audio-toggle {
-    grid-column: 1 / -1;
+  body .auto-scroll-controls.audio .audio-player .audio-toggle {
+    width: 52px;
+    height: 52px;
+  }
+
+  body .auto-scroll-controls :is(.plan-back, .audio-buttons > .mode-toggle) {
     order: 1;
+    grid-column: 1;
+    justify-self: center;
   }
 
-  body .auto-scroll-controls .skip-back {
-    order: 2;
-  }
-
-  body .auto-scroll-controls .skip-forward {
-    order: 3;
-  }
-
-  body .auto-scroll-controls .plan-back {
-    order: 4;
-  }
-
-  body .auto-scroll-controls .plan-skip {
-    order: 5;
+  body .auto-scroll-controls .audio-buttons > span:first-child {
+    display: none;
   }
 
   body .auto-scroll-controls .audio-rate {
-    order: 6;
+    order: 2;
+    grid-column: 2;
     justify-self: center;
   }
 
-  body .auto-scroll-controls .audio-buttons > :first-child {
-    order: 7;
-    justify-self: center;
+  body .auto-scroll-controls .mode-toggle ~ .audio-rate {
+    grid-column: 3;
+  }
+
+  body .auto-scroll-controls .audio-speed {
+    min-width: 48px;
+    padding: 0 8px;
+  }
+
+  body .auto-scroll-controls .plan-skip {
+    order: 3;
   }
 
   body:has(.auto-scroll-controls:not(.placed) .audio-player) bible-reader .mat-drawer-content {
