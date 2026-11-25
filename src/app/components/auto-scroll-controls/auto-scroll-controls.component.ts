@@ -60,6 +60,8 @@ const SPEED_LIMIT_TOLERANCE = 0.001
  * its start at 0.3 s).
  */
 const PART_LEAD = 0.8
+/** How much sooner than the API's titleEnd the chapter's name is cut. */
+const TITLE_CUT = 0.15
 const READING_AREA = 0.75
 /** Where a desktop reader dragged the card, and the width they gave it. */
 const POSITION_KEY = "audioCardPosition"
@@ -260,9 +262,12 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
             part.start ?? 0,
             Math.round((first - PART_LEAD) * 100) / 100,
           )
+          // The API's end of the name still let the start of "1 a 4" through
+          // (heard as 0.15 s): cut a little sooner.
           const named = i === 0 && part.titleEnd !== undefined
-          return named && part.titleEnd !== undefined && part.titleEnd < verse
-            ? { ...part, skip: [part.titleEnd, verse] as [number, number] }
+          const nameEnd = (part.titleEnd ?? 0) - TITLE_CUT
+          return named && nameEnd < verse
+            ? { ...part, skip: [nameEnd, verse] as [number, number] }
             : { ...part, start: verse }
         })
     )

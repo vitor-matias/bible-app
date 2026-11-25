@@ -81,9 +81,9 @@ const reload = (audio: HTMLAudioElement, src: string): void => {
  * How long a part goes on past its end when another follows: its end is where
  * Whisper's next segment begins, which can fall within the last word (Pv 3:24's
  * «agradável»). Not much more: the end-of-reading jingle can follow at once
- * (heard at 0.5 s).
+ * (heard at 0.5 s, and its first 0.15 s still at 0.3 s).
  */
-const PART_TAIL = 0.3
+const PART_TAIL = 0.15
 
 const samePart = (a: ChapterEpisode, b: ChapterEpisode): boolean =>
   a.url === b.url && a.start === b.start

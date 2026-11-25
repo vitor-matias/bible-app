@@ -680,9 +680,9 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(player().current()?.title).toBe("Êxodo 5")
 
       // Its end is where the next segment began, maybe within the last word:
-      // it plays 0.3 s on before the next part takes over.
+      // it plays 0.15 s on before the next part takes over.
       vi.useFakeTimers()
-      endPart(playing, 1300.2)
+      endPart(playing, 1300.1)
       expect(stream.paused).toBe(true)
       playing.currentTime = 1300.5
       await vi.advanceTimersByTimeAsync(300)
@@ -835,7 +835,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       ) as HTMLAudioElement
       // From the heading, the chapter's name and all.
       expect(stream.src).toBe(`${first.url}#t=1000`)
-      stream.currentTime = 1002.1
+      stream.currentTime = 1001.9
       stream.dispatchEvent(new Event("timeupdate"))
       expect(stream.currentTime).toBe(1004)
       // Not again, played on.
