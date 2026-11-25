@@ -548,6 +548,31 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
   }
 }
 
+/* A phone, scrolling, on the web: the copyright ends the chapter between
+   the ‹ › arrows, in their row, as in the apps, not in a band under them
+   (it ran behind them). Its sides clear the arrows (24px in, 48px wide, and
+   16px of air); its bottom is theirs: 72px up, or level with them over the
+   «Ouvir» card (whose room under the text is the card's and 32px, the
+   arrows' bottom 8px less). */
+@media (max-width: 768px) {
+  body:not(.native-chrome) bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) {
+    width: auto;
+    margin: 0 calc(88px + var(--app-inset-right)) 0 calc(88px + var(--app-inset-left));
+    padding: 0;
+  }
+
+  body:not(.native-chrome) bible-reader .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) {
+    padding-bottom: calc(72px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
+    bible-reader
+    .mat-drawer-content
+    > .copyright-footer:not(.fixed-footer) {
+    margin-bottom: -8px;
+  }
+}
+
 /* The «Ouvir» controls live outside the reader's scroller (iOS Safari clips
    fixed elements inside it): over an open book list they'd show, which
    covered them while they were inside. */
