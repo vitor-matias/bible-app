@@ -2324,6 +2324,29 @@ describe("BibleReaderComponent", () => {
       component = fixture.componentInstance
     })
 
+    // It went with the +365 pages, though its menu item stayed and About's
+    // text scrolls as a chapter's.
+    it("keeps auto-scroll on the About page", () => {
+      fixture.detectChanges()
+      component.book = {
+        id: "about",
+        abrv: "Sobre",
+        shortName: "Sobre a Bíblia",
+        name: "Sobre a Bíblia",
+        chapterCount: 1,
+      } as Book
+      component.books = [component.book]
+      component.showAutoScrollControls = true
+      component.chapter = { bookId: "about", number: 1, verses: [] } as Chapter
+      component.chapterNumber = 1
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      expect(component.isPage).toBe(true)
+      expect(
+        fixture.nativeElement.querySelector("app-auto-scroll-controls"),
+      ).not.toBeNull()
+    })
+
     it("shows the player for the day, keeps it once the day lets go, and hides it from the menu", () => {
       fixture.detectChanges()
       component.books = [component.book]

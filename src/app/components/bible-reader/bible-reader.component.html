@@ -143,7 +143,8 @@
   </mat-drawer-container>
   <!-- Outside the scroller: iOS Safari clips a fixed element inside it to its
        box, which cut the card's shadow and, shortened, the card itself. -->
-  @if (!isPage && chapter && (showAutoScrollControls || heldByPlan()) && drawerContent && bookBlock) {
+  <!-- About's text scrolls as a chapter's; the hosted pages (the index, +365) have none. -->
+  @if (!indexPage && chapter && (showAutoScrollControls || heldByPlan()) && drawerContent && bookBlock) {
   <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
     [bookId]="chapter.bookId" [chapter]="chapter.number"
     [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'"
