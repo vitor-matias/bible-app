@@ -372,12 +372,17 @@ export class PodcastPlayerService {
     })
     // The system's player (lock screen, menu bar, headphones) shows the part
     // being heard, the chapter or the reflection, not the whole episode.
+    // Playing too: a pause that moves nothing else (before the stream loads,
+    // a stalled one) left it showing ⏸.
     effect(() => {
       const current = this.current()
       const position = this.position()
       const rate = this.rate()
       const duration = this.duration()
-      untracked(() => this.syncMediaSession(current, position, rate, duration))
+      const playing = this.playing()
+      untracked(() =>
+        this.syncMediaSession(current, position, rate, duration, playing),
+      )
     })
   }
 
@@ -633,18 +638,21 @@ export class PodcastPlayerService {
     position: number,
     rate: number,
     duration: number,
+    playing: boolean,
   ): void {
     if (typeof navigator === "undefined" || !navigator.mediaSession) return
     const session = navigator.mediaSession
+    // Ended or failed: nothing to show playing.
     if (!current) {
       session.metadata = null
+      session.playbackState = "none"
       return
     }
     // A chapter is the Bible's; only a day of the plan is +365's.
     const artist = this.throughEpisode()
       ? `+365 · Dia ${current.day}`
       : "Bíblia Sagrada"
-    session.playbackState = this.playing() ? "playing" : "paused"
+    session.playbackState = playing ? "playing" : "paused"
     if (
       this.retellSession ||
       session.metadata?.title !== current.title ||

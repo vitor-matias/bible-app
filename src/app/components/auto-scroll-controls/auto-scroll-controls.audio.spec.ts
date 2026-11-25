@@ -517,6 +517,23 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(navigator.mediaSession.metadata?.artist).toBe("+365 · Dia 3")
   })
 
+  // A pause that moved nothing else (before the stream loaded) left the
+  // system's player at ⏸; one ended or failed, at its last state.
+  it("tells the system's player each pause, and when nothing is left", async () => {
+    await listen()
+    tap(toggle())
+    TestBed.tick()
+    expect(navigator.mediaSession.playbackState).toBe("playing")
+    tap(toggle())
+    TestBed.tick()
+    expect(navigator.mediaSession.playbackState).toBe("paused")
+    tap(toggle())
+    TestBed.tick()
+    audio().dispatchEvent(new Event("ended"))
+    TestBed.tick()
+    expect(navigator.mediaSession.playbackState).toBe("none")
+  })
+
   it("keeps the screen on while +365 plays", async () => {
     const keepAwake = TestBed.inject(KeepAwakeService)
     const start = vi.spyOn(keepAwake, "start")
