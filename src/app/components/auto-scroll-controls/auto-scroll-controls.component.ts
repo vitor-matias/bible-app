@@ -35,6 +35,7 @@ import {
   type ChapterEpisode,
   FOLLOW_PAUSE_MS,
   PodcastPlayerService,
+  partsTime,
   rateTitle,
   SCROLL_KEYS,
 } from "../../services/podcast-player.service"
@@ -53,8 +54,12 @@ const SPEED_LIMIT_TOLERANCE = 0.001
  * closing this share of the distance per second, until the verse's top
  * touches the area's upper edge.
  */
-/** A part heard straight on starts this long before its first verse. */
-const PART_LEAD = 0.3
+/**
+ * A part heard straight on starts this long before its first verse: the
+ * verse's time marks a moment into its first word (Pv 3:25's «Não» lost
+ * its start at 0.3 s).
+ */
+const PART_LEAD = 0.8
 const READING_AREA = 0.75
 /** Where a desktop reader dragged the card, and the width they gave it. */
 const POSITION_KEY = "audioCardPosition"
@@ -315,10 +320,34 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   })
 
   /** The slider spans the chapter's reading, not the whole episode. */
-  protected readonly chapterStart = computed(() => this.entry()?.start ?? 0)
-  protected readonly chapterEnd = computed(
-    () => this.entry()?.end ?? this.player.duration(),
+  /**
+   * A chapter read in parts, as one recording: its length, and how far into
+   * it the player is (0 before it plays). Null for a chapter read whole.
+   */
+  private readonly whole = computed(() => {
+    const parts = this.parts()
+    if (!parts || this.planEntry()) return null
+    const entry = this.entry()
+    const playing = entry && this.player.isCurrent(entry) ? entry : null
+    return partsTime(parts, playing, this.player.position())
+  })
+
+  /** The card's span and place: the chapter's in its episode, or its parts' in all of them. */
+  protected readonly chapterStart = computed(() =>
+    this.whole() ? 0 : (this.entry()?.start ?? 0),
   )
+  protected readonly chapterEnd = computed(
+    () => this.whole()?.length ?? this.entry()?.end ?? this.player.duration(),
+  )
+  private readonly here = computed(
+    () => this.whole()?.elapsed ?? this.player.position(),
+  )
+
+  /** The slider, or the apps' scrubber: within the part, or across the parts. */
+  protected seekTo(seconds: number): void {
+    if (this.whole()) this.player.seekChapter(seconds)
+    else this.player.seek(seconds)
+  }
 
   constructor() {
     // Listening in the apps, ⏮ ⏭ step through the episode's day: the days.
@@ -393,12 +422,12 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     if (!this.loaded()) return this.chapterStart()
     return Math.min(
       this.chapterEnd(),
-      Math.max(this.chapterStart(), this.player.position()),
+      Math.max(this.chapterStart(), this.here()),
     )
   })
 
   protected holdSlider(): void {
-    this.heldAt = this.player.position()
+    this.heldAt = this.here()
     this.dragging.set(true)
   }
 
@@ -891,12 +920,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     }
     // Named for the system's player: the chapter, not the episode's day.
     const title = `${this.bookName()} ${this.chapter()}`
-    const parts = this.parts() ?? []
-    const rest = parts.slice(parts.indexOf(entry as ChapterEpisode) + 1)
     if (entry) {
       this.player.toggle(
         { ...entry, title },
-        rest.map((part) => ({ ...part, title })),
+        (this.parts() ?? []).map((part) => ({ ...part, title })),
       )
     }
   }
@@ -1093,7 +1120,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       // Whole seconds: one bridge message a second at most while playing.
       elapsed: Math.min(
         Math.floor(length),
-        Math.max(0, Math.floor(this.player.position() - start)),
+        Math.max(0, Math.floor(this.here() - start)),
       ),
       length: Math.round(length * 10) / 10,
       rate: this.player.rate(),
@@ -1149,7 +1176,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         this.player.cycleRate()
         break
       case "podcast-seek":
-        this.player.seek(this.chapterStart() + action.seconds)
+        this.seekTo(this.chapterStart() + action.seconds)
         break
     }
   }

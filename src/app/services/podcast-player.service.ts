@@ -59,6 +59,72 @@ const streamUrl = ({ url, start }: ChapterEpisode): string =>
   start ? `${url}#t=${start}` : url
 
 /**
+ * Gives an element that has played a new source, reset first: on iOS one
+ * paused and handed another stream kept its old intent to play, starting the
+ * new one by itself, or playing it without ever saying so.
+ */
+const reload = (audio: HTMLAudioElement, src: string): void => {
+  audio.pause()
+  audio.removeAttribute("src")
+  audio.load()
+  audio.src = src
+}
+
+/**
+ * How long a part goes on past its end when another follows: its end is where
+ * Whisper's next segment begins, which can fall within the last word (Pv 3:24's
+ * «agradável»).
+ */
+const PART_TAIL = 0.5
+
+const samePart = (a: ChapterEpisode, b: ChapterEpisode): boolean =>
+  a.url === b.url && a.start === b.start
+
+const spanOf = (part: ChapterEpisode): number =>
+  Math.max(0, (part.end ?? part.start ?? 0) - (part.start ?? 0))
+
+/**
+ * A chapter read in parts (Salmo 119 over three days), heard as one recording:
+ * how long all of it lasts, and how far into it `seconds` of `part` are.
+ */
+export const partsTime = (
+  parts: ChapterEpisode[],
+  part: ChapterEpisode | null,
+  seconds: number,
+): { elapsed: number; length: number } => {
+  let length = 0
+  let elapsed = 0
+  for (const each of parts) {
+    if (part && samePart(each, part)) {
+      elapsed =
+        length +
+        Math.min(spanOf(each), Math.max(0, seconds - (each.start ?? 0)))
+    }
+    length += spanOf(each)
+  }
+  return { elapsed, length }
+}
+
+/** The part a time into the whole chapter falls in, and that part's second. */
+const partAt = (
+  parts: ChapterEpisode[],
+  seconds: number,
+): { index: number; at: number } | null => {
+  let before = 0
+  for (const [index, part] of parts.entries()) {
+    const span = spanOf(part)
+    if (seconds < before + span || index === parts.length - 1) {
+      const into = Math.min(span, Math.max(0, seconds - before))
+      // To the hundredth, as the API's times: Safari didn't start a stream at
+      // "#t=811.5465695190429".
+      return { index, at: Math.round(((part.start ?? 0) + into) * 100) / 100 }
+    }
+    before += span
+  }
+  return null
+}
+
+/**
  * Plays +365 podcast episodes (EJNS Portugal, a Bible-in-a-year reading),
  * streamed from the podcast's own host. One player for the whole app, so the
  * audio carries on while the reader turns chapters.
@@ -69,11 +135,28 @@ export class PodcastPlayerService {
   private audio?: HTMLAudioElement
   /**
    * A chapter read in parts, over several days' episodes (Salmo 119,
-   * Provérbios 1–6): the parts still to come, and a second element with the
-   * next one loaded at its start, so it goes on without a gap.
+   * Provérbios 1–6), heard as one: all its parts, and a second element with
+   * the next one loaded at its start, so it goes on without a gap.
    */
-  private queue: ChapterEpisode[] = []
+  private chain: ChapterEpisode[] = []
   private standby?: HTMLAudioElement
+
+  /** The part after the one playing, in a chapter read in parts. */
+  private nextPart(): ChapterEpisode | undefined {
+    const index = this.chain.findIndex((part) => this.isCurrent(part))
+    return index < 0 ? undefined : this.chain[index + 1]
+  }
+
+  /** In a chapter read in parts, where the player is in all of it. */
+  private chainTime(
+    seconds: number,
+  ): { elapsed: number; length: number } | null {
+    const current = this.current()
+    if (!current || !this.chain.some((part) => samePart(part, current))) {
+      return null
+    }
+    return partsTime(this.chain, current, seconds)
+  }
 
   /** The episode loaded in the player, playing or paused. */
   readonly current = signal<ChapterEpisode | null>(null)
@@ -125,11 +208,12 @@ export class PodcastPlayerService {
 
   /**
    * Pauses or resumes a chapter's entry already in the player; any other
-   * plays from where its chapter starts, and then the parts in `then` (the
-   * rest of a chapter read over several days). Chapters read in one episode
-   * share its stream, so moving between them seeks instead of reloading.
+   * plays from where its chapter starts. `parts` are all of a chapter read
+   * over several days, `episode` among them, played on as one. Chapters read
+   * in one episode share its stream, so moving between them seeks instead of
+   * reloading.
    */
-  toggle(episode: ChapterEpisode, then: ChapterEpisode[] = []): void {
+  toggle(episode: ChapterEpisode, parts: ChapterEpisode[] = []): void {
     this.audio ??= this.createAudio()
     const audio = this.audio
     if (this.isCurrent(episode)) {
@@ -144,6 +228,12 @@ export class PodcastPlayerService {
         audio.currentTime >= episode.end &&
         !this.throughEpisode()
       ) {
+        // A chapter in parts, over: from its first part's top.
+        const first = this.chain[0]
+        if (first && !this.nextPart() && !samePart(first, episode)) {
+          this.jumpTo(first, first.start ?? 0, true)
+          return
+        }
         audio.currentTime = episode.start ?? 0
       }
       this.play(audio, episode)
@@ -153,7 +243,7 @@ export class PodcastPlayerService {
       this.current()?.url === episode.url &&
       audio.readyState >= HTMLMediaElement.HAVE_METADATA
     this.current.set(episode)
-    this.queue = then
+    this.chain = parts
     if (loaded) {
       audio.currentTime = episode.start ?? 0
       // The seek lands with a later timeupdate; till then the last chapter's
@@ -162,6 +252,7 @@ export class PodcastPlayerService {
     } else {
       // Reloading also replaces the fragment of a stream still loading, which
       // would otherwise win over a later chapter's start of zero.
+      this.loadingAt = undefined
       audio.src = streamUrl(episode)
       // A new source resets the element's length and place without saying so:
       // the last episode's would otherwise stand until this one's load.
@@ -170,7 +261,44 @@ export class PodcastPlayerService {
     }
     this.play(audio, episode)
     // Within this tap: Safari lets an element play later only once it has.
-    if (then[0]) this.prepare(then[0], true)
+    const next = this.nextPart()
+    if (next) this.prepare(next, true)
+    else this.standby?.removeAttribute("src")
+  }
+
+  /**
+   * Moves to a time into the whole chapter, when it's read in parts: into
+   * whichever part holds it. Otherwise a second of the episode, as seek().
+   */
+  seekChapter(seconds: number): void {
+    const place = partAt(this.chain, seconds)
+    if (!place || !this.chainTime(0)) {
+      this.seek(seconds)
+      return
+    }
+    const part = this.chain[place.index]
+    if (this.isCurrent(part)) this.seek(place.at)
+    else this.jumpTo(part, place.at, this.playing())
+  }
+
+  /** Where a part loaded by jumpTo is to start, until its metadata comes. */
+  private loadingAt?: number
+
+  /** Another part of the chapter, loaded at a second of it. */
+  private jumpTo(part: ChapterEpisode, at: number, play: boolean): void {
+    const audio = this.audio
+    if (!audio) return
+    this.clearEndTimer()
+    this.current.set(part)
+    // Only the fragment: a currentTime written while the new source loads is
+    // what the guard would pull back.
+    this.loadingAt = at
+    reload(audio, `${part.url}#t=${at}`)
+    this.duration.set(0)
+    this.position.set(at)
+    if (play) this.play(audio, part)
+    const next = this.nextPart()
+    if (next) this.prepare(next)
     else this.standby?.removeAttribute("src")
   }
 
@@ -225,6 +353,14 @@ export class PodcastPlayerService {
       audio.readyState >= HTMLMediaElement.HAVE_METADATA
         ? audio.currentTime
         : Math.max(current.start ?? 0, audio.currentTime)
+    // A chapter in parts: on into the next part, or back into the one before.
+    const whole = this.chainTime(from)
+    if (whole) {
+      this.seekChapter(
+        Math.min(whole.length, Math.max(0, whole.elapsed + seconds)),
+      )
+      return
+    }
     audio.currentTime = this.withinChapter(from + seconds)
   }
 
@@ -247,10 +383,20 @@ export class PodcastPlayerService {
    */
   private endTimer?: ReturnType<typeof setTimeout>
 
+  /** Where the part in the player stops, or goes on to the next part. */
+  private endOfPart(): number | null | undefined {
+    const end = this.current()?.end
+    return end != null && this.nextPart() ? end + PART_TAIL : end
+  }
+
   private guardChapter(audio: HTMLAudioElement): void {
     if (this.throughEpisode()) return
-    const end = this.current()?.end
-    if (audio.currentTime < (this.current()?.start ?? 0)) {
+    const end = this.endOfPart()
+    // Not while a part loads at its #t=: it reads 0 till then.
+    if (
+      this.loadingAt === undefined &&
+      audio.currentTime < (this.current()?.start ?? 0)
+    ) {
       audio.currentTime = this.withinChapter(audio.currentTime)
     }
     if (end == null || !this.playing() || this.endTimer) return
@@ -263,7 +409,7 @@ export class PodcastPlayerService {
 
   private stopAtEnd(audio: HTMLAudioElement): void {
     this.clearEndTimer()
-    const end = this.current()?.end
+    const end = this.endOfPart()
     if (end == null) return
     // Short of the end (the stream stalled, or the timer ran early): time the
     // rest again rather than cut it off.
@@ -271,7 +417,7 @@ export class PodcastPlayerService {
       this.guardChapter(audio)
       return
     }
-    const next = this.queue[0]
+    const next = this.nextPart()
     if (next && this.standby) {
       this.continueWith(next)
       return
@@ -290,7 +436,7 @@ export class PodcastPlayerService {
     const standby = this.standby
     standby.preload = "auto"
     standby.defaultPlaybackRate = this.rate()
-    standby.src = streamUrl(part)
+    reload(standby, streamUrl(part))
     if (!unlock) return
     standby.muted = true
     const unmute = () => {
@@ -312,14 +458,15 @@ export class PodcastPlayerService {
     if (!ending || !standby) return
     this.audio = standby
     this.standby = ending
-    this.queue = this.queue.slice(1)
+    this.loadingAt = undefined
     this.current.set(next)
     this.duration.set(Number.isFinite(standby.duration) ? standby.duration : 0)
     this.position.set(next.start ?? 0)
     standby.playbackRate = this.rate()
     this.play(standby, next)
     ending.pause()
-    if (this.queue[0]) this.prepare(this.queue[0])
+    const after = this.nextPart()
+    if (after) this.prepare(after)
   }
 
   private clearEndTimer(): void {
@@ -437,12 +584,15 @@ export class PodcastPlayerService {
       })
     }
     const start = current.start ?? 0
-    const span = (current.end ?? duration) - start
+    // A chapter in parts, as one: all of it, not the part.
+    const whole = this.chainTime(position)
+    const span = whole ? whole.length : (current.end ?? duration) - start
     if (!(span > 0)) return
+    const at = whole ? whole.elapsed : position - start
     try {
       session.setPositionState({
         duration: span,
-        position: Math.min(span, Math.max(0, position - start)),
+        position: Math.min(span, Math.max(0, at)),
         playbackRate: rate,
       })
     } catch {
@@ -450,16 +600,18 @@ export class PodcastPlayerService {
     }
   }
 
-  /** The system player's seek and skip, in the part's own time. */
+  /** The system player's seek and skip, in the part's own time (a chapter's, read in parts). */
   private handleMediaSession(): void {
     if (typeof navigator === "undefined" || !navigator.mediaSession) return
     const session = navigator.mediaSession
     const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
       [
         "seekto",
-        ({ seekTime }) =>
-          seekTime != null &&
-          this.seek((this.current()?.start ?? 0) + seekTime),
+        ({ seekTime }) => {
+          if (seekTime == null) return
+          if (this.chainTime(0)) this.seekChapter(seekTime)
+          else this.seek((this.current()?.start ?? 0) + seekTime)
+        },
       ],
       // The app's own ±15 s where the system names no offset.
       ["seekbackward", ({ seekOffset }) => this.skip(-(seekOffset ?? 15))],
@@ -477,6 +629,11 @@ export class PodcastPlayerService {
   private createAudio(): HTMLAudioElement {
     this.handleMediaSession()
     const audio = new Audio()
+    // The standby element never sounds: iOS once resumed it on its own, with
+    // the part after next, over the one playing. Muted, it is being unlocked.
+    audio.addEventListener("playing", () => {
+      if (audio !== this.audio && !audio.muted) audio.pause()
+    })
     // Only the element playing speaks for the player: not the standby one,
     // loading the next part (or unlocked, muted, for it).
     const on = (type: string, listener: () => void) =>
@@ -506,6 +663,14 @@ export class PodcastPlayerService {
         this.position.set(audio.currentTime)
       }
       this.guardChapter(audio)
+    })
+    // A part jumped to: there, should the browser have ignored its #t=.
+    on("loadedmetadata", () => {
+      const at = this.loadingAt
+      this.loadingAt = undefined
+      if (at !== undefined && Math.abs(audio.currentTime - at) > 0.5) {
+        audio.currentTime = at
+      }
     })
     // A live or unknown length reads Infinity or NaN: no position to pick.
     on("durationchange", () =>

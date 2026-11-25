@@ -97,6 +97,14 @@ final class ChromeStateTests: XCTestCase {
 
     // MARK: The player's speed
 
+    func testATapOnTheTimelineSeeksThatFarAlongIt() {
+        let track = CGRect(x: 10, y: 0, width: 200, height: 4)
+        XCTAssertEqual(PodcastControl.trackShare(at: 110, of: track), 0.5)
+        XCTAssertEqual(PodcastControl.trackShare(at: 0, of: track), 0)
+        XCTAssertEqual(PodcastControl.trackShare(at: 400, of: track), 1)
+        XCTAssertEqual(PodcastControl.trackShare(at: 50, of: .zero), 0)
+    }
+
     func testTheSpeedButtonSaysTheRateAsWrittenInPortuguese() {
         XCTAssertEqual(PodcastControl.speedTitle(1), "1×")
         XCTAssertEqual(PodcastControl.speedTitle(1.1), "1⅒×")

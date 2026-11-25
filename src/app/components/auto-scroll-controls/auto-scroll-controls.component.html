@@ -34,7 +34,7 @@
       <mat-slider class="audio-position" [min]="chapterStart()" [max]="seekable() ? chapterEnd() : chapterStart() + 1"
         [step]="0.1" [disabled]="!seekable()" [displayWith]="spokenPosition">
         <input matSliderThumb aria-label="Posição no +365" [value]="sliderValue()" (dragStart)="holdSlider()"
-          (dragEnd)="dragging.set(false)" (valueChange)="player.seek($event)">
+          (dragEnd)="dragging.set(false)" (valueChange)="seekTo($event)">
       </mat-slider>
       <span class="audio-time" aria-hidden="true">−{{ remaining() }}</span>
     </div>

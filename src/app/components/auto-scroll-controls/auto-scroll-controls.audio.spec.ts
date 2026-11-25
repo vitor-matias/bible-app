@@ -604,7 +604,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     const second = part(44, [57, 120], 1100)
     const third = part(45, [121, 176], 1200)
     // Each day announces its part before reading it: "Salmo 119, 57 a 120".
-    second.verses = [[57, 1108.3]]
+    second.verses = [[57, 1108.8]]
     const player = () => TestBed.inject(PodcastPlayerService)
     const sources = () =>
       play.mock.contexts.map(
@@ -633,7 +633,14 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(stream.currentTime).toBe(1108)
       expect(player().current()?.title).toBe("Êxodo 5")
 
-      endPart(playing, 1300)
+      // Its end is where the next segment began, maybe within the last word:
+      // it plays half a second on before the next part takes over.
+      vi.useFakeTimers()
+      endPart(playing, 1300.2)
+      expect(stream.paused).toBe(true)
+      playing.currentTime = 1300.5
+      await vi.advanceTimersByTimeAsync(300)
+      fixture.detectChanges()
       // On at once: the loaded element plays, the ended one stops.
       expect(stream.paused).toBe(false)
       expect(playing.paused).toBe(true)
@@ -643,7 +650,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       // The third now loads where the first played.
       expect(playing.src).toBe(`${third.url}#t=1200`)
 
-      endPart(stream, 1400)
+      endPart(stream, 1401)
       expect(playing.paused).toBe(false)
       expect(player().current()?.range).toEqual([121, 176])
 
@@ -651,6 +658,82 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       endPart(playing, 1500)
       expect(playing.paused).toBe(true)
       expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+    })
+
+    const times = () =>
+      Array.from(
+        fixture.nativeElement.querySelectorAll(
+          ".audio-time",
+        ) as NodeListOf<HTMLElement>,
+      ).map((time) => time.textContent?.trim())
+
+    // The parts last 300, 292 (from its first verse) and 300 s: 14:52 in all.
+    it("shows the parts as one recording: its whole length, and the place in it", async () => {
+      await listen([first, second, third])
+      tap(toggle())
+      await fixture.whenStable()
+      fixture.detectChanges()
+      expect(times()).toEqual(["0:00", "−14:52"])
+
+      endPart(play.mock.contexts[0] as HTMLAudioElement, 1301)
+      audio().currentTime = 1168
+      audio().dispatchEvent(new Event("timeupdate"))
+      fixture.detectChanges()
+      // 5:00 of the first part, and 1:00 into the second.
+      expect(times()).toEqual(["6:00", "−8:52"])
+    })
+
+    it("seeks into whichever part holds a time of the whole chapter", async () => {
+      await listen([first, second, third])
+      tap(toggle())
+      await fixture.whenStable()
+      const stream = play.mock.contexts[0] as HTMLAudioElement
+      // 10:00 in: 8 s into the third part.
+      player().seekChapter(600)
+      expect(player().current()?.range).toEqual([121, 176])
+      expect(stream.src).toBe(`${third.url}#t=1208`)
+      expect(player().position()).toBe(1208)
+      expect(player().playing()).toBe(true)
+      // Not pulled back to the part's start while it loads; there once loaded.
+      stream.dispatchEvent(new Event("timeupdate"))
+      expect(stream.currentTime).toBe(0)
+      stream.dispatchEvent(new Event("loadedmetadata"))
+      expect(stream.currentTime).toBe(1208)
+      fixture.detectChanges()
+      expect(times()).toEqual(["10:00", "−4:52"])
+      // And back into the first.
+      player().seekChapter(30)
+      expect(player().current()?.range).toEqual([1, 56])
+      expect(stream.src).toBe(`${first.url}#t=1030`)
+    })
+
+    it("skips 15 s on into the next part, or back into the one before", async () => {
+      await listen([first, second, third])
+      tap(toggle())
+      await fixture.whenStable()
+      const stream = play.mock.contexts[0] as HTMLAudioElement
+      stream.currentTime = 1295
+      tap(byLabel("Avançar 15 segundos"))
+      expect(player().current()?.range).toEqual([57, 120])
+      expect(stream.src).toBe(`${second.url}#t=1118`)
+      stream.dispatchEvent(new Event("loadedmetadata"))
+      tap(byLabel("Recuar 15 segundos"))
+      expect(player().current()?.range).toEqual([1, 56])
+      expect(stream.src).toBe(`${first.url}#t=1295`)
+    })
+
+    it("plays the chapter again from its first part once it's over", async () => {
+      await listen([first, second])
+      tap(toggle())
+      await fixture.whenStable()
+      const playing = play.mock.contexts[0] as HTMLAudioElement
+      endPart(playing, 1301)
+      endPart(audio(), 1400)
+      expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+      tap(toggle())
+      expect(player().current()?.range).toEqual([1, 56])
+      expect(player().position()).toBe(1000)
+      expect(player().playing()).toBe(true)
     })
 
     it("lets the next part's loading say nothing of what plays", async () => {
@@ -663,6 +746,28 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       fixture.detectChanges()
       expect(player().playing()).toBe(true)
       expect(player().current()?.range).toEqual([1, 56])
+    })
+
+    it("keeps the standby part silent, whatever the browser does with it", async () => {
+      await listen([first, second, third])
+      tap(toggle())
+      await fixture.whenStable()
+      const standby = audio()
+      standby.muted = false
+      // As iOS did: the loaded element starting by itself.
+      standby.play()
+      standby.dispatchEvent(new Event("playing"))
+      expect(standby.paused).toBe(true)
+      expect(player().current()?.range).toEqual([1, 56])
+    })
+
+    it("starts a part sought into at a time Safari takes, to the hundredth", async () => {
+      await listen([first, second, third])
+      tap(toggle())
+      await fixture.whenStable()
+      const stream = play.mock.contexts[0] as HTMLAudioElement
+      player().seekChapter(600.123456)
+      expect(stream.src).toBe(`${third.url}#t=1208.12`)
     })
 
     it("stops loading the next part when something else plays", async () => {

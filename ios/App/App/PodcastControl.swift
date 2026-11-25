@@ -128,6 +128,9 @@ final class PodcastControl: UIView {
         slider.addAction(UIAction { [weak self] _ in self?.scrubbed() }, for: .valueChanged)
         slider.addAction(UIAction { [weak self] _ in self?.released() },
                          for: [.touchUpInside, .touchUpOutside, .touchCancel])
+        // A tap on the track seeks there, as in podcast apps: not only a drag
+        // of the thumb, which UISlider alone asks for.
+        slider.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(tappedTrack)))
         let scrubber = UIStackView(arrangedSubviews: [elapsedLabel, slider, remainingLabel])
         scrubber.spacing = 8
         scrubber.alignment = .center
@@ -321,6 +324,20 @@ final class PodcastControl: UIView {
 
     private func released() {
         seek()
+    }
+
+    @objc private func tappedTrack(_ tap: UITapGestureRecognizer) {
+        guard slider.isEnabled, slider.maximumValue > slider.minimumValue else { return }
+        let share = Self.trackShare(at: tap.location(in: slider).x,
+                                    of: slider.trackRect(forBounds: slider.bounds))
+        slider.value = slider.minimumValue + share * (slider.maximumValue - slider.minimumValue)
+        seek()
+    }
+
+    /// How far along the track a tap at `x` is, from 0 to 1.
+    static func trackShare(at x: CGFloat, of track: CGRect) -> Float {
+        guard track.width > 0 else { return 0 }
+        return Float(min(1, max(0, (x - track.minX) / track.width)))
     }
 
     /// Runs on from where it was let go, rather than springing back to the
