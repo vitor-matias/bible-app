@@ -5,6 +5,7 @@ import {
   Subscription,
   startWith,
 } from "rxjs"
+import { MAIS365_BOOK } from "../bible-canon"
 import {
   indexBookmarkLabel,
   isIndexBookmark,
@@ -157,7 +158,7 @@ export class NativeBookmarksService {
   }
 }
 
-/** The About page can't be marked: a ribbon there would lead nowhere to read. */
+/** About and the +365 plan can't be marked: a ribbon there would lead nowhere to read. */
 function canMark(bookId: string): boolean {
-  return bookId !== "about"
+  return bookId !== "about" && bookId !== MAIS365_BOOK.id
 }

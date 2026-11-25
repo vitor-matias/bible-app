@@ -273,13 +273,18 @@ export class Mais365Service {
    * stage effect adopts the reading again with them. Without it (offline,
    * say) it plays all the same.
    */
-  async start(listed: PlanDay, at = 0): Promise<void> {
+  async start(
+    listed: PlanDay,
+    at = 0,
+    from: "plan" | "episode" = "plan",
+  ): Promise<void> {
     this.begin(listed, at)
-    // From the plan's page, or joined from a chapter's ⏮ ⏭ (at > 0).
+    // From the plan's page, or joined from a chapter's ⏮ ⏭ (at its first
+    // reading too: from its second, ⏮ lands there).
     void this.analytics.track("plan_day_start", {
       day: listed.day,
       at,
-      from: at > 0 ? "episode" : "plan",
+      from,
     })
     const full = await firstValueFrom(
       this.http.get<PlanDay>(`${apiBaseUrl}/mais365/${listed.day}`),

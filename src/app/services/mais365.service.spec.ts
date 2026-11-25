@@ -443,6 +443,20 @@ describe("Mais365Service", () => {
     expect(player.throughFrom()).toBe(day.reflection)
   })
 
+  // A chapter's ⏮ onto its day's first reading told Umami "plan".
+  it("tells Umami a day joined from an episode, at its first reading too", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    const started = plan.start(day, 0, "episode")
+    http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+    await started
+    expect(track).toHaveBeenCalledWith("plan_day_start", {
+      day: 1,
+      at: 0,
+      from: "episode",
+    })
+  })
+
   it("tells Umami how a day goes: started, its reflection, read by ear or by hand, left", async () => {
     const plan = await create()
     const day = find(plan, 1)

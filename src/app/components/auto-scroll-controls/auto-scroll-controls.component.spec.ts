@@ -522,10 +522,19 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
         nextLabel: "Saltar para Génesis 31",
       }),
     )
+    // Joined from the episode, onto its first reading too.
     actions.next({ id: "podcast-previous" })
-    expect(start).toHaveBeenCalledWith(expect.objectContaining({ day: 15 }), 0)
+    expect(start).toHaveBeenCalledWith(
+      expect.objectContaining({ day: 15 }),
+      0,
+      "episode",
+    )
     actions.next({ id: "podcast-next" })
-    expect(start).toHaveBeenCalledWith(expect.objectContaining({ day: 15 }), 3)
+    expect(start).toHaveBeenCalledWith(
+      expect.objectContaining({ day: 15 }),
+      3,
+      "episode",
+    )
 
     actions.next({ id: "podcast-toggle" })
     const audio = vi.mocked(HTMLMediaElement.prototype.play).mock

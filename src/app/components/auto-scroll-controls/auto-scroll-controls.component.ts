@@ -158,7 +158,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   private stepInEpisode(by: -1 | 1): void {
     const at = this.inEpisode()
     const to = this.neighbour(by)
-    if (at && to) void this.plan.start(at.day, to.index)
+    if (at && to) void this.plan.start(at.day, to.index, "episode")
   }
 
   /** The nearest reading before or after with timings: untimed ones can't be sought. */

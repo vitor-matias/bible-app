@@ -356,7 +356,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
     this.backButton.closeOnBack(
       this.bottomSheet.open(BookmarkSelectorComponent, {
-        data: { bookId: book.id, chapter: chapterNumber },
+        // No ribbon in the +365 page: it isn't a passage to come back to.
+        data: {
+          bookId: book.id,
+          chapter: chapterNumber,
+          ...(book.id === MAIS365_BOOK.id && { canMark: false }),
+        },
         ariaLabel: "Marcadores",
         ariaModal: true,
         restoreFocus: MENU_BUTTON,

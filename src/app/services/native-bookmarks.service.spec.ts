@@ -155,6 +155,16 @@ describe("NativeBookmarksService", () => {
     expect(shown().currentLabel).toBe("Mateus Introdução")
   })
 
+  // Nor the +365 plan's page: a ribbon there led nowhere.
+  it("marks nothing on the +365 page", () => {
+    TestBed.inject(BookService).findBookById = () =>
+      ({ id: "mais365", shortName: "+365" }) as Book
+    service.open("mais365", 1)
+    expect(shown().canMark).toBe(false)
+    actions.next({ id: "bookmark-set", color: "orange" })
+    expect(ribbons.assign).not.toHaveBeenCalled()
+  })
+
   // The sheet offered to mark "Sobre a Bíblia 1": a page with no chapters,
   // where a ribbon leads nowhere to read. Its ribbons still open.
   it("marks nothing on the About page, named as a page", () => {

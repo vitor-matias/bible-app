@@ -1215,6 +1215,13 @@ describe("HeaderComponent", () => {
       expect(heading.getAttribute("aria-label")).toBe("+365")
       expect(heading.querySelectorAll("mat-button-toggle").length).toBe(1)
       expect(component.shareText()).toBe("A Bíblia num ano, com o +365.")
+      // Its ribbons open from here, but none is laid in it: it led nowhere.
+      component.openBookmarkSelector()
+      expect(bottomSheetSpy.open.mock.lastCall?.[1]?.data).toEqual({
+        bookId: "mais365",
+        chapter: 1,
+        canMark: false,
+      })
     })
 
     // The audit's complaint: with two stacked labels crossfading, both stayed

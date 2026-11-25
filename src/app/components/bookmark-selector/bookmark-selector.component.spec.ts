@@ -1,4 +1,5 @@
 import { CommonModule } from "@angular/common"
+import { ChangeDetectorRef } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import {
   MAT_BOTTOM_SHEET_DATA,
@@ -214,6 +215,28 @@ describe("BookmarkSelectorComponent", () => {
 
     expect(routerSpy.navigate).toHaveBeenCalledWith(["mrk", "2"])
     expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
+  })
+
+  // A ribbon laid in the web's +365 page read "mais365 1" and led nowhere.
+  it("lays no ribbon in a page that can't be marked, but still opens the rest", async () => {
+    component.data.canMark = false
+    try {
+      const empty = component.ribbons.find((r) => !r.bookmark)
+      expect(empty).toBeTruthy()
+      if (empty) component.handleRibbonClick(empty)
+      expect(bookmarkServiceSpy.addBookmark).not.toHaveBeenCalled()
+      fixture.componentRef.injector.get(ChangeDetectorRef).markForCheck()
+      fixture.detectChanges()
+      const buttons = Array.from(
+        (
+          fixture.nativeElement as HTMLElement
+        ).querySelectorAll<HTMLButtonElement>(".color-button"),
+      )
+      expect(buttons.some((b) => b.disabled)).toBe(true)
+      expect(buttons.some((b) => !b.disabled)).toBe(true)
+    } finally {
+      delete component.data.canMark
+    }
   })
 
   it("should add bookmark when clicking an empty ribbon", async () => {
