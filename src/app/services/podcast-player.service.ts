@@ -18,6 +18,8 @@ export interface ChapterEpisode {
   range?: [number, number]
   /** Read in part: where its heading's chapter name ends ("Provérbios 3"). */
   titleEnd?: number
+  /** And where it starts, which the part's own start may be well before. */
+  titleStart?: number
   /**
    * A stretch not to be heard, jumped over: a chapter heard whole leaves out
    * its first part's "1 a 4" after the chapter's name.

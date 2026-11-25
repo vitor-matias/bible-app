@@ -266,9 +266,15 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
           // (heard as 0.15 s): cut a little sooner.
           const named = i === 0 && part.titleEnd !== undefined
           const nameEnd = (part.titleEnd ?? 0) - TITLE_CUT
-          return named && nameEnd < verse
-            ? { ...part, skip: [nameEnd, verse] as [number, number] }
-            : { ...part, start: verse }
+          if (!named || nameEnd >= verse) return { ...part, start: verse }
+          // From the name itself: the part's start can be the reading before
+          // (and its jingle), or past the name (heard as "1 a 7").
+          const name = part.titleStart
+          return {
+            ...part,
+            ...(name !== undefined && name < nameEnd && { start: name }),
+            skip: [nameEnd, verse] as [number, number],
+          }
         })
     )
   })

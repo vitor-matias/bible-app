@@ -841,15 +841,15 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     // "Provérbios 3, 1 a 4": the chapter's name, then verse 1.
     it("says the chapter's name, then skips the first part's verses named", async () => {
       await listen([
-        { ...first, titleEnd: 1002, verses: [[1, 1004.8]] },
+        { ...first, titleStart: 1000.6, titleEnd: 1002, verses: [[1, 1004.8]] },
         second,
       ])
       tap(toggle())
       const stream = play.mock.contexts.find((element: unknown) =>
         (element as HTMLAudioElement).src.startsWith(first.url),
       ) as HTMLAudioElement
-      // From the heading, the chapter's name and all.
-      expect(stream.src).toBe(`${first.url}#t=1000`)
+      // From the chapter's name, not the part's start before it.
+      expect(stream.src).toBe(`${first.url}#t=1000.6`)
       stream.currentTime = 1001.9
       stream.dispatchEvent(new Event("timeupdate"))
       expect(stream.currentTime).toBe(1004)
