@@ -11,15 +11,15 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  opacity: 0.85;
   font-family: "Roboto", sans-serif;
 }
 
-/* The see-through pill: auto-scroll's speed, and «Ouvir» tucked away. */
+/* The frosted pill (the card's glass): auto-scroll's speed, «Ouvir» tucked.
+   Over dark text it was too see-through at 60% and 85%. */
 :is(.auto-scroll-speed, .audio-mini) {
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
-  background-color: color-mix(in srgb, var(--glass) 60%, transparent);
+  background-color: var(--glass);
   backdrop-filter: blur(20px) saturate(1.6);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
@@ -332,18 +332,7 @@
   color: var(--ink);
 }
 
-/* Tucked away: play and «show» in a small, see-through pill where the card
-   was, faded like the auto-scroll control and clear on hover. */
-.auto-scroll-controls.audio:has(.audio-mini) {
-  opacity: 0.85;
-  transition: opacity 0.3s;
-}
-
-@media (hover: hover) {
-  .auto-scroll-controls.audio:has(.audio-mini):hover {
-    opacity: 1;
-  }
-}
+/* Tucked away: play and «show» in a small pill where the card was. */
 
 .audio-mini {
   display: flex;

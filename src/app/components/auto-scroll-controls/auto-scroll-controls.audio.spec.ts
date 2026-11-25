@@ -121,6 +121,18 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     http.verify()
   })
 
+  // Over the text, dark theme above all, they were too see-through.
+  it("draws its controls solid enough to read over the text", async () => {
+    render("exo", 5)
+    await answer([day3])
+    const controls = find(".auto-scroll-controls") as HTMLElement
+    expect(getComputedStyle(controls).opacity).toBe("1")
+    const pill = find(".auto-scroll-speed") as HTMLElement
+    const alpha = getComputedStyle(pill).backgroundColor.match(/[\d.]+(?=\)$)/)
+    // An rgba() of at least 0.9, or an opaque rgb().
+    expect(alpha ? Number(alpha[0]) : 1).toBeGreaterThanOrEqual(0.85)
+  })
+
   it("offers no +365 mode for a chapter no episode reads", async () => {
     render("exo", 5)
     await answer(null)
