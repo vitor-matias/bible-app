@@ -3,6 +3,7 @@ import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter, Router } from "@angular/router"
 import { page } from "vitest/browser"
 import { Mais365Service, type PlanDay } from "../../services/mais365.service"
+import { Mais365ReminderService } from "../../services/mais365-reminder.service"
 import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { ToastService } from "../../services/toast.service"
 import { Mais365Component } from "./mais365.component"
@@ -105,10 +106,26 @@ describe("Mais365Component", () => {
         provideRouter([]),
         { provide: Mais365Service, useValue: plan },
         { provide: PodcastPlayerService, useValue: player },
+        {
+          provide: Mais365ReminderService,
+          useValue: {
+            enabled: signal(false),
+            busy: signal(false),
+            problem: signal(null),
+            time: signal("08:00"),
+            unsupported: null,
+          },
+        },
       ],
     })
     fixture = TestBed.createComponent(Mais365Component)
     fixture.detectChanges()
+  })
+
+  it("offers the daily reminder with the progress, not on the fixed card", () => {
+    const host: HTMLElement = fixture.nativeElement
+    expect(host.querySelector(".lead mais365-reminder")).not.toBeNull()
+    expect(host.querySelector(".today-column mais365-reminder")).toBeNull()
   })
 
   it("keeps a day just marked read on the card, to show it and to undo it", () => {

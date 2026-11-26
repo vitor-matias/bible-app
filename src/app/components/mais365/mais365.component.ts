@@ -36,6 +36,7 @@ import {
 } from "../../services/podcast-player.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { Mais365ReminderComponent } from "./mais365-reminder.component"
 
 /**
  * +365 as a reading plan: today's readings, played through with the
@@ -44,7 +45,13 @@ import { ToastService } from "../../services/toast.service"
  */
 @Component({
   selector: "mais365",
-  imports: [RouterLink, MatButtonModule, MatIconModule, MatSliderModule],
+  imports: [
+    RouterLink,
+    MatButtonModule,
+    MatIconModule,
+    MatSliderModule,
+    Mais365ReminderComponent,
+  ],
   templateUrl: "./mais365.component.html",
   styleUrls: ["./mais365.component.css", "./mais365.native.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,

@@ -1,0 +1,19 @@
+<div class="reminder">
+  <label class="row">
+    <span class="text">
+      <span class="title">Lembrete diário</span>
+      <span class="hint">Só nos dias em que ainda não leu.</span>
+    </span>
+    <input #toggleInput type="checkbox" role="switch" class="switch" [checked]="reminder.enabled()"
+      [disabled]="!!reminder.unsupported || reminder.busy()" (change)="toggle(toggleInput)">
+  </label>
+  @if (reminder.enabled()) {
+  <label class="row time">
+    <span class="title">Hora</span>
+    <input #timeInput type="time" required [value]="reminder.time()" (change)="reminder.setTime(timeInput.value)">
+  </label>
+  }
+  @if (reminder.unsupported ?? reminder.problem(); as why) {
+  <p class="why" role="status">{{ why }}</p>
+  }
+</div>

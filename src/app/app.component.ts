@@ -18,6 +18,7 @@ import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
 import { BookService } from "./services/book.service"
 import { historyDepth } from "./services/depth-location-strategy"
+import { Mais365ReminderService } from "./services/mais365-reminder.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -27,7 +28,7 @@ import { ThemeService } from "./services/theme.service"
 import { ToastService } from "./services/toast.service"
 import { UpdatePromptService } from "./services/update-prompt.service"
 import { APP_PLUGIN, PAGE_HOSTNAME } from "./tokens"
-import { isStandaloneApp } from "./utils/platform"
+import { isBrowser, isStandaloneApp } from "./utils/platform"
 
 /** How long after a back on the first screen a second one leaves the app. */
 export const EXIT_BACK_WINDOW_MS = 2000
@@ -67,6 +68,9 @@ export class AppComponent implements OnInit, OnDestroy {
     // Injected early so the reader's ragged-right choice applies on load.
     inject(TextAlignService)
     inject(PwaInstallService)
+    // Early, for the apps' notification taps and resumes, and so a day read
+    // anywhere reaches the reminder. Not in the prerender: no one to remind.
+    if (isBrowser()) inject(Mais365ReminderService)
     // Speed Insights is served by Vercel deployments only. The website itself
     // is nginx, where its script 404s on every page, and the native apps load
     // from a local origin where it doesn't exist either.

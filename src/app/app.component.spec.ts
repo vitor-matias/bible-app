@@ -14,6 +14,7 @@ import { AnalyticsService } from "./services/analytics.service"
 import { AppPromoService } from "./services/app-promo.service"
 import { BackButtonService } from "./services/back-button.service"
 import { BookService } from "./services/book.service"
+import { Mais365ReminderService } from "./services/mais365-reminder.service"
 import { NativeShellService } from "./services/native-shell.service"
 import { OfflineDataService } from "./services/offline-data.service"
 import { OnboardingService } from "./services/onboarding.service"
@@ -81,6 +82,7 @@ describe("AppComponent", () => {
         { provide: ToastService, useValue: toastSpy },
         { provide: AppPromoService, useValue: appPromoSpy },
         { provide: UpdatePromptService, useValue: updatePromptSpy },
+        { provide: Mais365ReminderService, useValue: {} },
         { provide: PAGE_HOSTNAME, useFactory: () => pageHostname },
       ],
     }).compileComponents()
