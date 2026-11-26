@@ -20,6 +20,7 @@ describe("Mais365Component in the apps' bars", () => {
     actions$: actions,
     show: vi.fn(),
     hide: vi.fn(),
+    setMedia: vi.fn(),
   }
   // No days: the title doesn't wait for the plan.
   const plan = {

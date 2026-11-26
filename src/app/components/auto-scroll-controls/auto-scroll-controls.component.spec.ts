@@ -293,6 +293,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     actions$: Subject<NativeChromeAction>
     setAutoScroll: Mock
     setPodcast: Mock
+    setMedia: Mock
   }
   let autoScroll: SpyObj<AutoScrollService>
   let playing: boolean
@@ -325,6 +326,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       actions$: actions,
       setAutoScroll: vi.fn().mockName("setAutoScroll"),
       setPodcast: vi.fn().mockName("setPodcast"),
+      setMedia: vi.fn().mockName("setMedia"),
     }
     playing = false
     speed = 1
