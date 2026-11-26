@@ -8,7 +8,11 @@
   <!-- The iOS app's large title; its edge is where the bar above ends. -->
   @if (largeTitle) { <h1 class="large-title">+365<span class="large-title-edge"></span></h1> }
   <div class="intro-row">
-    <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
+    <!-- The podcast's own cover (EJNS), as podcast apps show a show. -->
+    <img class="cover" src="imgs/mais365-cover.jpg" width="64" height="64"
+      alt="+365, podcast: a Bíblia inteira, um dia de cada vez.">
+    <p class="intro">No +365, somos convidados a percorrer toda a Bíblia, os seus 73 livros, ao longo de 365 dias.
+      <a class="credit" href="https://ejns.pt/mais365/" target="_blank" rel="noopener">Um podcast EJNS</a></p>
     <!-- The daily reminder, a tap away: it took a card of its own before.
          The apps' bars carry it as one of their own buttons. -->
     @if (!nativeChrome.enabled) {

@@ -34,6 +34,21 @@
   color: var(--muted);
 }
 
+/* EJNS's cover for the podcast: its mark and its line. */
+.cover {
+  flex: none;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+}
+
+.credit {
+  display: block;
+  margin-top: 4px;
+  color: inherit;
+  font-size: 0.85em;
+}
+
 /* The intro, and the reminder's bell in the corner. */
 .intro-row {
   display: flex;

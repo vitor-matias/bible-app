@@ -142,6 +142,18 @@ describe("Mais365Component", () => {
     fixture.detectChanges()
   })
 
+  // EJNS's own cover and words, with the podcast credited.
+  it("leads with the podcast's cover and a credit to EJNS", () => {
+    const host: HTMLElement = fixture.nativeElement
+    const cover = host.querySelector(".cover") as HTMLImageElement
+    expect(cover.getAttribute("src")).toBe("imgs/mais365-cover.jpg")
+    expect(cover.alt).toContain("a Bíblia inteira, um dia de cada vez")
+    expect(host.querySelector(".intro")?.textContent).toContain("73 livros")
+    const credit = host.querySelector(".credit") as HTMLAnchorElement
+    expect(credit.href).toBe("https://ejns.pt/mais365/")
+    expect(credit.target).toBe("_blank")
+  })
+
   // A card of its own took room at the top: a bell in the corner opens it.
   it("offers the daily reminder behind a bell, not in a card on the page", async () => {
     const host: HTMLElement = fixture.nativeElement
