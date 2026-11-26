@@ -515,6 +515,11 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     player.position.set(100)
     TestBed.tick()
     expect(navigator.mediaSession.metadata?.artist).toBe("+365 · Dia 3")
+    // An introduction, a fractional day in the data: not «Dia 6.5».
+    const current = player.current()
+    if (current) player.adopt({ ...current, day: 6.5 })
+    TestBed.tick()
+    expect(navigator.mediaSession.metadata?.artist).toBe("+365")
   })
 
   // A pause that moved nothing else (before the stream loaded) left the

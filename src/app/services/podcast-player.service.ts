@@ -649,8 +649,11 @@ export class PodcastPlayerService {
       return
     }
     // A chapter is the Bible's; only a day of the plan is +365's.
+    // An introduction (a fractional day in the data) is no «Dia»: just +365.
     const artist = this.throughEpisode()
-      ? `+365 · Dia ${current.day}`
+      ? Number.isInteger(current.day)
+        ? `+365 · Dia ${current.day}`
+        : "+365"
       : "Bíblia Sagrada"
     session.playbackState = playing ? "playing" : "paused"
     if (

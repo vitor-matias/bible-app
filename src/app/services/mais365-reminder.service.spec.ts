@@ -59,6 +59,17 @@ describe("reminderSchedule", () => {
     expect(first.body).toBe("A torre de Babel")
   })
 
+  // Introductions are fractional days in the data: «Dia 6.5» isn't a day.
+  it("names an introduction by itself, not «Dia 6.5»", () => {
+    const [first] = reminderSchedule(morning, {
+      time: "08:30",
+      readOn: null,
+      next: { day: 6.5, title: "Introdução aos Patriarcas" },
+    })
+    expect(first.title).toBe("+365")
+    expect(first.body).toBe("Introdução aos Patriarcas")
+  })
+
   it("falls back to a plain line once caught up", () => {
     const [first] = reminderSchedule(morning, {
       time: "08:30",
@@ -429,6 +440,21 @@ describe("Mais365ReminderService", () => {
       const service = web()
       expect(service.enabled()).toBe(false)
       expect(service.unsupported).toContain("Instale a app")
+    })
+
+    // iPhone Safari has a service worker in a tab, but push only for an app
+    // added to the home screen: the switch was on offer, and failed.
+    it("counts a browser with a worker but no push as unsupported", () => {
+      swPush.isEnabled = true
+      platform = "ios"
+      vi.stubGlobal("PushManager", undefined)
+      try {
+        const service = web()
+        expect(service.unsupported).toContain("ecrã principal")
+        expect(service.enabled()).toBe(false)
+      } finally {
+        vi.unstubAllGlobals()
+      }
     })
 
     it("tells iPhone readers to add it to the home screen", () => {

@@ -58,7 +58,9 @@ export function reminderSchedule(
     reminders.push({
       id: Number(localDay(at).replaceAll("-", "")),
       at,
-      title: next ? `+365 · Dia ${next.day}` : "+365",
+      // An introduction (Dia 6.5 in the data) is no «Dia»: its name says it.
+      title:
+        next && Number.isInteger(next.day) ? `+365 · Dia ${next.day}` : "+365",
       body: next?.title ?? FALLBACK_BODY,
     })
   }
@@ -97,9 +99,13 @@ export class Mais365ReminderService {
   private readonly pwa = inject(PwaInstallService)
   private readonly native = Capacitor.isNativePlatform()
 
-  /** Why there are no reminders here at all, and how to get them. */
+  /**
+   * Why there are no reminders here at all, and how to get them. A service
+   * worker isn't enough: iPhone Safari has one in a tab, but push only for an
+   * app added to the home screen.
+   */
   readonly unsupported: string | null =
-    this.native || this.swPush.isEnabled
+    this.native || (this.swPush.isEnabled && typeof PushManager !== "undefined")
       ? null
       : this.pwa.detectPlatform() === "ios"
         ? "No iPhone, os lembretes chegam com a app: instale-a, ou adicione esta página ao ecrã principal e abra-a de lá."
