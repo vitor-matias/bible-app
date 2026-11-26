@@ -255,7 +255,11 @@ export class NativeChromeService {
   /** Shows the +365 player over the text, in auto-scroll's place; null hides it. */
   setPodcast(state: PodcastChrome | null): void {
     if (!this.enabled) return
-    this.followHandsFree(this.podcast, state)
+    // Not for a player that comes up already playing (a +365 reading opened
+    // from the plan's page): the reader arrives with its bars.
+    if (this.podcast || !state?.playing) {
+      this.followHandsFree(this.podcast, state)
+    }
     this.podcast = state
     this.push()
   }

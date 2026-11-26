@@ -995,6 +995,30 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBe(false)
     })
 
+    // A +365 reading opened from the plan's page: the bars stay up on arrival.
+    it("keeps them up for a player that comes already playing", () => {
+      service.trackScroll(scroller)
+      service.setPodcast({
+        caption: "Génesis 1",
+        context: "+365 · Dia 1",
+        playing: true,
+        canPlay: true,
+        loaded: true,
+        elapsed: 0,
+        length: 210,
+        rate: 1,
+        rateAccessibilityLabel: "1 vez",
+        canSlower: true,
+        canFaster: true,
+        inPlan: true,
+        previousLabel: null,
+        nextLabel: null,
+        canScroll: false,
+        canClose: true,
+      })
+      expect(collapsed()).toBe(false)
+    })
+
     // Opening a footnote's reference scrolls to its verse.
     it("leaves them alone when the page scrolls itself", () => {
       service.trackScroll(scroller)
