@@ -55,6 +55,7 @@ import { StreakMilestoneComponent } from "./streak-milestone.component"
   styleUrls: [
     "./mais365.component.css",
     "./mais365-card.css",
+    "./mais365-player.css",
     "./mais365.native.css",
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
