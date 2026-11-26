@@ -910,6 +910,29 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       tap(toggle())
       expect(sources()).toContain(`${third.url}#t=1200`)
     })
+    // The standby emptied meanwhile (a +365 day played a lone part): ▶
+    // after a scrub within the part still readies the next one.
+    it("readies the next part on ▶ when the standby was emptied since", async () => {
+      await listen([second, third, first])
+      const p = player()
+      tap(toggle())
+      p.pause()
+      // A day's lone part: the standby let go.
+      p.toggle({ ...third })
+      p.pause()
+      p.toggle(first)
+      p.pause()
+      TestBed.tick()
+      fixture.detectChanges()
+      ;(
+        fixture.componentInstance as unknown as {
+          seekTo(seconds: number): void
+        }
+      ).seekTo(20)
+      play.mockClear()
+      tap(toggle())
+      expect(sources()).toContain(`${second.url}#t=1108`)
+    })
     const times = () =>
       Array.from(
         fixture.nativeElement.querySelectorAll(

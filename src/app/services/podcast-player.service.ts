@@ -156,6 +156,8 @@ export class PodcastPlayerService {
   private standby?: HTMLAudioElement
   /** Elements played within a tap: Safari lets them play later, from a timer. */
   private readonly unlocked = new WeakSet<HTMLAudioElement>()
+  /** The part loaded on the standby element; none once it's emptied or swapped. */
+  private standbyHolds?: ChapterEpisode
 
   /** The part after the one playing, in a chapter read in parts. */
   private nextPart(): ChapterEpisode | undefined {
@@ -264,13 +266,15 @@ export class PodcastPlayerService {
       this.play(audio, episode)
       // Unlocked within this tap: newly taken up, or made ready by a scrub
       // (jumpTo), outside any tap, which Safari won't let play on its own.
+      // Or holding some other part (emptied by a +365 day since, say).
       const next = this.nextPart()
-      if (
-        next &&
-        (adopted || !this.standby || !this.unlocked.has(this.standby))
-      ) {
-        this.prepare(next, true)
-      }
+      const ready =
+        !!this.standby &&
+        this.unlocked.has(this.standby) &&
+        !!this.standbyHolds &&
+        !!next &&
+        samePart(this.standbyHolds, next)
+      if (next && (adopted || !ready)) this.prepare(next, true)
       return
     }
     const loaded =
@@ -297,7 +301,7 @@ export class PodcastPlayerService {
     // Within this tap: Safari lets an element play later only once it has.
     const next = this.nextPart()
     if (next) this.prepare(next, true)
-    else this.standby?.removeAttribute("src")
+    else this.emptyStandby()
   }
 
   /**
@@ -353,7 +357,7 @@ export class PodcastPlayerService {
     if (play) this.play(audio, part)
     const next = this.nextPart()
     if (next) this.prepare(next)
-    else this.standby?.removeAttribute("src")
+    else this.emptyStandby()
   }
 
   private readonly analytics = inject(AnalyticsService)
@@ -504,8 +508,19 @@ export class PodcastPlayerService {
       return
     }
     const next = this.nextPart()
-    if (next && this.standby) {
+    if (
+      next &&
+      this.standby &&
+      this.standbyHolds &&
+      samePart(this.standbyHolds, next)
+    ) {
       this.continueWith(next)
+      return
+    }
+    // Not the next part on the standby (emptied since): loaded here, not
+    // whatever it holds played on.
+    if (next) {
+      this.jumpTo(next, next.start ?? 0, true)
       return
     }
     audio.pause()
@@ -523,6 +538,7 @@ export class PodcastPlayerService {
     standby.preload = "auto"
     standby.defaultPlaybackRate = this.rate()
     reload(standby, streamUrl(part))
+    this.standbyHolds = part
     if (!unlock) return
     this.unlocked.add(standby)
     standby.muted = true
@@ -538,6 +554,11 @@ export class PodcastPlayerService {
     }, unmute)
   }
 
+  private emptyStandby(): void {
+    this.standby?.removeAttribute("src")
+    this.standbyHolds = undefined
+  }
+
   /** The next part, already loaded: the elements swap, with no pause between. */
   private continueWith(next: ChapterEpisode): void {
     const ending = this.audio
@@ -545,6 +566,7 @@ export class PodcastPlayerService {
     if (!ending || !standby) return
     this.audio = standby
     this.standby = ending
+    this.standbyHolds = undefined
     this.loadingAt = undefined
     this.current.set(next)
     this.duration.set(Number.isFinite(standby.duration) ? standby.duration : 0)
