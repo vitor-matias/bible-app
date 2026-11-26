@@ -178,10 +178,25 @@ progress::-moz-progress-bar {
   border-color: var(--accent);
 }
 
-/* Less side room than Material's 24px: the day's three in one row on a wide
-   screen's card, «Marcar como não lido» too. */
-.today .actions .mat-mdc-button-base {
-  padding-inline: 16px;
+/* The day's row: «Ouvir e ler», then marking it read and sharing as plain
+   icons at the end. One row on a phone. */
+.today .actions {
+  flex-wrap: nowrap;
+}
+
+.tools {
+  display: flex;
+  margin-inline-start: auto;
+}
+
+.tools .mat-mdc-button-base {
+  border: 0;
+}
+
+/* Read: the check filled, in the accent. */
+.mark.done .mat-icon {
+  color: var(--accent);
+  font-variation-settings: "FILL" 1;
 }
 
 .position {
@@ -412,7 +427,3 @@ progress::-moz-progress-bar {
   }
 }
 
-/* Sharing the day: last in its row, apart from the reading's own buttons. */
-.share {
-  margin-inline-start: auto;
-}

@@ -335,19 +335,47 @@ describe("Mais365Component", () => {
     expect(text()).toContain(
       "Com o Padre Miguel Vasconcelos e o Padre Francisco Molho",
     )
-    expect(button("Ler sem áudio")).toBeUndefined()
     button("Ouvir")?.click()
     expect(plan.start).toHaveBeenCalledWith(intro)
   })
 
+  // Read alone from its rows: «Ler sem áudio» said what the first did.
   it("lists a picked day's readings, to hear and read or read alone", () => {
     button("No princípio")?.click()
     fixture.detectChanges()
-    expect(text()).toContain("Génesis 1")
-    expect(text()).toContain("Salmo 19")
-    expect(button("Ler sem áudio")?.getAttribute("href")).toBe("/gen/1")
+    const host = fixture.nativeElement as HTMLElement
+    expect(
+      Array.from(host.querySelectorAll(".readings a"), (a) =>
+        a.getAttribute("href"),
+      ),
+    ).toEqual(["/gen/1", "/gen/2", "/psa/19"])
+    expect(button("Ler sem áudio")).toBeUndefined()
     button("Ouvir e ler")?.click()
     expect(plan.start).toHaveBeenCalledWith(day1)
+  })
+
+  // Listening named, the rest as icons: the card's row never wraps.
+  it("keeps the day's actions in one row on a phone, marked read in its icon", async () => {
+    await page.viewport(390, 844)
+    try {
+      button("No princípio")?.click()
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      const tops = new Set(
+        Array.from(host.querySelectorAll(".today .actions button"), (b) =>
+          Math.round(b.getBoundingClientRect().top),
+        ),
+      )
+      expect(tops.size).toBe(1)
+      button("Marcar como lido")?.click()
+      expect(plan.markDone).toHaveBeenCalledWith(1, true)
+      plan.done.set([1])
+      fixture.detectChanges()
+      expect(host.querySelector(".mark.done")).not.toBeNull()
+      expect(button("Marcar como não lido")).toBeDefined()
+    } finally {
+      await page.viewport(800, 600)
+    }
   })
 
   // Another day picked during a reflection: the two cards touched.
@@ -522,7 +550,7 @@ describe("Mais365Component", () => {
             (button) => Math.round(button.getBoundingClientRect().top),
           ),
         ).size
-      expect(text()).toContain("Marcar como não lido")
+      expect(button("Marcar como não lido")).toBeDefined()
       // The day's card leads: on the left, the days beside it.
       const box = (selector: string) =>
         (

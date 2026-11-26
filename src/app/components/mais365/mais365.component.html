@@ -104,18 +104,22 @@
         <mat-icon>headphones</mat-icon> {{ day.readings.length ? 'Ouvir e ler' : 'Ouvir' }}
       </button>
       }
-      @if (day.readings.length) {
-      <a mat-flat-button [routerLink]="plan.link(day.readings[0])" [queryParams]="plan.query(day.readings[0])">Ler sem áudio</a>
-      }
-      <button type="button" mat-flat-button (click)="plan.markDone(day.day, !isDone(day))">
-        {{ isDone(day) ? 'Marcar como não lido' : 'Marcar como lido' }}
-      </button>
-      @if (canShare) {
-      <button type="button" mat-icon-button class="share" aria-label="Partilhar o dia" title="Partilhar o dia"
-        (click)="share(day)">
-        <mat-icon>share</mat-icon>
-      </button>
-      }
+      <!-- One row, as the card stays on screen: listening named, the rest
+           icons. Reading without audio is the readings' own rows above. -->
+      <span class="tools">
+        <button type="button" mat-icon-button class="mark" [class.done]="isDone(day)"
+          [attr.aria-label]="isDone(day) ? 'Marcar como não lido' : 'Marcar como lido'"
+          [title]="isDone(day) ? 'Marcar como não lido' : 'Marcar como lido'"
+          (click)="plan.markDone(day.day, !isDone(day))">
+          <mat-icon>check_circle</mat-icon>
+        </button>
+        @if (canShare) {
+        <button type="button" mat-icon-button aria-label="Partilhar o dia" title="Partilhar o dia"
+          (click)="share(day)">
+          <mat-icon>{{ nativeChrome.enabled && !nativeChrome.android ? 'ios_share' : 'share' }}</mat-icon>
+        </button>
+        }
+      </span>
     </div>
   </section>
   }
