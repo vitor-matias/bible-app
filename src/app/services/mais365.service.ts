@@ -27,14 +27,27 @@ export interface PlanReading {
   chapter: number
   /** [first, last] verse, when only part of the chapter is read (Provérbios 1,1-7). */
   range?: [number, number]
+  /**
+   * Its name as printed, where its verses as stored would read wrongly:
+   * «Ester A» for Ester 1,1-17, the addition stored at the chapter's head.
+   */
+  label?: string
+  /** The verse its link opens at, as printed: "A1", "1". */
+  verseStart?: string
   episode: ChapterEpisode
 }
 
 /** "Génesis 12", or "Provérbios 1,1-7" for part of a chapter. */
-export const readingLabel = ({ bookName, chapter, range }: PlanReading) =>
-  range
+export const readingLabel = ({
+  bookName,
+  chapter,
+  range,
+  label,
+}: PlanReading) =>
+  label ??
+  (range
     ? `${bookName} ${chapter},${range[0]}${range[1] === range[0] ? "" : `-${range[1]}`}`
-    : `${bookName} ${chapter}`
+    : `${bookName} ${chapter}`)
 
 /**
  * A day's readings in a line: "Génesis 1–2 · Salmo 19", a book's chapters
@@ -48,6 +61,7 @@ export const readingsSummary = (readings: PlanReading[]): string => {
       last &&
       !last.part &&
       !reading.range &&
+      !reading.label &&
       last.book === reading.bookName &&
       reading.chapter === last.to + 1
     ) {
@@ -57,7 +71,7 @@ export const readingsSummary = (readings: PlanReading[]): string => {
         book: reading.bookName,
         from: reading.chapter,
         to: reading.chapter,
-        part: reading.range && readingLabel(reading),
+        part: (reading.range || reading.label) && readingLabel(reading),
       })
     }
   }
@@ -187,10 +201,12 @@ export class Mais365Service {
    * A reading from part of a chapter (Provérbios 1,8-19) opens at its first
    * verse, not the chapter's top; unmarked, as the read-along marks it.
    */
-  query(reading: PlanReading): { verseStart: number; highlight: false } | null {
-    return reading.range
-      ? { verseStart: reading.range[0], highlight: false }
-      : null
+  query(
+    reading: PlanReading,
+  ): { verseStart: number | string; highlight: false } | null {
+    // As printed when the data says ("A1" for Ester's addition A).
+    const verseStart = reading.verseStart ?? reading.range?.[0]
+    return verseStart === undefined ? null : { verseStart, highlight: false }
   }
 
   /** The chapter last opened for the day: while the reader stays on it, it follows. */

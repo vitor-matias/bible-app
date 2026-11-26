@@ -660,6 +660,34 @@ describe("Mais365Service", () => {
     expect(toast.dismissReturnToPlan).toHaveBeenCalled()
   })
 
+  // Ester's addition A, stored as Ester 1,1-17: named and opened as printed.
+  it("names and opens a reading as printed when the data says", async () => {
+    const plan = await create()
+    const reading = {
+      bookId: "est",
+      bookName: "Ester",
+      chapter: 1,
+      range: [1, 17] as [number, number],
+      label: "Ester A",
+      verseStart: "A1",
+      episode: { day: 274, title: "Dia 274", url: "u", start: 0, end: 10 },
+    }
+    expect(readingLabel(reading)).toBe("Ester A")
+    expect(plan.query(reading)).toEqual({ verseStart: "A1", highlight: false })
+    expect(
+      readingsSummary([
+        reading,
+        {
+          ...reading,
+          chapter: 2,
+          range: undefined,
+          label: undefined,
+          verseStart: undefined,
+        },
+      ]),
+    ).toBe("Ester A · Ester 2")
+  })
+
   describe("checkpoints", () => {
     it("keeps the chapters heard through, and goes on from the next", async () => {
       const plan = await create()
