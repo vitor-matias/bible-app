@@ -109,7 +109,8 @@
     <ol class="readings" [class.open]="expandedDay() === day.day">
       @for (reading of day.readings; track reading.bookId + reading.chapter; let i = $index) {
       <li [class.passed]="passed(day, i)" [class.extra]="i >= shownReadings">
-        <a [routerLink]="plan.link(reading)" [queryParams]="plan.query(reading)">
+        <!-- Off to the chapter, with the way back to the plan, as the reflection's links. -->
+        <a [routerLink]="plan.link(reading)" [queryParams]="plan.query(reading)" (click)="toast.showReturnToPlan()">
           <span>{{ readingLabel(reading) }}</span>
           @if (passed(day, i)) { <span class="check" aria-label="ouvido">✓</span> }
           <mat-icon aria-hidden="true">chevron_right</mat-icon>

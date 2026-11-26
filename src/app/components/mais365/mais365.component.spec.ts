@@ -466,6 +466,21 @@ describe("Mais365Component", () => {
     expect(plan.start).toHaveBeenCalledWith(intro)
   })
 
+  // Off to a chapter from the card, the reader had no way back to the plan.
+  it("offers the way back to the plan from a reading opened on the card", () => {
+    const back = vi
+      .spyOn(TestBed.inject(ToastService), "showReturnToPlan")
+      .mockImplementation(() => {})
+    button("No princípio")?.click()
+    fixture.detectChanges()
+    ;(
+      (fixture.nativeElement as HTMLElement).querySelector(
+        ".card.today .readings a",
+      ) as HTMLAnchorElement
+    ).click()
+    expect(back).toHaveBeenCalled()
+  })
+
   // Read alone from its rows: «Ler sem áudio» said what the first did.
   it("lists a picked day's readings, to hear and read or read alone", () => {
     button("No princípio")?.click()
