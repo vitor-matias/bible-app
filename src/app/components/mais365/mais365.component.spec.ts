@@ -507,6 +507,20 @@ describe("Mais365Component", () => {
     expect(plan.start).toHaveBeenCalledWith(day1, 0, "plan", true)
   })
 
+  // The bell set into the corner made the column scroll sideways.
+  it("doesn't let the side column scroll sideways in two columns", async () => {
+    await page.viewport(1380, 640)
+    try {
+      fixture.detectChanges()
+      const side = (fixture.nativeElement as HTMLElement).querySelector(
+        ".side",
+      ) as HTMLElement
+      expect(side.scrollWidth).toBeLessThanOrEqual(side.clientWidth)
+    } finally {
+      await page.viewport(800, 600)
+    }
+  })
+
   // Left part-heard: its chapters heard ticked, and the choice to go on or over.
   it("goes on from the first chapter not heard, or starts over", () => {
     plan.days.set([day1])

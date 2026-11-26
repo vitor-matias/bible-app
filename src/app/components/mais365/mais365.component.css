@@ -403,6 +403,10 @@ progress::-moz-progress-bar {
     max-height: calc(100dvh - var(--top) - 48px);
     overflow-y: auto;
     overscroll-behavior: contain;
+    /* Room in the scroller for the bell, set into the corner (-8px): it
+       made the column scroll sideways too. */
+    margin-inline: -12px;
+    padding-inline: 12px;
   }
 
   /* Centred over the list it belongs to: it sticks at the foot of the
