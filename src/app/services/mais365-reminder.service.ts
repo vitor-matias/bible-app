@@ -11,6 +11,7 @@ import { PwaInstallService } from "./pwa-install.service"
 
 const ENABLED_KEY = "mais365Reminder"
 const TIME_KEY = "mais365ReminderTime"
+const ONLY_UNREAD_KEY = "mais365ReminderOnlyUnread"
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 /** How many days ahead the apps schedule: the app opened once a fortnight keeps them coming. */
 const AHEAD = 14
@@ -115,6 +116,8 @@ export class Mais365ReminderService {
   readonly time = signal(
     TIME.test(stored(TIME_KEY) ?? "") ? (stored(TIME_KEY) as string) : "08:00",
   )
+  /** Only on days not read yet (the default), or every day regardless. */
+  readonly onlyUnread = signal(stored(ONLY_UNREAD_KEY) !== "false")
   /** Why turning it on failed: said under the switch. */
   readonly problem = signal<string | null>(null)
   /** Asking for permission, or the server. */
@@ -135,7 +138,8 @@ export class Mais365ReminderService {
     const today = this.plan.today()
     return {
       time: this.time(),
-      readOn: this.plan.lastReadOn(),
+      // Every day: no day read to skip, for the apps or the server.
+      readOn: this.onlyUnread() ? this.plan.lastReadOn() : null,
       // today() is the last day when all are read: none is next then.
       next:
         today && !this.plan.done().includes(today.day)
@@ -244,6 +248,11 @@ export class Mais365ReminderService {
     if (!TIME.test(time)) return
     this.time.set(time)
     store(TIME_KEY, time)
+  }
+
+  setOnlyUnread(onlyUnread: boolean): void {
+    this.onlyUnread.set(onlyUnread)
+    store(ONLY_UNREAD_KEY, String(onlyUnread))
   }
 
   private setEnabled(enabled: boolean): void {

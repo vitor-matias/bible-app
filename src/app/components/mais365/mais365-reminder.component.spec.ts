@@ -11,6 +11,8 @@ describe("Mais365ReminderComponent", () => {
     busy: ReturnType<typeof signal<boolean>>
     problem: ReturnType<typeof signal<string | null>>
     time: ReturnType<typeof signal<string>>
+    onlyUnread: ReturnType<typeof signal<boolean>>
+    setOnlyUnread: ReturnType<typeof vi.fn>
     unsupported: string | null
     enable: ReturnType<typeof vi.fn>
     disable: ReturnType<typeof vi.fn>
@@ -21,6 +23,8 @@ describe("Mais365ReminderComponent", () => {
   const host = (): HTMLElement => fixture.nativeElement
   const toggle = () =>
     host().querySelector<HTMLInputElement>('input[role="switch"]')
+  const onlyUnread = () =>
+    host().querySelectorAll<HTMLInputElement>('input[role="switch"]')[1]
   const time = () =>
     host().querySelector<HTMLInputElement>('input[type="time"]')
 
@@ -41,6 +45,8 @@ describe("Mais365ReminderComponent", () => {
       busy: signal(false),
       problem: signal(null),
       time: signal("08:00"),
+      onlyUnread: signal(true),
+      setOnlyUnread: vi.fn(),
       unsupported: null,
       enable: vi.fn(async () => reminder.enabled.set(true)),
       disable: vi.fn(async () => reminder.enabled.set(false)),
@@ -68,6 +74,15 @@ describe("Mais365ReminderComponent", () => {
     input.value = "21:30"
     input.dispatchEvent(new Event("change"))
     expect(reminder.setTime).toHaveBeenCalledWith("21:30")
+  })
+
+  it("reminds only on days not read, or every day once that's turned off", () => {
+    reminder.enabled.set(true)
+    create()
+    expect(host().textContent).toContain("Só se ainda não tiver lido")
+    expect(onlyUnread()?.checked).toBe(true)
+    onlyUnread()?.click()
+    expect(reminder.setOnlyUnread).toHaveBeenCalledWith(false)
   })
 
   it("turns the switch back off when refused, and says why", async () => {

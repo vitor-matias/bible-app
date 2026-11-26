@@ -12,6 +12,10 @@ final class MainViewController: CAPBridgeViewController {
 
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(chromePlugin)
+        // A reminder's tap that opened the app, held till now (AppDelegate).
+        if let router = bridge?.notificationRouter {
+            NotificationRelay.shared.attach(router)
+        }
     }
 }
 

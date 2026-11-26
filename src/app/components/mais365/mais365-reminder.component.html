@@ -19,6 +19,11 @@
     <span class="title">Hora</span>
     <input #timeInput type="time" required [value]="reminder.time()" (change)="reminder.setTime(timeInput.value)">
   </label>
+  <label class="row">
+    <span class="title">Só se ainda não tiver lido</span>
+    <input #unreadInput type="checkbox" role="switch" class="switch" [checked]="reminder.onlyUnread()"
+      (change)="reminder.setOnlyUnread(unreadInput.checked)">
+  </label>
   }
   @if (reminder.unsupported ?? reminder.problem(); as why) {
   <p class="why" role="status">{{ why }}</p>

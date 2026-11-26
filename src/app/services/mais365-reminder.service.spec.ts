@@ -126,6 +126,7 @@ describe("Mais365ReminderService", () => {
   beforeEach(() => {
     localStorage.removeItem("mais365Reminder")
     localStorage.removeItem("mais365ReminderTime")
+    localStorage.removeItem("mais365ReminderOnlyUnread")
     days = signal([planDay(11, "Noé"), planDay(12, "A torre de Babel")])
     done = signal([11])
     doneOn = signal({ 11: "2026-11-20" })
@@ -158,6 +159,7 @@ describe("Mais365ReminderService", () => {
   afterEach(() => {
     localStorage.removeItem("mais365Reminder")
     localStorage.removeItem("mais365ReminderTime")
+    localStorage.removeItem("mais365ReminderOnlyUnread")
   })
 
   function setup(providers: unknown[] = []) {
@@ -271,6 +273,25 @@ describe("Mais365ReminderService", () => {
       const [{ notifications: scheduled }] = lastCall(notifications.schedule)
       expect(scheduled[0].id).toBe(20261127)
       expect(scheduled[0].title).toBe("+365")
+    })
+
+    it("keeps today, read or not, when told to remind every day", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] })
+      vi.setSystemTime(new Date(2026, 10, 26, 7, 0))
+      done.set([11, 12])
+      doneOn.set({ 11: "2026-11-20", 12: "2026-11-26" })
+      const service = native()
+      await service.enable()
+      await settle()
+      expect(lastCall(notifications.schedule)[0].notifications[0].id).toBe(
+        20261127,
+      )
+      service.setOnlyUnread(false)
+      await settle()
+      expect(lastCall(notifications.schedule)[0].notifications[0].id).toBe(
+        20261126,
+      )
+      expect(localStorage.getItem("mais365ReminderOnlyUnread")).toBe("false")
     })
 
     it("reschedules on resume", async () => {
@@ -409,6 +430,19 @@ describe("Mais365ReminderService", () => {
       expect(service.enabled()).toBe(false)
       expect(service.problem()).toBeTruthy()
       http.expectNone("v1/mais365/reminders")
+    })
+
+    it("tells the server no day was read when reminding every day", async () => {
+      localStorage.setItem("mais365ReminderOnlyUnread", "false")
+      swPush.requestSubscription.mockResolvedValue(subscription)
+      const service = web()
+      expect(service.onlyUnread()).toBe(false)
+      const enabling = service.enable()
+      http.expectOne("v1/mais365/reminders/key").flush({ publicKey: "KEY" })
+      const put = await vi.waitFor(() => http.expectOne("v1/mais365/reminders"))
+      expect(put.request.body.readOn).toBeNull()
+      put.flush(null, { status: 204, statusText: "No Content" })
+      await enabling
     })
 
     it("DELETEs the endpoint and unsubscribes when turned off", async () => {
