@@ -94,6 +94,9 @@ struct ChromeState: Equatable {
     /// The page's own large title is in sight: the bar holds its title back
     /// until that one has scrolled under it. Nil on a page with none.
     var largeTitle: Bool?
+    /// A bell in the bar for the page's daily reminder: whether it is on.
+    /// Nil on a page with none.
+    var reminder: Bool?
 
     init() {}
 
@@ -126,6 +129,7 @@ struct ChromeState: Equatable {
         query = call.getString("query", "")
         title = call.getString("title", "")
         largeTitle = call.getBool("largeTitle")
+        reminder = call.getBool("reminder")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)
         podcast = call.getObject("podcast").map(PodcastState.init)
     }

@@ -126,6 +126,7 @@ class ChromeContractTest {
         assertEquals("light", state.themeMode)
         assertEquals("Livros", state.title)
         assertTrue(state.search)
+        assertNull(state.reminder)
         assertTrue(state.scrolled)
         assertEquals(0xFFFFFFFF.toInt(), state.pageColor)
     }
@@ -136,7 +137,7 @@ class ChromeContractTest {
         val state = fixture("page-large-title")
         assertEquals(ChromeMode.Page, state.mode)
         assertEquals("+365", state.title)
-        assertEquals(fixture("page").copy(themeMode = "dark", title = "+365", search = false, scrolled = false, pageColor = 0xFF000000.toInt()), state)
+        assertEquals(fixture("page").copy(themeMode = "dark", title = "+365", search = false, reminder = true, scrolled = false, pageColor = 0xFF000000.toInt()), state)
     }
 
     @Test

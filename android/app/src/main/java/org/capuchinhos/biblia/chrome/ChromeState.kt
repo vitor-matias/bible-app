@@ -154,6 +154,8 @@ data class ChromeState(
     val canGoPrevious: Boolean = false,
     val canGoNext: Boolean = false,
     val search: Boolean = false,
+    /** A bell in a page's bar for its daily reminder: whether it is on; null for none. */
+    val reminder: Boolean? = null,
     /** "paged" or "scrolling"; null hides the choice. */
     val viewMode: String? = null,
     /** Whether the text is ragged-right rather than justified; null hides the choice. */
@@ -206,6 +208,7 @@ data class ChromeState(
                 canGoPrevious = call.getBoolean("canGoPrevious", false)!!,
                 canGoNext = call.getBoolean("canGoNext", false)!!,
                 search = call.getBoolean("search", false)!!,
+                reminder = call.getBoolean("reminder", null),
                 viewMode = call.getString("viewMode"),
                 raggedText = call.getBoolean("raggedText", null),
                 autoScrollVisible = call.getBoolean("autoScrollVisible", false)!!,

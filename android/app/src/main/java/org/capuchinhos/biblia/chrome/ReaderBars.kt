@@ -689,6 +689,14 @@ internal fun PageBar(chrome: ChromeController, state: ChromeState, barColor: Col
             title = { Text(state.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             actions = {
                 if (state.search) BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
+                // The page's daily reminder (the +365 plan): ringing while it is on.
+                state.reminder?.let { on ->
+                    BarButton(
+                        if (on) R.drawable.ic_notifications_active else R.drawable.ic_notifications,
+                        "Lembrete diário",
+                        enabled,
+                    ) { chrome.send("reminder") }
+                }
             },
             colors = barColors(barColor),
         )

@@ -116,6 +116,12 @@ export class Mais365Component implements OnInit, OnDestroy {
         })
 
   constructor() {
+    // The bar's bell rings once the reminder is on (in the apps).
+    effect(() => {
+      this.reminder.enabled()
+      if (this.nativeChrome.enabled && this.barsShown)
+        untracked(() => this.showBars())
+    })
     // A streak's milestone just reached: celebrated once, here.
     effect(() => {
       const due = this.plan.milestone()
@@ -573,17 +579,24 @@ export class Mais365Component implements OnInit, OnDestroy {
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe(({ id }) => {
           if (id === "back") void this.router.navigate(["/"])
+          if (id === "reminder") this.openReminder()
         })
     }
   }
 
+  /** The apps' bars are up: changes are sent from then on. */
+  private barsShown = false
+
   private showBars(): void {
+    this.barsShown = true
     this.nativeChrome.show({
       mode: "page",
       themeMode: this.themeService.currentMode,
       title: "+365",
       search: false,
       largeTitle: this.largeTitle ? this.largeTitleInView() : undefined,
+      // The bell in the bar, as the apps' own buttons: the page's is the web's.
+      reminder: this.reminder.enabled(),
     })
   }
 

@@ -9,11 +9,14 @@
   @if (largeTitle) { <h1 class="large-title">+365<span class="large-title-edge"></span></h1> }
   <div class="intro-row">
     <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
-    <!-- The daily reminder, a tap away: it took a card of its own before. -->
+    <!-- The daily reminder, a tap away: it took a card of its own before.
+         The apps' bars carry it as one of their own buttons. -->
+    @if (!nativeChrome.enabled) {
     <button type="button" mat-icon-button class="bell" aria-label="Lembrete diário" title="Lembrete diário"
       [class.on]="reminder.enabled()" (click)="openReminder()">
       <mat-icon>{{ reminder.enabled() ? 'notifications_active' : 'notifications' }}</mat-icon>
     </button>
+    }
   </div>
   @if (plan.days().length) {
   <div class="progress">

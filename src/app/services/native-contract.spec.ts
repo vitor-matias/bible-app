@@ -89,6 +89,7 @@ const PAGE_LARGE_TITLE: TitledPageChrome = {
   title: "+365",
   search: false,
   largeTitle: true,
+  reminder: true,
 }
 
 const READER_FILTER: ReaderChrome = {

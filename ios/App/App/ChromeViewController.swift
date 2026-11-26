@@ -314,12 +314,19 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
                 }
             }
             pageSearchItem.isEnabled = !next.inert
-            let search = next.search ? pageSearchItem : nil
+            pageReminderItem.isEnabled = !next.inert
+            if let on = next.reminder {
+                // Ringing while a reminder is set, as the web's bell.
+                pageReminderItem.image = UIImage(systemName: on ? "bell.badge.fill" : "bell")
+                pageReminderItem.accessibilityValue = on ? "Ligado" : "Desligado"
+            }
+            let right = [next.search ? pageSearchItem : nil,
+                         next.reminder == nil ? nil : pageReminderItem].compactMap { $0 }
             if usesVerticalBar {
-                pageItem.rightBarButtonItem = nil
-                setSystemBarItems(title: next.title, left: [systemBackItem], right: search.map { [$0] } ?? [])
-            } else if pageItem.rightBarButtonItem !== search {
-                pageItem.rightBarButtonItem = search
+                pageItem.rightBarButtonItems = nil
+                setSystemBarItems(title: next.title, left: [systemBackItem], right: right)
+            } else if pageItem.rightBarButtonItems ?? [] != right {
+                pageItem.rightBarButtonItems = right
             }
             setTopBarItems([pageBackItem, pageItem], animated: previous.mode != .none)
         case .none:
@@ -404,6 +411,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     /// Pesquisar, on a plain page.
     private lazy var pageSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
+
+    /// The page's daily reminder (the +365 plan), as the web's bell.
+    private lazy var pageReminderItem = barButton("bell", "Lembrete diário", "reminder")
 
     /// A page's title in the bar, where the page has a large one of its own
     /// (ChromeState.largeTitle): a view, so that it can fade.

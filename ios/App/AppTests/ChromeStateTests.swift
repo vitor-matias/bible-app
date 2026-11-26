@@ -214,6 +214,7 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertEqual(state.title, "Livros")
         XCTAssertTrue(state.search)
         XCTAssertNil(state.largeTitle)
+        XCTAssertNil(state.reminder)
     }
 
     func testReadsAPageWithALargeTitle() throws {
@@ -221,6 +222,7 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertEqual(state.mode, .page)
         XCTAssertEqual(state.title, "+365")
         XCTAssertEqual(state.largeTitle, true)
+        XCTAssertEqual(state.reminder, true)
     }
 
     func testReadsAPageWithAFilter() throws {

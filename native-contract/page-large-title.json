@@ -4,6 +4,7 @@
   "title": "+365",
   "search": false,
   "largeTitle": true,
+  "reminder": true,
   "inert": false,
   "collapsed": false,
   "scrolled": false,

@@ -42,6 +42,8 @@ export type NativeChromeAction =
         | "podcast-close"
         /** The menu's «+365»: the reading plan's page. */
         | "plan"
+        /** The page's bell (TitledPageChrome.reminder): its daily reminder. */
+        | "reminder"
         | "share"
         | "report"
         | "about"
@@ -139,6 +141,12 @@ export interface TitledPageChrome {
    * titles do. Left out by a page with none. Android ignores it.
    */
   largeTitle?: boolean
+  /**
+   * A bell in the bar, for the page's daily reminder (the +365 plan): set,
+   * whether it is on (a ringing bell) or off. Left out by a page with none.
+   * Its tap is the «reminder» action.
+   */
+  reminder?: boolean
 }
 
 export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome
