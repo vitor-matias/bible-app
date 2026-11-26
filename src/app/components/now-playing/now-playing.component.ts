@@ -72,7 +72,8 @@ export class NowPlayingComponent {
 
   protected readonly context = computed(() => {
     const day = this.plan.active()
-    return day ? `+365 · Dia ${day.day}` : "+365"
+    // An introduction (Dia 6.5 in the data) is no «Dia».
+    return day && Number.isInteger(day.day) ? `+365 · Dia ${day.day}` : "+365"
   })
 
   protected toggle(): void {

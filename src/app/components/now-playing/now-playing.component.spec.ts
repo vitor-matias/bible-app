@@ -56,6 +56,14 @@ describe("NowPlayingComponent", () => {
     expect(plan.toggle).toHaveBeenCalled()
   })
 
+  it("names an introduction +365 alone, not «Dia 6.5»", () => {
+    player.current.set(episode)
+    player.playing.set(true)
+    plan.active.set({ day: 6.5 })
+    fixture.detectChanges()
+    expect(host().querySelector(".context")?.textContent).toBe("+365")
+  })
+
   it("pauses a chapter's audio heard outside the plan", () => {
     player.current.set(episode)
     player.playing.set(true)
