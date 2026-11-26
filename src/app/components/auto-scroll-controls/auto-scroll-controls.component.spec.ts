@@ -455,8 +455,11 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     const player = TestBed.inject(PodcastPlayerService)
     expect(player.playing()).toBe(true)
 
+    const closed = vi.fn()
+    fixture.componentInstance.playerClosed.subscribe(closed)
     actions.next({ id: "podcast-close" })
     TestBed.tick()
+    expect(closed).toHaveBeenCalled()
     expect(player.playing()).toBe(false)
     expect(player.mode()).toBe("scroll")
     expect(lastPodcast()).toBeNull()

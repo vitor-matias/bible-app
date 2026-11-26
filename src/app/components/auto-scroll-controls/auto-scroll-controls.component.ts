@@ -857,6 +857,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   /** Asks the reader for a page: the next one, or the one a verse starts on. */
   readonly pageTurn = output<"next" | HTMLElement>()
+  /** The apps' ✕ closed the player: what a +365 day held on screen can go. */
+  readonly playerClosed = output<void>()
   private turnedAt = 0
 
   /**
@@ -1240,6 +1242,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         if (this.plan.active()) this.plan.end()
         this.player.pause()
         this.player.mode.set("scroll")
+        this.playerClosed.emit()
         break
       case "podcast-skip":
         this.player.skip(action.seconds)

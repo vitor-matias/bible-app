@@ -2474,6 +2474,43 @@ describe("BibleReaderComponent", () => {
       component.toggleAutoScrollControlsVisibility()
       expect(controls()).not.toBeNull()
     })
+
+    it("lets the apps' ✕ take away a control only a day held", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.showAutoScrollControls = false
+      component.chapter = { bookId: "gen", number: 3, verses: [] } as Chapter
+      component.chapterNumber = 3
+      const controls = () => {
+        ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+        fixture.detectChanges()
+        return fixture.nativeElement.querySelector("app-auto-scroll-controls")
+      }
+      const episode = {
+        day: 2,
+        title: "Dia 2",
+        url: "dia2",
+        start: 0,
+        end: 300,
+      }
+      TestBed.inject(PodcastPlayerService).current.set(episode)
+      const plan = TestBed.inject(Mais365Service)
+      plan.active.set({
+        day: 2,
+        title: "A queda",
+        theme: "A queda",
+        url: "dia2",
+        duration: 1466,
+        readings: [{ bookId: "gen", bookName: "Génesis", chapter: 3, episode }],
+        reflection: 900,
+      })
+      expect(controls()).not.toBeNull()
+      plan.active.set(null)
+      // What the control's playerClosed output, the ✕, calls.
+      component.onPlayerClosed()
+      expect(controls()).toBeNull()
+      expect(component.showAutoScrollControls).toBe(false)
+    })
   })
 
   describe("Drawer Actions", () => {

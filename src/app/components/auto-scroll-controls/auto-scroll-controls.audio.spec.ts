@@ -416,6 +416,8 @@ describe("AutoScrollControlsComponent +365 mode", () => {
   // «Ouvir e ler» plays the episode's own intro first: no reading yet (the
   // plan's stage is null), and the card showed it stopped, ▶ skipping it.
   it("plays a day's intro on the card as the day's own", async () => {
+    // ⏭ into the first reading follows it to its chapter.
+    vi.spyOn(TestBed.inject(Router), "navigate").mockResolvedValue(true)
     await listen()
     const player = TestBed.inject(PodcastPlayerService)
     player.throughEpisode.set(true)

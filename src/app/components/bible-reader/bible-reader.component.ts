@@ -1359,6 +1359,12 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.bookDrawer.close()
   }
 
+  /** ✕ in the apps: a control only the day held goes, not left as auto-scroll's. */
+  onPlayerClosed(): void {
+    this.heldByPlan.set(false)
+    if (!this.showAutoScrollControls) this.readingVerse.set(null)
+  }
+
   toggleAutoScrollControlsVisibility(): void {
     // On screen by the preference or held by a +365 day, as the menu says:
     // «Esconder» takes it away at once, both ways.

@@ -53,8 +53,10 @@ extension ChromeViewController {
     /// dialog too, as the toolbar's room is kept while hidden: the paged
     /// view, sized by it, laid its pages out again each time the bars hid.
     private var podcastInset: CGFloat {
-        // In the toolbar's place: only what it stands taller than the toolbar.
-        state.podcast == nil ? 0 : max(0, podcastControl.bounds.height - toolbar.bounds.height)
+        // In the toolbar's place: only what it stands taller than the toolbar,
+        // and the gap above it, as Android's floatingGap.
+        state.podcast == nil ? 0
+            : max(0, podcastControl.bounds.height - toolbar.bounds.height) + PodcastControl.gap
     }
 
     /// Slides the top bar off screen and shrinks the toolbar into the small

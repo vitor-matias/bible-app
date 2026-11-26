@@ -148,7 +148,7 @@
   <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
     [bookId]="chapter.bookId" [chapter]="chapter.number"
     [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'"
-    (readingVerse)="onReadingVerse($event)" (pageTurn)="onPageTurn($event)">
+    (readingVerse)="onReadingVerse($event)" (pageTurn)="onPageTurn($event)" (playerClosed)="onPlayerClosed()">
   </app-auto-scroll-controls>
   }
 </div>
