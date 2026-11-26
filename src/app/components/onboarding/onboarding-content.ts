@@ -108,6 +108,15 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
         icon: "history",
         text: "Ao abrir a app, volta ao livro e capítulo onde ficou.",
       },
+      // The plan: the menu's entry, as each app names its menu.
+      {
+        icon: "calendar_month",
+        text: "A Bíblia num ano com o podcast +365: ouça e leia as leituras de cada dia em «Menu» (☰), «+365: ler um pouco por dia».",
+        iosText:
+          "A Bíblia num ano com o podcast +365: ouça e leia as leituras de cada dia no menu «Mais» (⋯), «+365: ler um pouco por dia».",
+        androidText:
+          "A Bíblia num ano com o podcast +365: ouça e leia as leituras de cada dia no menu «Mais opções» (⋮), «+365: ler um pouco por dia».",
+      },
       {
         icon: "touch_app",
         text: "Pode voltar a ver esta introdução em «Menu» (☰), em «Como usar a app».",
@@ -417,6 +426,7 @@ const SF_SYMBOLS: Readonly<Record<string, string>> = {
   cloud_off: "icloud.slash",
   history: "clock.arrow.circlepath",
   touch_app: "hand.tap",
+  calendar_month: "calendar",
   explore: "safari",
   swipe: "hand.draw",
   link: "link",

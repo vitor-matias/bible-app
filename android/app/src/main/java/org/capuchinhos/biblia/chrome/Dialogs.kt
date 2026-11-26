@@ -458,6 +458,7 @@ private fun onboardingIcon(name: String): Int = when (name) {
     "cloud_off" -> R.drawable.ic_cloud_off
     "history" -> R.drawable.ic_history
     "touch_app" -> R.drawable.ic_touch_app
+    "calendar_month" -> R.drawable.ic_calendar_month
     "explore" -> R.drawable.ic_explore
     "swipe" -> R.drawable.ic_swipe
     "link" -> R.drawable.ic_link
