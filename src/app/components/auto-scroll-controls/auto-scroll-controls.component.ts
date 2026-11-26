@@ -377,9 +377,21 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     () => this.whole()?.elapsed ?? this.player.position(),
   )
 
+  /** Named for the system's player: the chapter, not the episode's day. */
+  private chapterTitle(): string {
+    return `${this.bookName()} ${this.chapter()}`
+  }
+
+  /** The chapter's parts as the player takes them up, by the chapter's name. */
+  private namedParts(): ChapterEpisode[] {
+    const title = this.chapterTitle()
+    return (this.parts() ?? []).map((part) => ({ ...part, title }))
+  }
+
   /** The slider, or the apps' scrubber: within the part, or across the parts. */
   protected seekTo(seconds: number): void {
-    if (this.whole()) this.player.seekChapter(seconds, this.parts() ?? [])
+    // Named as ▶ names them: a scrub can be what takes the parts up.
+    if (this.whole()) this.player.seekChapter(seconds, this.namedParts())
     else this.player.seek(seconds)
   }
 
@@ -960,12 +972,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       this.player.toggle(entry)
       return
     }
-    // Named for the system's player: the chapter, not the episode's day.
-    const title = `${this.bookName()} ${this.chapter()}`
     if (entry) {
       this.player.toggle(
-        { ...entry, title },
-        (this.parts() ?? []).map((part) => ({ ...part, title })),
+        { ...entry, title: this.chapterTitle() },
+        this.namedParts(),
       )
     }
   }

@@ -58,7 +58,8 @@ extension ChromeViewController {
     /// where there's no room above it.
     func presentPassageHint() {
         guard passageHintPending, passageHintView == nil, presentedViewController == nil, state.mode == .reader,
-              !state.filterOpen, !state.collapsed, !state.inert, !toastShowing, !collapsed, !usesVerticalBar, passageButton.window != nil else { return }
+              !state.filterOpen, !state.collapsed, !state.inert, !toastShowing, !collapsed, !usesVerticalBar,
+              state.podcast == nil, passageButton.window != nil else { return }
         let hint = PassageHintView()
         hint.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(hint)

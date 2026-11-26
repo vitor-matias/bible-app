@@ -76,7 +76,11 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         autoScrollControl.send = { [weak self] id in self?.plugin.send(id) }
         autoScrollControl.onMoved = { [weak self] in self?.fadeAutoScrollForToast() }
         podcastControl.send = { [weak self] id, extra in self?.plugin.send(id, extra) }
-        podcastControl.onPassage = { [weak self] in self?.plugin.send("passage") }
+        // As the toolbar's passage: used, the tip is done with.
+        podcastControl.onPassage = { [weak self] in
+            self?.endPassageHint()
+            self?.plugin.send("passage")
+        }
         // Bar glyphs stay monochrome, like the rest of the native parts.
         topBar.tintColor = .label
         toolbar.tintColor = .label
@@ -248,7 +252,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let previous = state
         state = next
         let animated = previous.mode != .none || next.mode != .none
-        if next.mode != .reader || next.collapsed || next.inert || next.filterOpen || usesVerticalBar || next.passageLabel != previous.passageLabel {
+        // The +365 card takes the toolbar's place: the tip would point at nothing.
+        if next.mode != .reader || next.collapsed || next.inert || next.filterOpen || usesVerticalBar
+            || next.podcast != nil || next.passageLabel != previous.passageLabel {
             dismissPassageHint()
         }
 

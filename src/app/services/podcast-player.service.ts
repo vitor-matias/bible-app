@@ -150,6 +150,8 @@ export class PodcastPlayerService {
    */
   private chain: ChapterEpisode[] = []
   private standby?: HTMLAudioElement
+  /** Elements played within a tap: Safari lets them play later, from a timer. */
+  private readonly unlocked = new WeakSet<HTMLAudioElement>()
 
   /** The part after the one playing, in a chapter read in parts. */
   private nextPart(): ChapterEpisode | undefined {
@@ -256,8 +258,15 @@ export class PodcastPlayerService {
         audio.currentTime = episode.start ?? 0
       }
       this.play(audio, episode)
-      const next = adopted ? this.nextPart() : undefined
-      if (next) this.prepare(next, true)
+      // Unlocked within this tap: newly taken up, or made ready by a scrub
+      // (jumpTo), outside any tap, which Safari won't let play on its own.
+      const next = this.nextPart()
+      if (
+        next &&
+        (adopted || !this.standby || !this.unlocked.has(this.standby))
+      ) {
+        this.prepare(next, true)
+      }
       return
     }
     const loaded =
@@ -508,6 +517,7 @@ export class PodcastPlayerService {
     standby.defaultPlaybackRate = this.rate()
     reload(standby, streamUrl(part))
     if (!unlock) return
+    this.unlocked.add(standby)
     standby.muted = true
     const unmute = () => {
       standby.muted = false

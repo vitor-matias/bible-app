@@ -767,6 +767,26 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       endPart(stream, 1401)
       expect(player().current()?.range).toEqual([121, 176])
     })
+    // A scrub first, before ▶: the parts taken up by the chapter's name,
+    // and the next made ready within the tap, so Safari lets it play on.
+    it("names the parts and readies the next on ▶ after a scrub into a part", async () => {
+      await listen([second, third, first])
+      const p = player()
+      p.toggle(first)
+      p.pause()
+      TestBed.tick()
+      fixture.detectChanges()
+      ;(
+        fixture.componentInstance as unknown as {
+          seekTo(seconds: number): void
+        }
+      ).seekTo(300 + 20)
+      expect(p.current()?.range).toEqual([57, 120])
+      expect(p.current()?.title).not.toBe("Dia 44")
+      play.mockClear()
+      tap(toggle())
+      expect(sources()).toContain(`${third.url}#t=1200`)
+    })
     const times = () =>
       Array.from(
         fixture.nativeElement.querySelectorAll(

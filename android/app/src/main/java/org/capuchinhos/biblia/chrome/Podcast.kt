@@ -192,11 +192,11 @@ private fun Header(chrome: ChromeController, passage: String, spoken: String, co
         Box(
             Modifier
                 .clip(MaterialTheme.shapes.small)
-                .clickable(enabled = enabled, role = Role.Button) { chrome.send("passage") }
+                .clickable(enabled = enabled, role = Role.Button) { chrome.endPassageHint(); chrome.send("passage") }
                 .clearAndSetSemantics {
                     contentDescription = spoken
                     role = Role.Button
-                    onClick(label = "Escolher livro e capítulo") { chrome.send("passage"); true }
+                    onClick(label = "Escolher livro e capítulo") { chrome.endPassageHint(); chrome.send("passage"); true }
                 }
                 // Android's touch target, however short the text.
                 .heightIn(min = 48.dp)
