@@ -129,7 +129,7 @@ export class Mais365ReminderService {
     const today = this.plan.today()
     return {
       time: this.time(),
-      readOn: Object.values(this.plan.doneOn()).sort().at(-1) ?? null,
+      readOn: this.plan.lastReadOn(),
       // today() is the last day when all are read: none is next then.
       next:
         today && !this.plan.done().includes(today.day)

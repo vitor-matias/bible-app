@@ -812,4 +812,22 @@ describe("Mais365Service", () => {
       expect((await create()).milestone()).toBeNull()
     })
   })
+
+  // The reminder asks whether today was read: a day unmarked keeps its date
+  // for the streak, but isn't read.
+  it("gives the latest date among the days still read", async () => {
+    localStorage.setItem(
+      "mais365DoneOn",
+      JSON.stringify({ 1: "2026-11-20", 2: "2026-11-25" }),
+    )
+    localStorage.setItem("mais365Done", JSON.stringify([1, 2]))
+    const plan = await create()
+    expect(plan.lastReadOn()).toBe("2026-11-25")
+    plan.markDone(2, false)
+    expect(plan.lastReadOn()).toBe("2026-11-20")
+    plan.markDone(1, false)
+    expect(plan.lastReadOn()).toBeNull()
+    localStorage.removeItem("mais365DoneOn")
+    localStorage.removeItem("mais365Done")
+  })
 })

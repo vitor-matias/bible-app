@@ -231,6 +231,17 @@ export class Mais365Service {
   })
   /** Days in a row with a day of the plan read, as of now. */
   readonly streak = computed(() => this.run().length)
+  /**
+   * The latest day a plan day still marked read was read on: an unmarked
+   * day keeps its date (doneOn), but no longer counts as read.
+   */
+  readonly lastReadOn = computed(
+    () =>
+      this.done()
+        .flatMap((day) => this.doneOn()[day] ?? [])
+        .sort()
+        .at(-1) ?? null,
+  )
   private readonly celebrated = signal<string[]>(this.storedCelebrated())
   /**
    * A milestone just reached and not yet celebrated: once per run, so a

@@ -122,6 +122,13 @@ describe("Mais365ReminderService", () => {
       days,
       done,
       doneOn,
+      lastReadOn: computed(
+        () =>
+          done()
+            .flatMap((day) => doneOn()[day] ?? [])
+            .sort()
+            .at(-1) ?? null,
+      ),
       today: computed(
         () => days().find((d) => !done().includes(d.day)) ?? days().at(-1),
       ),
