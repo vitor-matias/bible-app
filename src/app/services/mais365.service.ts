@@ -1,6 +1,7 @@
 import { HttpClient } from "@angular/common/http"
 import {
   computed,
+  DestroyRef,
   effect,
   Injectable,
   inject,
@@ -215,11 +216,19 @@ export class Mais365Service {
     this.plan.hasValue() ? this.plan.value() : [],
   )
   readonly done = signal<number[]>(this.storedDone())
-  /** When each day was read: plan day → local "YYYY-MM-DD". */
+  /**
+   * When each day was first read: plan day → local "YYYY-MM-DD". Kept when
+   * the day is unmarked, so marking it again (a mis-tap) restores its date;
+   * only days in done() count toward the streak.
+   */
   readonly doneOn = signal<Record<number, string>>(this.storedDoneOn())
-  private readonly run = computed(() =>
-    streakRun(Object.values(this.doneOn()), new Date()),
-  )
+  /** The local day, refreshed past midnight and on coming back to the app. */
+  readonly clockDay = signal(localDay(new Date()))
+  private readonly run = computed(() => {
+    const [y, m, d] = this.clockDay().split("-").map(Number)
+    const read = this.done().flatMap((day) => this.doneOn()[day] ?? [])
+    return streakRun(read, new Date(y, m - 1, d))
+  })
   /** Days in a row with a day of the plan read, as of now. */
   readonly streak = computed(() => this.run().length)
   private readonly celebrated = signal<string[]>(this.storedCelebrated())
@@ -298,6 +307,7 @@ export class Mais365Service {
   }
 
   constructor() {
+    this.keepTodayFresh()
     // First, so the stage below sees a last reading heard before it ends
     // the day. A reading heard: played across its end in one go, having been
     // entered near its start (⏭ and «Ouvir e ler» land on it).
@@ -393,6 +403,36 @@ export class Mais365Service {
         }
         this.end()
       })
+    })
+  }
+
+  /** `today` follows the clock: midnight's timer, and the app coming back. */
+  private keepTodayFresh(): void {
+    if (typeof window === "undefined" || typeof document === "undefined") return
+    const refresh = () => this.clockDay.set(localDay(new Date()))
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh()
+    }
+    let timer: ReturnType<typeof setTimeout>
+    const arm = () => {
+      const now = new Date()
+      const midnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1,
+      )
+      timer = setTimeout(() => {
+        refresh()
+        arm()
+      }, midnight.getTime() - now.getTime())
+    }
+    arm()
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("focus", refresh)
+    inject(DestroyRef).onDestroy(() => {
+      clearTimeout(timer)
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("focus", refresh)
     })
   }
 
@@ -565,11 +605,11 @@ export class Mais365Service {
     }
     const days = this.done().filter((d) => d !== day)
     this.done.set(done ? [...days, day] : days)
-    // The day it was first read keeps its date: marked again, it isn't read anew.
-    const { [day]: was, ...others } = this.doneOn()
-    this.doneOn.set(
-      done ? { ...others, [day]: was ?? localDay(new Date()) } : others,
-    )
+    // The day it was first read keeps its date, even unmarked: marked again,
+    // it isn't read anew.
+    if (done && !this.doneOn()[day]) {
+      this.doneOn.set({ ...this.doneOn(), [day]: localDay(new Date()) })
+    }
     try {
       localStorage.setItem(DONE_KEY, JSON.stringify(this.done()))
       localStorage.setItem(DONE_ON_KEY, JSON.stringify(this.doneOn()))

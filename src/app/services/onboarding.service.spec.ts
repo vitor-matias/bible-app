@@ -143,6 +143,18 @@ describe("OnboardingService", () => {
     })
   })
 
+  it("waits out a shared +365 link, then shows the wizard once the visitor moves on", async () => {
+    vi.useFakeTimers()
+    expect(service.showOnFirstLaunch("?dia=5", "/mais365")).toBe(false)
+    routerEvents$.next(new NavigationEnd(1, "/mais365?dia=5", "/mais365?dia=5"))
+    await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+    expect(dialogSpy.open).not.toHaveBeenCalled()
+
+    routerEvents$.next(new NavigationEnd(2, "/gn/1", "/gn/1"))
+    await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+    expect(dialogSpy.open).toHaveBeenCalledTimes(1)
+  })
+
   describe("open", () => {
     it("opens the wizard with an accessible, size-constrained dialog", () => {
       const ref = service.open("menu")

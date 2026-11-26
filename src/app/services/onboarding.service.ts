@@ -23,8 +23,12 @@ import { PreferencesService } from "./preferences.service"
 /** Let the reader paint before the wizard slides over it on a first visit. */
 export const FIRST_LAUNCH_DELAY_MS = 800
 
-/** The /app landing page, with or without a trailing slash or query. */
-const isLanding = (url: string) => /^\/app\/?([?#]|$)/.test(url)
+/**
+ * Where new visitors arrive, with or without a trailing slash or query: the
+ * /app landing page, and a +365 day sent as a link (/mais365?dia=N), which
+ * the wizard would cover.
+ */
+const isLanding = (url: string) => /^\/(?:app|mais365)\/?([?#]|$)/.test(url)
 
 @Injectable({
   providedIn: "root",

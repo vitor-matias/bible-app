@@ -696,9 +696,59 @@ describe("Mais365Service", () => {
       expect(JSON.parse(localStorage.getItem("mais365DoneOn") ?? "{}")).toEqual(
         { 1: today, 2: today },
       )
-      plan.markDone(2, false)
-      expect(plan.doneOn()).toEqual({ 1: today })
       localStorage.removeItem("mais365DoneOn")
+    })
+
+    describe("unmarking and the clock", () => {
+      afterEach(() => {
+        localStorage.removeItem("mais365DoneOn")
+        localStorage.removeItem("mais365Done")
+      })
+      const readOn = (days: Record<number, string>) => {
+        localStorage.setItem(
+          "mais365Done",
+          JSON.stringify(Object.keys(days).map(Number)),
+        )
+        localStorage.setItem("mais365DoneOn", JSON.stringify(days))
+      }
+
+      it("keeps a streak over a mis-tap: unmarking drops the day, marking it again restores its date", async () => {
+        vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] })
+        vi.setSystemTime(new Date(2026, 10, 26, 10))
+        readOn({ 1: "2026-11-23", 2: "2026-11-24", 3: "2026-11-25" })
+        const plan = await create()
+        expect(plan.streak()).toBe(3)
+        plan.markDone(3, false)
+        expect(plan.streak()).toBe(0)
+        plan.markDone(3, true)
+        expect(plan.doneOn()[3]).toBe("2026-11-25")
+        expect(plan.streak()).toBe(3)
+      })
+
+      it("keeps the run over a midnight with nothing read, ends it at the second", async () => {
+        vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] })
+        vi.setSystemTime(new Date(2026, 10, 26, 23, 59))
+        readOn({ 1: "2026-11-25", 2: "2026-11-26" })
+        const plan = await create()
+        expect(plan.streak()).toBe(2)
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(plan.clockDay()).toBe("2026-11-27")
+        expect(plan.streak()).toBe(2)
+        await vi.advanceTimersByTimeAsync(24 * 3600_000)
+        expect(plan.clockDay()).toBe("2026-11-28")
+        expect(plan.streak()).toBe(0)
+      })
+
+      it("recomputes when the app becomes visible again", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] })
+        vi.setSystemTime(new Date(2026, 10, 26, 10))
+        readOn({ 1: "2026-11-26" })
+        const plan = await create()
+        vi.setSystemTime(new Date(2026, 10, 28, 10))
+        document.dispatchEvent(new Event("visibilitychange"))
+        expect(plan.clockDay()).toBe("2026-11-28")
+        expect(plan.streak()).toBe(0)
+      })
     })
 
     it("keeps the dates over a restart, and drops what isn't one", async () => {
@@ -715,6 +765,10 @@ describe("Mais365Service", () => {
   describe("a streak's milestones", () => {
     const dated = (days: number) => {
       const out: Record<number, string> = {}
+      localStorage.setItem(
+        "mais365Done",
+        JSON.stringify(Array.from({ length: days }, (_, i) => i + 1)),
+      )
       for (let i = 0; i < days; i++) {
         const day = new Date()
         day.setDate(day.getDate() - i)
@@ -724,6 +778,7 @@ describe("Mais365Service", () => {
     }
     afterEach(() => {
       localStorage.removeItem("mais365DoneOn")
+      localStorage.removeItem("mais365Done")
       localStorage.removeItem("mais365Celebrated")
     })
 
