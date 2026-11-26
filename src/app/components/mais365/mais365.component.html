@@ -4,8 +4,8 @@
   <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
   @if (plan.days().length) {
   <div class="progress">
-    <progress id="plan-progress" [value]="read()" [max]="planLength"></progress>
-    <label for="plan-progress">{{ read() }} de {{ planLength }} dias lidos</label>
+    <progress id="plan-progress" [value]="read()" [max]="planLength()"></progress>
+    <label for="plan-progress">{{ read() }} de {{ planLength() }} dias lidos</label>
   </div>
   }
 

@@ -99,8 +99,13 @@ export class Mais365Component implements OnInit, OnDestroy {
     this.scrollTo(this.host.querySelector("[data-next]"), "center")
   }
 
-  /** The plan's length: a year of days, however many are out so far. */
-  protected readonly planLength = 365
+  /**
+   * The days of readings out so far: 365 once the year is all published, and
+   * read against what can be read until then.
+   */
+  protected readonly planLength = computed(
+    () => this.plan.days().filter((day) => day.readings.length).length,
+  )
   /** Days of readings read: an introduction is not one of the 365. */
   protected readonly read = computed(() => {
     const done = this.plan.done()

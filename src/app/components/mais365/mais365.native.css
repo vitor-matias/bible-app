@@ -15,24 +15,11 @@
   bottom: calc(16px + var(--bottom));
 }
 
-/* A tablet: the days lead, as a sidebar or a list pane, the day beside them. */
+/* A tablet: the day's card between the bars, top and bottom. */
 @media (min-width: 760px) {
-  :host-context(.native-chrome) .mais365 {
-    grid-template-columns: minmax(300px, 2fr) minmax(0, 3fr);
-  }
-
-  :host-context(.native-chrome) .days-column {
-    order: -1;
-  }
-
   :host-context(.native-chrome) .today-column {
     top: calc(var(--top) + 16px);
     max-height: calc(100dvh - var(--top) - var(--bottom) - 32px);
-  }
-
-  /* Over the list it belongs to, not the middle of the screen. */
-  :host-context(.native-chrome) .to-next {
-    left: 20%;
   }
 }
 

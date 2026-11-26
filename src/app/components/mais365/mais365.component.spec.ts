@@ -123,17 +123,20 @@ describe("Mais365Component", () => {
     expect(button("Marcar como não lido")).toBeDefined()
   })
 
-  it("tells how far into the year the reader is, introductions apart", () => {
+  // Against the days out so far: 365 once the year is all published.
+  it("tells how far into the published days the reader is, introductions apart", () => {
     const progress = () =>
       (fixture.nativeElement as HTMLElement).querySelector(
         "progress",
       ) as HTMLProgressElement
-    expect(text()).toContain("0 de 365 dias lidos")
+    plan.days.set([intro, day1, { ...day1, day: 2, title: "Dia 2" }])
+    fixture.detectChanges()
+    expect(text()).toContain("0 de 2 dias lidos")
     plan.done.set([0, 1])
     fixture.detectChanges()
-    expect(text()).toContain("1 de 365 dias lidos")
+    expect(text()).toContain("1 de 2 dias lidos")
     expect(progress().value).toBe(1)
-    expect(progress().max).toBe(365)
+    expect(progress().max).toBe(2)
   })
 
   it("lists the days by period, each with what was read and a way to it", () => {
@@ -381,6 +384,16 @@ describe("Mais365Component", () => {
           ),
         ).size
       expect(text()).toContain("Marcar como não lido")
+      // A list and its detail: the days on the left, the day beside them.
+      const box = (selector: string) =>
+        (
+          (fixture.nativeElement as HTMLElement).querySelector(
+            selector,
+          ) as HTMLElement
+        ).getBoundingClientRect()
+      expect(box(".days-column").right).toBeLessThanOrEqual(
+        box(".today-column").left,
+      )
       expect(rows()).toBe(1)
     } finally {
       await page.viewport(800, 600)

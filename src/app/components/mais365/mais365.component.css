@@ -337,12 +337,14 @@ progress::-moz-progress-bar {
   box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
 }
 
-/* Room for both on a tablet or a desktop: the day's card stays in view
-   while the days scroll by beside it. */
+/* Room for both on a tablet or a desktop, as a list and its detail (a
+   sidebar on iPad, Material's list-detail): the days lead, and the day's card
+   stays in view beside them as they scroll by. The same on the web and in
+   the apps. */
 @media (min-width: 760px) {
   .mais365 {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(300px, 2fr) minmax(0, 3fr);
     gap: clamp(24px, 4vw, 48px);
     max-width: 68rem;
     padding-inline: clamp(16px, 3vw, 32px);
@@ -357,6 +359,15 @@ progress::-moz-progress-bar {
     max-height: calc(100dvh - var(--top) - 48px);
     overflow-y: auto;
     overscroll-behavior: contain;
+  }
+
+  .days-column {
+    order: -1;
+  }
+
+  /* Over the list it belongs to, not the middle of the screen. */
+  .to-next {
+    left: 20%;
   }
 
   .days-title {
