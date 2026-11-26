@@ -471,6 +471,8 @@ describe("Mais365Component", () => {
     const back = vi
       .spyOn(TestBed.inject(ToastService), "showReturnToPlan")
       .mockImplementation(() => {})
+    // No routes here: the link's navigation, rejected, failed CI's whole run.
+    vi.spyOn(TestBed.inject(Router), "navigateByUrl").mockResolvedValue(true)
     button("No princípio")?.click()
     fixture.detectChanges()
     ;(

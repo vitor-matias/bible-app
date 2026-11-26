@@ -413,6 +413,37 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.currentTime).toBe(101.5)
   })
 
+  // «Ouvir e ler» plays the episode's own intro first: no reading yet (the
+  // plan's stage is null), and the card showed it stopped, ▶ skipping it.
+  it("plays a day's intro on the card as the day's own", async () => {
+    await listen()
+    const player = TestBed.inject(PodcastPlayerService)
+    player.throughEpisode.set(true)
+    const reading = (chapter: number, start: number) => ({
+      bookId: "exo",
+      bookName: "Êxodo",
+      chapter,
+      episode: { ...day3, start },
+    })
+    TestBed.inject(Mais365Service).active.set({
+      day: 3,
+      title: "A Arca de Noé",
+      theme: "A Arca de Noé",
+      url: day3.url,
+      duration: 1103,
+      readings: [reading(5, 56.5), reading(6, 280.8)],
+      reflection: 900,
+    })
+    player.toggle({ ...day3, start: 0 })
+    const stream = audio()
+    stream.currentTime = 10
+    stream.dispatchEvent(new Event("timeupdate"))
+    TestBed.tick()
+    fixture.detectChanges()
+    expect(TestBed.inject(Mais365Service).stage()).toBeNull()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+  })
+
   it("says the day and the reading's place in it, and steps through its readings", async () => {
     const navigate = vi
       .spyOn(TestBed.inject(Router), "navigate")
@@ -698,6 +729,24 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     // Each day announces its part before reading it: "Salmo 119, 57 a 120".
     second.verses = [[57, 1108.8]]
     const player = () => TestBed.inject(PodcastPlayerService)
+
+    // A +365 day plays a part with the API's own start, which parts() moves
+    // (to its first verse): it wasn't known as the chapter's, and ▶ started
+    // the chapter over instead of going on.
+    it("resumes a part a +365 day left in the player, where it was", async () => {
+      await listen([second, third, first])
+      const p = player()
+      p.toggle(second)
+      const stream = audio()
+      stream.currentTime = 1150
+      stream.dispatchEvent(new Event("timeupdate"))
+      p.pause()
+      TestBed.tick()
+      fixture.detectChanges()
+      tap(toggle())
+      expect(audio()).toBe(stream)
+      expect(stream.currentTime).toBe(1150)
+    })
     const sources = () =>
       play.mock.contexts.map(
         (element: unknown) => (element as HTMLAudioElement).src,

@@ -225,9 +225,15 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
    * In a +365 day the card plays what the day is at (a reading, or the
    * reflection), whichever chapter the reader has open.
    */
-  private readonly planEntry = computed(() =>
-    this.plan.stage() !== null ? this.player.current() : null,
-  )
+  private readonly planEntry = computed(() => {
+    const current = this.player.current()
+    // Its intro too (no reading yet, stage null): the day's own stream.
+    const day = this.plan.active()
+    return this.plan.stage() !== null ||
+      (day && current && current.url === day.url)
+      ? current
+      : null
+  })
 
   /** The chapter open is the one being heard: read-along marks and follows it. */
   private readonly heardHere = computed(() => {
@@ -281,10 +287,24 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   protected readonly entry = computed(() => {
     const parts = this.parts()
+    const current = this.player.current()
+    // A part a +365 day left in the player, with the API's own start (parts()
+    // moves each part's): the same part by its verses, resumed where it is.
+    const left =
+      current &&
+      parts?.some(
+        (part) =>
+          part.url === current.url &&
+          part.range?.[0] === current.range?.[0] &&
+          part.range?.[1] === current.range?.[1],
+      )
+        ? current
+        : undefined
     return (
       this.planEntry() ??
       // The part playing, once the chapter has gone on to it.
       parts?.find((part) => this.player.isCurrent(part)) ??
+      left ??
       parts?.[0] ??
       this.episodes.value()?.[0]
     )
