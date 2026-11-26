@@ -204,6 +204,11 @@ describe("Mais365Service", () => {
     player.position.set(seconds)
     TestBed.tick()
   }
+  /** Played on from `from` to `to`, as timeupdates come (a jump is a scrub). */
+  const play = (from: number, to: number) => {
+    for (let t = from; t < to; t += 2) at(t)
+    at(to)
+  }
 
   const hideOffer = vi.fn()
   const toast = {
@@ -280,16 +285,13 @@ describe("Mais365Service", () => {
     const started = plan.start(day)
     TestBed.tick()
     const first = day.readings[0].episode
-    at((first.start as number) + 20)
+    play(first.start as number, (first.start as number) + 20)
     http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
     await started
     TestBed.tick()
-    at((first.end as number) - 1)
-    at((first.end as number) + 0.5)
+    play((first.start as number) + 20, (first.end as number) + 0.5)
     for (const { episode } of day.readings.slice(1)) {
-      at(episode.start as number)
-      at((episode.end as number) - 1)
-      at((episode.end as number) + 0.5)
+      play(episode.start as number, (episode.end as number) + 0.5)
     }
     expect(plan.done()).toEqual([1])
   })
@@ -470,9 +472,7 @@ describe("Mais365Service", () => {
   /** Plays each reading from its start across its end, as listening does. */
   const hearAll = (day: PlanDay) => {
     for (const { episode } of day.readings) {
-      at(episode.start as number)
-      at((episode.end as number) - 1)
-      at((episode.end as number) + 0.5)
+      play(episode.start as number, (episode.end as number) + 0.5)
     }
   }
 
@@ -623,6 +623,22 @@ describe("Mais365Service", () => {
     at(third.start as number)
     at((third.end as number) - 1)
     at((third.end as number) + 0.5)
+    expect(plan.stage()).toBe("reflection")
+    expect(plan.done()).toEqual([])
+  })
+
+  it("leaves a day unread when a reading entered at its start was scrubbed through", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
+    const [first, ...rest] = day.readings.map((r) => r.episode)
+    // Entered at its start, then dragged to just before its end.
+    at(first.start as number)
+    at((first.end as number) - 1)
+    at((first.end as number) + 0.5)
+    for (const episode of rest) {
+      play(episode.start as number, (episode.end as number) + 0.5)
+    }
     expect(plan.stage()).toBe("reflection")
     expect(plan.done()).toEqual([])
   })

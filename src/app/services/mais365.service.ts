@@ -343,6 +343,12 @@ export class Mais365Service {
         const playing = !!day && this.player.current()?.url === day.url
         if (playing) {
           day.readings.forEach(({ episode: { start, end } }, index) => {
+            // Scrubbed or skipped ahead within it: no longer heard from its start.
+            const within =
+              start != null && previousAt >= start && previousAt < (end ?? at)
+            if (within && at - previousAt >= 3 && at < (end ?? at + 1)) {
+              this.enteredAt.delete(index)
+            }
             const entered = this.enteredAt.get(index)
             const fromStart =
               entered != null && start != null && entered <= start + 5
