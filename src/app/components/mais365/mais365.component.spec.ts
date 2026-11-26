@@ -613,6 +613,21 @@ describe("Mais365Component", () => {
     ).toBeNull()
   })
 
+  // start() swaps the day's light copy for its full one when that loads.
+  it("keeps a day picked while the playing day's full copy loads", () => {
+    plan.active.set(day1)
+    plan.stage.set("reflection")
+    fixture.detectChanges()
+    button("Introdução à Criação do Mundo")?.click()
+    fixture.detectChanges()
+    plan.active.set({ ...day1 })
+    fixture.detectChanges()
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector("#day-title")
+        ?.textContent,
+    ).toBe("Introdução à Criação do Mundo")
+  })
+
   it("shows the reflection with its priest and readings, to move through", () => {
     plan.active.set(day1)
     plan.stage.set("reflection")

@@ -451,8 +451,13 @@ export class Mais365Component implements OnInit, OnDestroy {
   >({
     source: () => ({ active: this.plan.active(), days: this.plan.days() }),
     computation: ({ active, days }, previous) => {
-      if (active) return active
       const kept = previous?.value
+      if (active) {
+        // The same day's full copy in place of its light one: a day picked
+        // meanwhile stays picked.
+        const sameDay = previous?.source.active?.day === active.day
+        return sameDay && kept && kept.day !== active.day ? kept : active
+      }
       const sameSession = previous?.source.active === active
       return sameSession && kept && days.some((day) => day.day === kept.day)
         ? kept
