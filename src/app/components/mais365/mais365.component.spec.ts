@@ -972,8 +972,21 @@ describe("Mais365Component", () => {
         plan.previous.set(day1.readings[2])
         fixture.detectChanges()
         const host = fixture.nativeElement as HTMLElement
-        expect(host.querySelectorAll(".transport button").length).toBe(5)
+        expect(host.querySelectorAll(".transport button").length).toBe(6)
         expect(rows().size).toBe(1)
+        // Play in the middle, as the reader's card: ⏭ there though off.
+        const centre = (selector: string) => {
+          const box = (
+            host.querySelector(selector) as HTMLElement
+          ).getBoundingClientRect()
+          return box.left + box.width / 2
+        }
+        expect(
+          Math.abs(centre(".transport .play") - centre(".transport")),
+        ).toBeLessThan(1)
+        expect(
+          (host.querySelector(".skip-intro") as HTMLButtonElement).disabled,
+        ).toBe(true)
         // «Terminar» is in the kicker's line, named for screen readers.
         const finish = host.querySelector(".kicker button") as HTMLElement
         expect(finish.getAttribute("aria-label")).toBe("Terminar")

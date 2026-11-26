@@ -250,18 +250,57 @@ progress::-moz-progress-bar {
    still 48px. */
 .transport {
   --mat-icon-button-state-layer-size: 40px;
-  justify-content: center;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  /* Not .actions' 8px: the speed's column has to match the empty one. */
+  gap: 0;
+}
+
+.transport .controls {
+  display: flex;
+  align-items: center;
   gap: 4px;
+}
+
+/* Material's disabled colour is the light theme's, unseen on the dark card. */
+.transport button:disabled .mat-icon {
+  color: var(--text-color);
+  opacity: 0.35;
+}
+
+/* Narrowest phones (320px): a size down, as the reader's card. */
+@media (max-width: 359px) {
+  /* Into the card's padding: room for the speed's column to match the other. */
+  .transport {
+    --mat-icon-button-state-layer-size: 36px;
+    margin-inline: -12px;
+  }
+
+  /* .card: the rule below would otherwise win. */
+  .card .transport .speed {
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+  }
+
+  .transport .controls {
+    gap: 0;
+  }
 }
 
 .transport .mat-mdc-icon-button {
   border: 0;
 }
 
+/* As the reader's card's: round, 40px and bare, as the buttons beside it. */
 .transport .speed {
-  min-width: 0;
-  padding-inline: 12px;
+  --mat-button-text-container-shape: 50%;
+  justify-self: end;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
 }
 
 /* On the button itself: Material sets a FAB's colours there. */
