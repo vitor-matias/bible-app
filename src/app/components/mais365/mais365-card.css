@@ -111,3 +111,20 @@
     margin-bottom: 8px;
   }
 }
+
+.today .actions .main {
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+/* A small phone: the readings and the action must both fit the card. */
+@media (max-width: 759px) and (max-height: 600px) {
+  .today .priest {
+    display: none;
+  }
+
+  .today .readings a,
+  .more-row button {
+    min-height: 40px;
+  }
+}
