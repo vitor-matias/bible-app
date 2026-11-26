@@ -187,16 +187,28 @@ export class Mais365Component implements OnInit, OnDestroy {
       getComputedStyle(column).position === "sticky" &&
       card.left < box.right &&
       box.left < card.right
-    const bars = Number.parseFloat(
-      getComputedStyle(
-        this.host.querySelector(".mais365") ?? this.host,
-      ).getPropertyValue("--top"),
-    )
-    const top = Math.max(
-      over && card ? card.bottom : 0,
-      Number.isFinite(bars) ? bars : 0,
-    )
-    return { top, bottom: window.innerHeight }
+    return {
+      top: Math.max(over && card ? card.bottom : 0, this.barsBottom()),
+      bottom: window.innerHeight,
+    }
+  }
+
+  /**
+   * Where the bars over the page end: the apps' as their inset says (plain
+   * px), the web's header as drawn (its height is a calc() the inset can't
+   * be read from).
+   */
+  private barsBottom(): number {
+    if (this.nativeChrome.enabled) {
+      const top = Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--native-chrome-top",
+        ),
+      )
+      return Number.isFinite(top) ? top : 0
+    }
+    const header = document.querySelector("header .mat-toolbar")
+    return header ? Math.max(0, header.getBoundingClientRect().bottom) : 0
   }
 
   /** Whether the next day's row is out of sight, and which way. */
@@ -257,6 +269,9 @@ export class Mais365Component implements OnInit, OnDestroy {
    */
   protected readonly folded = computed(() => {
     if (this.showEarlier()) return 0
+    // All read: today falls back on the last day; nothing is ahead to open at.
+    const done = this.plan.done()
+    if (this.plan.days().every((day) => done.includes(day.day))) return 0
     const next = this.plan.today()
     const at = next ? this.plan.days().findIndex((d) => d.day === next.day) : -1
     return Math.max(0, at - 2)

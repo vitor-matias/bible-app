@@ -177,6 +177,24 @@ describe("Mais365Component", () => {
     expect(text()).not.toContain("anteriores")
   })
 
+  // Today falls back on the last day once all are read: it folded all but
+  // the last three.
+  it("folds nothing once every day is read", () => {
+    const days = [1, 2, 3, 4, 5].map((day) => ({
+      ...day1,
+      day,
+      title: `Dia ${day}`,
+    }))
+    plan.days.set([intro, ...days])
+    plan.done.set([0, 1, 2, 3, 4, 5])
+    plan.today.set(days[4])
+    fixture.detectChanges()
+    expect(text()).not.toContain("Mostrar")
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelectorAll(".day").length,
+    ).toBe(6)
+  })
+
   it("folds one day as one, and none at the start", () => {
     plan.days.set([
       intro,
@@ -579,6 +597,36 @@ describe("Mais365Component", () => {
         })
       } finally {
         await page.viewport(800, 600)
+      }
+    })
+
+    // On two columns the card is beside the list: the web's fixed header is
+    // what hides a row, measured as drawn (its height a calc() unread).
+    it("counts a row behind the web's header as away", async () => {
+      const header = document.createElement("header")
+      const bar = document.createElement("div")
+      bar.className = "mat-toolbar"
+      bar.style.cssText =
+        "position: fixed; top: 0; left: 0; right: 0; height: 56px"
+      header.append(bar)
+      document.body.append(header)
+      try {
+        plan.today.set(days[2])
+        fixture.detectChanges()
+        const row = (fixture.nativeElement as HTMLElement).querySelector(
+          "[data-next]",
+        ) as HTMLElement
+        // Its bottom just under the header's.
+        window.scrollBy(0, row.getBoundingClientRect().bottom - 40)
+        await vi.waitFor(() => {
+          fixture.detectChanges()
+          const box = row.getBoundingClientRect()
+          expect(box.bottom).toBeGreaterThan(0)
+          expect(box.bottom).toBeLessThanOrEqual(56)
+          expect(pill()?.textContent).toContain("arrow_upward")
+        })
+      } finally {
+        header.remove()
       }
     })
 
