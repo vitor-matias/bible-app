@@ -18,6 +18,7 @@ import {
   readingLabel,
   readingsSummary,
   streakOf,
+  streakRun,
 } from "./mais365.service"
 import {
   type ChapterEpisode,
@@ -708,6 +709,52 @@ describe("Mais365Service", () => {
       const plan = await create()
       expect(plan.doneOn()).toEqual({ 1: "2026-11-25" })
       localStorage.removeItem("mais365DoneOn")
+    })
+  })
+
+  describe("a streak's milestones", () => {
+    const dated = (days: number) => {
+      const out: Record<number, string> = {}
+      for (let i = 0; i < days; i++) {
+        const day = new Date()
+        day.setDate(day.getDate() - i)
+        out[i + 1] = localDay(day)
+      }
+      return out
+    }
+    afterEach(() => {
+      localStorage.removeItem("mais365DoneOn")
+      localStorage.removeItem("mais365Celebrated")
+    })
+
+    it("dates a run by its first day", () => {
+      const read = ["2026-11-24", "2026-11-25", "2026-11-26"]
+      expect(streakRun(read, new Date(2026, 10, 26, 21))).toEqual({
+        length: 3,
+        start: "2026-11-24",
+      })
+      expect(streakRun([], new Date(2026, 10, 26))).toEqual({
+        length: 0,
+        start: null,
+      })
+    })
+
+    it("calls a milestone once, then not again for the same run", async () => {
+      localStorage.setItem("mais365DoneOn", JSON.stringify(dated(7)))
+      const plan = await create()
+      expect(plan.milestone()?.days).toBe(7)
+      plan.celebrate(plan.milestone()?.key ?? "")
+      expect(plan.milestone()).toBeNull()
+      expect(track).toHaveBeenCalledWith("plan_streak_milestone", { days: 7 })
+      // Kept over a restart.
+      TestBed.resetTestingModule()
+      const again = await create()
+      expect(again.milestone()).toBeNull()
+    })
+
+    it("calls nothing between milestones", async () => {
+      localStorage.setItem("mais365DoneOn", JSON.stringify(dated(8)))
+      expect((await create()).milestone()).toBeNull()
     })
   })
 })

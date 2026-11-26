@@ -15,6 +15,7 @@ import {
 } from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
+import { MatDialog } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
 import { MatSliderModule } from "@angular/material/slider"
 import { Meta, Title } from "@angular/platform-browser"
@@ -36,6 +37,7 @@ import {
 } from "../../services/podcast-player.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { StreakMilestoneComponent } from "./streak-milestone.component"
 
 /**
  * +365 as a reading plan: today's readings, played through with the
@@ -59,6 +61,9 @@ export class Mais365Component implements OnInit, OnDestroy {
   private readonly themeService = inject(ThemeService)
   private readonly router = inject(Router)
   private readonly analytics = inject(AnalyticsService)
+  private readonly dialog = inject(MatDialog)
+  /** A milestone's dialog is open: not opened twice. */
+  private celebrating = false
   /** A day a shared link asked for (/mais365?dia=120): its card, once loaded. */
   private askedDay: number | undefined = (() => {
     const dia = Number(this.router.parseUrl(this.router.url).queryParams["dia"])
@@ -79,6 +84,30 @@ export class Mais365Component implements OnInit, OnDestroy {
   private checking = 0
 
   constructor() {
+    // A streak's milestone just reached: celebrated once, here.
+    effect(() => {
+      const due = this.plan.milestone()
+      if (!due || this.celebrating) return
+      this.celebrating = true
+      untracked(() =>
+        this.dialog
+          .open<StreakMilestoneComponent, { days: number }, "share">(
+            StreakMilestoneComponent,
+            {
+              data: { days: due.days },
+              ariaModal: true,
+              width: "90%",
+              maxWidth: "360px",
+            },
+          )
+          .afterClosed()
+          .subscribe((answer) => {
+            this.celebrating = false
+            this.plan.celebrate(due.key)
+            if (answer === "share") void this.shareStreak(due.days)
+          }),
+      )
+    })
     effect(() => {
       const days = this.plan.days()
       const asked = this.askedDay
@@ -309,7 +338,21 @@ export class Mais365Component implements OnInit, OnDestroy {
     const named = day.readings.length
       ? `Dia ${day.day} do +365: «${day.title}» (${this.summary(day)}).`
       : `+365: «${day.title}».`
-    const search = `?dia=${day.day}`
+    if (await this.send(named, `?dia=${day.day}`)) {
+      void this.analytics.track("plan_day_share", { day: day.day })
+    }
+  }
+
+  /** The days in a row, to someone else, with the plan's page to start it. */
+  private async shareStreak(days: number): Promise<void> {
+    const said = `Há ${days} dias seguidos que leio a Bíblia com o +365.`
+    if (await this.send(said, "")) {
+      void this.analytics.track("plan_streak_share", { days })
+    }
+  }
+
+  /** The share sheet, else the link copied. Whether it went. */
+  private async send(text: string, search: string): Promise<boolean> {
     const url = shareableUrl({
       href: `${window.location.origin}/mais365${search}`,
       pathname: "/mais365",
@@ -318,22 +361,23 @@ export class Mais365Component implements OnInit, OnDestroy {
     })
     try {
       if (this.nativeChrome.enabled) {
-        const shared = await this.nativeChrome.share({
+        return await this.nativeChrome.share({
           title: "+365",
-          text: named,
+          text,
           url,
           linkTitle: "+365 | Bíblia Sagrada",
         })
-        if (!shared) return
-      } else if (typeof navigator.share === "function") {
-        await navigator.share({ title: "+365", text: named, url })
+      }
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: "+365", text, url })
       } else {
-        await navigator.clipboard.writeText(`${named} ${url}`)
+        await navigator.clipboard.writeText(`${text} ${url}`)
         this.toast.show("Ligação copiada.")
       }
-      void this.analytics.track("plan_day_share", { day: day.day })
+      return true
     } catch {
       // Cancelled, or refused: nothing to say.
+      return false
     }
   }
 

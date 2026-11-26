@@ -121,20 +121,38 @@ export const localDay = (date: Date): string =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
 
 /**
- * Days in a row, up to `today`, with a day of the plan read on each. Not
- * broken yet by today, still to come: it runs from yesterday until then.
+ * The run of days in a row, up to `today`, with a day of the plan read on
+ * each: how long, and the day it began. Not broken yet by today, still to
+ * come: it runs from yesterday until then.
  */
-export const streakOf = (dates: Iterable<string>, today: Date): number => {
+export const streakRun = (
+  dates: Iterable<string>,
+  today: Date,
+): { length: number; start: string | null } => {
   const read = new Set(dates)
   const day = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   if (!read.has(localDay(day))) day.setDate(day.getDate() - 1)
-  let streak = 0
+  let length = 0
+  let start: string | null = null
   while (read.has(localDay(day))) {
-    streak++
+    length++
+    start = localDay(day)
     day.setDate(day.getDate() - 1)
   }
-  return streak
+  return { length, start }
 }
+
+/** Days in a row, up to `today`, with a day of the plan read on each. */
+export const streakOf = (dates: Iterable<string>, today: Date): number =>
+  streakRun(dates, today).length
+
+/** The runs celebrated: a week, a month, a hundred days, a year. */
+export const STREAK_MILESTONES = [
+  3, 7, 14, 30, 50, 100, 150, 200, 250, 300, 365,
+] as const
+
+/** Milestones already shown: "<run's first day>:<days>". */
+const CELEBRATED_KEY = "mais365Celebrated"
 
 /**
  * +365 as a way through the Bible a day at a time, at the reader's own
@@ -199,10 +217,39 @@ export class Mais365Service {
   readonly done = signal<number[]>(this.storedDone())
   /** When each day was read: plan day → local "YYYY-MM-DD". */
   readonly doneOn = signal<Record<number, string>>(this.storedDoneOn())
-  /** Days in a row with a day of the plan read, as of now. */
-  readonly streak = computed(() =>
-    streakOf(Object.values(this.doneOn()), new Date()),
+  private readonly run = computed(() =>
+    streakRun(Object.values(this.doneOn()), new Date()),
   )
+  /** Days in a row with a day of the plan read, as of now. */
+  readonly streak = computed(() => this.run().length)
+  private readonly celebrated = signal<string[]>(this.storedCelebrated())
+  /**
+   * A milestone just reached and not yet celebrated: once per run, so a
+   * streak begun again earns its week anew.
+   */
+  readonly milestone = computed(() => {
+    const { length, start } = this.run()
+    const key = `${start}:${length}`
+    return start &&
+      (STREAK_MILESTONES as readonly number[]).includes(length) &&
+      !this.celebrated().includes(key)
+      ? { days: length, key }
+      : null
+  })
+
+  /** A milestone seen: not shown again. */
+  celebrate(key: string): void {
+    void this.analytics.track("plan_streak_milestone", {
+      days: Number(key.split(":")[1]),
+    })
+    // The latest few: a run's milestones, and the run before.
+    this.celebrated.set([...this.celebrated(), key].slice(-24))
+    try {
+      localStorage.setItem(CELEBRATED_KEY, JSON.stringify(this.celebrated()))
+    } catch {
+      // Not kept: shown again after a restart, at worst.
+    }
+  }
   readonly today = computed(
     (): PlanDay | undefined =>
       this.days().find((day) => !this.done().includes(day.day)) ??
@@ -528,6 +575,19 @@ export class Mais365Service {
       localStorage.setItem(DONE_ON_KEY, JSON.stringify(this.doneOn()))
     } catch {
       // Not kept: done until the app closes.
+    }
+  }
+
+  private storedCelebrated(): string[] {
+    try {
+      const stored: unknown = JSON.parse(
+        localStorage.getItem(CELEBRATED_KEY) ?? "[]",
+      )
+      return Array.isArray(stored)
+        ? stored.filter((key): key is string => typeof key === "string")
+        : []
+    } catch {
+      return []
     }
   }
 

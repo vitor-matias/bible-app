@@ -53,6 +53,8 @@ describe("Mais365Component", () => {
       !!day && plan.active()?.day === day.day,
     done: signal<number[]>([]),
     streak: signal(0),
+    milestone: signal<{ days: number; key: string } | null>(null),
+    celebrate: vi.fn(),
     today: signal(intro),
     active: signal<PlanDay | null>(null),
     stage: signal<number | "reflection" | null>(null),
@@ -96,6 +98,7 @@ describe("Mais365Component", () => {
     plan.today.set(intro)
     plan.done.set([])
     plan.streak.set(0)
+    plan.milestone.set(null)
     resource.isLoading.set(false)
     resource.error.set(undefined)
     plan.active.set(null)
@@ -221,6 +224,48 @@ describe("Mais365Component", () => {
         (fixture.nativeElement as HTMLElement).querySelector("#day-title")
           ?.textContent,
       ).toBe("No princípio")
+    })
+  })
+
+  // A week in a row: celebrated once, with a way to share it.
+  describe("a streak's milestone", () => {
+    afterEach(() => vi.unstubAllGlobals())
+
+    const dialog = () =>
+      document.querySelector("streak-milestone") as HTMLElement | null
+    const inDialog = (label: string) =>
+      Array.from(
+        dialog()?.querySelectorAll<HTMLButtonElement>("button") ?? [],
+      ).find((b) => b.textContent?.includes(label))
+
+    it("celebrates it, and is done with it once closed", async () => {
+      plan.milestone.set({ days: 7, key: "2026-11-20:7" })
+      TestBed.tick()
+      await fixture.whenStable()
+      expect(dialog()?.textContent).toContain("7 dias seguidos")
+      expect(dialog()?.textContent).toContain(
+        "Uma semana inteira com a Palavra.",
+      )
+      inDialog("Continuar")?.click()
+      await vi.waitFor(() => expect(dialog()).toBeNull())
+      expect(plan.celebrate).toHaveBeenCalledWith("2026-11-20:7")
+    })
+
+    it("shares the days in a row from it", async () => {
+      const share = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", { ...navigator, share })
+      plan.milestone.set({ days: 30, key: "2026-10-28:30" })
+      TestBed.tick()
+      await fixture.whenStable()
+      inDialog("Partilhar")?.click()
+      await vi.waitFor(() =>
+        expect(share).toHaveBeenCalledWith({
+          title: "+365",
+          text: "Há 30 dias seguidos que leio a Bíblia com o +365.",
+          url: `${window.location.origin}/mais365`,
+        }),
+      )
+      expect(plan.celebrate).toHaveBeenCalledWith("2026-10-28:30")
     })
   })
 
