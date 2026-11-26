@@ -161,9 +161,9 @@ describe("Mais365Component", () => {
     plan.days.set([intro, ...days])
     plan.today.set(days[4])
     fixture.detectChanges()
-    // Dia 5 next: the two before it, then on.
+    // Dia 5 next: the two before it, then on. The introduction is not a day.
     expect(rows()).toEqual(["Dia 3", "Dia 4", "Dia 5", "Dia 6"])
-    button("Mostrar os 3 dias anteriores")?.click()
+    button("Mostrar os 2 dias anteriores")?.click()
     fixture.detectChanges()
     expect(rows()).toEqual([
       "Dia 0",
@@ -174,7 +174,19 @@ describe("Mais365Component", () => {
       "Dia 5",
       "Dia 6",
     ])
-    expect(text()).not.toContain("anteriores")
+    // The row folds them again.
+    expect(text()).toContain("Ocultar os dias anteriores")
+  })
+
+  // Only an introduction before the fold: said as what it is, not «0 dias».
+  it("tells the days folded without counting introductions", () => {
+    plan.days.set([
+      intro,
+      ...[1, 2, 3].map((day) => ({ ...day1, day, title: `Dia ${day}` })),
+    ])
+    plan.today.set({ ...day1, day: 3, title: "Dia 3" })
+    fixture.detectChanges()
+    expect(text()).toContain("Mostrar as introduções anteriores")
   })
 
   // Today falls back on the last day once all are read: it folded all but
@@ -198,9 +210,9 @@ describe("Mais365Component", () => {
   it("folds one day as one, and none at the start", () => {
     plan.days.set([
       intro,
-      ...[1, 2, 3].map((day) => ({ ...day1, day, title: `Dia ${day}` })),
+      ...[1, 2, 3, 4].map((day) => ({ ...day1, day, title: `Dia ${day}` })),
     ])
-    plan.today.set({ ...day1, day: 3, title: "Dia 3" })
+    plan.today.set({ ...day1, day: 4, title: "Dia 4" })
     fixture.detectChanges()
     expect(text()).toContain("Mostrar o dia anterior")
     plan.today.set(intro)
@@ -349,9 +361,10 @@ describe("Mais365Component", () => {
     const periods = Array.from(host.querySelectorAll(".period h3"), (h) =>
       h.textContent?.replace(/\s+/g, " ").trim(),
     )
+    // Introductions are listed but not counted, as in «x de N dias lidos».
     expect(periods).toEqual([
-      "Criação do Mundo 2/2 lidos",
-      "Patriarcas 0/2 lidos",
+      "Criação do Mundo 1/1 lidos",
+      "Patriarcas 0/1 lidos",
     ])
     expect(host.querySelector(".day-summary")?.textContent).toBe(
       "Génesis 1–2 · Salmo 19",
@@ -639,6 +652,8 @@ describe("Mais365Component", () => {
       fixture.detectChanges()
       await fixture.whenStable()
       button("dias anteriores")?.click()
+      // The reader has scrolled, else the pill waits.
+      window.scrollBy(0, 1)
       fixture.detectChanges()
       // A slower runner: a frame's check may take a while to land.
       await vi.waitFor(
@@ -682,6 +697,245 @@ describe("Mais365Component", () => {
     } finally {
       await page.viewport(800, 600)
     }
+  })
+
+  describe("the list on a long plan", () => {
+    const days = Array.from({ length: 80 }, (_, i) => ({
+      ...day1,
+      day: i + 1,
+      title: `Dia ${i + 1}`,
+    }))
+    const host = () => fixture.nativeElement as HTMLElement
+    const pill = () => host().querySelector<HTMLElement>(".to-next")
+    const rowTop = (day: number) =>
+      host().querySelector(`li[data-day="${day}"]`)?.getBoundingClientRect()
+        .top as number
+
+    beforeEach(() => {
+      plan.days.set([intro, ...days])
+      plan.today.set(days[60])
+      // The card on today's day, as at the first paint.
+      plan.active.set(days[0])
+      fixture.detectChanges()
+      plan.active.set(null)
+      fixture.detectChanges()
+    })
+
+    afterEach(() => window.scrollTo(0, 0))
+
+    it("opens the days before in place, and folds them again with focus kept", async () => {
+      const fold = host().querySelector<HTMLButtonElement>(".earlier")
+      expect(fold?.textContent).toContain("Mostrar os 58 dias anteriores")
+      const first = host()
+        .querySelector(".day")
+        ?.closest("li")
+        ?.getAttribute("data-day") as string
+      const before = rowTop(Number(first))
+      fold?.focus()
+      fold?.click()
+      fixture.detectChanges()
+      await vi.waitFor(() => {
+        fixture.detectChanges()
+        expect(Math.abs(rowTop(Number(first)) - before)).toBeLessThan(1)
+      })
+      expect(host().querySelectorAll(".day").length).toBe(81)
+      expect(fold?.textContent).toContain("Ocultar os dias anteriores")
+      expect(fold?.getAttribute("aria-expanded")).toBe("true")
+      expect(document.activeElement).toBe(fold)
+
+      fold?.click()
+      fixture.detectChanges()
+      expect(host().querySelectorAll(".day").length).toBe(22)
+      expect(host().querySelector(".earlier")).toBe(fold)
+      expect(document.activeElement).toBe(fold)
+      expect(fold?.textContent).toContain("Mostrar os 58 dias anteriores")
+    })
+
+    // A bar over the whole window hides the next row, the page untouched.
+    describe("the pill on a fresh page", () => {
+      let header: HTMLElement
+      beforeEach(() => {
+        header = document.createElement("header")
+        const bar = document.createElement("div")
+        bar.className = "mat-toolbar"
+        bar.style.cssText =
+          "position: fixed; top: 0; left: 0; right: 0; height: 5000px"
+        header.append(bar)
+        document.body.append(header)
+      })
+      afterEach(() => header.remove())
+
+      it("waits while the card shows the next day, until a day is picked", async () => {
+        window.dispatchEvent(new Event("resize"))
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        fixture.detectChanges()
+        expect(pill()).toBeNull()
+        button("Dia 63")?.click()
+        fixture.detectChanges()
+        await vi.waitFor(() => {
+          fixture.detectChanges()
+          window.dispatchEvent(new Event("resize"))
+          expect(pill()).not.toBeNull()
+        })
+      })
+
+      it("waits until the list is scrolled", async () => {
+        window.dispatchEvent(new Event("resize"))
+        await new Promise((resolve) => setTimeout(resolve, 100))
+        fixture.detectChanges()
+        expect(pill()).toBeNull()
+        window.scrollTo(0, 40)
+        await vi.waitFor(() => {
+          fixture.detectChanges()
+          expect(pill()).not.toBeNull()
+        })
+      })
+    })
+
+    const away = async () => {
+      plan.today.set(days[2])
+      fixture.detectChanges()
+      window.scrollTo(0, document.documentElement.scrollHeight)
+      await vi.waitFor(() => {
+        fixture.detectChanges()
+        expect(pill()).not.toBeNull()
+      })
+    }
+
+    it("is centred over the days on a wide screen", async () => {
+      await page.viewport(1400, 900)
+      try {
+        await away()
+        const column = host().querySelector(".days-column") as HTMLElement
+        const box = column.getBoundingClientRect()
+        const at = (pill() as HTMLElement).getBoundingClientRect()
+        expect(
+          Math.abs(at.left + at.width / 2 - (box.left + box.width / 2)),
+        ).toBeLessThan(2)
+        expect(at.bottom).toBeLessThanOrEqual(window.innerHeight)
+      } finally {
+        await page.viewport(800, 600)
+      }
+    })
+
+    it("docks at the right edge on a phone", async () => {
+      await page.viewport(390, 844)
+      try {
+        await away()
+        const box = (pill() as HTMLElement).getBoundingClientRect()
+        expect(
+          Math.abs(document.documentElement.clientWidth - box.right - 16),
+        ).toBeLessThan(1)
+      } finally {
+        await page.viewport(800, 600)
+      }
+    })
+
+    it("sets the page's scroll-padding to the card's foot on a phone", async () => {
+      await page.viewport(390, 844)
+      try {
+        const root = document.documentElement
+        const column = host().querySelector(".today-column") as HTMLElement
+        const padding = () =>
+          Number.parseFloat(getComputedStyle(root).scrollPaddingTop)
+        // Where the card sticks (under the bars), and its height.
+        const foot = () =>
+          Number.parseFloat(getComputedStyle(column).top) + column.offsetHeight
+        await vi.waitFor(() => expect(padding()).toBe(foot()))
+        expect(padding()).toBeGreaterThan(100)
+        // Another card, another height: followed.
+        plan.active.set(day1)
+        plan.stage.set("reflection")
+        fixture.detectChanges()
+        await vi.waitFor(() => expect(padding()).toBe(foot()))
+        fixture.destroy()
+        expect(root.style.scrollPaddingTop).toBe("")
+      } finally {
+        await page.viewport(800, 600)
+      }
+    })
+
+    it("leaves the scroll-padding alone beside the card on a wide screen", async () => {
+      await page.viewport(1400, 900)
+      try {
+        await vi.waitFor(() =>
+          expect(
+            getComputedStyle(document.documentElement).scrollPaddingTop,
+          ).toBe("0px"),
+        )
+      } finally {
+        await page.viewport(800, 600)
+      }
+    })
+  })
+
+  describe("the reflection's controls", () => {
+    // Centres, not tops: the play button is taller than the rest.
+    const rows = () =>
+      new Set(
+        Array.from(
+          (fixture.nativeElement as HTMLElement).querySelectorAll(
+            ".transport button",
+          ),
+          (b) => {
+            const box = b.getBoundingClientRect()
+            return Math.round(box.top + box.height / 2)
+          },
+        ),
+      )
+
+    it.each([320, 390])("fit one row on a phone %ipx wide", async (width) => {
+      await page.viewport(width, 844)
+      try {
+        plan.active.set(day1)
+        plan.stage.set("reflection")
+        plan.previous.set(day1.readings[2])
+        fixture.detectChanges()
+        const host = fixture.nativeElement as HTMLElement
+        expect(host.querySelectorAll(".transport button").length).toBe(5)
+        expect(rows().size).toBe(1)
+        // «Terminar» is in the kicker's line, named for screen readers.
+        const finish = host.querySelector(".kicker button") as HTMLElement
+        expect(finish.getAttribute("aria-label")).toBe("Terminar")
+        expect(host.querySelector(".transport .finish")).toBeNull()
+        const scrolls = host.scrollWidth
+        expect(scrolls).toBeLessThanOrEqual(host.clientWidth)
+      } finally {
+        plan.previous.set(null)
+        await page.viewport(800, 600)
+      }
+    })
+  })
+
+  describe("one or two columns", () => {
+    const layout = () => {
+      const host = fixture.nativeElement as HTMLElement
+      return {
+        grid: getComputedStyle(host.querySelector(".mais365") as Element)
+          .display,
+        sticky:
+          getComputedStyle(host.querySelector(".today-column") as Element)
+            .position === "sticky",
+      }
+    }
+
+    it("puts a phone on its side in one column, the card over the list", async () => {
+      await page.viewport(844, 390)
+      try {
+        expect(layout()).toEqual({ grid: "block", sticky: true })
+      } finally {
+        await page.viewport(800, 600)
+      }
+    })
+
+    it("keeps two columns where there is room both ways", async () => {
+      await page.viewport(820, 1180)
+      try {
+        expect(layout()).toEqual({ grid: "grid", sticky: false })
+      } finally {
+        await page.viewport(800, 600)
+      }
+    })
   })
 
   // Hosted on the web, the page sits in the reader's text and takes its size.

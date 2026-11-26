@@ -225,12 +225,22 @@ progress::-moz-progress-bar {
   text-align: end;
 }
 
+/* Five controls in one row down to 320px: 40px buttons, their touch targets
+   still 48px. */
 .transport {
+  --mat-icon-button-state-layer-size: 40px;
   justify-content: center;
+  flex-wrap: nowrap;
+  gap: 4px;
 }
 
 .transport .mat-mdc-icon-button {
   border: 0;
+}
+
+.transport .speed {
+  min-width: 0;
+  padding-inline: 12px;
 }
 
 /* On the button itself: Material sets a FAB's colours there. */
@@ -240,8 +250,11 @@ progress::-moz-progress-bar {
   border-radius: 50%;
 }
 
-.finish {
-  margin-inline-start: 8px;
+/* In the kicker's line, as an icon (named for screen readers): the
+   transport has no room for it. */
+.kicker .finish {
+  margin: -12px -12px -12px 0;
+  border: 0;
 }
 
 .days-title {
@@ -354,12 +367,12 @@ progress::-moz-progress-bar {
   outline-offset: -2px;
 }
 
-/* Back to the next day to read, over the foot of the page. */
+/* Back to the next day to read: over the foot of the page, at the right
+   edge so it doesn't cover the rows' titles. */
 .to-next {
   position: fixed;
+  right: 16px;
   bottom: calc(24px + var(--app-inset-bottom, 0px));
-  left: 50%;
-  translate: -50% 0;
   z-index: 2;
   box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
 }
@@ -367,7 +380,7 @@ progress::-moz-progress-bar {
 /* Room for both on a tablet or a desktop: the day's card leads, as it is
    all most readers come for, and stays in view while the days scroll by
    beside it. The same on the web and in the apps. */
-@media (min-width: 760px) {
+@media (min-width: 760px) and (min-height: 600px) {
   /* The page's column beside the days, all of it in view: there is room
      for the title, the progress and the reminder over the card. */
   .mais365 {
@@ -389,9 +402,14 @@ progress::-moz-progress-bar {
     overscroll-behavior: contain;
   }
 
-  /* Over the list it belongs to, not the middle of the screen. */
+  /* Centred over the list it belongs to: it sticks at the foot of the
+     column, in it. */
   .to-next {
-    left: 80%;
+    position: sticky;
+    right: auto;
+    display: flex;
+    width: fit-content;
+    margin: 16px auto 0;
   }
 
   .days-title {
@@ -401,7 +419,7 @@ progress::-moz-progress-bar {
 
 /* One column: the page's own column lays out as if it weren't there, so
    the card alone can stay. */
-@media (max-width: 759px) {
+@media not all and (min-width: 760px) and (min-height: 600px) {
   .side {
     display: contents;
   }
@@ -410,7 +428,7 @@ progress::-moz-progress-bar {
 /* On a phone too, the day's card stays while the list scrolls under it:
    most readers come for it alone. The title and the progress go up with the
    page; the list keeps a fifth of the screen at least. */
-@media (max-width: 759px) {
+@media not all and (min-width: 760px) and (min-height: 600px) {
   .today-column {
     position: sticky;
     top: var(--top);
