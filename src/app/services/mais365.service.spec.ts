@@ -615,11 +615,15 @@ describe("Mais365Service", () => {
       await start(plan, day)
       const [first, second] = day.readings.map((r) => r.episode)
       play(first.start as number, (first.start as number) + 10)
-      // On the first reading: followed into the second.
+      // On the first reading: followed into the second, in place, so Back
+      // leaves the day's chapters for the plan's page.
       router.url = "/gen/1"
       navigate.mockClear()
       play((first.end as number) - 2, (second.start as number) + 1)
-      expect(lastCall(navigate)[0]).toEqual(["/", "gen", 2])
+      expect(lastCall(navigate)).toEqual([
+        ["/", "gen", 2],
+        { replaceUrl: true },
+      ])
 
       // Gone to Êxodo 3 meanwhile: left there, the next reading offered.
       router.url = "/ex/3"

@@ -220,12 +220,27 @@ export class Mais365Service {
   }
 
   /** Turns the reader to a reading, at its first verse. */
-  private open(reading: PlanReading): void {
+  private open(reading: PlanReading, replaceUrl = false): void {
     this.opened = this.path(reading)
     const queryParams = this.query(reading)
-    void (queryParams
-      ? this.router.navigate(this.link(reading), { queryParams })
+    const extras = {
+      ...(queryParams && { queryParams }),
+      ...(replaceUrl && { replaceUrl }),
+    }
+    void (Object.keys(extras).length
+      ? this.router.navigate(this.link(reading), extras)
       : this.router.navigate(this.link(reading)))
+  }
+
+  /**
+   * The day turning a reader that follows it to its next reading: in place,
+   * as the reader's own chapter steps are, so Back leaves for where the
+   * reader came from (the plan's page), not through the day's chapters.
+   * From the plan's page, an entry of its own.
+   */
+  private turn(reading: PlanReading): void {
+    const path = this.router.url.split(/[?#]/)[0]
+    this.open(reading, path !== "/mais365")
   }
 
   /** Asked for by the plan's page: every reader page has this service. */
@@ -448,7 +463,7 @@ export class Mais365Service {
         this.player.adopt({ ...reading.episode, title: readingLabel(reading) })
         // Once: the full copy's re-adoption mustn't take the reader back.
         if (!entering) return
-        if (this.following(before)) this.open(reading)
+        if (this.following(before)) this.turn(reading)
         else this.offerOpen(readingLabel(reading), () => this.open(reading))
       })
     })
