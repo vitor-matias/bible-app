@@ -580,9 +580,11 @@ export class Mais365Service {
   readonly next = computed((): PlanReading | "reflection" | null => {
     const day = this.active()
     const stage = this.stage()
-    if (!day || typeof stage !== "number") return null
+    // In the intro (stage null) its first reading: ⏭ skips the intro.
+    if (!day || stage === "reflection") return null
+    const at = stage ?? -1
     return (
-      day.readings.find((r, i) => i > stage && r.episode.start != null) ??
+      day.readings.find((r, i) => i > at && r.episode.start != null) ??
       "reflection"
     )
   })

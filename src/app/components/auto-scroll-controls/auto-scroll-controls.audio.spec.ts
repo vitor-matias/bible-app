@@ -442,6 +442,12 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     fixture.detectChanges()
     expect(TestBed.inject(Mais365Service).stage()).toBeNull()
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    // The day's transport, not ⇅: ⏭ goes past the intro to its first reading.
+    expect(find(".mode-toggle")).toBeNull()
+    const next = find(".plan-skip")
+    expect(next?.disabled).toBe(false)
+    tap(next)
+    expect(stream.currentTime).toBe(56.5)
   })
 
   it("says the day and the reading's place in it, and steps through its readings", async () => {
@@ -744,9 +750,21 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       TestBed.tick()
       fixture.detectChanges()
       tap(toggle())
-      expect(audio()).toBe(stream)
+      // The same element plays on, the third part made ready on the other.
+      expect(stream.paused).toBe(false)
       expect(stream.currentTime).toBe(1150)
+      // Its place in the whole chapter, and on to the third part at its end.
+      fixture.detectChanges()
+      expect(times()).toEqual(["5:50", "−9:10"])
+      endPart(stream, 1401)
+      expect(player().current()?.range).toEqual([121, 176])
     })
+    const times = () =>
+      Array.from(
+        fixture.nativeElement.querySelectorAll(
+          ".audio-time",
+        ) as NodeListOf<HTMLElement>,
+      ).map((time) => time.textContent?.trim())
     const sources = () =>
       play.mock.contexts.map(
         (element: unknown) => (element as HTMLAudioElement).src,
@@ -806,13 +824,6 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(playing.paused).toBe(true)
       expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
     })
-
-    const times = () =>
-      Array.from(
-        fixture.nativeElement.querySelectorAll(
-          ".audio-time",
-        ) as NodeListOf<HTMLElement>,
-      ).map((time) => time.textContent?.trim())
 
     // The parts last 300, 292 (from its first verse) and 300 s: 14:52 in all.
     it("shows the parts as one recording: its whole length, and the place in it", async () => {

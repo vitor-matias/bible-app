@@ -230,10 +230,13 @@ export class Mais365ReminderService {
         this.http.delete(`${apiBaseUrl}/mais365/reminders`, {
           body: { endpoint: subscription.endpoint },
         }),
-      )
+      ).catch(() => {
+        // Offline or refused: unsubscribed, the server's next push is
+        // refused as gone, and it forgets the endpoint then.
+      })
       await this.swPush.unsubscribe()
     } catch {
-      // Unsubscribed or not, the server stops once the endpoint is gone.
+      // Already unsubscribed.
     }
   }
 

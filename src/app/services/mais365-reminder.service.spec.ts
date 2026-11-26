@@ -425,6 +425,18 @@ describe("Mais365ReminderService", () => {
       expect(service.enabled()).toBe(false)
     })
 
+    it("unsubscribes when turned off, even if the DELETE fails", async () => {
+      localStorage.setItem("mais365Reminder", "true")
+      swPush.subscription.next(subscription)
+      const service = web()
+      const disabling = service.disable()
+      const del = await vi.waitFor(() => http.expectOne("v1/mais365/reminders"))
+      del.error(new ProgressEvent("error"))
+      await disabling
+      expect(swPush.unsubscribe).toHaveBeenCalled()
+      expect(service.enabled()).toBe(false)
+    })
+
     it("turns itself off once the browser drops the subscription", async () => {
       vi.useFakeTimers()
       localStorage.setItem("mais365Reminder", "true")

@@ -173,8 +173,15 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     return null
   }
 
-  /** A day of the plan playing, its readings or reflection: ⏮ ⏭ in the transport. */
-  protected readonly inPlan = computed(() => this.plan.stage() !== null)
+  /** A day of the plan playing, its intro, readings or reflection: ⏮ ⏭ in the transport. */
+  protected readonly inPlan = computed(() => {
+    // Its intro too (no reading yet, stage null): the day's own stream.
+    const day = this.plan.active()
+    return (
+      this.plan.stage() !== null ||
+      (!!day && this.player.current()?.url === day.url)
+    )
+  })
 
   /** "Voltar a Génesis 1"; null on the day's first reading. */
   protected readonly backLabel = computed(() => {
@@ -225,15 +232,9 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
    * In a +365 day the card plays what the day is at (a reading, or the
    * reflection), whichever chapter the reader has open.
    */
-  private readonly planEntry = computed(() => {
-    const current = this.player.current()
-    // Its intro too (no reading yet, stage null): the day's own stream.
-    const day = this.plan.active()
-    return this.plan.stage() !== null ||
-      (day && current && current.url === day.url)
-      ? current
-      : null
-  })
+  private readonly planEntry = computed(() =>
+    this.inPlan() ? this.player.current() : null,
+  )
 
   /** The chapter open is the one being heard: read-along marks and follows it. */
   private readonly heardHere = computed(() => {
@@ -282,29 +283,29 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
             skip: [nameEnd, verse] as [number, number],
           }
         })
+        // A part a +365 day left in the player keeps the API's start, which
+        // the player matches parts by: that copy stands in for its own.
+        .map((part) => this.leftBy(part) ?? part)
     )
   })
 
+  /** The player's copy of `part`, the same verses, left there by a +365 day. */
+  private leftBy(part: ChapterEpisode): ChapterEpisode | undefined {
+    const current = this.player.current()
+    return current &&
+      part.url === current.url &&
+      part.range?.[0] === current.range?.[0] &&
+      part.range?.[1] === current.range?.[1]
+      ? current
+      : undefined
+  }
+
   protected readonly entry = computed(() => {
     const parts = this.parts()
-    const current = this.player.current()
-    // A part a +365 day left in the player, with the API's own start (parts()
-    // moves each part's): the same part by its verses, resumed where it is.
-    const left =
-      current &&
-      parts?.some(
-        (part) =>
-          part.url === current.url &&
-          part.range?.[0] === current.range?.[0] &&
-          part.range?.[1] === current.range?.[1],
-      )
-        ? current
-        : undefined
     return (
       this.planEntry() ??
       // The part playing, once the chapter has gone on to it.
       parts?.find((part) => this.player.isCurrent(part)) ??
-      left ??
       parts?.[0] ??
       this.episodes.value()?.[0]
     )
