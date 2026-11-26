@@ -16,7 +16,7 @@
 }
 
 /* A tablet: the page's column between the bars, top and bottom. */
-@media (min-width: 760px) {
+@media (min-width: 760px) and (min-height: 600px) {
   :host-context(.native-chrome) .side {
     top: calc(var(--top) + 16px);
     max-height: calc(100dvh - var(--top) - var(--bottom) - 32px);

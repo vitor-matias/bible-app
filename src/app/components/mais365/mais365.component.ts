@@ -7,6 +7,7 @@ import {
   DestroyRef,
   ElementRef,
   effect,
+  Injector,
   inject,
   linkedSignal,
   type OnDestroy,
@@ -90,6 +91,9 @@ export class Mais365Component implements OnInit, OnDestroy {
   /** Where the next day to read is, scrolled out of sight: above or below. */
   protected readonly nextAway = signal<"up" | "down" | null>(null)
   private checking = 0
+  /** The reader has scrolled or picked a day: the way back may show. */
+  private engaged = false
+  private readonly injector = inject(Injector)
 
   /** The iOS app's page leads with a large title, as UIKit's pages do. */
   protected readonly largeTitle =
@@ -140,6 +144,7 @@ export class Mais365Component implements OnInit, OnDestroy {
       if (day) untracked(() => this.selected.set(day))
     })
     afterNextRender(() => {
+      this.watchCard()
       const edge = this.host.querySelector(".large-title-edge")
       if (edge) this.largeTitleEdge?.observe(edge)
     })
@@ -162,14 +167,54 @@ export class Mais365Component implements OnInit, OnDestroy {
           this.checkNext()
         })
       }
-      window.addEventListener("scroll", check, { passive: true })
+      const scrolled = () => {
+        if (window.scrollY > 0) this.engaged = true
+        check()
+      }
+      window.addEventListener("scroll", scrolled, { passive: true })
       window.addEventListener("resize", check, { passive: true })
       this.destroyRef.onDestroy(() => {
-        window.removeEventListener("scroll", check)
+        window.removeEventListener("scroll", scrolled)
         window.removeEventListener("resize", check)
         cancelAnimationFrame(this.checking)
       })
     }
+  }
+
+  /**
+   * Where the card that stays over the list (a phone) ends, as the page's
+   * scroll-padding-top: focused rows and scrollIntoView clear it. Nothing
+   * where the card isn't over the list.
+   */
+  private watchCard(): void {
+    const column = this.host.querySelector<HTMLElement>(".today-column")
+    if (!column) return
+    const root = document.documentElement
+    const measure = () => {
+      const style = getComputedStyle(column)
+      const bottom =
+        style.position === "sticky"
+          ? Number.parseFloat(style.top) + column.offsetHeight
+          : 0
+      root.style.setProperty(
+        "--mais365-card-bottom",
+        `${Number.isFinite(bottom) ? bottom : 0}px`,
+      )
+    }
+    root.style.scrollPaddingTop = "var(--mais365-card-bottom, 0px)"
+    measure()
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(measure)
+    observer?.observe(column)
+    window.addEventListener("resize", measure, { passive: true })
+    this.destroyRef.onDestroy(() => {
+      observer?.disconnect()
+      window.removeEventListener("resize", measure)
+      root.style.removeProperty("--mais365-card-bottom")
+      root.style.removeProperty("scroll-padding-top")
+    })
   }
 
   /**
@@ -217,7 +262,10 @@ export class Mais365Component implements OnInit, OnDestroy {
   private checkNext(): void {
     const row = this.host.querySelector("[data-next]")
     const shown = this.shownArea(row)
-    if (!row || !shown) {
+    // The card already shows the next day, the page untouched: nothing to go back to.
+    const fresh =
+      !this.engaged && this.selected()?.day === this.plan.today()?.day
+    if (!row || !shown || fresh) {
       this.nextAway.set(null)
       return
     }
@@ -265,12 +313,11 @@ export class Mais365Component implements OnInit, OnDestroy {
   /** Shown once asked: the days before the next one, folded away. */
   protected readonly showEarlier = signal(false)
   /**
-   * How many days the list folds away: those before the next day to read,
+   * How many days the list can fold away: those before the next day to read,
    * all but the two just before it, so the list opens where the reader is
-   * (day 120, not day 1). None once all are read, or once asked for.
+   * (day 120, not day 1). None once all are read.
    */
-  protected readonly folded = computed(() => {
-    if (this.showEarlier()) return 0
+  protected readonly foldable = computed(() => {
     // All read: today falls back on the last day; nothing is ahead to open at.
     const done = this.plan.done()
     if (this.plan.days().every((day) => done.includes(day.day))) return 0
@@ -278,7 +325,19 @@ export class Mais365Component implements OnInit, OnDestroy {
     const at = next ? this.plan.days().findIndex((d) => d.day === next.day) : -1
     return Math.max(0, at - 2)
   })
-  /** The periods as listed: their days from the fold on, counted whole. */
+  /** How many are folded now: none once asked for. */
+  protected readonly folded = computed(() =>
+    this.showEarlier() ? 0 : this.foldable(),
+  )
+  /** The days that can fold, as told: introductions are not days of readings. */
+  protected readonly foldableDays = computed(
+    () =>
+      this.plan
+        .days()
+        .slice(0, this.foldable())
+        .filter((day) => day.readings.length).length,
+  )
+  /** The periods as listed: their days from the fold on. */
   protected readonly shownSections = computed(() => {
     const shown = new Set(
       this.plan
@@ -294,8 +353,43 @@ export class Mais365Component implements OnInit, OnDestroy {
       .filter(({ days }) => days.length)
   })
 
+  /**
+   * Opens or folds the earlier days where the reader is: the row at the top
+   * of the list stays where it was on screen (the fold's own row, when the
+   * days fold away under it).
+   */
+  protected toggleEarlier(button: HTMLElement): void {
+    const opening = !this.showEarlier()
+    const rows = Array.from(
+      this.host.querySelectorAll<HTMLElement>(".days-column .day"),
+    )
+    const top = this.shownArea(rows[0] ?? null)?.top ?? 0
+    const anchor = opening
+      ? (rows.find((row) => row.getBoundingClientRect().bottom > top) ?? button)
+      : button
+    const before = anchor.getBoundingClientRect().top
+    const day = anchor.closest("li")?.getAttribute("data-day")
+    this.showEarlier.set(opening)
+    afterNextRender(
+      () => {
+        const now = day
+          ? this.host.querySelector(`li[data-day="${day}"]`)
+          : button
+        const moved = (now ?? button).getBoundingClientRect().top - before
+        if (moved) window.scrollBy({ top: moved, behavior: "instant" })
+      },
+      { injector: this.injector },
+    )
+  }
+
+  /** A period's days of readings read, out of all: introductions apart. */
   protected sectionRead(section: PlanSection): number {
-    return section.days.filter((day) => this.isDone(day)).length
+    return section.days.filter((day) => day.readings.length && this.isDone(day))
+      .length
+  }
+
+  protected sectionTotal(section: PlanSection): number {
+    return section.days.filter((day) => day.readings.length).length
   }
 
   /**
@@ -304,6 +398,7 @@ export class Mais365Component implements OnInit, OnDestroy {
    */
   protected select(day: PlanDay): void {
     // The card stays in sight, on a phone too: it changes where it is.
+    this.engaged = true
     this.selected.set(day)
   }
 

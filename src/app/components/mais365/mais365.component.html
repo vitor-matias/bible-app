@@ -28,7 +28,12 @@
   @if (inReflection() && plan.active(); as day) {
   <!-- After the day's readings, the reflection; or an introduction, all of it. -->
   <section class="card reflection" aria-labelledby="reflection-title">
-    <p class="kicker">{{ label(day) }} · {{ day.readings.length ? 'Reflexão' : 'Introdução' }}</p>
+    <p class="kicker">
+      <span>{{ label(day) }} · {{ day.readings.length ? 'Reflexão' : 'Introdução' }}</span>
+      <button type="button" mat-icon-button class="finish" aria-label="Terminar" title="Terminar" (click)="plan.end()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </p>
     <h2 id="reflection-title">{{ day.theme }}</h2>
     @if (day.priest) { <p class="priest">Com o {{ day.priest }}</p> }
     @if (day.readings.length) {
@@ -67,7 +72,6 @@
       <button type="button" mat-flat-button class="speed" aria-label="Velocidade do +365"
         (click)="player.cycleRate()">{{ rateTitle(player.rate()) }}</button>
       <span class="visually-hidden" aria-live="polite">{{ rateSpoken() }}</span>
-      <button type="button" mat-flat-button class="finish" (click)="plan.end()">Terminar</button>
     </div>
   </section>
   }
@@ -138,10 +142,11 @@
   <div class="days-column">
   <h2 class="days-title">Dias</h2>
   <!-- Opened where the reader is: the days before, a tap away. -->
-  @if (folded(); as count) {
-  <button type="button" class="earlier" (click)="showEarlier.set(true)">
-    <mat-icon aria-hidden="true">expand_less</mat-icon>
-    Mostrar {{ count === 1 ? 'o dia anterior' : 'os ' + count + ' dias anteriores' }}
+  @if (foldable()) {
+  <button #earlier type="button" class="earlier" [attr.aria-expanded]="showEarlier()" (click)="toggleEarlier(earlier)">
+    <mat-icon aria-hidden="true">{{ showEarlier() ? 'expand_more' : 'expand_less' }}</mat-icon>
+    @if (showEarlier()) { Ocultar {{ foldableDays() === 1 ? 'o dia anterior' : 'os dias anteriores' }} }
+    @else { Mostrar {{ foldableDays() === 0 ? 'as introduções anteriores' : foldableDays() === 1 ? 'o dia anterior' : 'os ' + foldableDays() + ' dias anteriores' }} }
   </button>
   }
   @for (shown of shownSections(); track shown.section.days[0].day; let i = $index) {
@@ -149,11 +154,11 @@
   <section class="period" [attr.aria-labelledby]="section.name ? 'period-' + i : null">
     @if (section.name) {
     <h3 [id]="'period-' + i">{{ section.name }}
-      <span class="period-count">{{ sectionRead(section) }}/{{ section.days.length }}<span class="visually-hidden"> lidos</span></span></h3>
+      <span class="period-count">{{ sectionRead(section) }}/{{ sectionTotal(section) }}<span class="visually-hidden"> lidos</span></span></h3>
     }
     <ul class="days">
       @for (day of shown.days; track day.day) {
-      <li [attr.data-next]="day.day === plan.today()?.day ? '' : null">
+      <li [attr.data-day]="day.day" [attr.data-next]="day.day === plan.today()?.day ? '' : null">
         <button type="button" class="day" [class.selected]="day.day === selected()?.day" [class.done]="isDone(day)"
           [class.next]="day.day === plan.today()?.day && !isDone(day)"
           [attr.aria-pressed]="day.day === selected()?.day" (click)="select(day)">
@@ -176,8 +181,6 @@
     </ul>
   </section>
   }
-  </div>
-  }
   <!-- Scrolled away from the next day to read: a way back to it. -->
   @if (nextAway(); as away) {
   @if (plan.today(); as next) {
@@ -186,5 +189,7 @@
     {{ label(next) }}
   </button>
   }
+  }
+  </div>
   }
 </div>
