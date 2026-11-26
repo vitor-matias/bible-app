@@ -214,6 +214,24 @@ describe("ToastService", () => {
     expect(navigate).toHaveBeenCalledWith(["/mais365"], {})
   })
 
+  // Its day ended or let go: the way back to the plan leads nowhere.
+  it("takes down the way back to the plan, and only that one", () => {
+    const service = create(false)
+    const dismiss = vi.fn()
+    snackBar.openFromComponent.mockReturnValue({
+      dismiss,
+      afterDismissed: () => new Subject<void>(),
+    } as never)
+    service.showReturnToPlan()
+    service.dismissReturnToPlan()
+    expect(dismiss).toHaveBeenCalledTimes(1)
+    // Another way back since: left alone.
+    service.showReturnToPlan()
+    service.showReturnToIndex("amor")
+    service.dismissReturnToPlan()
+    expect(dismiss).toHaveBeenCalledTimes(1)
+  })
+
   describe("showReturn", () => {
     const returnSnack = () =>
       lastCall(vi.mocked(snackBar.openFromComponent))[1]?.data as {

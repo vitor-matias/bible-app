@@ -170,7 +170,7 @@ describe("Mais365Service", () => {
   const router: { url: string; navigate?: ReturnType<typeof vi.fn> } = {
     url: "/mais365",
   }
-  const toast = { showOpen: vi.fn() }
+  const toast = { showOpen: vi.fn(), dismissReturnToPlan: vi.fn() }
 
   let http: HttpTestingController
   let track: ReturnType<typeof vi.fn>
@@ -641,6 +641,14 @@ describe("Mais365Service", () => {
       expect(navigate).not.toHaveBeenCalled()
       expect(lastCall(toast.showOpen)[0]).toBe("+365 · Agora: Reflexão")
     })
+  })
+
+  it("takes the way back to the plan down once the day ends", async () => {
+    const plan = await create()
+    await start(plan, find(plan, 1))
+    toast.dismissReturnToPlan.mockClear()
+    plan.end()
+    expect(toast.dismissReturnToPlan).toHaveBeenCalled()
   })
 
   describe("checkpoints", () => {

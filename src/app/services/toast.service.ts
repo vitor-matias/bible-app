@@ -149,7 +149,20 @@ export class ToastService {
         this.router.navigate(["/mais365"], extras),
       (url) => url.split(/[?#]/)[0] === "/mais365",
     )
+    this.planWayBack = this.wayBackHide
   }
+
+  /** The way back to the plan, gone with its day (ended, or let go). */
+  dismissReturnToPlan(): void {
+    if (!this.planWayBack || this.planWayBack !== this.wayBackHide) return
+    this.returnWatch?.unsubscribe()
+    this.planWayBack()
+    this.planWayBack = this.wayBackHide = undefined
+  }
+
+  /** The way back showing, to take it down; the plan's, when that's it. */
+  private wayBackHide?: () => void
+  private planWayBack?: () => void
 
   private showWayBack(
     message: string,
@@ -196,6 +209,7 @@ export class ToastService {
         returnToPage: true,
       })
       this.returnWatch = this.hideOnReturn(isOrigin, hide)
+      this.wayBackHide = hide
       return
     }
     const snack = this.snackBar.openFromComponent(TwoActionSnackComponent, {
@@ -206,6 +220,7 @@ export class ToastService {
       () => snack.dismiss(),
       snack.afterDismissed(),
     )
+    this.wayBackHide = () => snack.dismiss()
   }
 
   /**

@@ -751,6 +751,8 @@ export class Mais365Service {
 
   /** Lets the player go back to chapters, playing or not. */
   private release(): void {
+    // Its way back from a reading opened on the card leads nowhere now.
+    this.toast.dismissReturnToPlan()
     this.active.set(null)
     this.reached = null
     this.player.throughEpisode.set(false)

@@ -786,6 +786,19 @@ bible-reader:has(.mat-drawer.mat-drawer-opened) .auto-scroll-controls {
   }
 }
 
+/* Wider (a tablet upright): the card, docked at the foot, and the toast
+   centred over it covered ⏮ and ↺15. Above it. */
+@media (min-width: 769px) {
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(
+      var(--audio-card-live-height, var(--audio-card-height)) + 40px +
+        var(--app-inset-bottom)
+    );
+  }
+}
+
 /* A toast under an overlay shown after it (a dialog, a menu, the bookmarks),
    whose backdrop takes its taps: faded, so it doesn't look tappable. Overlays
    follow the order they were shown, which ToastService.bringToFront keeps for
