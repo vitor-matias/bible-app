@@ -213,6 +213,14 @@ final class ChromeStateTests: XCTestCase {
         XCTAssertEqual(state.themeMode, "light")
         XCTAssertEqual(state.title, "Livros")
         XCTAssertTrue(state.search)
+        XCTAssertNil(state.largeTitle)
+    }
+
+    func testReadsAPageWithALargeTitle() throws {
+        let state = try fixture("page-large-title")
+        XCTAssertEqual(state.mode, .page)
+        XCTAssertEqual(state.title, "+365")
+        XCTAssertEqual(state.largeTitle, true)
     }
 
     func testReadsAPageWithAFilter() throws {

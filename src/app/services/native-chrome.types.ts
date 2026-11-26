@@ -132,6 +132,13 @@ export interface TitledPageChrome {
   themeMode: ThemeMode
   title: string
   search: boolean
+  /**
+   * The page draws a large title of its own at its top (iOS) and says here
+   * whether it is in sight: while it is, the bar holds its own title back,
+   * and shows it once that one has scrolled under the bar, as UIKit's large
+   * titles do. Left out by a page with none. Android ignores it.
+   */
+  largeTitle?: boolean
 }
 
 export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome

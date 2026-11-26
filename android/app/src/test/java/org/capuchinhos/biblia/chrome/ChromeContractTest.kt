@@ -130,6 +130,15 @@ class ChromeContractTest {
         assertEquals(0xFFFFFFFF.toInt(), state.pageColor)
     }
 
+    /** The large title is the iOS page's: here the bar keeps the page's title, as on any page. */
+    @Test
+    fun readsAPageWithALargeTitleAsAPlainPage() {
+        val state = fixture("page-large-title")
+        assertEquals(ChromeMode.Page, state.mode)
+        assertEquals("+365", state.title)
+        assertEquals(fixture("page").copy(themeMode = "dark", title = "+365", search = false, scrolled = false, pageColor = 0xFF000000.toInt()), state)
+    }
+
     @Test
     fun readsAPageWithAFilter() {
         val state = fixture("reader-filter")

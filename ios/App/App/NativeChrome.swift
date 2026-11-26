@@ -91,6 +91,9 @@ struct ChromeState: Equatable {
 
     // Page
     var title = ""
+    /// The page's own large title is in sight: the bar holds its title back
+    /// until that one has scrolled under it. Nil on a page with none.
+    var largeTitle: Bool?
 
     init() {}
 
@@ -122,6 +125,7 @@ struct ChromeState: Equatable {
         filterOpen = call.getBool("filterOpen", false)
         query = call.getString("query", "")
         title = call.getString("title", "")
+        largeTitle = call.getBool("largeTitle")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)
         podcast = call.getObject("podcast").map(PodcastState.init)
     }

@@ -5,6 +5,7 @@ import { Capacitor } from "@capacitor/core"
 import type { Mock } from "vitest"
 import none from "../../../native-contract/none.json"
 import page from "../../../native-contract/page.json"
+import pageLargeTitle from "../../../native-contract/page-large-title.json"
 import reader from "../../../native-contract/reader.json"
 import readerFilter from "../../../native-contract/reader-filter.json"
 import readerMinimal from "../../../native-contract/reader-minimal.json"
@@ -80,6 +81,14 @@ const PAGE: TitledPageChrome = {
   themeMode: "light",
   title: "Livros",
   search: true,
+}
+
+const PAGE_LARGE_TITLE: TitledPageChrome = {
+  mode: "page",
+  themeMode: "dark",
+  title: "+365",
+  search: false,
+  largeTitle: true,
 }
 
 const READER_FILTER: ReaderChrome = {
@@ -257,6 +266,14 @@ describe("the native chrome contract fixtures", () => {
     service().show(PAGE)
     expect(differences(sent(), page)).toEqual([])
     expect(driven(sent(), PAGE)).toEqual(driven(page, PAGE))
+  })
+
+  it("matches what a page with a large title of its own sends", () => {
+    service().show(PAGE_LARGE_TITLE)
+    expect(differences(sent(), pageLargeTitle)).toEqual([])
+    expect(driven(sent(), PAGE_LARGE_TITLE)).toEqual(
+      driven(pageLargeTitle, PAGE_LARGE_TITLE),
+    )
   })
 
   it("matches what a page with a list's filter sends", () => {

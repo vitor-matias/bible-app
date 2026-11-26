@@ -101,11 +101,20 @@ contract is the `NativeChromePlugin` interface in that service file.
   the contract is extended in all three places; a new state field also needs a payload in
   `native-contract/`.
 - **`native-contract/`** holds JSON payloads (`reader.json`, `reader-minimal.json`,
-  `reader-filter.json`, `search.json`, `page.json`, `none.json`) that the web service must produce
+  `reader-filter.json`, `search.json`, `page.json`, `page-large-title.json`, `none.json`) that
+  the web service must produce
   (`native-contract.spec.ts`) and the Android (`ChromeContractTest.kt`) and iOS
   (`ChromeStateTests.swift`) shells must parse, so the three copies cannot drift. The iOS
-  bars ignore `scrolled`, `subtitle`, `textSize` and `pageColor`, which only Android uses.
+  bars ignore `scrolled`, `subtitle`, `textSize` and `pageColor`, which only Android uses;
+  the Android bars ignore `largeTitle`.
   CI runs the iOS job when `native-contract/**` changes.
+- **A large title is the page's, not the bar's.** The bars float over the web view and
+  never resize it, so a UIKit large title cannot collapse by itself, and one drawn by the
+  shell would not line up with a centred page on an iPad. A page that wants one (+365)
+  draws it as its first content, where it scrolls with the text, and sends
+  `largeTitle: true` while it is in sight; the iOS bar holds its own title back until
+  it is `false`. `--native-chrome-top` does not change, so nothing that sticks under the
+  bar moves.
 - **The pastoral index is a book to the bars.** It sends `mode: "reader"` with no chapter
   navigation, `viewMode: null` and `autoScrollAvailable: false` (which leaves auto-scroll out
   of the menu), so the passage button, Marcadores, search and the menus are the reader's. Its
