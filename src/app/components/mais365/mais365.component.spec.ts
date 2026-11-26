@@ -173,15 +173,18 @@ describe("Mais365Component", () => {
     )
   })
 
-  it("marks the next day to read and the day being heard in the list", () => {
+  it("marks the next day to read and the day being heard in the list, in words too", () => {
+    const state = (title: string) =>
+      button(title)?.querySelector(".day-state")?.textContent
     plan.today.set(day1)
+    plan.done.set([0])
+    fixture.detectChanges()
+    expect((button("No princípio") as HTMLElement).classList).toContain("next")
+    expect(state("No princípio")).toBe("a seguir")
+    expect(state("Introdução à Criação do Mundo")).toBe("lido")
     plan.active.set(day1)
     fixture.detectChanges()
-    const row = button("No princípio") as HTMLElement
-    expect(row.classList).toContain("next")
-    expect(row.querySelector(".day-mark")?.getAttribute("aria-label")).toBe(
-      "a ouvir",
-    )
+    expect(state("No princípio")).toBe("a ouvir")
   })
 
   // One column: the card is above the list, out of sight from a day far down.

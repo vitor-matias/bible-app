@@ -134,7 +134,13 @@ export class Mais365Component implements OnInit, OnDestroy {
     if (!column || getComputedStyle(column).position === "sticky") return
     // Once rendered: during a reflection the day's card is only now there.
     afterNextRender(
-      () => this.scrollTo(this.host.querySelector(".card.today"), "nearest"),
+      () =>
+        // The day being heard through its reflection has that card alone.
+        this.scrollTo(
+          this.host.querySelector(".card.today") ??
+            this.host.querySelector(".card"),
+          "nearest",
+        ),
       { injector: this.injector },
     )
   }

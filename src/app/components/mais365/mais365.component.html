@@ -136,8 +136,14 @@
             <span class="day-title">{{ day.title }}</span>
             @if (day.readings.length) { <span class="day-summary">{{ summary(day) }}</span> }
           </span>
-          @if (plan.isActive(day)) { <mat-icon class="day-mark" aria-label="a ouvir">graphic_eq</mat-icon> }
-          @else if (isDone(day)) { <mat-icon class="day-mark" aria-label="lido">check_circle</mat-icon> }
+          <!-- Said, not only drawn: mat-icon hides itself from screen readers. -->
+          @if (plan.isActive(day)) {
+          <mat-icon class="day-mark" aria-hidden="true">graphic_eq</mat-icon><span class="visually-hidden day-state">a ouvir</span>
+          } @else if (isDone(day)) {
+          <mat-icon class="day-mark" aria-hidden="true">check_circle</mat-icon><span class="visually-hidden day-state">lido</span>
+          } @else if (day.day === plan.today()?.day) {
+          <span class="visually-hidden day-state">a seguir</span>
+          }
         </button>
       </li>
       }
