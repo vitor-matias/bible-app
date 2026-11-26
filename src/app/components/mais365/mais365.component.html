@@ -161,6 +161,15 @@
         [title]="day.readings.length ? 'Ouvir e ler' : 'Ouvir'" (click)="plan.start(day, 0, 'plan', true)">
         <mat-icon>headphones</mat-icon>
       </button>
+      } @else if (plan.resumeAt(day); as resume) {
+      <!-- Left part-heard: on from its first chapter not heard, or over. -->
+      <button type="button" mat-flat-button class="main" (click)="plan.start(day, resume.at, 'plan')">
+        <mat-icon>headphones</mat-icon> Continuar
+      </button>
+      <button type="button" mat-icon-button class="restart" aria-label="Recomeçar" title="Recomeçar"
+        (click)="plan.restart(day)">
+        <mat-icon>replay</mat-icon>
+      </button>
       } @else {
       <button type="button" mat-flat-button class="main" (click)="plan.start(day, 0, 'plan', true)">
         <mat-icon>headphones</mat-icon> {{ day.readings.length ? 'Ouvir e ler' : 'Ouvir' }}

@@ -210,6 +210,7 @@ describe("Mais365Service", () => {
 
   beforeEach(() => {
     localStorage.removeItem("mais365Done")
+    localStorage.removeItem("mais365Progress")
     navigate = vi.fn().mockResolvedValue(true)
     track = vi.fn().mockResolvedValue(undefined)
     player = {
@@ -594,6 +595,59 @@ describe("Mais365Service", () => {
     expect(plan.plan.error()).toBeTruthy()
     expect(plan.days()).toEqual([])
     expect(plan.today()).toBeUndefined()
+  })
+
+  describe("checkpoints", () => {
+    it("keeps the chapters heard through, and goes on from the next", async () => {
+      const plan = await create()
+      const day = find(plan, 1)
+      await start(plan, day)
+      const [first, second] = day.readings.map((r) => r.episode)
+      play(first.start as number, (first.end as number) + 0.5)
+      play(second.start as number, (second.start as number) + 30)
+      plan.end()
+      TestBed.tick()
+      expect(plan.heardOf(day)).toEqual([0])
+      expect(JSON.parse(localStorage.getItem("mais365Progress") ?? "")).toEqual(
+        { day: 1, heard: [0] },
+      )
+      expect(plan.resumeAt(day)).toEqual({ at: 1 })
+
+      // Coming back: from the second chapter, the first still counting.
+      player.toggle.mockClear()
+      const resuming = plan.start(day, 1)
+      http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+      await resuming
+      TestBed.tick()
+      expect(lastCall(player.toggle)[0]).toEqual(second)
+      play(second.start as number, (second.end as number) + 0.5)
+      const third = day.readings[2].episode
+      play(third.start as number, (third.end as number) + 0.5)
+      expect(plan.stage()).toBe("reflection")
+      expect(plan.done()).toEqual([1])
+      // Read: nothing left to go on with.
+      expect(plan.progress()).toBeNull()
+      expect(plan.resumeAt(day)).toBeNull()
+    })
+
+    it("forgets them to start over", async () => {
+      const plan = await create()
+      const day = find(plan, 1)
+      await start(plan, day)
+      const first = day.readings[0].episode
+      play(first.start as number, (first.end as number) + 0.5)
+      const restarting = plan.restart(day)
+      http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+      await restarting
+      expect(plan.progress()).toBeNull()
+      expect(plan.resumeAt(day)).toBeNull()
+      expect(player.position()).toBe(0)
+    })
+
+    it("offers nothing to go on with before a chapter is heard", async () => {
+      const plan = await create()
+      expect(plan.resumeAt(find(plan, 1))).toBeNull()
+    })
   })
 
   it("leaves a day unread when a reading was jumped over or landed in late", async () => {

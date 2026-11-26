@@ -638,6 +638,8 @@ export class Mais365Component implements OnInit, OnDestroy {
 
   /** A reading of the day under way that the podcast has gone past. */
   protected passed(day: PlanDay, index: number): boolean {
+    // Heard through, now or before: a checkpoint «Continuar» goes on from.
+    if (this.plan.heardOf(day).includes(index)) return true
     if (!this.plan.isActive(day)) return false
     const stage = this.plan.stage()
     return stage === "reflection" || (stage !== null && index < stage)

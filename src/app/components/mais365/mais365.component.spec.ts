@@ -78,6 +78,9 @@ describe("Mais365Component", () => {
     ],
     query: () => null,
     start: vi.fn(),
+    restart: vi.fn(),
+    heardOf: vi.fn((_day: PlanDay): number[] => []),
+    resumeAt: vi.fn((_day: PlanDay): { at: number } | null => null),
     end: vi.fn(),
     toggle: vi.fn(),
     markDone: vi.fn(),
@@ -502,6 +505,33 @@ describe("Mais365Component", () => {
     expect(button("Ler sem áudio")).toBeUndefined()
     button("Ouvir e ler")?.click()
     expect(plan.start).toHaveBeenCalledWith(day1, 0, "plan", true)
+  })
+
+  // Left part-heard: its chapters heard ticked, and the choice to go on or over.
+  it("goes on from the first chapter not heard, or starts over", () => {
+    plan.days.set([day1])
+    plan.today.set(day1)
+    plan.heardOf.mockImplementation((day) => (day.day === 1 ? [0] : []))
+    plan.resumeAt.mockImplementation((day) =>
+      day.day === 1 ? { at: 1 } : null,
+    )
+    try {
+      fixture.detectChanges()
+      const host = fixture.nativeElement as HTMLElement
+      expect(
+        Array.from(host.querySelectorAll(".readings li"), (li) =>
+          li.classList.contains("passed"),
+        ).slice(0, 3),
+      ).toEqual([true, false, false])
+      expect(button("Ouvir e ler")).toBeUndefined()
+      button("Continuar")?.click()
+      expect(plan.start).toHaveBeenCalledWith(day1, 1, "plan")
+      button("Recomeçar")?.click()
+      expect(plan.restart).toHaveBeenCalledWith(day1)
+    } finally {
+      plan.heardOf.mockImplementation(() => [])
+      plan.resumeAt.mockImplementation(() => null)
+    }
   })
 
   // Listening named, the rest as icons: the card's row never wraps.
