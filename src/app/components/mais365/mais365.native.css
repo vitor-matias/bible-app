@@ -177,3 +177,16 @@
   height: 48px;
   border-radius: 16px;
 }
+
+/* A phone, the card stuck under the bar: the list scrolled up past it
+   showed in the bar's glass above it. The bar's room is the page's colour. */
+@media not all and (min-width: 760px) and (min-height: 600px) {
+  :host-context(.native-chrome) .mais365::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 2;
+    height: var(--top);
+    background: var(--background-color);
+  }
+}

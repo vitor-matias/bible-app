@@ -319,7 +319,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             pageReminderItem.isEnabled = !next.inert
             if let on = next.reminder {
                 // Ringing while a reminder is set, as the web's bell.
-                pageReminderItem.image = UIImage(systemName: on ? "bell.badge.fill" : "bell.slash")
+                pageReminderItem.image = UIImage(systemName: on ? "bell.fill" : "bell.slash")
                 pageReminderItem.accessibilityValue = on ? "Ligado" : "Desligado"
             }
             let right = [next.search ? pageSearchItem : nil,
