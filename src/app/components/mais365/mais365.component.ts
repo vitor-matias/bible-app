@@ -1,4 +1,5 @@
 import {
+  afterNextRender,
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
@@ -83,6 +84,21 @@ export class Mais365Component implements OnInit, OnDestroy {
   protected readonly nextAway = signal<"up" | "down" | null>(null)
   private checking = 0
 
+  /** The iOS app's page leads with a large title, as UIKit's pages do. */
+  protected readonly largeTitle =
+    this.nativeChrome.enabled && !this.nativeChrome.android
+  /** That title is in sight, not yet scrolled under the bar. */
+  private readonly largeTitleInView = signal(this.largeTitle)
+  private readonly largeTitleEdge =
+    !this.largeTitle || typeof IntersectionObserver === "undefined"
+      ? undefined
+      : new IntersectionObserver(([entry]) => {
+          // Not once the page has gone: the next page's bars are its own.
+          if (!entry || !this.host.isConnected) return
+          this.largeTitleInView.set(entry.isIntersecting)
+          this.showBars()
+        })
+
   constructor() {
     // A streak's milestone just reached: celebrated once, here.
     effect(() => {
@@ -116,6 +132,11 @@ export class Mais365Component implements OnInit, OnDestroy {
       const day = days.find((d) => d.day === asked)
       if (day) untracked(() => this.selected.set(day))
     })
+    afterNextRender(() => {
+      const edge = this.host.querySelector(".large-title-edge")
+      if (edge) this.largeTitleEdge?.observe(edge)
+    })
+    this.destroyRef.onDestroy(() => this.largeTitleEdge?.disconnect())
     // The row moves as the days load and as a day is marked read.
     afterRenderEffect(() => {
       this.plan.today()
@@ -387,18 +408,23 @@ export class Mais365Component implements OnInit, OnDestroy {
     this.plan.load()
     // The apps' page bars, with their way back, over the page's own.
     if (this.nativeChrome.enabled) {
-      this.nativeChrome.show({
-        mode: "page",
-        themeMode: this.themeService.currentMode,
-        title: "+365",
-        search: false,
-      })
+      this.showBars()
       this.nativeChrome.actions$
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe(({ id }) => {
           if (id === "back") void this.router.navigate(["/"])
         })
     }
+  }
+
+  private showBars(): void {
+    this.nativeChrome.show({
+      mode: "page",
+      themeMode: this.themeService.currentMode,
+      title: "+365",
+      search: false,
+      largeTitle: this.largeTitle ? this.largeTitleInView() : undefined,
+    })
   }
 
   ngOnDestroy(): void {

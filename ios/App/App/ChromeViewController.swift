@@ -296,6 +296,23 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             }
         case .page:
             pageItem.title = next.title
+            // A page with a large title of its own: the bar's fades in as
+            // that one goes under it, and out as it comes back.
+            let titleView = next.largeTitle == nil ? nil : pageTitleView
+            if pageItem.titleView !== titleView { pageItem.titleView = titleView }
+            if let largeTitle = next.largeTitle {
+                pageTitleLabel.text = next.title
+                pageTitleLabel.sizeToFit()
+                pageTitleView.frame.size = pageTitleLabel.bounds.size
+                let alpha: CGFloat = largeTitle ? 0 : 1
+                if previous.largeTitle == nil {
+                    pageTitleLabel.alpha = alpha
+                } else {
+                    UIView.animate(withDuration: 0.2, delay: 0, options: [.beginFromCurrentState]) {
+                        self.pageTitleLabel.alpha = alpha
+                    }
+                }
+            }
             pageSearchItem.isEnabled = !next.inert
             let search = next.search ? pageSearchItem : nil
             if usesVerticalBar {
@@ -387,6 +404,24 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     /// Pesquisar, on a plain page.
     private lazy var pageSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
+
+    /// A page's title in the bar, where the page has a large one of its own
+    /// (ChromeState.largeTitle): a view, so that it can fade.
+    private lazy var pageTitleLabel: UILabel = {
+        let label = UILabel()
+        label.font = limitedFont(.headline, limit: barTextScaleLimit)
+        label.adjustsFontForContentSizeCategory = true
+        label.accessibilityTraits = .header
+        return label
+    }()
+
+    /// The bar sets its title view's own alpha as its items change: the
+    /// label fades inside this.
+    private lazy var pageTitleView: UIView = {
+        let view = UIView()
+        view.addSubview(pageTitleLabel)
+        return view
+    }()
 
     // The toolbars' items too are made once and updated in place. Made anew
     // with each update, the one VoiceOver was on (an arrow, +) was gone after

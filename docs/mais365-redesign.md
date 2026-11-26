@@ -41,9 +41,10 @@ same accent.
   launches; that is a player change, not a page one.
 - **Collapsing periods read.** The back-to-next pill watches the next day's row, which
   must stay laid out.
-- **Shell changes** (an iOS large title, an Android collapsing top app bar, a native
-  split view). The bars already name the page; these need the `NativeChromeState`
-  contract extended in Swift, Kotlin and `native-contract/`.
+- **Native panes** (a split view on iPad, a list-detail scaffold on Android). Both
+  columns are one web view: a shell pane would need a second web view or the list drawn
+  again natively from a contract of its own, to show what the CSS grid already shows,
+  with the card first. An Android collapsing top app bar was not asked for.
 
 ## Colour
 
@@ -76,7 +77,11 @@ period chips scroll sideways on a phone and wrap beside the card.
 
 ## iOS (HIG)
 
-- **Bars:** the shell's Liquid Glass bars, titled «+365». Unchanged; no glass in content.
+- **Bars:** the shell's Liquid Glass bars; no glass in content.
+- **Large title:** «+365» at 34pt bold leads the page and scrolls away with the
+  introduction, leaving the day's card under the bar; the bar's own title fades in as it
+  goes (`TitledPageChrome.largeTitle`, see architecture.md). A phone on its side has the
+  bar's title alone, as UIKit.
 - **Background:** the system's grouped colours, as the search page and the index.
 - **Card and list:** inset grouped: 26pt corners, white (`#1c1c1e` at night), hairline
   separators from the text's edge, rows of at least 44pt that highlight while pressed.
