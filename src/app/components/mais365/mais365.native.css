@@ -1,0 +1,171 @@
+/* The apps' page (native-chrome: under their own bars). Web rules stay in
+   mais365.component.css. */
+
+/* ---- Both apps ---- */
+
+:host-context(.native-chrome) .mais365 {
+  /* The bars float over the page. */
+  --top: var(--native-chrome-top, env(safe-area-inset-top));
+  --bottom: var(--native-chrome-bottom, env(safe-area-inset-bottom));
+  padding-top: calc(16px + var(--top));
+  padding-bottom: calc(32px + var(--bottom));
+}
+
+:host-context(.native-chrome) .to-next {
+  bottom: calc(16px + var(--bottom));
+}
+
+/* A tablet: the days lead, as a sidebar or a list pane, the day beside them. */
+@media (min-width: 760px) {
+  :host-context(.native-chrome) .mais365 {
+    grid-template-columns: minmax(300px, 2fr) minmax(0, 3fr);
+  }
+
+  :host-context(.native-chrome) .days-column {
+    order: -1;
+  }
+
+  :host-context(.native-chrome) .today-column {
+    top: calc(var(--top) + 16px);
+    max-height: calc(100dvh - var(--top) - var(--bottom) - 32px);
+  }
+
+  /* Over the list it belongs to, not the middle of the screen. */
+  :host-context(.native-chrome) .to-next {
+    left: 20%;
+  }
+}
+
+/* ---- iOS: inset grouped lists, no accent colour ---- */
+
+:host-context(.platform-ios.native-chrome) .mais365 {
+  --accent: var(--text-color);
+  --on-accent: var(--background-color);
+  --card: var(--card-background);
+  --muted: color-mix(in srgb, var(--text-color) 60%, transparent);
+  --line: color-mix(in srgb, var(--text-color) 22%, transparent);
+}
+
+:host-context(.platform-ios.native-chrome) .card,
+:host-context(.platform-ios.native-chrome) .days {
+  border-radius: 26px;
+}
+
+:host-context(.platform-ios.native-chrome) :is(.kicker, .period h3) {
+  font-size: 0.8125em;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+:host-context(.platform-ios.native-chrome) .period h3 {
+  padding-inline: 16px;
+}
+
+:host-context(.platform-ios.native-chrome) .readings,
+:host-context(.platform-ios.native-chrome) .readings a {
+  border-width: 0.5px;
+}
+
+:host-context(.platform-ios.native-chrome) .actions .mat-mdc-button-base {
+  min-height: 44px;
+}
+
+:host-context(.platform-ios.native-chrome) .period-chip {
+  border: 0;
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+
+:host-context(.platform-ios.native-chrome) .days {
+  overflow: clip;
+  background: var(--card);
+}
+
+:host-context(.platform-ios.native-chrome) .day {
+  position: relative;
+  padding: 11px 16px;
+  border: 0;
+  box-shadow: none;
+  transition: background-color 250ms ease-out;
+}
+
+/* The hairline between rows, from the text's edge, as UIKit's separators. */
+:host-context(.platform-ios.native-chrome) li:not(:last-child) > .day::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 16px;
+  right: 0;
+  height: 0.5px;
+  background: var(--line);
+}
+
+:host-context(.platform-ios.native-chrome) .day.selected {
+  background: color-mix(in srgb, var(--text-color) 8%, var(--card));
+}
+
+/* A row highlights while pressed, and fades as it lifts. */
+:host-context(.platform-ios.native-chrome) .day:active {
+  background: color-mix(in srgb, var(--text-color) 14%, var(--card));
+  transition: none;
+}
+
+/* ---- Android: Material 3 cards, lists and chips ---- */
+
+:host-context(.platform-android.native-chrome) .mais365 {
+  --accent: var(--android-primary);
+  --on-accent: var(--android-on-primary);
+  --card: var(--android-surface-container-low);
+  --muted: var(--android-on-surface-variant);
+}
+
+:host-context(.platform-android.native-chrome) .card {
+  padding: 16px;
+  border-radius: 12px;
+}
+
+/* Title small, as a list's subheader. */
+:host-context(.platform-android.native-chrome) :is(.kicker, .period h3) {
+  font-size: 0.875em;
+  font-weight: 500;
+  letter-spacing: 0.007em;
+  text-transform: none;
+}
+
+:host-context(.platform-android.native-chrome) .period-chip {
+  min-height: 32px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+/* List items: 56dp, 72dp with a second line; no dividers, the text 16dp in. */
+:host-context(.platform-android.native-chrome) .days {
+  margin-inline: -8px;
+}
+
+:host-context(.platform-android.native-chrome) .day {
+  min-height: 56px;
+  gap: 16px;
+  padding-inline: 8px;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+:host-context(.platform-android.native-chrome) .day:has(.day-summary) {
+  min-height: 72px;
+}
+
+:host-context(.platform-android.native-chrome) .day.selected {
+  background: var(--android-surface-container-high);
+}
+
+:host-context(.platform-android.native-chrome) .day.next .day-number {
+  color: var(--accent);
+}
+
+/* A small extended FAB. */
+:host-context(.platform-android.native-chrome) .to-next {
+  height: 48px;
+  border-radius: 16px;
+}

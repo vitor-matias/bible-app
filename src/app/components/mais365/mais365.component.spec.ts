@@ -84,7 +84,9 @@ describe("Mais365Component", () => {
     ).find(
       (el) =>
         el.getAttribute("aria-label") === label ||
-        el.textContent?.trim().endsWith(label),
+        el.textContent?.trim().endsWith(label) ||
+        // A day's row: its title, over its readings.
+        el.querySelector(".day-title")?.textContent === label,
     )
 
   beforeEach(() => {
@@ -121,6 +123,85 @@ describe("Mais365Component", () => {
     expect(button("Marcar como não lido")).toBeDefined()
   })
 
+  it("tells how far into the year the reader is, introductions apart", () => {
+    const progress = () =>
+      (fixture.nativeElement as HTMLElement).querySelector(
+        "progress",
+      ) as HTMLProgressElement
+    expect(text()).toContain("0 de 365 dias lidos")
+    plan.done.set([0, 1])
+    fixture.detectChanges()
+    expect(text()).toContain("1 de 365 dias lidos")
+    expect(progress().value).toBe(1)
+    expect(progress().max).toBe(365)
+  })
+
+  it("lists the days by period, each with what was read and a way to it", () => {
+    const patriarchs = {
+      ...intro,
+      day: 6.5,
+      title: "Introdução aos Patriarcas",
+    }
+    plan.days.set([
+      intro,
+      day1,
+      patriarchs,
+      { ...day1, day: 7, title: "Abrão" },
+    ])
+    plan.done.set([0, 1])
+    fixture.detectChanges()
+    const host = fixture.nativeElement as HTMLElement
+    const periods = Array.from(host.querySelectorAll(".period h3"), (h) =>
+      h.textContent?.replace(/\s+/g, " ").trim(),
+    )
+    expect(periods).toEqual([
+      "Criação do Mundo 2/2 lidos",
+      "Patriarcas 0/2 lidos",
+    ])
+    expect(host.querySelector(".day-summary")?.textContent).toBe(
+      "Génesis 1–2 · Salmo 19",
+    )
+    const chips = host.querySelectorAll<HTMLElement>(".period-chip")
+    expect(chips[0].classList).toContain("complete")
+    expect(chips[1].classList).not.toContain("complete")
+    const scroll = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(() => {})
+    chips[1].click()
+    expect(scroll.mock.contexts[0]).toBe(
+      host.querySelector('[data-period="1"]'),
+    )
+  })
+
+  it("marks the next day to read and the day being heard in the list", () => {
+    plan.today.set(day1)
+    plan.active.set(day1)
+    fixture.detectChanges()
+    const row = button("No princípio") as HTMLElement
+    expect(row.classList).toContain("next")
+    expect(row.querySelector(".day-mark")?.getAttribute("aria-label")).toBe(
+      "a ouvir",
+    )
+  })
+
+  // One column: the card is above the list, out of sight from a day far down.
+  it("brings the card of a day picked into view on a narrow screen", async () => {
+    await page.viewport(390, 800)
+    try {
+      const scroll = vi
+        .spyOn(Element.prototype, "scrollIntoView")
+        .mockImplementation(() => {})
+      button("No princípio")?.click()
+      fixture.detectChanges()
+      await fixture.whenStable()
+      expect(scroll.mock.contexts[0]).toBe(
+        (fixture.nativeElement as HTMLElement).querySelector(".card.today"),
+      )
+    } finally {
+      await page.viewport(800, 600)
+    }
+  })
+
   it("asks for the plan, and says so while it loads or when it can't", () => {
     expect(plan.load).toHaveBeenCalled()
     plan.days.set([])
@@ -137,6 +218,7 @@ describe("Mais365Component", () => {
 
   it("shows today's introduction, its priests, and plays it with «Ouvir»", () => {
     expect(text()).toContain("Dia 0 · Hoje")
+    expect(text()).toContain("38 min")
     expect(text()).toContain(
       "Com o Padre Miguel Vasconcelos e o Padre Francisco Molho",
     )

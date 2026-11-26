@@ -1,10 +1,12 @@
 import {
+  afterNextRender,
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
   computed,
   DestroyRef,
   ElementRef,
+  Injector,
   inject,
   linkedSignal,
   type OnDestroy,
@@ -21,7 +23,10 @@ import { Router, RouterLink } from "@angular/router"
 import {
   Mais365Service,
   type PlanDay,
+  type PlanSection,
+  planSections,
   readingLabel,
+  readingsSummary,
 } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import {
@@ -40,7 +45,7 @@ import { ToastService } from "../../services/toast.service"
   selector: "mais365",
   imports: [RouterLink, MatButtonModule, MatIconModule, MatSliderModule],
   templateUrl: "./mais365.component.html",
-  styleUrl: "./mais365.component.css",
+  styleUrls: ["./mais365.component.css", "./mais365.native.css"],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Mais365Component implements OnInit, OnDestroy {
@@ -53,6 +58,7 @@ export class Mais365Component implements OnInit, OnDestroy {
   private readonly themeService = inject(ThemeService)
   private readonly router = inject(Router)
   private readonly destroyRef = inject(DestroyRef)
+  private readonly injector = inject(Injector)
   private readonly host =
     inject<ElementRef<HTMLElement>>(ElementRef).nativeElement
 
@@ -90,15 +96,49 @@ export class Mais365Component implements OnInit, OnDestroy {
     const next = this.plan.today()
     if (!next) return
     this.selected.set(next)
-    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)")
-      .matches
-    this.host.querySelector("[data-next]")?.scrollIntoView({
-      block: "center",
-      behavior: smooth ? "smooth" : "auto",
-    })
+    this.scrollTo(this.host.querySelector("[data-next]"), "center")
   }
 
-  /** The day shown: the one playing, else today, until another is picked. */
+  /** The plan's length: a year of days, however many are out so far. */
+  protected readonly planLength = 365
+  /** Days of readings read: an introduction is not one of the 365. */
+  protected readonly read = computed(() => {
+    const done = this.plan.done()
+    return this.plan
+      .days()
+      .filter((day) => day.readings.length && done.includes(day.day)).length
+  })
+  protected readonly sections = computed(() => planSections(this.plan.days()))
+
+  protected sectionRead(section: PlanSection): number {
+    return section.days.filter((day) => this.isDone(day)).length
+  }
+
+  private scrollTo(target: Element | null, block: ScrollLogicalPosition): void {
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)")
+      .matches
+    target?.scrollIntoView({ block, behavior: smooth ? "smooth" : "auto" })
+  }
+
+  protected toSection(index: number): void {
+    this.scrollTo(this.host.querySelector(`[data-period="${index}"]`), "start")
+  }
+
+  /**
+   * A day picked from the list: its card, brought into view where the list
+   * has pushed it out (one column; beside the list it stays in sight).
+   */
+  protected select(day: PlanDay): void {
+    this.selected.set(day)
+    const column = this.host.querySelector(".today-column")
+    if (!column || getComputedStyle(column).position === "sticky") return
+    // Once rendered: during a reflection the day's card is only now there.
+    afterNextRender(
+      () => this.scrollTo(this.host.querySelector(".card.today"), "nearest"),
+      { injector: this.injector },
+    )
+  }
+
   /**
    * The day on the card: the one playing, else today's, until another is
    * picked. Marking a day read moves today on, but not the card, so its
@@ -195,6 +235,15 @@ export class Mais365Component implements OnInit, OnDestroy {
   protected label(day: PlanDay): string {
     if (day.readings.length || day.day === 0) return `Dia ${day.day}`
     return "Especial"
+  }
+
+  protected summary(day: PlanDay): string {
+    return readingsSummary(day.readings)
+  }
+
+  /** The episode's length, in whole minutes. */
+  protected minutes(day: PlanDay): number {
+    return Math.max(1, Math.round(day.duration / 60))
   }
 
   protected isDone(day: PlanDay): boolean {

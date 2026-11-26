@@ -967,16 +967,17 @@ body .mat-mdc-form-field {
   --app-reader-gap: 8px;
 }
 
-/* The search page is a grouped list: on iOS, the system's grouped colours.
+/* The search page is a grouped list (the index and +365 too): on iOS, the
+   system's grouped colours.
    Android keeps the theme's, as its Material bars do. */
 .platform-ios.native-chrome app-search,
-.platform-ios.native-chrome:has(pastoral-index) {
+.platform-ios.native-chrome:has(pastoral-index, mais365) {
   --background-color: #f2f2f7;
   --card-background: #ffffff;
 }
 
 html.dark-theme .platform-ios.native-chrome app-search,
-html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
+html.dark-theme .platform-ios.native-chrome:has(pastoral-index, mais365) {
   --background-color: #000000;
   --card-background: #1c1c1e;
 }

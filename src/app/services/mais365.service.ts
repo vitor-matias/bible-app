@@ -34,6 +34,65 @@ export const readingLabel = ({ bookName, chapter, range }: PlanReading) =>
     ? `${bookName} ${chapter},${range[0]}${range[1] === range[0] ? "" : `-${range[1]}`}`
     : `${bookName} ${chapter}`
 
+/**
+ * A day's readings in a line: "Génesis 1–2 · Salmo 19", a book's chapters
+ * in a row told as one span.
+ */
+export const readingsSummary = (readings: PlanReading[]): string => {
+  const spans: { book: string; from: number; to: number; part?: string }[] = []
+  for (const reading of readings) {
+    const last = spans.at(-1)
+    if (
+      last &&
+      !last.part &&
+      !reading.range &&
+      last.book === reading.bookName &&
+      reading.chapter === last.to + 1
+    ) {
+      last.to = reading.chapter
+    } else {
+      spans.push({
+        book: reading.bookName,
+        from: reading.chapter,
+        to: reading.chapter,
+        part: reading.range && readingLabel(reading),
+      })
+    }
+  }
+  return spans
+    .map(
+      ({ book, from, to, part }) =>
+        part ?? (to > from ? `${book} ${from}–${to}` : `${book} ${from}`),
+    )
+    .join(" · ")
+}
+
+/** A period of the plan: the days from one introduction to the next. */
+export interface PlanSection {
+  /** "Patriarcas", from «Introdução aos Patriarcas»; none before the first. */
+  name: string
+  days: PlanDay[]
+}
+
+/** The days by period: each introduction (a day without readings) opens one. */
+export const planSections = (days: PlanDay[]): PlanSection[] => {
+  const sections: PlanSection[] = []
+  let current: PlanSection | undefined
+  for (const day of days) {
+    if (!current || !day.readings.length) {
+      current = {
+        name: day.readings.length
+          ? ""
+          : day.title.replace(/^Introdução (?:aos?|às?) /, ""),
+        days: [],
+      }
+      sections.push(current)
+    }
+    current.days.push(day)
+  }
+  return sections
+}
+
 /** A day of +365: its episode's readings, then its reflection. */
 export interface PlanDay {
   day: number

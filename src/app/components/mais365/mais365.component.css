@@ -1,15 +1,28 @@
 /* Hosted on the web, in the reader's text: its size, the reader's A+ and A−. */
 .mais365 {
+  /* The header's brown and antiquewhite: the one accent, turned round at night. */
+  --accent: #543d27;
+  --on-accent: antiquewhite;
+  --muted: color-mix(in srgb, var(--text-color) 68%, transparent);
+  --line: color-mix(in srgb, var(--text-color) 14%, transparent);
+  --card: color-mix(in srgb, var(--text-color) 5%, var(--background-color));
+  /* What the bars above cover: the reader's header here, the apps' own there. */
+  --top: var(--app-header-height, 0px);
+  /* Every button but a card's main one is outlined: one thing to do first. */
+  --mat-button-filled-container-color: transparent;
+  --mat-button-filled-label-text-color: var(--text-color);
+  /* The theme's 14px, set here: the day's three fit a row by it. */
+  --mat-button-filled-label-text-size: 14px;
+  --mat-icon-button-icon-color: var(--text-color);
   max-width: 36em;
   margin: 0 auto;
   padding: 24px 16px 64px;
   color: var(--text-color);
 }
 
-/* Under the apps' bars, which float over the page. */
-:host-context(.native-chrome) .mais365 {
-  padding-top: calc(16px + var(--native-chrome-top, env(safe-area-inset-top)));
-  padding-bottom: calc(32px + var(--native-chrome-bottom, env(safe-area-inset-bottom)));
+:host-context(.dark-theme) .mais365 {
+  --accent: antiquewhite;
+  --on-accent: #543d27;
 }
 
 .status {
@@ -17,27 +30,48 @@
 }
 
 .intro {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.progress {
   margin: 0 0 24px;
-  opacity: 0.75;
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+progress {
+  display: block;
+  width: 100%;
+  height: 6px;
+  margin-bottom: 6px;
+  border: 0;
+  border-radius: 3px;
+  overflow: hidden;
+  appearance: none;
+  background: var(--line);
+}
+
+progress::-webkit-progress-bar {
+  background: none;
+}
+
+progress::-webkit-progress-value {
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+progress::-moz-progress-bar {
+  border-radius: 3px;
+  background: var(--accent);
 }
 
 .card {
   padding: 20px;
   border-radius: 20px;
-  background: color-mix(in srgb, var(--text-color) 6%, var(--background-color));
-}
-
-/* In the apps, the colour of each system's own sheets (the passage picker's),
-   so the cards read as the app's panels: white on iOS (its dark sheet grey at
-   night), Material's sheet surface on Android. */
-:host-context(.platform-ios) .card {
-  border-radius: 26px;
-  background: var(--ios-sheet-background);
-}
-
-:host-context(.platform-android) .card {
-  border-radius: 16px;
-  background: var(--android-surface-container-low);
+  background: var(--card);
+  /* Brought into view by a day picked from the list: clear of the bars. */
+  scroll-margin: calc(var(--top) + 16px) 0 16px;
 }
 
 /* Another day picked during a reflection: its card under the player's,
@@ -46,34 +80,62 @@
   margin-top: 16px;
 }
 
-.kicker {
+.kicker,
+.period h3 {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0;
   font-size: 0.85em;
+  font-weight: inherit;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  opacity: 0.7;
+  color: var(--muted);
 }
 
+/* The day's name, set as the text it leads to. */
 .card h2 {
-  margin: 4px 0 12px;
+  margin: 6px 0 10px;
+  font-family: var(--font-reading);
+  font-size: 1.5em;
+  line-height: 1.2;
 }
 
-.readings {
-  margin: 0 0 16px;
-  padding-left: 1.4em;
-  line-height: 1.9;
+.priest,
+.day-readings {
+  margin: -4px 0 12px;
+  color: var(--muted);
 }
 
-.readings a {
+.day-readings a {
   color: inherit;
 }
 
-.readings .passed a {
-  opacity: 0.6;
+/* The readings as rows, each a way into its chapter. */
+.readings {
+  margin: 0 0 16px;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
 }
 
-.check {
-  margin-left: 6px;
+.readings a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+}
+
+.readings a > :first-child {
+  flex: 1;
+}
+
+.readings .passed a > :first-child,
+.readings .mat-icon {
+  color: var(--muted);
 }
 
 .actions {
@@ -83,14 +145,21 @@
   gap: 8px;
 }
 
-.priest,
-.day-readings {
-  margin: -4px 0 12px;
-  opacity: 0.8;
+.actions .mat-mdc-button-base {
+  border: 1px solid color-mix(in srgb, var(--text-color) 35%, transparent);
 }
 
-.day-readings a {
-  color: inherit;
+.actions .main,
+.to-next {
+  --mat-button-filled-container-color: var(--accent);
+  --mat-button-filled-label-text-color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+/* Less side room than Material's 24px: the day's three in one row on a wide
+   screen's card, «Marcar como não lido» too. */
+.today .actions .mat-mdc-button-base {
+  padding-inline: 16px;
 }
 
 .position {
@@ -101,13 +170,18 @@
 
 .position mat-slider {
   flex: 1;
+  --mat-slider-active-track-color: var(--accent);
+  --mat-slider-handle-color: var(--accent);
+  --mat-slider-focus-handle-color: var(--accent);
+  --mat-slider-hover-handle-color: var(--accent);
+  --mat-slider-inactive-track-color: var(--muted);
 }
 
 .time {
   min-width: 3em;
   font-size: 0.85em;
   font-variant-numeric: tabular-nums;
-  opacity: 0.75;
+  color: var(--muted);
 }
 
 .time:last-child {
@@ -118,53 +192,15 @@
   justify-content: center;
 }
 
-/* One look for every button here, the header's pills': antiquewhite and
-   brown, in either theme. */
-.mais365 {
-  --mat-button-filled-container-color: antiquewhite;
-  --mat-button-filled-label-text-color: #543d27;
-  /* The theme's 14px, set here: the day's three fit a row by it. */
-  --mat-button-filled-label-text-size: 14px;
-  --mat-fab-container-color: antiquewhite;
-  --mat-fab-foreground-color: #543d27;
-  --mat-icon-button-icon-color: #543d27;
-}
-
-.card .play {
-  --mat-fab-container-color: antiquewhite;
-  --mat-fab-foreground-color: #543d27;
-  border-radius: 50%;
-}
-
-.card .mat-icon,
-.card .actions .mat-mdc-button-base,
-.card .actions a.mat-mdc-button-base {
-  color: #543d27;
-}
-
-/* styles.css paints every link the text colour, !important. */
-.card .actions a.mat-mdc-button-base {
-  color: #543d27 !important;
-}
-
-/* The header pills' outline, so they hold on the card in either theme. */
-.card .actions .mat-mdc-button-base {
-  border: 1px solid color-mix(in srgb, #543d27 35%, transparent);
-}
-
-/* Less side room than Material's 24px: the day's three in one row on a wide
-   screen's card, «Marcar como não lido» too. */
-.today .actions .mat-mdc-button-base {
-  padding-inline: 16px;
-}
-
 .transport .mat-mdc-icon-button {
-  background-color: antiquewhite;
-  border: 1px solid color-mix(in srgb, #543d27 35%, transparent);
+  border: 0;
 }
 
-.transport .mat-mdc-icon-button:disabled {
-  opacity: 0.5;
+/* On the button itself: Material sets a FAB's colours there. */
+.card .play {
+  --mat-fab-container-color: var(--accent);
+  --mat-fab-foreground-color: var(--on-accent);
+  border-radius: 50%;
 }
 
 .finish {
@@ -176,6 +212,41 @@
   font-size: 1.1em;
 }
 
+/* The periods in a row to swipe through; each takes the list to its days. */
+.periods {
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px;
+  padding: 4px 16px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.period-chip {
+  flex: none;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--text-color) 35%, transparent);
+  border-radius: 18px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.875em;
+  cursor: pointer;
+}
+
+.period-chip.complete::before {
+  content: "✓ ";
+}
+
+.period {
+  scroll-margin-top: calc(var(--top) + 8px);
+}
+
+.period h3 {
+  padding: 20px 8px 6px;
+}
+
 .days {
   margin: 0;
   padding: 0;
@@ -185,11 +256,12 @@
 .day {
   display: flex;
   width: 100%;
+  min-height: 48px;
   align-items: center;
   gap: 12px;
-  padding: 12px 8px;
+  padding: 10px 8px;
   border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--text-color) 12%, transparent);
+  border-bottom: 1px solid var(--line);
   background: none;
   color: inherit;
   font: inherit;
@@ -198,20 +270,56 @@
 }
 
 .day.selected {
+  background: var(--card);
+}
+
+.day.selected .day-title {
   font-weight: 600;
 }
 
 .day-number {
-  min-width: 4em;
-  opacity: 0.7;
+  min-width: 4.2em;
+  font-size: 0.9em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 
-.day-title {
+/* The next day to read, told apart in the run of days. */
+.day.next {
+  box-shadow: inset 3px 0 var(--accent);
+}
+
+.day.next .day-number {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.day-text {
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.day-done {
-  opacity: 0.7;
+.day-summary,
+.day.done .day-title {
+  color: var(--muted);
+}
+
+.day-summary {
+  font-size: 0.85em;
+}
+
+.day-mark {
+  flex: none;
+  color: var(--accent);
+}
+
+.period-chip:focus-visible,
+.day:focus-visible,
+.readings a:focus-visible {
+  outline: 2px solid var(--text-color);
+  outline-offset: -2px;
 }
 
 /* Back to the next day to read, over the foot of the page. */
@@ -221,37 +329,38 @@
   left: 50%;
   translate: -50% 0;
   z-index: 2;
-  border: 1px solid color-mix(in srgb, #543d27 35%, transparent);
   box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
 }
 
-:host-context(.native-chrome) .to-next {
-  bottom: calc(16px + var(--native-chrome-bottom, env(safe-area-inset-bottom)));
-}
-
-/* Room for both on a wide screen: the day's card stays in view on the left
-   while the days scroll by on the right. */
-@media (min-width: 960px) {
+/* Room for both on a tablet or a desktop: the day's card stays in view
+   while the days scroll by beside it. */
+@media (min-width: 760px) {
   .mais365 {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 48px;
+    gap: clamp(24px, 4vw, 48px);
     max-width: 68rem;
-    padding-inline: 32px;
+    padding-inline: clamp(16px, 3vw, 32px);
   }
 
   /* Two cards can be taller than the window: then the column scrolls in
      place, its foot still in reach. */
   .today-column {
     position: sticky;
-    top: calc(var(--app-header-height, 0px) + 24px);
+    top: calc(var(--top) + 24px);
     align-self: start;
-    max-height: calc(100dvh - var(--app-header-height, 0px) - 48px);
+    max-height: calc(100dvh - var(--top) - 48px);
     overflow-y: auto;
     overscroll-behavior: contain;
   }
 
   .days-title {
     margin-top: 0;
+  }
+
+  .periods {
+    flex-wrap: wrap;
+    margin: 0;
+    padding-inline: 0;
   }
 }

@@ -10,7 +10,13 @@ import { apiBaseUrl } from "../config"
 import { lastCall } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
-import { Mais365Service, type PlanDay, readingLabel } from "./mais365.service"
+import {
+  Mais365Service,
+  type PlanDay,
+  planSections,
+  readingLabel,
+  readingsSummary,
+} from "./mais365.service"
 import {
   type ChapterEpisode,
   PodcastPlayerService,
@@ -109,6 +115,35 @@ const full = (day: PlanDay): PlanDay => ({
     ...reading,
     episode: { ...reading.episode, verses: [[1, reading.episode.start ?? 0]] },
   })),
+})
+
+describe("the plan's days, for its list", () => {
+  it("tells a day's readings in a line, a book's chapters in a row as a span", () => {
+    expect(readingsSummary(PLAN[1].readings)).toBe("Génesis 1–2 · Salmo 19")
+    // Part of a chapter stands alone, as its own label.
+    expect(readingsSummary(PLAN[2].readings)).toBe(
+      "Génesis 5–6 · Provérbios 1,1-7",
+    )
+    expect(readingsSummary([])).toBe("")
+  })
+
+  it("sets the days in periods, each opened by its introduction", () => {
+    expect(
+      planSections(PLAN).map(({ name, days }) => [
+        name,
+        days.map((d) => d.day),
+      ]),
+    ).toEqual([
+      ["Criação do Mundo", [0, 1, 3]],
+      ["Patriarcas", [6.5]],
+    ])
+    // Days before any introduction: a period without a name.
+    expect(planSections(PLAN.slice(1, 3))[0].name).toBe("")
+    // A title of another shape is kept whole.
+    expect(
+      planSections([{ ...PLAN[0], title: "Especial de Natal" }])[0].name,
+    ).toBe("Especial de Natal")
+  })
 })
 
 describe("Mais365Service", () => {

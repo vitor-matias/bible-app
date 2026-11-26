@@ -2,6 +2,12 @@
 <div class="mais365" [attr.role]="nativeChrome.enabled ? 'main' : null">
   <div class="today-column">
   <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
+  @if (plan.days().length) {
+  <div class="progress">
+    <progress id="plan-progress" [value]="read()" [max]="planLength"></progress>
+    <label for="plan-progress">{{ read() }} de {{ planLength }} dias lidos</label>
+  </div>
+  }
 
   @if (inReflection() && plan.active(); as day) {
   <!-- After the day's readings, the reflection; or an introduction, all of it. -->
@@ -61,25 +67,31 @@
   @if (selected(); as day) {
   @if (!inReflection() || !plan.isActive(day)) {
   <section class="card today" aria-labelledby="day-title">
-    <p class="kicker">{{ label(day) }}@if (day.day === plan.today()?.day && !isDone(day)) { · Hoje}@if (isDone(day)) { · Lido ✓}</p>
+    <p class="kicker"><span>{{ label(day) }}@if (day.day === plan.today()?.day && !isDone(day)) { · Hoje}@if (isDone(day)) { · Lido ✓}</span>
+      <span class="length">{{ minutes(day) }} min</span></p>
     <h2 id="day-title">{{ day.title }}</h2>
     @if (day.priest) { <p class="priest">Com o {{ day.priest }}</p> }
+    @if (day.readings.length) {
     <ol class="readings">
       @for (reading of day.readings; track reading.bookId + reading.chapter; let i = $index) {
       <li [class.passed]="passed(day, i)">
-        <a [routerLink]="plan.link(reading)" [queryParams]="plan.query(reading)">{{ readingLabel(reading) }}</a>
-        @if (passed(day, i)) { <span class="check" aria-label="ouvido">✓</span> }
+        <a [routerLink]="plan.link(reading)" [queryParams]="plan.query(reading)">
+          <span>{{ readingLabel(reading) }}</span>
+          @if (passed(day, i)) { <span class="check" aria-label="ouvido">✓</span> }
+          <mat-icon aria-hidden="true">chevron_right</mat-icon>
+        </a>
       </li>
       }
     </ol>
+    }
     <div class="actions">
       @if (plan.isActive(day)) {
-      <button type="button" mat-flat-button (click)="plan.toggle()">
+      <button type="button" mat-flat-button class="main" (click)="plan.toggle()">
         <mat-icon>{{ playingDay(day) ? 'pause' : 'play_arrow' }}</mat-icon>
         {{ playingDay(day) ? 'Pausar' : 'Continuar' }}
       </button>
       } @else {
-      <button type="button" mat-flat-button (click)="plan.start(day)">
+      <button type="button" mat-flat-button class="main" (click)="plan.start(day)">
         <mat-icon>headphones</mat-icon> {{ day.readings.length ? 'Ouvir e ler' : 'Ouvir' }}
       </button>
       }
@@ -98,18 +110,40 @@
   @if (plan.days().length) {
   <div class="days-column">
   <h2 class="days-title">Dias</h2>
-  <ul class="days">
-    @for (day of plan.days(); track day.day) {
-    <li [attr.data-next]="day.day === plan.today()?.day ? '' : null">
-      <button type="button" class="day" [class.selected]="day.day === selected()?.day" [class.done]="isDone(day)"
-        [attr.aria-pressed]="day.day === selected()?.day" (click)="selected.set(day)">
-        <span class="day-number">{{ label(day) }}</span>
-        <span class="day-title">{{ day.title }}</span>
-        @if (isDone(day)) { <mat-icon class="day-done" aria-label="lido">check_circle</mat-icon> }
-      </button>
-    </li>
+  @if (sections().length > 1) {
+  <!-- The plan's periods, each opened by its introduction: a way to a day far off. -->
+  <nav class="periods" aria-label="Períodos do plano">
+    @for (section of sections(); track section.days[0].day; let i = $index) {
+    <button type="button" class="period-chip" [class.complete]="sectionRead(section) === section.days.length"
+      (click)="toSection(i)">{{ section.name || 'Início' }}</button>
     }
-  </ul>
+  </nav>
+  }
+  @for (section of sections(); track section.days[0].day; let i = $index) {
+  <section class="period" [attr.aria-labelledby]="section.name ? 'period-' + i : null" [attr.data-period]="i">
+    @if (section.name) {
+    <h3 [id]="'period-' + i">{{ section.name }}
+      <span class="period-count">{{ sectionRead(section) }}/{{ section.days.length }}<span class="visually-hidden"> lidos</span></span></h3>
+    }
+    <ul class="days">
+      @for (day of section.days; track day.day) {
+      <li [attr.data-next]="day.day === plan.today()?.day ? '' : null">
+        <button type="button" class="day" [class.selected]="day.day === selected()?.day" [class.done]="isDone(day)"
+          [class.next]="day.day === plan.today()?.day && !isDone(day)"
+          [attr.aria-pressed]="day.day === selected()?.day" (click)="select(day)">
+          <span class="day-number">{{ label(day) }}</span>
+          <span class="day-text">
+            <span class="day-title">{{ day.title }}</span>
+            @if (day.readings.length) { <span class="day-summary">{{ summary(day) }}</span> }
+          </span>
+          @if (plan.isActive(day)) { <mat-icon class="day-mark" aria-label="a ouvir">graphic_eq</mat-icon> }
+          @else if (isDone(day)) { <mat-icon class="day-mark" aria-label="lido">check_circle</mat-icon> }
+        </button>
+      </li>
+      }
+    </ul>
+  </section>
+  }
   </div>
   }
   <!-- Scrolled away from the next day to read: a way back to it. -->
