@@ -4,6 +4,7 @@ import { provideRouter } from "@angular/router"
 import { EMPTY } from "rxjs"
 import { page } from "vitest/browser"
 import { Mais365Service } from "../../services/mais365.service"
+import { Mais365ReminderService } from "../../services/mais365-reminder.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { lastCall } from "../../testing/spy-obj"
 import { Mais365Component } from "./mais365.component"
@@ -50,6 +51,11 @@ describe("Mais365Component's large title", () => {
         provideRouter([]),
         { provide: NativeChromeService, useValue: chrome },
         { provide: Mais365Service, useValue: plan },
+        // The bell's state only: the reminder itself isn't this spec's.
+        {
+          provide: Mais365ReminderService,
+          useValue: { enabled: signal(false) },
+        },
       ],
     })
     fixture = TestBed.createComponent(Mais365Component)

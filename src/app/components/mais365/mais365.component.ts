@@ -32,6 +32,7 @@ import {
   readingLabel,
   readingsSummary,
 } from "../../services/mais365.service"
+import { Mais365ReminderService } from "../../services/mais365-reminder.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import {
   PodcastPlayerService,
@@ -49,13 +50,7 @@ import { StreakMilestoneComponent } from "./streak-milestone.component"
  */
 @Component({
   selector: "mais365",
-  imports: [
-    RouterLink,
-    MatButtonModule,
-    MatIconModule,
-    MatSliderModule,
-    Mais365ReminderComponent,
-  ],
+  imports: [RouterLink, MatButtonModule, MatIconModule, MatSliderModule],
   templateUrl: "./mais365.component.html",
   styleUrls: [
     "./mais365.component.css",
@@ -75,6 +70,7 @@ export class Mais365Component implements OnInit, OnDestroy {
   private readonly router = inject(Router)
   private readonly analytics = inject(AnalyticsService)
   private readonly dialog = inject(MatDialog)
+  protected readonly reminder = inject(Mais365ReminderService)
   /** A milestone's dialog is open: not opened twice. */
   private celebrating = false
   /** A day a shared link asked for (/mais365?dia=120): its card, once loaded. */
@@ -553,6 +549,17 @@ export class Mais365Component implements OnInit, OnDestroy {
       // Cancelled, or refused: nothing to say.
       return false
     }
+  }
+
+  /** The daily reminder's switch and time, over the page. */
+  protected openReminder(): void {
+    this.dialog.open(Mais365ReminderComponent, {
+      ariaModal: true,
+      ariaLabel: "Lembrete diário",
+      width: "90%",
+      maxWidth: "360px",
+      panelClass: "mais365-reminder-dialog",
+    })
   }
 
   ngOnInit(): void {

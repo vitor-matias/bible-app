@@ -1,5 +1,6 @@
 import { signal } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { MatDialog } from "@angular/material/dialog"
 import { provideRouter, Router } from "@angular/router"
 import { page } from "vitest/browser"
 import {
@@ -133,10 +134,19 @@ describe("Mais365Component", () => {
     fixture.detectChanges()
   })
 
-  it("offers the daily reminder with the progress, not on the fixed card", () => {
+  // A card of its own took room at the top: a bell in the corner opens it.
+  it("offers the daily reminder behind a bell, not in a card on the page", async () => {
     const host: HTMLElement = fixture.nativeElement
-    expect(host.querySelector(".lead mais365-reminder")).not.toBeNull()
-    expect(host.querySelector(".today-column mais365-reminder")).toBeNull()
+    expect(host.querySelector("mais365-reminder")).toBeNull()
+    const bell = host.querySelector(".lead .bell") as HTMLButtonElement
+    expect(bell.getAttribute("aria-label")).toBe("Lembrete diário")
+    expect(bell.textContent?.trim()).toBe("notifications")
+    bell.click()
+    await fixture.whenStable()
+    expect(
+      document.querySelector(".mais365-reminder-dialog mais365-reminder"),
+    ).not.toBeNull()
+    TestBed.inject(MatDialog).closeAll()
   })
 
   it("keeps a day just marked read on the card, to show it and to undo it", () => {

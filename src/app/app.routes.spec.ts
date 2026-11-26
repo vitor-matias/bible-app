@@ -1,4 +1,5 @@
 import { Location } from "@angular/common"
+import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { provideRouter, type Route } from "@angular/router"
 import { RouterTestingHarness } from "@angular/router/testing"
@@ -6,6 +7,7 @@ import { routes } from "./app.routes"
 import { MAIS365_BOOK } from "./bible-canon"
 import { BibleReaderComponent } from "./components/bible-reader/bible-reader.component"
 import { NotFoundComponent } from "./components/not-found/not-found.component"
+import { Mais365ReminderService } from "./services/mais365-reminder.service"
 import { NativeChromeService } from "./services/native-chrome.service"
 
 describe("app routes", () => {
@@ -41,7 +43,16 @@ describe("app routes", () => {
 
   // Its first address, /365, in links already shared.
   it("takes /365 to /mais365", async () => {
-    TestBed.configureTestingModule({ providers: [provideRouter(routes)] })
+    TestBed.configureTestingModule({
+      providers: [
+        provideRouter(routes),
+        // The page's bell reads it; its push needs a service worker.
+        {
+          provide: Mais365ReminderService,
+          useValue: { enabled: signal(false) },
+        },
+      ],
+    })
     const harness = await RouterTestingHarness.create()
 
     await harness.navigateByUrl("/365")

@@ -1,9 +1,16 @@
-/* Under the progress: a quiet row, in the page's own colours. */
+/* In a dialog of its own, over the page: the page's colours aren't here. */
 .reminder {
-  margin: 0 0 24px;
-  padding: 0 16px;
-  border-radius: 20px;
-  background: var(--card);
+  --line: color-mix(in srgb, currentColor 14%, transparent);
+  --muted: color-mix(in srgb, currentColor 68%, transparent);
+  /* The header's brown and antiquewhite, turned round at night, as the page. */
+  --accent: #543d27;
+  --on-accent: antiquewhite;
+  padding: 8px 20px 12px;
+}
+
+:host-context(.dark-theme) .reminder {
+  --accent: antiquewhite;
+  --on-accent: #543d27;
 }
 
 .row {

@@ -7,7 +7,14 @@
   <div class="lead">
   <!-- The iOS app's large title; its edge is where the bar above ends. -->
   @if (largeTitle) { <h1 class="large-title">+365<span class="large-title-edge"></span></h1> }
-  <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
+  <div class="intro-row">
+    <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
+    <!-- The daily reminder, a tap away: it took a card of its own before. -->
+    <button type="button" mat-icon-button class="bell" aria-label="Lembrete diário" title="Lembrete diário"
+      [class.on]="reminder.enabled()" (click)="openReminder()">
+      <mat-icon>{{ reminder.enabled() ? 'notifications_active' : 'notifications' }}</mat-icon>
+    </button>
+  </div>
   @if (plan.days().length) {
   <div class="progress">
     <progress id="plan-progress" [value]="read()" [max]="planLength()"></progress>
@@ -19,8 +26,6 @@
       }
     </div>
   </div>
-  <!-- With the progress, not the day's card: the card stays put as the page scrolls. -->
-  <mais365-reminder />
   }
   </div>
 
