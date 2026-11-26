@@ -37,9 +37,9 @@
 /* EJNS's cover for the podcast: its mark and its line. */
 .cover {
   flex: none;
-  width: 64px;
-  height: 64px;
-  border-radius: 12px;
+  width: 88px;
+  height: 88px;
+  border-radius: 14px;
 }
 
 .credit {
