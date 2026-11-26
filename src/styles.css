@@ -982,7 +982,7 @@ html.dark-theme .platform-ios.native-chrome:has(pastoral-index, mais365) {
   --card-background: #1c1c1e;
 }
 
-.native-chrome :is(app-search, book-index, pastoral-index) {
+.native-chrome :is(app-search, book-index, pastoral-index, mais365) {
   --app-chrome-top: var(--native-chrome-top, env(safe-area-inset-top));
   --app-chrome-bottom: var(--native-chrome-bottom, env(safe-area-inset-bottom));
 }
@@ -1219,7 +1219,7 @@ html.ragged-text .footnotes-container {
    layer, so a plain blur rather than glass. The Android app's Material bars
    are opaque, and Android's WebView before 140 garbled the blurred, masked
    layer into a frozen patch of old text. */
-.platform-ios.native-chrome :is(bible-reader, app-search, book-index, pastoral-index)::before,
+.platform-ios.native-chrome :is(bible-reader, app-search, book-index, pastoral-index, mais365)::before,
 .platform-ios.native-chrome :is(bible-reader, app-search, pastoral-index)::after {
   content: "";
   position: fixed;
@@ -1232,7 +1232,7 @@ html.ragged-text .footnotes-container {
   transition: height 0.3s ease;
 }
 
-.platform-ios.native-chrome book-index::before,
+.platform-ios.native-chrome :is(book-index, mais365)::before,
 .platform-ios.native-chrome :is(bible-reader, app-search, pastoral-index)::before {
   top: 0;
   height: var(--app-chrome-top);

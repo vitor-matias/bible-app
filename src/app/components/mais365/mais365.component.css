@@ -247,6 +247,11 @@ progress::-moz-progress-bar {
   padding: 20px 8px 6px;
 }
 
+/* styles.css paints spans the text colour. */
+.period-count {
+  color: var(--muted);
+}
+
 .days {
   margin: 0;
   padding: 0;

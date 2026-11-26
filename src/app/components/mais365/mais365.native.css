@@ -132,6 +132,11 @@
   text-transform: none;
 }
 
+/* In line with the rows' text. */
+:host-context(.platform-android.native-chrome) .period h3 {
+  padding-inline: 0;
+}
+
 :host-context(.platform-android.native-chrome) .period-chip {
   min-height: 32px;
   border-radius: 8px;
