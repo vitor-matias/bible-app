@@ -697,7 +697,8 @@ bible-reader:has(.mat-drawer.mat-drawer-opened) .auto-scroll-controls {
     justify-self: center;
   }
 
-  body .auto-scroll-controls .audio-buttons > span:first-child {
+  /* No room for ✕ in three-to-a-row: the card's ⌄ tucks it away here. */
+  body .auto-scroll-controls .audio-buttons > :is(span:first-child, .plan-close) {
     display: none;
   }
 

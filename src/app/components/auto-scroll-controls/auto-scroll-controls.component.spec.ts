@@ -17,6 +17,7 @@ import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
 import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { ToastService } from "../../services/toast.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
@@ -432,6 +433,59 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     TestBed.tick()
     expect(lastPodcast()).toBeNull()
     expect(lastState()).toBeNull()
+  })
+
+  // The passage names the chapter open; the grey line, what of the day plays.
+  it("names the reading playing when another chapter is open", async () => {
+    // Elsewhere, the day offers its reading in a toast: not this spec's.
+    vi.spyOn(TestBed.inject(ToastService), "showOpen").mockImplementation(
+      () => {},
+    )
+    await withEpisode()
+    const episode = (start: number, end: number) => ({
+      day: 15,
+      title: "Dia 15",
+      url: "u",
+      start,
+      end,
+    })
+    const plan = TestBed.inject(Mais365Service)
+    plan.active.set({
+      day: 15,
+      title: "Dia 15",
+      theme: "Dia 15",
+      url: "u",
+      duration: 1300,
+      readings: [
+        {
+          bookId: "gen",
+          bookName: "Génesis",
+          chapter: 29,
+          episode: episode(60, 300),
+        },
+        {
+          bookId: "gen",
+          bookName: "Génesis",
+          chapter: 30,
+          episode: episode(300, 600),
+        },
+      ],
+      reflection: 900,
+    })
+    const player = TestBed.inject(PodcastPlayerService)
+    player.mode.set("audio")
+    player.current.set({ ...episode(60, 300), title: "Génesis 29" })
+    player.position.set(100)
+    TestBed.tick()
+    expect(lastPodcast()?.context).toBe("+365 · Dia 15 · Génesis 29")
+    // On the chapter being read: the passage says it, the line the day.
+    player.current.set({ ...episode(300, 600), title: "Génesis 30" })
+    player.position.set(400)
+    TestBed.tick()
+    expect(lastPodcast()?.context).toBe("+365 · Dia 15")
+    player.current.set(null)
+    plan.active.set(null)
+    TestBed.tick()
   })
 
   it("leaves listening on ✕, a day under way ended", async () => {

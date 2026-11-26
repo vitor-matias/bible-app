@@ -25,7 +25,11 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatSliderModule } from "@angular/material/slider"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
-import { Mais365Service, readingLabel } from "../../services/mais365.service"
+import {
+  Mais365Service,
+  type PlanDay,
+  readingLabel,
+} from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import type {
   NativeChromeAction,
@@ -197,6 +201,9 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
       return day.readings.length
         ? `+365 · Dia ${day.day} · Reflexão`
         : `+365 · ${day.title}`
+    }
+    if (day && this.plan.introUntil() !== null) {
+      return `+365 · Dia ${day.day} · Introdução`
     }
     // The reading being heard, named by the plan ("Génesis 2").
     const heard = this.planEntry()
@@ -966,6 +973,17 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * ✕: listening ends. A day under way ends unread, and the card gives the
+   * toolbar back (not left as the chapter's player).
+   */
+  protected closePlayer(): void {
+    if (this.plan.active()) this.plan.end()
+    this.player.pause()
+    this.player.mode.set("scroll")
+    this.playerClosed.emit()
+  }
+
   toggleAudio(): void {
     const entry = this.entry()
     if (entry && this.planEntry()) {
@@ -1182,6 +1200,22 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     return new DOMRect(view.left, top, view.width, Math.max(0, bottom - top))
   }
 
+  /**
+   * The grey line beside the passage in the apps' card: the day, and what of
+   * it plays when that isn't the chapter open (the passage names that one).
+   */
+  private planContext(day: PlanDay, reflection: boolean): string {
+    if (!day.readings.length) return "+365"
+    const what = reflection
+      ? "Reflexão"
+      : this.plan.introUntil() !== null
+        ? "Introdução"
+        : this.heardHere()
+          ? null
+          : this.planEntry()?.title
+    return `+365 · Dia ${day.day}${what ? ` · ${what}` : ""}`
+  }
+
   /** The +365 player as the apps draw it (PodcastChrome). */
   private readonly podcastChrome = computed((): PodcastChrome => {
     const start = this.chapterStart()
@@ -1192,12 +1226,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     return {
       caption: this.caption(),
       // An introduction is all of its "reflection": just +365.
-      context:
-        day && inPlan
-          ? day.readings.length
-            ? `+365 · Dia ${day.day}${reflection ? " · Reflexão" : ""}`
-            : "+365"
-          : null,
+      context: day && inPlan ? this.planContext(day, reflection) : null,
       playing: this.playingThis(),
       canPlay: !!this.entry(),
       loaded: this.loaded(),
@@ -1247,12 +1276,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
         else this.stepInEpisode(1)
         break
       case "podcast-close":
-        // Listening ends: a day under way ends unread, and the card gives the
-        // toolbar back (not left as the chapter's player).
-        if (this.plan.active()) this.plan.end()
-        this.player.pause()
-        this.player.mode.set("scroll")
-        this.playerClosed.emit()
+        this.closePlayer()
         break
       case "podcast-skip":
         this.player.skip(action.seconds)

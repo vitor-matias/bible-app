@@ -200,9 +200,9 @@ describe("Mais365Component", () => {
     plan.days.set([intro, ...days])
     plan.today.set(days[4])
     fixture.detectChanges()
-    // Dia 5 next: the two before it, then on. The introduction is not a day.
+    // Dia 5 next: the two before it, then on. As many told as open.
     expect(rows()).toEqual(["Dia 3", "Dia 4", "Dia 5", "Dia 6"])
-    button("Mostrar os 2 dias anteriores")?.click()
+    button("Mostrar os 3 dias anteriores")?.click()
     fixture.detectChanges()
     expect(rows()).toEqual([
       "Dia 0",
@@ -218,7 +218,7 @@ describe("Mais365Component", () => {
   })
 
   // Only an introduction before the fold: said as what it is, not «0 dias».
-  it("tells the days folded without counting introductions", () => {
+  it("tells introductions alone as introductions", () => {
     plan.days.set([
       intro,
       ...[1, 2, 3].map((day) => ({ ...day1, day, title: `Dia ${day}` })),
@@ -246,14 +246,14 @@ describe("Mais365Component", () => {
     ).toBe(6)
   })
 
-  it("folds one day as one, and none at the start", () => {
+  it("tells the rows it folds, and folds none at the start", () => {
     plan.days.set([
       intro,
       ...[1, 2, 3, 4].map((day) => ({ ...day1, day, title: `Dia ${day}` })),
     ])
     plan.today.set({ ...day1, day: 4, title: "Dia 4" })
     fixture.detectChanges()
-    expect(text()).toContain("Mostrar o dia anterior")
+    expect(text()).toContain("Mostrar os 2 dias anteriores")
     plan.today.set(intro)
     fixture.detectChanges()
     expect(text()).not.toContain("Mostrar")
@@ -878,7 +878,7 @@ describe("Mais365Component", () => {
 
     it("opens the days before in place, and folds them again with focus kept", async () => {
       const fold = host().querySelector<HTMLButtonElement>(".earlier")
-      expect(fold?.textContent).toContain("Mostrar os 58 dias anteriores")
+      expect(fold?.textContent).toContain("Mostrar os 59 dias anteriores")
       const first = host()
         .querySelector(".day")
         ?.closest("li")
@@ -901,7 +901,7 @@ describe("Mais365Component", () => {
       expect(host().querySelectorAll(".day").length).toBe(22)
       expect(host().querySelector(".earlier")).toBe(fold)
       expect(document.activeElement).toBe(fold)
-      expect(fold?.textContent).toContain("Mostrar os 58 dias anteriores")
+      expect(fold?.textContent).toContain("Mostrar os 59 dias anteriores")
     })
 
     // A bar over the whole window hides the next row, the page untouched.

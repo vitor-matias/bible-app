@@ -444,12 +444,53 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     fixture.detectChanges()
     expect(TestBed.inject(Mais365Service).stage()).toBeNull()
     expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    // Named once, as what it is.
+    expect(find(".audio-caption")?.textContent?.trim()).toBe(
+      "+365 · Dia 3 · Introdução",
+    )
     // The day's transport, not ⇅: ⏭ goes past the intro to its first reading.
     expect(find(".mode-toggle")).toBeNull()
     const next = find(".plan-skip")
     expect(next?.disabled).toBe(false)
     tap(next)
     expect(stream.currentTime).toBe(56.5)
+  })
+
+  // The web's card ends a day as the apps' does: ✕ in the mode switch's place.
+  it("ends the day from ✕ on the web", async () => {
+    await listen()
+    const player = TestBed.inject(PodcastPlayerService)
+    player.throughEpisode.set(true)
+    const plan = TestBed.inject(Mais365Service)
+    plan.active.set({
+      day: 3,
+      title: "A Arca de Noé",
+      theme: "A Arca de Noé",
+      url: day3.url,
+      duration: 1103,
+      readings: [
+        {
+          bookId: "exo",
+          bookName: "Êxodo",
+          chapter: 5,
+          episode: { ...day3, start: 56.5 },
+        },
+      ],
+      reflection: 900,
+    })
+    player.toggle({ ...day3, start: 56.5 })
+    const stream = audio()
+    stream.currentTime = 60
+    stream.dispatchEvent(new Event("timeupdate"))
+    TestBed.tick()
+    fixture.detectChanges()
+    expect(modeToggle()).toBeNull()
+    const closed = vi.fn()
+    fixture.componentInstance.playerClosed.subscribe(closed)
+    tap(byLabel("Terminar"))
+    expect(plan.active()).toBeNull()
+    expect(player.mode()).toBe("scroll")
+    expect(closed).toHaveBeenCalled()
   })
 
   it("says the day and the reading's place in it, and steps through its readings", async () => {
@@ -1654,6 +1695,8 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         for (const part of fixture.nativeElement.querySelectorAll(
           ".audio-player :is(button, mat-slider, .audio-time, .audio-caption)",
         ) as NodeListOf<HTMLElement>) {
+          // Left out here (✕: the card's ⌄ tucks it away).
+          if (!part.checkVisibility()) continue
           const inner = part.getBoundingClientRect()
           expect(inner.left).toBeGreaterThanOrEqual(card.left)
           expect(inner.right).toBeLessThanOrEqual(card.right)

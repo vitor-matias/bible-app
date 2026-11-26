@@ -50,6 +50,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     var passageHintView: PassageHintView?
     /// The web app asked for it and the reader hasn't yet used the passage.
     var passageHintPending = false
+    /// What the reader's menus were last built for (configureReader).
+    var menusShownFor: ChromeState?
+    var menusCompact = false
     /// Bars meant to be on screen; a fade-out may still be running for others.
     var shownBars = Set<ObjectIdentifier>()
     var reportedInsets = ChromeInsets()

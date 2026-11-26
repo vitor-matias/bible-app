@@ -6,8 +6,19 @@ extension ChromeViewController {
         // The same item throughout, its menu updated: replacing the item
         // would close the menu while a choice that keeps it open is applied.
         let send: (String) -> Void = { [weak self] id in self?.plugin.send(id) }
-        moreItem.menu = ReaderMenu.make(state, send: send)
-        fontItem.menu = ReaderMenu.font(state, compact: traitCollection.verticalSizeClass == .compact, send: send)
+        // Only when what they show changed: +365's time and auto-scroll's
+        // come several times a second, and a menu given anew while open
+        // redraws (the aA menu twitched while a podcast played).
+        var shown = state
+        shown.podcast = nil
+        shown.autoScroll = nil
+        let compact = traitCollection.verticalSizeClass == .compact
+        if shown != menusShownFor || compact != menusCompact {
+            menusShownFor = shown
+            menusCompact = compact
+            moreItem.menu = ReaderMenu.make(state, send: send)
+            fontItem.menu = ReaderMenu.font(state, compact: compact, send: send)
+        }
         moreItem.isEnabled = enabled
         bookmarksItem.isEnabled = enabled
         // The chapter's ribbon, in its colour; the bars are otherwise monochrome.

@@ -40,8 +40,12 @@
     </div>
     <div class="audio-buttons">
       @if (inPlan()) {
-      <!-- In a day of the plan the transport steps through its readings. -->
-      <span></span>
+      <!-- In a day of the plan the transport steps through its readings, and
+           ✕ ends the day, as the apps' card has it. -->
+      <button type="button" mat-icon-button class="plan-close" aria-label="Terminar" title="Terminar"
+        (click)="closePlayer()">
+        <mat-icon>close</mat-icon>
+      </button>
       } @else if (!paged()) {
       <button type="button" mat-icon-button class="mode-toggle" aria-label="Deslocar o texto em vez de ouvir"
         (click)="toggleMode()">

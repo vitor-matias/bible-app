@@ -979,7 +979,13 @@ describe("Mais365Service", () => {
       await startWithIntro(plan, day)
       const first = day.readings[0].episode
       expect(player.position()).toBe(0)
-      expect(lastCall(player.toggle)[0]).toEqual({ ...first, start: 0 })
+      // Up to the first reading, named as the intro.
+      expect(lastCall(player.toggle)[0]).toEqual({
+        ...first,
+        start: 0,
+        end: first.start,
+        title: "Introdução",
+      })
       expect(plan.stage()).toBeNull()
       expect(plan.introUntil()).toBe(first.start)
       // Heard where it was started, as the reflection: no chapter yet.

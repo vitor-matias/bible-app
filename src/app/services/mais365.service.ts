@@ -640,7 +640,16 @@ export class Mais365Service {
     const from = intro ? 0 : (first.episode.start ?? 0)
     // The intro: the first reading's stream from the episode's start, taken
     // as that reading once it begins (stage).
-    const episode = intro ? { ...first.episode, start: 0 } : first.episode
+    // Up to that reading, and named as what it is (not the API's "Dia 7 -
+    // …", which the card's caption would say twice), for its time left too.
+    const episode = intro
+      ? {
+          ...first.episode,
+          start: 0,
+          end: first.episode.start,
+          title: "Introdução",
+        }
+      : first.episode
     // Either entry left in the player (the intro's, after «Terminar»): from
     // the top, not where it stopped.
     if (

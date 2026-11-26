@@ -328,14 +328,14 @@ export class Mais365Component implements OnInit, OnDestroy {
   protected readonly folded = computed(() =>
     this.showEarlier() ? 0 : this.foldable(),
   )
-  /** The days that can fold, as told: introductions are not days of readings. */
-  protected readonly foldableDays = computed(
-    () =>
-      this.plan
-        .days()
-        .slice(0, this.foldable())
-        .filter((day) => day.readings.length).length,
-  )
+  /**
+   * The rows that fold, as told: as many as open (Dia 0 among them), but
+   * none when they're introductions alone, said as such.
+   */
+  protected readonly foldableDays = computed(() => {
+    const rows = this.plan.days().slice(0, this.foldable())
+    return rows.some((day) => day.readings.length) ? rows.length : 0
+  })
   /** The periods as listed: their days from the fold on. */
   protected readonly shownSections = computed(() => {
     const shown = new Set(
