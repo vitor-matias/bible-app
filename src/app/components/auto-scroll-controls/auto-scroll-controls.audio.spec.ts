@@ -387,6 +387,8 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     const stream = audio()
     fixture.destroy()
     expect(stream.paused).toBe(true)
+    // Let go: nothing for the system's player to resume.
+    expect(TestBed.inject(PodcastPlayerService).current()).toBeNull()
   })
 
   it("shows the system's player the chapter's own time, and seeks within it", async () => {

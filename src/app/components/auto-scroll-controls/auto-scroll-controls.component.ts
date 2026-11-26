@@ -1092,8 +1092,10 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     // Hidden from the menu, the controls take what they started with them.
     this.stopGlide()
-    // A +365 day plays on into its reflection, on its own page.
-    if (!this.player.throughEpisode()) this.player.pause()
+    // A +365 day plays on into its reflection, on its own page. A chapter's
+    // audio is let go: no player left on screen to stop what the lock
+    // screen or a headset would resume.
+    if (!this.player.throughEpisode()) this.player.stop()
     this.stopAutoScroll()
     if (this.native) {
       this.nativeChrome.setAutoScroll(null)
