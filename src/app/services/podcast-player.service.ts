@@ -1,9 +1,12 @@
 import { HttpClient } from "@angular/common/http"
 import { effect, Injectable, inject, signal, untracked } from "@angular/core"
+import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { catchError, map, type Observable, of } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { AnalyticsService } from "./analytics.service"
 import { KeepAwakeService } from "./keep-awake.service"
+import { NativeChromeService } from "./native-chrome.service"
+import type { NativeChromeAction } from "./native-chrome.types"
 
 /** A +365 episode that reads a chapter, as bible-api's /audio lists it. */
 export interface ChapterEpisode {
@@ -142,6 +145,7 @@ const partAt = (
 @Injectable({ providedIn: "root" })
 export class PodcastPlayerService {
   private http = inject(HttpClient)
+  private readonly nativeChrome = inject(NativeChromeService)
   private audio?: HTMLAudioElement
   /**
    * A chapter read in parts, over several days' episodes (Salmo 119,
@@ -387,6 +391,9 @@ export class PodcastPlayerService {
     // being heard, the chapter or the reflection, not the whole episode.
     // Playing too: a pause that moves nothing else (before the stream loads,
     // a stalled one) left it showing ⏸.
+    this.nativeChrome.actions$
+      .pipe(takeUntilDestroyed())
+      .subscribe((action) => this.onNativeMedia(action))
     effect(() => {
       const current = this.current()
       const position = this.position()
@@ -660,6 +667,7 @@ export class PodcastPlayerService {
     const session = navigator.mediaSession
     // Ended or failed: nothing to show playing.
     if (!current) {
+      this.nativeChrome.setMedia(null)
       session.metadata = null
       session.playbackState = "none"
       return
@@ -695,8 +703,17 @@ export class PodcastPlayerService {
     // A chapter in parts, as one: all of it, not the part.
     const whole = this.chainTime(position)
     const span = whole ? whole.length : (current.end ?? duration) - start
-    if (!(span > 0)) return
     const at = whole ? whole.elapsed : position - start
+    // Android's WebView doesn't bridge the above: its shell shows the session.
+    this.nativeChrome.setMedia({
+      title: current.title,
+      artist,
+      playing,
+      position: span > 0 ? Math.round(Math.min(span, Math.max(0, at))) : 0,
+      duration: span > 0 ? Math.round(span) : 0,
+      rate,
+    })
+    if (!(span > 0)) return
     try {
       session.setPositionState({
         duration: span,
@@ -712,7 +729,17 @@ export class PodcastPlayerService {
   private handleMediaSession(): void {
     if (typeof navigator === "undefined" || !navigator.mediaSession) return
     const session = navigator.mediaSession
-    const handlers: [MediaSessionAction, MediaSessionActionHandler][] = [
+    for (const [action, handler] of this.mediaHandlers()) {
+      try {
+        session.setActionHandler(action, handler)
+      } catch {
+        // An action this browser doesn't know.
+      }
+    }
+  }
+
+  private mediaHandlers(): [MediaSessionAction, MediaSessionActionHandler][] {
+    return [
       [
         "seekto",
         ({ seekTime }) => {
@@ -735,12 +762,21 @@ export class PodcastPlayerService {
       ["seekbackward", ({ seekOffset }) => this.skip(-(seekOffset ?? 15))],
       ["seekforward", ({ seekOffset }) => this.skip(seekOffset ?? 15)],
     ]
-    for (const [action, handler] of handlers) {
-      try {
-        session.setActionHandler(action, handler)
-      } catch {
-        // An action this browser doesn't know.
-      }
+  }
+
+  /** The Android system's session (MediaChrome), asking as navigator.mediaSession does. */
+  private onNativeMedia(action: NativeChromeAction): void {
+    const handlers = new Map(this.mediaHandlers())
+    const run = (name: MediaSessionAction, details?: object) =>
+      handlers.get(name)?.({ action: name, ...details })
+    if (action.id === "media-play") run("play")
+    else if (action.id === "media-pause") run("pause")
+    else if (action.id === "media-seek") {
+      run("seekto", { seekTime: action.seconds })
+    } else if (action.id === "media-skip") {
+      run(action.seconds < 0 ? "seekbackward" : "seekforward", {
+        seekOffset: Math.abs(action.seconds),
+      })
     }
   }
 

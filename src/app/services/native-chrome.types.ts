@@ -77,6 +77,10 @@ export type NativeChromeAction =
   | { id: "podcast-skip"; seconds: number }
   /** The +365 scrubber let go: seconds into the part (PodcastChrome.length). */
   | { id: "podcast-seek"; seconds: number }
+  /** The Android system's media session (MediaChrome): play, pause, ±15 s, seek. */
+  | { id: "media-play" | "media-pause" }
+  | { id: "media-skip"; seconds: number }
+  | { id: "media-seek"; seconds: number }
   | { id: "search-submit"; text: string }
   | { id: "report-submit"; topic: string; details: string }
 
@@ -170,6 +174,22 @@ export interface AutoScrollChrome {
   canPlay: boolean
   /** +365 reads this chapter: a 🎧 (auto-scroll-listen) beside the speeds. */
   canListen: boolean
+}
+
+/**
+ * What the Android app's system media session shows (lock screen, shade):
+ * the audio loaded in the player, wherever it plays. Android WebView does not
+ * bridge navigator.mediaSession. Whole seconds; while playing, the shell runs
+ * the position on by `rate` between updates.
+ */
+export interface MediaChrome {
+  title: string
+  artist: string
+  playing: boolean
+  position: number
+  /** Seconds; 0 while unknown. */
+  duration: number
+  rate: number
 }
 
 /**
@@ -379,6 +399,8 @@ export interface NativeChromePlugin {
    * progress line; null hides it. Android only.
    */
   setProgress(progress: { value: number | null }): Promise<void>
+  /** The system media session; null ends it. Android only. */
+  setMedia(media: { media: MediaChrome | null }): Promise<void>
   showPicker(data: PassagePickerData): Promise<void>
   /**
    * A tip on the bar's passage that it opens the books, for a reader who never

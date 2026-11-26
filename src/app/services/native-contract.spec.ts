@@ -3,6 +3,7 @@ import { DOCUMENT } from "@angular/common"
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import type { Mock } from "vitest"
+import media from "../../../native-contract/media.json"
 import none from "../../../native-contract/none.json"
 import page from "../../../native-contract/page.json"
 import pageLargeTitle from "../../../native-contract/page-large-title.json"
@@ -184,8 +185,10 @@ function driven(from: object, chrome: object): Record<string, unknown> {
 
 describe("the native chrome contract fixtures", () => {
   let setState: Mock
+  let setMedia: Mock
 
   beforeEach(() => {
+    setMedia = vi.fn().mockResolvedValue(undefined)
     setState = vi
       .fn()
       .mockName("setState")
@@ -198,6 +201,7 @@ describe("the native chrome contract fixtures", () => {
           useValue: {
             setState,
             setProgress: () => Promise.resolve(),
+            setMedia,
             addListener: () => Promise.resolve({ remove: () => {} }),
           },
         },
@@ -229,6 +233,12 @@ describe("the native chrome contract fixtures", () => {
   }
 
   const sent = () => lastCall(vi.mocked(setState))[0]
+
+  it("matches what the player sends the Android system's media session", () => {
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("android")
+    service().setMedia(media)
+    expect(lastCall(vi.mocked(setMedia))[0]).toEqual({ media })
+  })
 
   it("matches what the reader's bars send, with auto-scroll playing", () => {
     const chrome = service()

@@ -5,6 +5,7 @@ import {
 } from "@angular/common/http/testing"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { Router } from "@angular/router"
+import type { Subject } from "rxjs"
 import { page } from "vitest/browser"
 import { apiBaseUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -12,6 +13,8 @@ import { AutoScrollService } from "../../services/auto-scroll.service"
 import { BookService } from "../../services/book.service"
 import { KeepAwakeService } from "../../services/keep-awake.service"
 import { Mais365Service } from "../../services/mais365.service"
+import { NativeChromeService } from "../../services/native-chrome.service"
+import type { NativeChromeAction } from "../../services/native-chrome.types"
 import {
   type ChapterEpisode,
   PodcastPlayerService,
@@ -647,6 +650,49 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     audio().dispatchEvent(new Event("ended"))
     TestBed.tick()
     expect(navigator.mediaSession.playbackState).toBe("none")
+  })
+
+  // Android's WebView doesn't bridge navigator.mediaSession: the shell shows
+  // the session from what is sent, and asks back through the actions.
+  it("tells the Android shell what to show, and does what it asks", async () => {
+    const chrome = TestBed.inject(NativeChromeService)
+    const setMedia = vi.spyOn(chrome, "setMedia")
+    const asks = Reflect.get(
+      chrome,
+      "actionSubject",
+    ) as Subject<NativeChromeAction>
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    stream.currentTime = 200
+    stream.dispatchEvent(new Event("timeupdate"))
+    TestBed.tick()
+    // Génesis 6: 56.5 to 280.8 in the episode, whole seconds.
+    expect(lastCall(setMedia)[0]).toEqual({
+      title: "Êxodo 5",
+      artist: "Bíblia Sagrada",
+      playing: true,
+      position: 144,
+      duration: 224,
+      rate: 1,
+    })
+
+    asks.next({ id: "media-seek", seconds: 30 })
+    expect(stream.currentTime).toBe(86.5)
+    asks.next({ id: "media-skip", seconds: 15 })
+    expect(stream.currentTime).toBe(101.5)
+    asks.next({ id: "media-skip", seconds: -15 })
+    expect(stream.currentTime).toBe(86.5)
+    asks.next({ id: "media-pause" })
+    expect(stream.paused).toBe(true)
+    TestBed.tick()
+    expect(lastCall(setMedia)[0]?.playing).toBe(false)
+    asks.next({ id: "media-play" })
+    expect(stream.paused).toBe(false)
+
+    stream.dispatchEvent(new Event("ended"))
+    TestBed.tick()
+    expect(lastCall(setMedia)[0]).toBeNull()
   })
 
   it("keeps the screen on while +365 plays", async () => {

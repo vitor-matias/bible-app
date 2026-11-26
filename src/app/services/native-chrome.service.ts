@@ -17,6 +17,7 @@ import type {
   BookmarksSheetState,
   ChromeInsets,
   FootnotesSheetState,
+  MediaChrome,
   NativeChromeAction,
   NativeChromeState,
   NativePalette,
@@ -116,6 +117,8 @@ export class NativeChromeService {
   private tracked?: HTMLElement
   private lastScroller?: Element
   private readingFrame?: number
+  /** The media session as last sent (JSON). */
+  private sentMedia?: string
   /** The progress line's value as last sent. */
   private sentProgress?: number | null
   /** When the reading position was last worked out (scheduleReading). */
@@ -636,6 +639,18 @@ export class NativeChromeService {
     if (!this.android || value === this.sentProgress) return
     this.sentProgress = value
     this.plugin.setProgress({ value }).catch(() => {})
+  }
+
+  /** The Android system's media session shows `media`; null ends it. */
+  setMedia(media: MediaChrome | null): void {
+    if (!this.android) return
+    const sent = JSON.stringify(media)
+    if (sent === this.sentMedia) return
+    this.sentMedia = sent
+    this.plugin.setMedia({ media }).catch(() => {
+      // Not applied: the next one must not be skipped as a repeat.
+      if (this.sentMedia === sent) this.sentMedia = undefined
+    })
   }
 
   /** The page's background colour as declared (`#ffffff`, `#121212`). */

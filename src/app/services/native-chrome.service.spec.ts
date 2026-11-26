@@ -47,6 +47,7 @@ describe("NativeChromeService", () => {
   let plugin: {
     setState: Mock
     setProgress: Mock
+    setMedia: Mock
     showPicker: Mock
     showPassageHint: Mock
     showBookmarks: Mock
@@ -72,6 +73,7 @@ describe("NativeChromeService", () => {
         .mockName("setState")
         .mockResolvedValue({ top: 116, bottom: 82 }),
       setProgress: vi.fn().mockName("setProgress").mockResolvedValue(undefined),
+      setMedia: vi.fn().mockName("setMedia").mockResolvedValue(undefined),
       showPicker: vi.fn().mockName("showPicker").mockResolvedValue(undefined),
       showPassageHint: vi
         .fn()
@@ -1507,6 +1509,35 @@ describe("NativeChromeService", () => {
       expect(getComputedStyle(host).getPropertyValue("--cap-brown")).toMatch(
         BROWN,
       )
+    })
+  })
+
+  // Android's WebView doesn't bridge navigator.mediaSession.
+  describe("the system media session", () => {
+    const media = {
+      title: "Génesis 2",
+      artist: "+365 · Dia 3",
+      playing: true,
+      position: 10,
+      duration: 200,
+      rate: 1,
+    }
+
+    it("is sent once for each change, and ended with null, in the Android app", () => {
+      const service = create("android")
+      service.setMedia(media)
+      service.setMedia({ ...media })
+      expect(plugin.setMedia).toHaveBeenCalledTimes(1)
+      expect(plugin.setMedia).toHaveBeenLastCalledWith({ media })
+      service.setMedia({ ...media, playing: false })
+      service.setMedia(null)
+      expect(plugin.setMedia).toHaveBeenCalledTimes(3)
+      expect(plugin.setMedia).toHaveBeenLastCalledWith({ media: null })
+    })
+
+    it("is left to the iOS web view, which bridges it", () => {
+      create("ios").setMedia(media)
+      expect(plugin.setMedia).not.toHaveBeenCalled()
     })
   })
 })
