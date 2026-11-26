@@ -2,6 +2,7 @@ import { signal } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter } from "@angular/router"
 import { EMPTY } from "rxjs"
+import { page } from "vitest/browser"
 import { Mais365Service } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { lastCall } from "../../testing/spy-obj"
@@ -70,17 +71,24 @@ describe("Mais365Component's large title", () => {
     })
   })
 
+  // A phone, where the title goes up with the page (on a tablet the page's
+  // column keeps it in view, beside the days).
   it("gives the title to the bar once scrolled under it, and takes it back", async () => {
-    await create(false)
-    const heading = title() as HTMLElement
-    heading.style.display = "none"
-    await vi.waitFor(() =>
-      expect(lastCall(chrome.show)[0].largeTitle).toBe(false),
-    )
-    heading.style.display = ""
-    await vi.waitFor(() =>
-      expect(lastCall(chrome.show)[0].largeTitle).toBe(true),
-    )
+    await page.viewport(390, 844)
+    try {
+      await create(false)
+      const heading = title() as HTMLElement
+      heading.style.display = "none"
+      await vi.waitFor(() =>
+        expect(lastCall(chrome.show)[0].largeTitle).toBe(false),
+      )
+      heading.style.display = ""
+      await vi.waitFor(() =>
+        expect(lastCall(chrome.show)[0].largeTitle).toBe(true),
+      )
+    } finally {
+      await page.viewport(800, 600)
+    }
   })
 
   it("is not on Android, whose bar keeps its title", async () => {

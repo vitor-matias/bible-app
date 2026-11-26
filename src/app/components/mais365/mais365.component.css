@@ -368,29 +368,19 @@ progress::-moz-progress-bar {
    all most readers come for, and stays in view while the days scroll by
    beside it. The same on the web and in the apps. */
 @media (min-width: 760px) {
-  /* The lead over the card, the days beside both. */
+  /* The page's column beside the days, all of it in view: there is room
+     for the title, the progress and the reminder over the card. */
   .mais365 {
     display: grid;
-    grid-template:
-      "lead list" auto
-      "today list" 1fr / minmax(0, 3fr) minmax(300px, 2fr);
+    grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
     gap: clamp(24px, 4vw, 48px);
     max-width: 68rem;
     padding-inline: clamp(16px, 3vw, 32px);
   }
 
-  /* Two cards can be taller than the window: then the column scrolls in
-     place, its foot still in reach. */
-  .lead {
-    grid-area: lead;
-  }
-
-  .days-column {
-    grid-area: list;
-  }
-
-  .today-column {
-    grid-area: today;
+  /* Taller than the window (two cards, large text): it scrolls in place,
+     its foot still in reach. */
+  .side {
     position: sticky;
     top: calc(var(--top) + 24px);
     align-self: start;
@@ -406,6 +396,14 @@ progress::-moz-progress-bar {
 
   .days-title {
     margin-top: 0;
+  }
+}
+
+/* One column: the page's own column lays out as if it weren't there, so
+   the card alone can stay. */
+@media (max-width: 759px) {
+  .side {
+    display: contents;
   }
 }
 

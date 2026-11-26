@@ -1,6 +1,9 @@
 <!-- Named by the reader's header on the web, by the apps' bars natively. -->
 <div class="mais365" [attr.role]="nativeChrome.enabled ? 'main' : null">
   <!-- What the page is and how far in: scrolls away, the day's card stays. -->
+  <!-- The page's own column: on a phone only the card in it stays put, on a
+       wide screen all of it does, beside the days. -->
+  <div class="side">
   <div class="lead">
   <!-- The iOS app's large title; its edge is where the bar above ends. -->
   @if (largeTitle) { <h1 class="large-title">+365<span class="large-title-edge"></span></h1> }
@@ -129,6 +132,7 @@
   }
   }
 
+  </div>
   </div>
   @if (plan.days().length) {
   <div class="days-column">
