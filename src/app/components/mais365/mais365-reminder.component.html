@@ -1,7 +1,15 @@
 <div class="reminder">
+  <!-- Its title: a sheet's bar in iOS, with ✕ at the end; a Material
+       dialog's headline elsewhere, closed from «Fechar» at its foot. -->
+  <header class="head">
+    <h2 class="heading">Lembrete diário</h2>
+    <button type="button" mat-icon-button class="close" aria-label="Fechar" mat-dialog-close>
+      <mat-icon>close</mat-icon>
+    </button>
+  </header>
   <label class="row">
     <span class="text">
-      <span class="title">Lembrete diário</span>
+      <span class="title">Receber lembrete</span>
     </span>
     <input #toggleInput type="checkbox" role="switch" class="switch" [checked]="reminder.enabled()"
       [disabled]="!!reminder.unsupported || reminder.busy()" (change)="toggle(toggleInput)">
@@ -15,4 +23,7 @@
   @if (reminder.unsupported ?? reminder.problem(); as why) {
   <p class="why" role="status">{{ why }}</p>
   }
+  <div class="actions">
+    <button type="button" mat-button mat-dialog-close>Fechar</button>
+  </div>
 </div>

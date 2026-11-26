@@ -13,6 +13,38 @@
   --on-accent: #543d27;
 }
 
+/* Material 3's dialog (web, Android): its headline, then «Fechar» as a text
+   button at the end of its foot. */
+.head {
+  display: flex;
+  align-items: center;
+  padding: 16px 0 8px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 1.5em;
+  font-weight: 400;
+  line-height: 1.33;
+}
+
+/* ✕ is iOS's. Material's icon colour is its light theme's: unseen at night. */
+.close {
+  display: none;
+  color: inherit;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-inline-end: -12px;
+  padding-top: 12px;
+}
+
+.actions button {
+  color: var(--accent);
+}
+
 .row {
   display: flex;
   align-items: center;
@@ -109,6 +141,44 @@ input[type="time"] {
   .switch::before {
     transition: none;
   }
+}
+
+/* iOS: a sheet's bar, its title centred and ✕ in a grey circle at the end
+   (HIG, Sheets). */
+:host-context(.platform-ios.native-chrome) .head {
+  display: grid;
+  grid-template-columns: 30px 1fr 30px;
+  margin: 4px 0 8px;
+  padding: 0;
+}
+
+:host-context(.platform-ios.native-chrome) .heading {
+  grid-column: 2;
+  text-align: center;
+  font: 600 17px / 22px -apple-system, system-ui, sans-serif;
+}
+
+:host-context(.platform-ios.native-chrome) .close {
+  --mat-icon-button-state-layer-size: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  grid-column: 3;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-color) 12%, transparent);
+}
+
+:host-context(.platform-ios.native-chrome) .close .mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+:host-context(.platform-ios.native-chrome) .actions {
+  display: none;
 }
 
 /* iOS: an inset grouped row, with UIKit's switch (green, 51 x 31). */

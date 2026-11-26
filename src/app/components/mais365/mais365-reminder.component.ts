@@ -1,9 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject } from "@angular/core"
+import { MatButton, MatIconButton } from "@angular/material/button"
+import { MatDialogClose } from "@angular/material/dialog"
+import { MatIcon } from "@angular/material/icon"
 import { Mais365ReminderService } from "../../services/mais365-reminder.service"
 
 /** The +365 page's daily reminder: a switch, and its time once on. */
 @Component({
   selector: "mais365-reminder",
+  imports: [MatButton, MatDialogClose, MatIcon, MatIconButton],
   templateUrl: "./mais365-reminder.component.html",
   styleUrl: "./mais365-reminder.component.css",
   changeDetection: ChangeDetectionStrategy.OnPush,

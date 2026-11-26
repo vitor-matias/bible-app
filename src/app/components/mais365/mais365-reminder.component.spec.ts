@@ -1,5 +1,6 @@
 import { signal } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
+import { MatDialogRef } from "@angular/material/dialog"
 import { Mais365ReminderService } from "../../services/mais365-reminder.service"
 import { Mais365ReminderComponent } from "./mais365-reminder.component"
 
@@ -16,6 +17,7 @@ describe("Mais365ReminderComponent", () => {
     setTime: ReturnType<typeof vi.fn>
   }
 
+  const dialogRef = { close: vi.fn() }
   const host = (): HTMLElement => fixture.nativeElement
   const toggle = () =>
     host().querySelector<HTMLInputElement>('input[role="switch"]')
@@ -24,7 +26,10 @@ describe("Mais365ReminderComponent", () => {
 
   function create() {
     TestBed.configureTestingModule({
-      providers: [{ provide: Mais365ReminderService, useValue: reminder }],
+      providers: [
+        { provide: Mais365ReminderService, useValue: reminder },
+        { provide: MatDialogRef, useValue: dialogRef },
+      ],
     })
     fixture = TestBed.createComponent(Mais365ReminderComponent)
     fixture.detectChanges()
@@ -85,6 +90,17 @@ describe("Mais365ReminderComponent", () => {
     toggle()?.click()
     await fixture.whenStable()
     expect(reminder.disable).toHaveBeenCalled()
+  })
+
+  // ✕ in iOS's sheet bar; «Fechar» at a Material dialog's foot elsewhere.
+  it("closes from ✕ or «Fechar»", () => {
+    create()
+    const buttons = Array.from(host().querySelectorAll("button"))
+    const close = buttons.find((b) => b.getAttribute("aria-label") === "Fechar")
+    const foot = buttons.find((b) => b.textContent?.trim() === "Fechar")
+    close?.click()
+    foot?.click()
+    expect(dialogRef.close).toHaveBeenCalledTimes(2)
   })
 
   it("explains where it can't be had, the switch disabled", () => {

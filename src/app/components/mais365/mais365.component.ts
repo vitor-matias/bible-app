@@ -576,6 +576,8 @@ export class Mais365Component implements OnInit, OnDestroy {
       width: "90%",
       maxWidth: "360px",
       panelClass: "mais365-reminder-dialog",
+      // The sheet, not its ✕ lit up as focused on opening.
+      autoFocus: "dialog",
     })
   }
 
