@@ -58,6 +58,7 @@ describe("Mais365Component", () => {
       !!day && plan.active()?.day === day.day,
     done: signal<number[]>([]),
     lastReadOn: signal<string | undefined>(undefined),
+    clockDay: signal(localDay(new Date())),
     streak: signal(0),
     milestone: signal<{ days: number; key: string } | null>(null),
     celebrate: vi.fn(),
@@ -104,6 +105,7 @@ describe("Mais365Component", () => {
     plan.today.set(intro)
     plan.done.set([])
     plan.lastReadOn.set(undefined)
+    plan.clockDay.set(localDay(new Date()))
     plan.streak.set(0)
     plan.milestone.set(null)
     resource.isLoading.set(false)
@@ -1067,6 +1069,20 @@ describe("Mais365Component", () => {
       plan.lastReadOn.set("2020-01-01")
       fixture.detectChanges()
       expect(host().querySelector(".kicker")?.textContent).toContain("Hoje")
+    })
+
+    // Left open past midnight: yesterday's reading isn't today's.
+    it("follows the clock past midnight: «Hoje» again, the flame out", () => {
+      plan.streak.set(3)
+      plan.lastReadOn.set("2026-11-26")
+      plan.clockDay.set("2026-11-26")
+      fixture.detectChanges()
+      expect(host().querySelector(".kicker")?.textContent).toContain("A seguir")
+      expect(host().querySelector(".kicker .chip .lit")).not.toBeNull()
+      plan.clockDay.set("2026-11-27")
+      fixture.detectChanges()
+      expect(host().querySelector(".kicker")?.textContent).toContain("Hoje")
+      expect(host().querySelector(".kicker .chip .lit")).toBeNull()
     })
 
     it("shows the streak on the card from two, lit once today is read", () => {

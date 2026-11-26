@@ -278,12 +278,16 @@ private fun Speed(chrome: ChromeController, podcast: PodcastState, enabled: Bool
 internal fun PodcastMini(chrome: ChromeController, state: ChromeState, enabled: Boolean) {
     val canPlay = enabled && state.podcast?.canPlay == true
     ExtendedFloatingActionButton(
-        onClick = { if (canPlay) chrome.send("podcast-toggle") },
+        // Nothing to play yet (the next chapter's episode still loading): the
+        // bars instead, as on iOS, rather than a ▶ that does nothing.
+        onClick = { if (canPlay) chrome.send("podcast-toggle") else if (enabled) chrome.send("show-bars") },
         icon = { Icon(painterResource(R.drawable.ic_play_arrow_filled), contentDescription = null) },
         text = { Text(state.passageLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         containerColor = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         elevation = FloatingActionButtonDefaults.loweredElevation(),
-        modifier = Modifier.semantics { contentDescription = "${podcastToggleLabel(false)}, ${state.passageAccessibilityLabel}" },
+        modifier = Modifier.semantics {
+            contentDescription = if (canPlay) "${podcastToggleLabel(false)}, ${state.passageAccessibilityLabel}" else "Mostrar os controlos, ${state.passageAccessibilityLabel}"
+        },
     )
 }

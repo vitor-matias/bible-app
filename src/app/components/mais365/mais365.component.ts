@@ -25,7 +25,6 @@ import { Router, RouterLink } from "@angular/router"
 import { shareableUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
-  localDay,
   Mais365Service,
   type PlanDay,
   type PlanSection,
@@ -414,9 +413,12 @@ export class Mais365Component implements OnInit, OnDestroy {
   protected readonly shownReadings = 3
   /** The day whose readings are all shown, on a phone. */
   protected readonly expandedDay = signal<number | null>(null)
-  /** A day has been read today: the card's next one is «A seguir». */
+  /**
+   * A day has been read today: the card's next one is «A seguir». Today as
+   * the service's clock has it, so midnight (or the app coming back) moves it.
+   */
   protected readonly readToday = computed(
-    () => this.plan.lastReadOn() === localDay(new Date()),
+    () => this.plan.lastReadOn() === this.plan.clockDay(),
   )
 
   /** The next day of readings after this one that is still unread. */
