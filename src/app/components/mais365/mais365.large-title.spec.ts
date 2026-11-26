@@ -28,6 +28,8 @@ describe("Mais365Component's large title", () => {
     days: signal([]),
     done: signal([]),
     streak: signal(0),
+    milestone: signal(null),
+    celebrate: vi.fn(),
     today: signal(undefined),
     active: signal(null),
     stage: signal(null),
