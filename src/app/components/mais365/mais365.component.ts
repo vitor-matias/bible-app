@@ -300,9 +300,16 @@ export class Mais365Component implements OnInit, OnDestroy {
     const box = row.getBoundingClientRect()
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)")
       .matches
+    const behavior = smooth ? "smooth" : "auto"
+    // A row in sight with the page at its top (the first days): all the way
+    // up, not stopped short with the title half under the bar.
+    if (box.bottom + window.scrollY <= window.innerHeight) {
+      window.scrollTo({ top: 0, behavior })
+      return
+    }
     window.scrollBy({
       top: box.top + box.height / 2 - (shown.top + shown.bottom) / 2,
-      behavior: smooth ? "smooth" : "auto",
+      behavior,
     })
   }
 

@@ -708,13 +708,15 @@ describe("Mais365Component", () => {
       })
       expect(pill()?.textContent).toContain("arrow_upward")
 
-      const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {})
+      const scroll = vi.spyOn(window, "scrollTo").mockImplementation(() => {})
       button("Dia 5")?.click()
       pill()?.click()
       fixture.detectChanges()
-      // Up, to the row: it is above the window.
-      const [options] = scroll.mock.lastCall as unknown as [ScrollToOptions]
-      expect(options.top).toBeLessThan(0)
+      // Up, all the way: its row is in sight at the page's top, and stopping
+      // short left the title half under the bar.
+      expect(scroll).toHaveBeenLastCalledWith(
+        expect.objectContaining({ top: 0 }),
+      )
       // Its card too, in place of the day picked.
       expect(text()).toContain("Dia 3 · Hoje")
     })
