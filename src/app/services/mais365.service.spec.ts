@@ -669,6 +669,21 @@ describe("Mais365Service", () => {
     expect(player.throughEpisode()).toBe(false)
   })
 
+  it("plays an introduction left further on again from its top", async () => {
+    const plan = await create()
+    const intro = find(plan, 0)
+    await start(plan, intro)
+    at(300)
+    plan.end()
+    player.seek = vi.fn()
+    player.isCurrent.mockReturnValue(true)
+    player.playing.set(false)
+    player.toggle.mockClear()
+    await start(plan, intro)
+    expect(player.seek).toHaveBeenCalledWith(0)
+    expect(player.toggle).toHaveBeenCalledTimes(1)
+  })
+
   it("leaves an introduction stopped early not done", async () => {
     const plan = await create()
     await start(plan, find(plan, 0))

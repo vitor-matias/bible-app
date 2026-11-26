@@ -559,6 +559,10 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     if (current) player.adopt({ ...current, day: 6.5 })
     TestBed.tick()
     expect(navigator.mediaSession.metadata?.artist).toBe("+365")
+    // The day let go while paused, nothing else moving: the Bible's again.
+    player.throughEpisode.set(false)
+    TestBed.tick()
+    expect(navigator.mediaSession.metadata?.artist).toBe("Bíblia Sagrada")
   })
 
   // A pause that moved nothing else (before the stream loaded) left the

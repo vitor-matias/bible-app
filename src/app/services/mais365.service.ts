@@ -525,16 +525,21 @@ export class Mais365Service {
     this.player.collapsed.set(false)
     const first = day.readings[at] ?? day.readings[0]
     if (!first) {
-      // An introduction: played whole, here.
-      this.player.position.set(0)
-      this.active.set(day)
-      this.player.toggle({
+      // An introduction: played whole, here, from its top even if left
+      // further on («Terminar», then «Ouvir»).
+      const whole = {
         day: day.day,
         title: day.title,
         url: day.url,
         start: null,
         end: null,
-      })
+      }
+      if (this.player.isCurrent(whole)) this.player.seek(0)
+      else this.player.position.set(0)
+      this.active.set(day)
+      if (!this.player.isCurrent(whole) || !this.player.playing()) {
+        this.player.toggle(whole)
+      }
       return
     }
     // From its first reading, even with that reading paused further on; or

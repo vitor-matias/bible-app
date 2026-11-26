@@ -269,6 +269,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         } else {
             setSystemBarItems(title: nil, left: [], right: [])
         }
+        // Off the reader the card is hidden: its scrubber's timer stops too.
+        if next.mode != .reader { podcastControl.stop() }
         switch next.mode {
         case .reader:
             configureReader(next)

@@ -350,6 +350,8 @@ export class PodcastPlayerService {
     let wasPlaying = false
     effect(() => {
       const playing = this.playing()
+      // A day let go while paused changes nothing else: "+365 · Dia N" goes.
+      this.throughEpisode()
       untracked(() => {
         const current = this.current()
         if (playing && !wasPlaying && current) {
@@ -366,6 +368,8 @@ export class PodcastPlayerService {
     const keepAwake = inject(KeepAwakeService)
     effect(() => {
       const playing = this.playing()
+      // A day let go while paused changes nothing else: "+365 · Dia N" goes.
+      this.throughEpisode()
       untracked(() =>
         playing ? keepAwake.start("podcast") : keepAwake.stop("podcast"),
       )
@@ -380,6 +384,8 @@ export class PodcastPlayerService {
       const rate = this.rate()
       const duration = this.duration()
       const playing = this.playing()
+      // A day let go while paused changes nothing else: "+365 · Dia N" goes.
+      this.throughEpisode()
       untracked(() =>
         this.syncMediaSession(current, position, rate, duration, playing),
       )
