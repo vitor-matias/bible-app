@@ -421,7 +421,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private lazy var pageSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
 
     /// The page's daily reminder (the +365 plan), as the web's bell.
-    private lazy var pageReminderItem = barButton("bell.slash", "Lembrete diário", "reminder")
+    private lazy var pageReminderItem = barButton("bell.slash", "Notificação diária", "reminder")
 
     /// A page's title in the bar, where the page has a large one of its own
     /// (ChromeState.largeTitle): a view, so that it can fade.

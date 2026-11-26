@@ -584,7 +584,7 @@ export class Mais365Component implements OnInit, OnDestroy {
   protected openReminder(): void {
     this.dialog.open(Mais365ReminderComponent, {
       ariaModal: true,
-      ariaLabel: "Lembrete diário",
+      ariaLabel: "Notificação diária",
       width: "90%",
       maxWidth: "360px",
       panelClass: "mais365-reminder-dialog",

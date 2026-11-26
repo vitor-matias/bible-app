@@ -12,7 +12,7 @@
     <!-- The daily reminder, a tap away: it took a card of its own before.
          The apps' bars carry it as one of their own buttons. -->
     @if (!nativeChrome.enabled) {
-    <button type="button" mat-icon-button class="bell" aria-label="Lembrete diário" title="Lembrete diário"
+    <button type="button" mat-icon-button class="bell" aria-label="Notificação diária" title="Notificação diária"
       [class.on]="reminder.enabled()" (click)="openReminder()">
       <mat-icon>{{ reminder.enabled() ? 'notifications_active' : 'notifications_off' }}</mat-icon>
     </button>

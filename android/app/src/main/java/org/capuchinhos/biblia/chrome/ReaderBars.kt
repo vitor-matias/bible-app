@@ -693,7 +693,7 @@ internal fun PageBar(chrome: ChromeController, state: ChromeState, barColor: Col
                 state.reminder?.let { on ->
                     BarButton(
                         if (on) R.drawable.ic_notifications_active else R.drawable.ic_notifications_off,
-                        "Lembrete diário",
+                        "Notificação diária",
                         enabled,
                     ) { chrome.send("reminder") }
                 }

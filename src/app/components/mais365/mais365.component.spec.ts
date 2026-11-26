@@ -147,7 +147,7 @@ describe("Mais365Component", () => {
     const host: HTMLElement = fixture.nativeElement
     expect(host.querySelector("mais365-reminder")).toBeNull()
     const bell = host.querySelector(".lead .bell") as HTMLButtonElement
-    expect(bell.getAttribute("aria-label")).toBe("Lembrete diário")
+    expect(bell.getAttribute("aria-label")).toBe("Notificação diária")
     // Struck through while off.
     expect(bell.textContent?.trim()).toBe("notifications_off")
     bell.click()

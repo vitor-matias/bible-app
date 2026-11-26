@@ -2,14 +2,14 @@
   <!-- Its title: a sheet's bar in iOS, with ✕ at the end; a Material
        dialog's headline elsewhere, closed from «Fechar» at its foot. -->
   <header class="head">
-    <h2 class="heading">Lembrete diário</h2>
+    <h2 class="heading">Notificação diária</h2>
     <button type="button" mat-icon-button class="close" aria-label="Fechar" mat-dialog-close>
       <mat-icon>close</mat-icon>
     </button>
   </header>
   <label class="row">
     <span class="text">
-      <span class="title">Receber lembrete</span>
+      <span class="title">Receber notificação</span>
     </span>
     <input #toggleInput type="checkbox" role="switch" class="switch" [checked]="reminder.enabled()"
       [disabled]="!!reminder.unsupported || reminder.busy()" (change)="toggle(toggleInput)">

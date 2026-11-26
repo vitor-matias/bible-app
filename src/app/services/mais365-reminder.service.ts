@@ -109,8 +109,8 @@ export class Mais365ReminderService {
     this.native || (this.swPush.isEnabled && typeof PushManager !== "undefined")
       ? null
       : this.pwa.detectPlatform() === "ios"
-        ? "No iPhone, os lembretes chegam com a app: instale-a, ou adicione esta página ao ecrã principal e abra-a de lá."
-        : "Este navegador não recebe lembretes. Instale a app para os ter."
+        ? "No iPhone, as notificações chegam com a app: instale-a, ou adicione esta página ao ecrã principal e abra-a de lá."
+        : "Este navegador não recebe notificações. Instale a app para as ter."
 
   readonly enabled = signal(!this.unsupported && stored(ENABLED_KEY) === "true")
   readonly time = signal(
@@ -262,7 +262,7 @@ export class Mais365ReminderService {
 
   private failure(error: unknown): string {
     if (error instanceof HttpErrorResponse && error.status === 503) {
-      return "Os lembretes ainda não estão disponíveis. Tente mais tarde."
+      return "As notificações ainda não estão disponíveis. Tente mais tarde."
     }
     if (
       typeof Notification !== "undefined" &&
@@ -270,7 +270,7 @@ export class Mais365ReminderService {
     ) {
       return "As notificações estão bloqueadas neste navegador. Permita-as nas definições do site."
     }
-    return "Não foi possível ligar o lembrete. Verifique a ligação à internet."
+    return "Não foi possível ligar a notificação. Verifique a ligação à internet."
   }
 
   /** The web: the server told what changed, with the subscription it sends to. */
