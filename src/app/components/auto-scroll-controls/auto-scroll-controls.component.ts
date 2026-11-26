@@ -1012,7 +1012,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   /** Swaps scrolling and listening, stopping whichever was running. */
   toggleMode(): void {
     if (this.audioMode()) {
-      this.player.pause()
+      // Scrolling instead: listening ends, the system's player with it.
+      this.player.stop()
       this.player.mode.set("scroll")
     } else {
       if (this.autoScrollEnabled) this.stopAutoScroll()
@@ -1026,7 +1027,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
    */
   protected closePlayer(): void {
     if (this.plan.active()) this.plan.end()
-    this.player.pause()
+    this.player.stop()
     this.player.mode.set("scroll")
     this.playerClosed.emit()
   }

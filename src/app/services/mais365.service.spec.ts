@@ -162,6 +162,7 @@ describe("Mais365Service", () => {
     toggle: ReturnType<typeof vi.fn>
     adopt: ReturnType<typeof vi.fn>
     pause: ReturnType<typeof vi.fn>
+    stop: ReturnType<typeof vi.fn>
     isCurrent: ReturnType<typeof vi.fn>
     seek?: ReturnType<typeof vi.fn>
   }
@@ -238,6 +239,10 @@ describe("Mais365Service", () => {
       }),
       adopt: vi.fn((episode: ChapterEpisode) => player.current.set(episode)),
       pause: vi.fn(() => player.playing.set(false)),
+      stop: vi.fn(() => {
+        player.playing.set(false)
+        player.current.set(null)
+      }),
       isCurrent: vi.fn(() => false),
     }
   })

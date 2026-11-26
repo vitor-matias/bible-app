@@ -373,6 +373,26 @@ describe("Mais365ReminderService", () => {
       expect(service.enabled()).toBe(true)
     })
 
+    // An iPhone's home-screen app asks for permission only within the tap:
+    // no wait for the key between the tap and the subscription.
+    it("subscribes within the tap when the key was fetched ahead", async () => {
+      swPush.requestSubscription.mockResolvedValue(subscription)
+      const service = web()
+      service.prepare()
+      http.expectOne("v1/mais365/reminders/key").flush({ publicKey: "KEY" })
+      await Promise.resolve()
+      await Promise.resolve()
+      const enabling = service.enable()
+      // Asked at once, in the same task as the tap.
+      expect(swPush.requestSubscription).toHaveBeenCalledWith({
+        serverPublicKey: "KEY",
+      })
+      const put = await vi.waitFor(() => http.expectOne("v1/mais365/reminders"))
+      put.flush(null, { status: 204, statusText: "No Content" })
+      await enabling
+      expect(service.enabled()).toBe(true)
+    })
+
     it("PUTs again, debounced, once a day is read", async () => {
       vi.useFakeTimers()
       swPush.requestSubscription.mockResolvedValue(subscription)

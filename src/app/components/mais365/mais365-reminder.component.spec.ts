@@ -17,6 +17,7 @@ describe("Mais365ReminderComponent", () => {
     enable: ReturnType<typeof vi.fn>
     disable: ReturnType<typeof vi.fn>
     setTime: ReturnType<typeof vi.fn>
+    prepare: ReturnType<typeof vi.fn>
   }
 
   const dialogRef = { close: vi.fn() }
@@ -51,6 +52,7 @@ describe("Mais365ReminderComponent", () => {
       enable: vi.fn(async () => reminder.enabled.set(true)),
       disable: vi.fn(async () => reminder.enabled.set(false)),
       setTime: vi.fn(),
+      prepare: vi.fn(),
     }
   })
 

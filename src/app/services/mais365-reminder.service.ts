@@ -200,11 +200,9 @@ export class Mais365ReminderService {
           return
         }
       } else {
-        const { publicKey } = await firstValueFrom(
-          this.http.get<{ publicKey: string }>(
-            `${apiBaseUrl}/mais365/reminders/key`,
-          ),
-        )
+        // Fetched ahead (prepare()): asked for within the tap, which an
+        // iPhone's home-screen app requires for its permission prompt.
+        const publicKey = this.publicKey ?? (await this.fetchKey())
         const subscription = await this.swPush.requestSubscription({
           serverPublicKey: publicKey,
         })
@@ -242,6 +240,36 @@ export class Mais365ReminderService {
     } catch {
       // Already unsubscribed.
     }
+  }
+
+  /** The server's push key, once fetched. */
+  private publicKey?: string
+  private fetchingKey?: Promise<string>
+
+  /**
+   * The web: the server's key fetched before the switch is tapped (the
+   * dialog opening), so turning it on subscribes without a wait first.
+   */
+  prepare(): void {
+    if (this.native || this.unsupported || this.publicKey) return
+    void this.fetchKey().catch(() => {
+      // Fetched again on the tap.
+    })
+  }
+
+  private fetchKey(): Promise<string> {
+    this.fetchingKey ??= firstValueFrom(
+      this.http.get<{ publicKey: string }>(
+        `${apiBaseUrl}/mais365/reminders/key`,
+      ),
+    ).then(
+      ({ publicKey }) => (this.publicKey = publicKey),
+      (error: unknown) => {
+        this.fetchingKey = undefined
+        throw error
+      },
+    )
+    return this.fetchingKey
   }
 
   setTime(time: string): void {

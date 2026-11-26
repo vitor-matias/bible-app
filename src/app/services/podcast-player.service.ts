@@ -637,6 +637,17 @@ export class PodcastPlayerService {
     this.audio?.pause()
   }
 
+  /**
+   * Listening ended (✕, «Terminar», scrolling instead): not only paused, but
+   * let go, so the system's player (lock screen, media keys, Android's
+   * notification) has nothing left to resume with no player on screen.
+   */
+  stop(): void {
+    this.audio?.pause()
+    this.clearEndTimer()
+    this.forget()
+  }
+
   private holds = 0
   private resumeAfterHolds = false
 

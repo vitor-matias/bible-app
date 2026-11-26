@@ -15,6 +15,11 @@ import { Mais365ReminderService } from "../../services/mais365-reminder.service"
 export class Mais365ReminderComponent {
   protected readonly reminder = inject(Mais365ReminderService)
 
+  constructor() {
+    // The server's key ahead of the tap (the web), so it subscribes at once.
+    this.reminder.prepare()
+  }
+
   protected async toggle(input: HTMLInputElement): Promise<void> {
     await (input.checked ? this.reminder.enable() : this.reminder.disable())
     // Refused: the switch back off, as the binding's value never changed.

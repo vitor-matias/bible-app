@@ -517,6 +517,10 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     tap(byLabel("Terminar"))
     expect(plan.active()).toBeNull()
     expect(player.mode()).toBe("scroll")
+    // Let go, not paused: the system's player has nothing to resume.
+    expect(player.current()).toBeNull()
+    TestBed.tick()
+    expect(navigator.mediaSession.metadata).toBeNull()
     expect(closed).toHaveBeenCalled()
   })
 

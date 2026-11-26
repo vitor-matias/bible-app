@@ -760,7 +760,8 @@ export class Mais365Service {
     if (day && stage !== "reflection") {
       void this.analytics.track("plan_day_end", { day: day.day, stage })
     }
-    this.player.pause()
+    // Let go: the system's player can't resume a day ended.
+    this.player.stop()
     this.release()
   }
 
