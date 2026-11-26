@@ -1416,6 +1416,18 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         expect(page.scrollTop).toBe(rested)
       })
 
+      // A seek or ±15 s far off: there at once, not seconds of easing.
+      it("jumps to a verse a seek left off the screen", async () => {
+        await playAt(59)
+        vi.advanceTimersByTime(500)
+        expect(page.scrollTop).toBe(0)
+        // Verse 3, at 400 to 600px: below the 300px window.
+        audio().currentTime = 71
+        audio().dispatchEvent(new Event("timeupdate"))
+        vi.advanceTimersByTime(50)
+        expect(Math.abs(page.scrollTop - 362.5)).toBeLessThanOrEqual(1)
+      })
+
       // At 2× the reading runs twice as fast: so does the glide, or it lags.
       it("glides at the reading's pace: twice as fast at 2×", async () => {
         TestBed.inject(PodcastPlayerService).cycleRate()

@@ -583,6 +583,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   private landingAt?: number
   /** When it last came to rest, to rest a while before setting off again. */
   private landedAt = 0
+  /** Where the audio was last frame: a jump (a seek, ±15 s) catches up at once. */
+  private lastHeard?: number
 
   /**
    * One frame of read-along. A verse wholly inside the reading area: the
@@ -621,6 +623,25 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     const margin = ((bottom - top) * (1 - READING_AREA)) / 2
     const area = { top: top + margin, bottom: bottom - margin }
     const { box, point } = reading
+    // A seek or ±15 s: no rest first, and a verse off the screen is jumped
+    // to rather than eased toward, which took seconds or never got there.
+    const heard = this.player.position()
+    const jumped =
+      this.lastHeard !== undefined && Math.abs(heard - this.lastHeard) > 2
+    this.lastHeard = heard
+    if (jumped) {
+      this.landedAt = 0
+      this.landingAt = undefined
+      if (box.bottom < view.top || box.top > view.bottom) {
+        const fitsArea = box.height <= area.bottom - area.top
+        page.scrollTop += (fitsArea ? box.top : point) - area.top
+        this.settling = false
+        this.landedAt = Date.now()
+        this.glideCarry = 0
+        this.glideSpeed = 0
+        return
+      }
+    }
     const fits = box.height <= area.bottom - area.top
     // What goes to the upper edge: the verse's top, or the line being read.
     const lead = fits ? box.top : point
