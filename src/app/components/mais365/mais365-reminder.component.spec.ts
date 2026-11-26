@@ -43,10 +43,10 @@ describe("Mais365ReminderComponent", () => {
     }
   })
 
-  it("shows the switch off, with when it reminds", () => {
+  it("shows the switch off, named plainly", () => {
     create()
     expect(host().textContent).toContain("Lembrete diário")
-    expect(host().textContent).toContain("Só nos dias em que ainda não leu.")
+    expect(host().textContent).not.toContain("Só nos dias")
     expect(toggle()?.checked).toBe(false)
     expect(time()).toBeNull()
   })

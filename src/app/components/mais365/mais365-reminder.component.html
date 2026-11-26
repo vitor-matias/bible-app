@@ -2,7 +2,6 @@
   <label class="row">
     <span class="text">
       <span class="title">Lembrete diário</span>
-      <span class="hint">Só nos dias em que ainda não leu.</span>
     </span>
     <input #toggleInput type="checkbox" role="switch" class="switch" [checked]="reminder.enabled()"
       [disabled]="!!reminder.unsupported || reminder.busy()" (change)="toggle(toggleInput)">
