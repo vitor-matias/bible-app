@@ -115,6 +115,35 @@ export class Mais365Component implements OnInit, OnDestroy {
   })
   protected readonly sections = computed(() => planSections(this.plan.days()))
 
+  /** Shown once asked: the days before the next one, folded away. */
+  protected readonly showEarlier = signal(false)
+  /**
+   * How many days the list folds away: those before the next day to read,
+   * all but the two just before it, so the list opens where the reader is
+   * (day 120, not day 1). None once all are read, or once asked for.
+   */
+  protected readonly folded = computed(() => {
+    if (this.showEarlier()) return 0
+    const next = this.plan.today()
+    const at = next ? this.plan.days().findIndex((d) => d.day === next.day) : -1
+    return Math.max(0, at - 2)
+  })
+  /** The periods as listed: their days from the fold on, counted whole. */
+  protected readonly shownSections = computed(() => {
+    const shown = new Set(
+      this.plan
+        .days()
+        .slice(this.folded())
+        .map((day) => day.day),
+    )
+    return this.sections()
+      .map((section) => ({
+        section,
+        days: section.days.filter((day) => shown.has(day.day)),
+      }))
+      .filter(({ days }) => days.length)
+  })
+
   protected sectionRead(section: PlanSection): number {
     return section.days.filter((day) => this.isDone(day)).length
   }
@@ -123,10 +152,6 @@ export class Mais365Component implements OnInit, OnDestroy {
     const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)")
       .matches
     target?.scrollIntoView({ block, behavior: smooth ? "smooth" : "auto" })
-  }
-
-  protected toSection(index: number): void {
-    this.scrollTo(this.host.querySelector(`[data-period="${index}"]`), "start")
   }
 
   /**

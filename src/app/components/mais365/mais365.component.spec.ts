@@ -51,6 +51,7 @@ describe("Mais365Component", () => {
     isActive: (day: PlanDay | undefined) =>
       !!day && plan.active()?.day === day.day,
     done: signal<number[]>([]),
+    streak: signal(0),
     today: signal(intro),
     active: signal<PlanDay | null>(null),
     stage: signal<number | "reflection" | null>(null),
@@ -93,6 +94,7 @@ describe("Mais365Component", () => {
     plan.days.set([intro, day1])
     plan.today.set(intro)
     plan.done.set([])
+    plan.streak.set(0)
     resource.isLoading.set(false)
     resource.error.set(undefined)
     plan.active.set(null)
@@ -123,6 +125,61 @@ describe("Mais365Component", () => {
     expect(button("Marcar como não lido")).toBeDefined()
   })
 
+  // On day 120, the list opened at day 1: the days before now fold away.
+  it("opens the list at the next day to read, the days before a tap away", () => {
+    const days = Array.from({ length: 6 }, (_, i) => ({
+      ...day1,
+      day: i + 1,
+      title: `Dia ${i + 1}`,
+    }))
+    const rows = () =>
+      Array.from(
+        (fixture.nativeElement as HTMLElement).querySelectorAll(".day-number"),
+        (row) => row.textContent?.trim(),
+      )
+    plan.days.set([intro, ...days])
+    plan.today.set(days[4])
+    fixture.detectChanges()
+    // Dia 5 next: the two before it, then on.
+    expect(rows()).toEqual(["Dia 3", "Dia 4", "Dia 5", "Dia 6"])
+    button("Mostrar os 3 dias anteriores")?.click()
+    fixture.detectChanges()
+    expect(rows()).toEqual([
+      "Dia 0",
+      "Dia 1",
+      "Dia 2",
+      "Dia 3",
+      "Dia 4",
+      "Dia 5",
+      "Dia 6",
+    ])
+    expect(text()).not.toContain("anteriores")
+  })
+
+  it("folds one day as one, and none at the start", () => {
+    plan.days.set([
+      intro,
+      ...[1, 2, 3].map((day) => ({ ...day1, day, title: `Dia ${day}` })),
+    ])
+    plan.today.set({ ...day1, day: 3, title: "Dia 3" })
+    fixture.detectChanges()
+    expect(text()).toContain("Mostrar o dia anterior")
+    plan.today.set(intro)
+    fixture.detectChanges()
+    expect(text()).not.toContain("Mostrar")
+  })
+
+  // A run of one isn't one yet.
+  it("tells the days read in a row, from two", () => {
+    expect(text()).not.toContain("seguidos")
+    plan.streak.set(1)
+    fixture.detectChanges()
+    expect(text()).not.toContain("seguidos")
+    plan.streak.set(3)
+    fixture.detectChanges()
+    expect(text()).toContain("3 dias seguidos")
+  })
+
   // Against the days out so far: 365 once the year is all published.
   it("tells how far into the published days the reader is, introductions apart", () => {
     const progress = () =>
@@ -139,7 +196,7 @@ describe("Mais365Component", () => {
     expect(progress().max).toBe(2)
   })
 
-  it("lists the days by period, each with what was read and a way to it", () => {
+  it("lists the days by period, each with what was read", () => {
     const patriarchs = {
       ...intro,
       day: 6.5,
@@ -164,16 +221,8 @@ describe("Mais365Component", () => {
     expect(host.querySelector(".day-summary")?.textContent).toBe(
       "Génesis 1–2 · Salmo 19",
     )
-    const chips = host.querySelectorAll<HTMLElement>(".period-chip")
-    expect(chips[0].classList).toContain("complete")
-    expect(chips[1].classList).not.toContain("complete")
-    const scroll = vi
-      .spyOn(Element.prototype, "scrollIntoView")
-      .mockImplementation(() => {})
-    chips[1].click()
-    expect(scroll.mock.contexts[0]).toBe(
-      host.querySelector('[data-period="1"]'),
-    )
+    // No way to jump to a period: the plan is followed, a day at a time.
+    expect(host.querySelector(".period-chip")).toBeNull()
   })
 
   it("marks the next day to read and the day being heard in the list, in words too", () => {
@@ -357,9 +406,13 @@ describe("Mais365Component", () => {
       expect(text()).toContain("Dia 3 · Hoje")
     })
 
+    // The days before it unfolded, at the top of them.
     it("points down to a next day below", async () => {
       plan.today.set(days[79])
       fixture.detectChanges()
+      button("dias anteriores")?.click()
+      fixture.detectChanges()
+      window.scrollTo(0, 0)
       await vi.waitFor(() => {
         fixture.detectChanges()
         expect(pill()?.textContent).toContain("arrow_downward")
@@ -384,15 +437,15 @@ describe("Mais365Component", () => {
           ),
         ).size
       expect(text()).toContain("Marcar como não lido")
-      // A list and its detail: the days on the left, the day beside them.
+      // The day's card leads: on the left, the days beside it.
       const box = (selector: string) =>
         (
           (fixture.nativeElement as HTMLElement).querySelector(
             selector,
           ) as HTMLElement
         ).getBoundingClientRect()
-      expect(box(".days-column").right).toBeLessThanOrEqual(
-        box(".today-column").left,
+      expect(box(".today-column").right).toBeLessThanOrEqual(
+        box(".days-column").left,
       )
       expect(rows()).toBe(1)
     } finally {

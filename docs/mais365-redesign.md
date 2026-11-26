@@ -17,8 +17,10 @@ the platforms differ in CSS only (`mais365.component.css` for the web,
    introduction. It counts days of readings; introductions are not among the 365.
 4. **Where is day N?** The list is cut into the plan's own periods (Criação do Mundo,
    Patriarcas, Egipto e Êxodo, ...), which the podcast's introductions already mark: each
-   «Introdução a ...» opens a section named after it, with its count read («6/21»). A row
-   of period chips above the list jumps to a section; a ✓ marks a period read whole.
+   «Introdução a ...» opens a section named after it, with its count read («6/21»).
+   The list opens at the next day to read: the days before it, all but the two just
+   before, fold behind «Mostrar os N dias anteriores». (Period chips to jump to a
+   section were dropped: most people follow the plan a day at a time.)
 5. **What is in a day, without opening it?** Each row carries the day's readings in a line
    («Génesis 1–2 · Salmo 19»).
 6. **What have I read, where am I?** Read days dim and carry a check; the next day to read
@@ -68,9 +70,9 @@ period chips scroll sideways on a phone and wrap beside the card.
   is shaped as a small extended FAB (16dp corners, 48dp).
 - **List:** list items of 56dp, 72dp with the second line, no dividers, text 16dp from
   the edge; subheaders in title-small; the selected item on `surface-container-high`
-  with rounded corners. Chips are assist chips (8dp corners, outlined).
-- **Tablet (≥760dp):** the list-detail layout: the days as the list pane on the leading
-  side (2fr, at least 300dp), the day as the detail pane beside it.
+  with rounded corners.
+- **Tablet (≥760dp):** two panes as on the web: the day's card leads (3fr, sticky), the
+  days beside it (2fr, at least 300dp).
 
 ## iOS (HIG)
 
@@ -79,12 +81,13 @@ period chips scroll sideways on a phone and wrap beside the card.
 - **Card and list:** inset grouped: 26pt corners, white (`#1c1c1e` at night), hairline
   separators from the text's edge, rows of at least 44pt that highlight while pressed.
   Section headers in sentence case, footnote size, semibold.
-- **Buttons:** capsules of 44pt; the main one is the text colour inverted. Chips are
-  grey-filled capsules without an outline.
-- **iPad (≥760pt):** the days as a sidebar-like leading column, the day beside it.
+- **Buttons:** capsules of 44pt; the main one is the text colour inverted.
+- **iPad (≥760pt):** two panes as on the web: the day's card leads, the days beside it.
 
-## Open questions
+## Owner's decisions (26 Nov 2026)
 
-- «x de 365» or «x of the days published so far»?
-- A real large title on iOS / list-detail panes drawn by the shells?
-- Should the web's wide layout also lead with the list, as the apps' tablets do?
+- Progress counts the days published so far («x de N»), 365 once the year is out.
+- The day's card leads everywhere, and always shows: most people never touch the list.
+  No period chips; the list opens at the next day, the days before folded.
+- Reading streaks: wanted («N dias seguidos», from the dates days are read on).
+- Native shell work (an iOS large title; panes only if they keep the card first).

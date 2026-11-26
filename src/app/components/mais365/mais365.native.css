@@ -58,11 +58,6 @@
   min-height: 44px;
 }
 
-:host-context(.platform-ios.native-chrome) .period-chip {
-  border: 0;
-  background: color-mix(in srgb, var(--text-color) 8%, transparent);
-}
-
 :host-context(.platform-ios.native-chrome) .days {
   overflow: clip;
   background: var(--card);
@@ -97,7 +92,7 @@
   transition: none;
 }
 
-/* ---- Android: Material 3 cards, lists and chips ---- */
+/* ---- Android: Material 3 cards and lists ---- */
 
 :host-context(.platform-android.native-chrome) .mais365 {
   --accent: var(--android-primary);
@@ -122,12 +117,6 @@
 /* In line with the rows' text. */
 :host-context(.platform-android.native-chrome) .period h3 {
   padding-inline: 0;
-}
-
-:host-context(.platform-android.native-chrome) .period-chip {
-  min-height: 32px;
-  border-radius: 8px;
-  font-weight: 500;
 }
 
 /* List items: 56dp, 72dp with a second line; no dividers, the text 16dp in. */

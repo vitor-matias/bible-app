@@ -11,11 +11,13 @@ import { lastCall } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
 import {
+  localDay,
   Mais365Service,
   type PlanDay,
   planSections,
   readingLabel,
   readingsSummary,
+  streakOf,
 } from "./mais365.service"
 import {
   type ChapterEpisode,
@@ -662,5 +664,50 @@ describe("Mais365Service", () => {
     TestBed.tick()
     expect(plan.done()).toEqual([])
     expect(plan.active()).toBeNull()
+  })
+
+  describe("the days read in a row", () => {
+    const on = (y: number, m: number, d: number) => new Date(y, m - 1, d, 21)
+
+    it("counts back from today, or from yesterday while today is to come", () => {
+      const read = ["2026-11-24", "2026-11-25", "2026-11-26"]
+      expect(streakOf(read, on(2026, 11, 26))).toBe(3)
+      expect(streakOf(read, on(2026, 11, 27))).toBe(3)
+      // A day gone by without one: over.
+      expect(streakOf(read, on(2026, 11, 28))).toBe(0)
+      expect(streakOf(["2026-11-24", "2026-11-26"], on(2026, 11, 26))).toBe(1)
+    })
+
+    it("runs over a month's end and a year's", () => {
+      const read = ["2026-12-30", "2026-12-31", "2027-01-01"]
+      expect(streakOf(read, on(2027, 1, 1))).toBe(3)
+    })
+
+    // Days read before the streak came have no date: they don't count.
+    it("dates each day as read, keeps the first date, and forgets it unmarked", async () => {
+      localStorage.removeItem("mais365DoneOn")
+      const plan = await create()
+      plan.markDone(1, true)
+      plan.markDone(2, true)
+      const today = localDay(new Date())
+      expect(plan.doneOn()).toEqual({ 1: today, 2: today })
+      expect(plan.streak()).toBe(1)
+      expect(JSON.parse(localStorage.getItem("mais365DoneOn") ?? "{}")).toEqual(
+        { 1: today, 2: today },
+      )
+      plan.markDone(2, false)
+      expect(plan.doneOn()).toEqual({ 1: today })
+      localStorage.removeItem("mais365DoneOn")
+    })
+
+    it("keeps the dates over a restart, and drops what isn't one", async () => {
+      localStorage.setItem(
+        "mais365DoneOn",
+        JSON.stringify({ 1: "2026-11-25", 2: "yesterday", x: "2026-11-25" }),
+      )
+      const plan = await create()
+      expect(plan.doneOn()).toEqual({ 1: "2026-11-25" })
+      localStorage.removeItem("mais365DoneOn")
+    })
   })
 })

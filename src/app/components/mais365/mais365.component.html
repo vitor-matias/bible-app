@@ -5,7 +5,13 @@
   @if (plan.days().length) {
   <div class="progress">
     <progress id="plan-progress" [value]="read()" [max]="planLength()"></progress>
-    <label for="plan-progress">{{ read() }} de {{ planLength() }} dias lidos</label>
+    <div class="progress-line">
+      <label for="plan-progress">{{ read() }} de {{ planLength() }} dias lidos</label>
+      <!-- From two: one day isn't a run yet. -->
+      @if (plan.streak() >= 2) {
+      <span class="streak"><mat-icon aria-hidden="true">local_fire_department</mat-icon>{{ plan.streak() }} dias seguidos</span>
+      }
+    </div>
   </div>
   }
 
@@ -110,23 +116,22 @@
   @if (plan.days().length) {
   <div class="days-column">
   <h2 class="days-title">Dias</h2>
-  @if (sections().length > 1) {
-  <!-- The plan's periods, each opened by its introduction: a way to a day far off. -->
-  <nav class="periods" aria-label="Períodos do plano">
-    @for (section of sections(); track section.days[0].day; let i = $index) {
-    <button type="button" class="period-chip" [class.complete]="sectionRead(section) === section.days.length"
-      (click)="toSection(i)">{{ section.name || 'Início' }}</button>
-    }
-  </nav>
+  <!-- Opened where the reader is: the days before, a tap away. -->
+  @if (folded(); as count) {
+  <button type="button" class="earlier" (click)="showEarlier.set(true)">
+    <mat-icon aria-hidden="true">expand_less</mat-icon>
+    Mostrar {{ count === 1 ? 'o dia anterior' : 'os ' + count + ' dias anteriores' }}
+  </button>
   }
-  @for (section of sections(); track section.days[0].day; let i = $index) {
-  <section class="period" [attr.aria-labelledby]="section.name ? 'period-' + i : null" [attr.data-period]="i">
+  @for (shown of shownSections(); track shown.section.days[0].day; let i = $index) {
+  @let section = shown.section;
+  <section class="period" [attr.aria-labelledby]="section.name ? 'period-' + i : null">
     @if (section.name) {
     <h3 [id]="'period-' + i">{{ section.name }}
       <span class="period-count">{{ sectionRead(section) }}/{{ section.days.length }}<span class="visually-hidden"> lidos</span></span></h3>
     }
     <ul class="days">
-      @for (day of section.days; track day.day) {
+      @for (day of shown.days; track day.day) {
       <li [attr.data-next]="day.day === plan.today()?.day ? '' : null">
         <button type="button" class="day" [class.selected]="day.day === selected()?.day" [class.done]="isDone(day)"
           [class.next]="day.day === plan.today()?.day && !isDone(day)"

@@ -40,6 +40,28 @@
   color: var(--muted);
 }
 
+.progress-line {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+/* Days in a row with a day read: the bar's colour, a small flame. */
+.streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.streak .mat-icon {
+  width: 1.2em;
+  height: 1.2em;
+  font-size: 1.2em;
+}
+
 progress {
   display: block;
   width: 100%;
@@ -212,32 +234,6 @@ progress::-moz-progress-bar {
   font-size: 1.1em;
 }
 
-/* The periods in a row to swipe through; each takes the list to its days. */
-.periods {
-  display: flex;
-  gap: 8px;
-  margin: 0 -16px;
-  padding: 4px 16px 8px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.period-chip {
-  flex: none;
-  min-height: 36px;
-  padding: 0 14px;
-  border: 1px solid color-mix(in srgb, var(--text-color) 35%, transparent);
-  border-radius: 18px;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 0.875em;
-  cursor: pointer;
-}
-
-.period-chip.complete::before {
-  content: "✓ ";
-}
 
 .period {
   scroll-margin-top: calc(var(--top) + 8px);
@@ -320,7 +316,23 @@ progress::-moz-progress-bar {
   color: var(--accent);
 }
 
-.period-chip:focus-visible,
+/* The days before the fold: a quiet row atop the list. */
+.earlier {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.earlier:focus-visible,
 .day:focus-visible,
 .readings a:focus-visible {
   outline: 2px solid var(--text-color);
@@ -337,14 +349,13 @@ progress::-moz-progress-bar {
   box-shadow: 0 2px 8px rgb(0 0 0 / 25%);
 }
 
-/* Room for both on a tablet or a desktop, as a list and its detail (a
-   sidebar on iPad, Material's list-detail): the days lead, and the day's card
-   stays in view beside them as they scroll by. The same on the web and in
-   the apps. */
+/* Room for both on a tablet or a desktop: the day's card leads, as it is
+   all most readers come for, and stays in view while the days scroll by
+   beside it. The same on the web and in the apps. */
 @media (min-width: 760px) {
   .mais365 {
     display: grid;
-    grid-template-columns: minmax(300px, 2fr) minmax(0, 3fr);
+    grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
     gap: clamp(24px, 4vw, 48px);
     max-width: 68rem;
     padding-inline: clamp(16px, 3vw, 32px);
@@ -361,22 +372,12 @@ progress::-moz-progress-bar {
     overscroll-behavior: contain;
   }
 
-  .days-column {
-    order: -1;
-  }
-
   /* Over the list it belongs to, not the middle of the screen. */
   .to-next {
-    left: 20%;
+    left: 80%;
   }
 
   .days-title {
     margin-top: 0;
-  }
-
-  .periods {
-    flex-wrap: wrap;
-    margin: 0;
-    padding-inline: 0;
   }
 }

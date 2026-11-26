@@ -112,6 +112,29 @@ export interface PlanDay {
 }
 
 const DONE_KEY = "mais365Done"
+/** The day each was read on (local "YYYY-MM-DD"), for the streak: kept beside
+ * DONE_KEY, which predates it, so days read before have none. */
+const DONE_ON_KEY = "mais365DoneOn"
+
+/** A local date as "YYYY-MM-DD", the day the reader lives in. */
+export const localDay = (date: Date): string =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`
+
+/**
+ * Days in a row, up to `today`, with a day of the plan read on each. Not
+ * broken yet by today, still to come: it runs from yesterday until then.
+ */
+export const streakOf = (dates: Iterable<string>, today: Date): number => {
+  const read = new Set(dates)
+  const day = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  if (!read.has(localDay(day))) day.setDate(day.getDate() - 1)
+  let streak = 0
+  while (read.has(localDay(day))) {
+    streak++
+    day.setDate(day.getDate() - 1)
+  }
+  return streak
+}
 
 /**
  * +365 as a way through the Bible a day at a time, at the reader's own
@@ -174,6 +197,12 @@ export class Mais365Service {
     this.plan.hasValue() ? this.plan.value() : [],
   )
   readonly done = signal<number[]>(this.storedDone())
+  /** When each day was read: plan day → local "YYYY-MM-DD". */
+  readonly doneOn = signal<Record<number, string>>(this.storedDoneOn())
+  /** Days in a row with a day of the plan read, as of now. */
+  readonly streak = computed(() =>
+    streakOf(Object.values(this.doneOn()), new Date()),
+  )
   readonly today = computed(
     (): PlanDay | undefined =>
       this.days().find((day) => !this.done().includes(day.day)) ??
@@ -489,10 +518,37 @@ export class Mais365Service {
     }
     const days = this.done().filter((d) => d !== day)
     this.done.set(done ? [...days, day] : days)
+    // The day it was first read keeps its date: marked again, it isn't read anew.
+    const { [day]: was, ...others } = this.doneOn()
+    this.doneOn.set(
+      done ? { ...others, [day]: was ?? localDay(new Date()) } : others,
+    )
     try {
       localStorage.setItem(DONE_KEY, JSON.stringify(this.done()))
+      localStorage.setItem(DONE_ON_KEY, JSON.stringify(this.doneOn()))
     } catch {
       // Not kept: done until the app closes.
+    }
+  }
+
+  private storedDoneOn(): Record<number, string> {
+    try {
+      const stored: unknown = JSON.parse(
+        localStorage.getItem(DONE_ON_KEY) ?? "{}",
+      )
+      if (!stored || typeof stored !== "object" || Array.isArray(stored)) {
+        return {}
+      }
+      return Object.fromEntries(
+        Object.entries(stored).filter(
+          ([day, date]) =>
+            Number.isFinite(Number(day)) &&
+            typeof date === "string" &&
+            /^\d{4}-\d{2}-\d{2}$/.test(date),
+        ),
+      )
+    } catch {
+      return {}
     }
   }
 
