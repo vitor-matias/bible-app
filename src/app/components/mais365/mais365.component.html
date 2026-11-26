@@ -14,7 +14,7 @@
     @if (!nativeChrome.enabled) {
     <button type="button" mat-icon-button class="bell" aria-label="Lembrete diário" title="Lembrete diário"
       [class.on]="reminder.enabled()" (click)="openReminder()">
-      <mat-icon>{{ reminder.enabled() ? 'notifications_active' : 'notifications' }}</mat-icon>
+      <mat-icon>{{ reminder.enabled() ? 'notifications_active' : 'notifications_off' }}</mat-icon>
     </button>
     }
   </div>
@@ -35,11 +35,13 @@
   <div class="today-column">
   <!-- Said once a day is picked, not as the card loads or changes by itself. -->
   <span class="visually-hidden" aria-live="polite">{{ announced() }}</span>
-  @if (inReflection() && plan.active(); as day) {
-  <!-- After the day's readings, the reflection; or an introduction, all of it. -->
+  @if (here(); as here) {
+  @let day = here.day;
+  <!-- After the day's readings, the reflection; or an introduction, all of it;
+       or, before the readings, the episode's opening. -->
   <section class="card reflection" aria-labelledby="reflection-title">
     <p class="kicker">
-      <span>{{ label(day) }} · {{ day.readings.length ? 'Reflexão' : 'Introdução' }}</span>
+      <span>{{ label(day) }} · {{ day.readings.length && !here.intro ? 'Reflexão' : 'Introdução' }}</span>
       <button type="button" mat-icon-button class="finish" aria-label="Terminar" title="Terminar" (click)="plan.end()">
         <mat-icon>close</mat-icon>
       </button>
@@ -54,12 +56,12 @@
     </p>
     }
     <div class="position">
-      <span class="time" aria-hidden="true">{{ time(player.position() - day.reflection) }}</span>
-      <mat-slider [min]="day.reflection" [max]="day.duration" [step]="1" [displayWith]="spokenTime">
-        <input matSliderThumb aria-label="Posição na reflexão" [value]="sliderValue()"
+      <span class="time" aria-hidden="true">{{ time(player.position() - here.from) }}</span>
+      <mat-slider [min]="here.from" [max]="here.to" [step]="1" [displayWith]="spokenTime">
+        <input matSliderThumb [attr.aria-label]="here.intro ? 'Posição na introdução' : 'Posição na reflexão'" [value]="sliderValue()"
           (dragStart)="dragging.set(true)" (dragEnd)="dragging.set(false)" (valueChange)="player.seek($event)">
       </mat-slider>
-      <span class="time" aria-hidden="true">−{{ time(day.duration - player.position()) }}</span>
+      <span class="time" aria-hidden="true">−{{ time(here.to - player.position()) }}</span>
     </div>
     <div class="actions transport">
       @if (plan.previous(); as previous) {
@@ -68,7 +70,7 @@
         <mat-icon>skip_previous</mat-icon>
       </button>
       }
-      <button type="button" mat-icon-button aria-label="Recuar 15 segundos" (click)="skipBack(day)">
+      <button type="button" mat-icon-button aria-label="Recuar 15 segundos" (click)="skipBack(here.from)">
         <span class="skip-15" aria-hidden="true"><mat-icon>replay</mat-icon><span>15</span></span>
       </button>
       <button type="button" mat-fab class="play" [attr.aria-label]="player.playing() ? 'Pausar' : 'Ouvir'"
@@ -78,6 +80,15 @@
       <button type="button" mat-icon-button aria-label="Avançar 15 segundos" (click)="player.skip(15)">
         <span class="skip-15 forward" aria-hidden="true"><mat-icon>replay</mat-icon><span>15</span></span>
       </button>
+      <!-- In the opening, past it to the first reading. -->
+      @if (here.intro && plan.next(); as next) {
+      @if (next !== 'reflection') {
+      <button type="button" mat-icon-button class="skip-intro" [attr.aria-label]="'Saltar para ' + readingLabel(next)"
+        [title]="'Saltar para ' + readingLabel(next)" (click)="plan.skip()">
+        <mat-icon>skip_next</mat-icon>
+      </button>
+      }
+      }
       <!-- One speed button, as the reader's player. -->
       <button type="button" mat-flat-button class="speed" aria-label="Velocidade do +365"
         (click)="player.cycleRate()">{{ rateTitle(player.rate()) }}</button>
@@ -95,7 +106,7 @@
   }
   <!-- Another day picked while one plays: shown under the player. -->
   @if (selected(); as day) {
-  @if (!inReflection() || !plan.isActive(day)) {
+  @if (!here() || !plan.isActive(day)) {
   <section class="card today" aria-labelledby="day-title">
     <p class="kicker"><span>{{ label(day) }}@if (day.day === plan.today()?.day && !isDone(day)) { · {{ readToday() ? 'A seguir' : 'Hoje' }}}@if (isDone(day)) { · Lido ✓}</span>
       <span class="kicker-end">

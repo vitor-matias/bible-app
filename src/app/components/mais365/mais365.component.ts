@@ -460,9 +460,19 @@ export class Mais365Component implements OnInit, OnDestroy {
   })
   protected readonly readingLabel = readingLabel
 
-  protected readonly inReflection = computed(
-    () => this.plan.stage() === "reflection",
-  )
+  /**
+   * What plays on this page, with its span: the day's reflection, or the
+   * episode's intro before its first reading.
+   */
+  protected readonly here = computed(() => {
+    const day = this.plan.active()
+    if (!day) return null
+    if (this.plan.stage() === "reflection") {
+      return { day, from: day.reflection, to: day.duration, intro: false }
+    }
+    const until = this.plan.introUntil()
+    return until === null ? null : { day, from: 0, to: until, intro: true }
+  })
 
   /** Held while the thumb is dragged, so playback doesn't pull it back. */
   protected readonly dragging = signal(false)
@@ -485,8 +495,8 @@ export class Mais365Component implements OnInit, OnDestroy {
   })
 
   /** Back 15 s, but not out of the reflection into the readings (⏮ does that). */
-  protected skipBack(day: PlanDay): void {
-    this.player.seek(Math.max(day.reflection, this.player.position() - 15))
+  protected skipBack(from: number): void {
+    this.player.seek(Math.max(from, this.player.position() - 15))
   }
 
   /** "m:ss" of a span in seconds. */
@@ -500,9 +510,9 @@ export class Mais365Component implements OnInit, OnDestroy {
    * show it (not into the whole episode): "0:03 de 10:55".
    */
   protected readonly spokenTime = (seconds: number): string => {
-    const day = this.plan.active()
-    const start = day?.reflection ?? 0
-    const end = day?.duration ?? seconds
+    const here = this.here()
+    const start = here?.from ?? 0
+    const end = here?.to ?? seconds
     return `${this.time(seconds - start)} de ${this.time(end - start)}`
   }
 

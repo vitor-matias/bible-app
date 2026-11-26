@@ -67,6 +67,9 @@ describe("Mais365Component", () => {
     active: signal<PlanDay | null>(null),
     stage: signal<number | "reflection" | null>(null),
     previous: signal<PlanDay["readings"][0] | null>(null),
+    next: signal<PlanDay["readings"][0] | "reflection" | null>(null),
+    introUntil: signal<number | null>(null),
+    skip: vi.fn(),
     back: vi.fn(),
     link: (reading: PlanDay["readings"][0]) => [
       "/",
@@ -113,6 +116,8 @@ describe("Mais365Component", () => {
     resource.error.set(undefined)
     plan.active.set(null)
     plan.stage.set(null)
+    plan.next.set(null)
+    plan.introUntil.set(null)
     TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
@@ -140,7 +145,8 @@ describe("Mais365Component", () => {
     expect(host.querySelector("mais365-reminder")).toBeNull()
     const bell = host.querySelector(".lead .bell") as HTMLButtonElement
     expect(bell.getAttribute("aria-label")).toBe("Lembrete diário")
-    expect(bell.textContent?.trim()).toBe("notifications")
+    // Struck through while off.
+    expect(bell.textContent?.trim()).toBe("notifications_off")
     bell.click()
     await fixture.whenStable()
     expect(
@@ -538,6 +544,29 @@ describe("Mais365Component", () => {
       host.querySelector(".today") as HTMLElement
     ).getBoundingClientRect()
     expect(picked.top - reflection.bottom).toBeGreaterThanOrEqual(16)
+  })
+
+  // «Ouvir e ler» opens with the episode's welcome: heard here, as the reflection.
+  it("plays the episode's intro on the page, with a way past it", () => {
+    plan.active.set(day1)
+    plan.introUntil.set(58.4)
+    plan.next.set(day1.readings[0])
+    player.position.set(10)
+    fixture.detectChanges()
+    expect(text()).toContain("Dia 1 · Introdução")
+    expect(text()).toContain("−0:48")
+    const slider = (fixture.nativeElement as HTMLElement).querySelector(
+      "input[matSliderThumb]",
+    ) as HTMLInputElement
+    expect(slider.min).toBe("0")
+    expect(slider.max).toBe("58.4")
+    expect(slider.getAttribute("aria-label")).toBe("Posição na introdução")
+    button("Saltar para Génesis 1")?.click()
+    expect(plan.skip).toHaveBeenCalled()
+    // The day's own card isn't shown under it twice.
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector("#day-title"),
+    ).toBeNull()
   })
 
   it("shows the reflection with its priest and readings, to move through", () => {

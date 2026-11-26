@@ -24,7 +24,6 @@ import {
   type ChapterEpisode,
   PodcastPlayerService,
 } from "./podcast-player.service"
-import { ToastService } from "./toast.service"
 
 const episode = (day: number, url: string, start: number, end: number) => ({
   day,
@@ -180,7 +179,6 @@ describe("Mais365Service", () => {
         { provide: Router, useValue: { navigate } },
         { provide: BookService, useValue: { findBookById: () => undefined } },
         { provide: AnalyticsService, useValue: { track } },
-        { provide: ToastService, useValue: toast },
       ],
     })
     http = TestBed.inject(HttpTestingController)
@@ -210,16 +208,7 @@ describe("Mais365Service", () => {
     at(to)
   }
 
-  const hideOffer = vi.fn()
-  const toast = {
-    offer: vi.fn(
-      (_message: string, _action: string, _onAction: () => void) => hideOffer,
-    ),
-  }
-
   beforeEach(() => {
-    hideOffer.mockClear()
-    toast.offer.mockClear()
     localStorage.removeItem("mais365Done")
     navigate = vi.fn().mockResolvedValue(true)
     track = vi.fn().mockResolvedValue(undefined)
@@ -592,7 +581,6 @@ describe("Mais365Service", () => {
         { provide: Router, useValue: { navigate } },
         { provide: BookService, useValue: { findBookById: () => undefined } },
         { provide: AnalyticsService, useValue: { track } },
-        { provide: ToastService, useValue: toast },
       ],
     })
     http = TestBed.inject(HttpTestingController)
@@ -884,42 +872,32 @@ describe("Mais365Service", () => {
       TestBed.tick()
     }
 
-    it("plays from the episode's start, with no reading yet, and offers to skip", async () => {
+    it("plays from the episode's start on the plan's page, the reading opened once it begins", async () => {
       const plan = await create()
       const day = find(plan, 1)
+      navigate.mockClear()
       await startWithIntro(plan, day)
       const first = day.readings[0].episode
       expect(player.position()).toBe(0)
       expect(lastCall(player.toggle)[0]).toEqual({ ...first, start: 0 })
       expect(plan.stage()).toBeNull()
-      expect(lastCall(toast.offer).slice(0, 2)).toEqual([
-        "A introdução do +365",
-        "Saltar",
-      ])
-
+      expect(plan.introUntil()).toBe(first.start)
+      // Heard where it was started, as the reflection: no chapter yet.
+      expect(navigate).not.toHaveBeenCalled()
+      // ⏭ goes past it to the first reading, which opens.
       player.seek = vi.fn((seconds: number) => at(seconds))
-      const skip = lastCall(toast.offer)[2]
-      skip()
+      plan.skip()
       expect(player.seek).toHaveBeenCalledWith(first.start)
-      expect(hideOffer).toHaveBeenCalled()
       expect(plan.stage()).toBe(0)
-    })
-
-    it("takes the offer away once the first reading begins", async () => {
-      const plan = await create()
-      const day = find(plan, 1)
-      await startWithIntro(plan, day)
-      at(10)
-      expect(hideOffer).not.toHaveBeenCalled()
-      at((day.readings[0].episode.start as number) + 1)
-      expect(hideOffer).toHaveBeenCalled()
+      expect(plan.introUntil()).toBeNull()
+      expect(navigate).toHaveBeenCalledTimes(1)
     })
 
     it("starts at the reading itself otherwise (⏮ ⏭, a chapter's episode)", async () => {
       const plan = await create()
       const day = find(plan, 1)
       await start(plan, day)
-      expect(toast.offer).not.toHaveBeenCalled()
+      expect(plan.introUntil()).toBeNull()
       expect(player.position()).toBe(day.readings[0].episode.start)
     })
   })

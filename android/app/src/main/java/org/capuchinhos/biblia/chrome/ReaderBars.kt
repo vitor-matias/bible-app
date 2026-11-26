@@ -692,7 +692,7 @@ internal fun PageBar(chrome: ChromeController, state: ChromeState, barColor: Col
                 // The page's daily reminder (the +365 plan): ringing while it is on.
                 state.reminder?.let { on ->
                     BarButton(
-                        if (on) R.drawable.ic_notifications_active else R.drawable.ic_notifications,
+                        if (on) R.drawable.ic_notifications_active else R.drawable.ic_notifications_off,
                         "Lembrete diário",
                         enabled,
                     ) { chrome.send("reminder") }

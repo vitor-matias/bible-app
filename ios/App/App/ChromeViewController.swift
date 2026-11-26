@@ -319,7 +319,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             pageReminderItem.isEnabled = !next.inert
             if let on = next.reminder {
                 // Ringing while a reminder is set, as the web's bell.
-                pageReminderItem.image = UIImage(systemName: on ? "bell.badge.fill" : "bell")
+                pageReminderItem.image = UIImage(systemName: on ? "bell.badge.fill" : "bell.slash")
                 pageReminderItem.accessibilityValue = on ? "Ligado" : "Desligado"
             }
             let right = [next.search ? pageSearchItem : nil,
@@ -415,7 +415,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     private lazy var pageSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
 
     /// The page's daily reminder (the +365 plan), as the web's bell.
-    private lazy var pageReminderItem = barButton("bell", "Lembrete diário", "reminder")
+    private lazy var pageReminderItem = barButton("bell.slash", "Lembrete diário", "reminder")
 
     /// A page's title in the bar, where the page has a large one of its own
     /// (ChromeState.largeTitle): a view, so that it can fade.
