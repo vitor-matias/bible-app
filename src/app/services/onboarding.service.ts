@@ -28,7 +28,7 @@ export const FIRST_LAUNCH_DELAY_MS = 800
  * /app landing page, and a +365 day sent as a link (/mais365?dia=N), which
  * the wizard would cover.
  */
-const isLanding = (url: string) => /^\/(?:app|mais365)\/?([?#]|$)/.test(url)
+const isLanding = (url: string) => /^\/(?:app|mais365|365)\/?([?#]|$)/.test(url)
 
 @Injectable({
   providedIn: "root",

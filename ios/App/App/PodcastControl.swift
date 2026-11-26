@@ -296,6 +296,11 @@ final class PodcastControl: UIView {
         slider.accessibilityValue = "\(Self.clock(seconds)) de \(Self.clock(length))"
     }
 
+    /// The podcast gone: the scrubber stops running on.
+    func stop() {
+        tick(false)
+    }
+
     /// While playing the scrubber runs on by itself between updates.
     private func tick(_ playing: Bool) {
         guard playing != (ticker != nil) else { return }

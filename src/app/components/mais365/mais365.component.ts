@@ -79,8 +79,13 @@ export class Mais365Component implements OnInit, OnDestroy {
   private celebrating = false
   /** A day a shared link asked for (/mais365?dia=120): its card, once loaded. */
   private askedDay: number | undefined = (() => {
-    const dia = Number(this.router.parseUrl(this.router.url).queryParams["dia"])
-    return Number.isFinite(dia) ? dia : undefined
+    const dia: unknown = this.router.parseUrl(this.router.url).queryParams[
+      "dia"
+    ]
+    // A day's number, or none: an empty «?dia=» is no Dia 0.
+    return typeof dia === "string" && /^\d+(\.\d+)?$/.test(dia)
+      ? Number(dia)
+      : undefined
   })()
 
   /** A share sheet, or at least a link to copy. */

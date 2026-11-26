@@ -155,6 +155,15 @@ describe("OnboardingService", () => {
     expect(dialogSpy.open).toHaveBeenCalledTimes(1)
   })
 
+  // /365 is the page's first address, kept for links shared before: it
+  // redirects, but the wizard reads the address it was opened on.
+  it("waits out a shared link to /365 too", async () => {
+    vi.useFakeTimers()
+    expect(service.showOnFirstLaunch("?dia=120", "/365")).toBe(false)
+    await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+    expect(dialogSpy.open).not.toHaveBeenCalled()
+  })
+
   describe("open", () => {
     it("opens the wizard with an accessible, size-constrained dialog", () => {
       const ref = service.open("menu")

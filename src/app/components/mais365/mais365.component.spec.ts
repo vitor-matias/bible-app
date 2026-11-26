@@ -280,6 +280,22 @@ describe("Mais365Component", () => {
           ?.textContent,
       ).toBe("No princípio")
     })
+
+    // Number("") is 0: a cut-off link opened Dia 0, not the next day.
+    it("opens the next day for an empty «?dia=»", () => {
+      plan.today.set(day1)
+      vi.spyOn(TestBed.inject(Router), "url", "get").mockReturnValue(
+        "/mais365?dia=",
+      )
+      fixture = TestBed.createComponent(Mais365Component)
+      fixture.detectChanges()
+      TestBed.tick()
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector("#day-title")
+          ?.textContent,
+      ).toBe("No princípio")
+    })
   })
 
   // A week in a row: celebrated once, with a way to share it.

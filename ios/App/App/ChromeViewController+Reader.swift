@@ -53,11 +53,16 @@ extension ChromeViewController {
         if let podcast = state.podcast {
             podcastControl.configure(podcast, passage: state.passageLabel,
                                      passageAccessibility: state.passageAccessibilityLabel, enabled: enabled)
+        } else {
+            // Gone (the page left, the player closed): its scrubber stops
+            // running on, though the card only fades and stays in the window.
+            podcastControl.stop()
         }
 
         // The player tucked away, paused, leaves a mini player here: ▶ and the
-        // passage, and a tap resumes rather than showing the bars.
-        let listens = state.podcast != nil
+        // passage, and a tap resumes rather than showing the bars. With
+        // nothing to play yet, the tap shows the bars, and it says so.
+        let listens = state.podcast.map { $0.canPlay && !$0.playing } ?? false
         if var config = compactPassage.configuration {
             config.title = state.passageLabel
             config.image = listens ? UIImage(systemName: "play.fill") : nil
