@@ -6,6 +6,7 @@ import {
   computed,
   DestroyRef,
   ElementRef,
+  effect,
   Injector,
   inject,
   linkedSignal,
@@ -20,6 +21,8 @@ import { MatIconModule } from "@angular/material/icon"
 import { MatSliderModule } from "@angular/material/slider"
 import { Meta, Title } from "@angular/platform-browser"
 import { Router, RouterLink } from "@angular/router"
+import { shareableUrl } from "../../config"
+import { AnalyticsService } from "../../services/analytics.service"
 import {
   Mais365Service,
   type PlanDay,
@@ -57,6 +60,18 @@ export class Mais365Component implements OnInit, OnDestroy {
   protected readonly nativeChrome = inject(NativeChromeService)
   private readonly themeService = inject(ThemeService)
   private readonly router = inject(Router)
+  private readonly analytics = inject(AnalyticsService)
+  /** A day a shared link asked for (/mais365?dia=120): its card, once loaded. */
+  private askedDay: number | undefined = (() => {
+    const dia = Number(this.router.parseUrl(this.router.url).queryParams["dia"])
+    return Number.isFinite(dia) ? dia : undefined
+  })()
+
+  /** A share sheet, or at least a link to copy. */
+  protected readonly canShare =
+    this.nativeChrome.enabled ||
+    (typeof navigator !== "undefined" &&
+      (typeof navigator.share === "function" || !!navigator.clipboard))
   private readonly destroyRef = inject(DestroyRef)
   private readonly injector = inject(Injector)
   private readonly host =
@@ -79,6 +94,14 @@ export class Mais365Component implements OnInit, OnDestroy {
         })
 
   constructor() {
+    effect(() => {
+      const days = this.plan.days()
+      const asked = this.askedDay
+      if (asked === undefined || !days.length) return
+      this.askedDay = undefined
+      const day = days.find((d) => d.day === asked)
+      if (day) untracked(() => this.selected.set(day))
+    })
     // The row moves as the days load and as a day is marked read.
     afterRenderEffect(() => {
       this.plan.today()
@@ -241,6 +264,42 @@ export class Mais365Component implements OnInit, OnDestroy {
     const start = day?.reflection ?? 0
     const end = day?.duration ?? seconds
     return `${this.time(seconds - start)} de ${this.time(end - start)}`
+  }
+
+  /**
+   * The day, to someone else: its name and readings, and a link that opens
+   * its card. The share sheet, else the link copied.
+   */
+  protected async share(day: PlanDay): Promise<void> {
+    const named = day.readings.length
+      ? `Dia ${day.day} do +365: «${day.title}» (${this.summary(day)}).`
+      : `+365: «${day.title}».`
+    const search = `?dia=${day.day}`
+    const url = shareableUrl({
+      href: `${window.location.origin}/mais365${search}`,
+      pathname: "/mais365",
+      search,
+      hash: "",
+    })
+    try {
+      if (this.nativeChrome.enabled) {
+        const shared = await this.nativeChrome.share({
+          title: "+365",
+          text: named,
+          url,
+          linkTitle: "+365 | Bíblia Sagrada",
+        })
+        if (!shared) return
+      } else if (typeof navigator.share === "function") {
+        await navigator.share({ title: "+365", text: named, url })
+      } else {
+        await navigator.clipboard.writeText(`${named} ${url}`)
+        this.toast.show("Ligação copiada.")
+      }
+      void this.analytics.track("plan_day_share", { day: day.day })
+    } catch {
+      // Cancelled, or refused: nothing to say.
+    }
   }
 
   ngOnInit(): void {

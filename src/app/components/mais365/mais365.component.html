@@ -107,6 +107,12 @@
       <button type="button" mat-flat-button (click)="plan.markDone(day.day, !isDone(day))">
         {{ isDone(day) ? 'Marcar como não lido' : 'Marcar como lido' }}
       </button>
+      @if (canShare) {
+      <button type="button" mat-icon-button class="share" aria-label="Partilhar o dia" title="Partilhar o dia"
+        (click)="share(day)">
+        <mat-icon>share</mat-icon>
+      </button>
+      }
     </div>
   </section>
   }

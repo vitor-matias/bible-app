@@ -1,9 +1,10 @@
 import { signal } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
-import { provideRouter } from "@angular/router"
+import { provideRouter, Router } from "@angular/router"
 import { page } from "vitest/browser"
 import { Mais365Service, type PlanDay } from "../../services/mais365.service"
 import { PodcastPlayerService } from "../../services/podcast-player.service"
+import { ToastService } from "../../services/toast.service"
 import { Mais365Component } from "./mais365.component"
 
 const reading = (bookId: string, bookName: string, chapter: number) => ({
@@ -167,6 +168,60 @@ describe("Mais365Component", () => {
     plan.today.set(intro)
     fixture.detectChanges()
     expect(text()).not.toContain("Mostrar")
+  })
+
+  describe("sharing a day", () => {
+    afterEach(() => vi.unstubAllGlobals())
+
+    it("shares its name, its readings and a link that opens it", async () => {
+      const share = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", { ...navigator, share })
+      // canShare is read as the page opens: a page of its own.
+      fixture = TestBed.createComponent(Mais365Component)
+      fixture.detectChanges()
+      button("No princípio")?.click()
+      fixture.detectChanges()
+      button("Partilhar o dia")?.click()
+      await fixture.whenStable()
+      expect(share).toHaveBeenCalledWith({
+        title: "+365",
+        text: "Dia 1 do +365: «No princípio» (Génesis 1–2 · Salmo 19).",
+        url: `${window.location.origin}/mais365?dia=1`,
+      })
+    })
+
+    // Firefox on a desktop has no share sheet: the link, copied.
+    it("copies the link where there is no share sheet", async () => {
+      const writeText = vi.fn().mockResolvedValue(undefined)
+      vi.stubGlobal("navigator", {
+        ...navigator,
+        share: undefined,
+        clipboard: { writeText },
+      })
+      const show = vi.spyOn(TestBed.inject(ToastService), "show")
+      fixture = TestBed.createComponent(Mais365Component)
+      fixture.detectChanges()
+      button("Partilhar o dia")?.click()
+      await fixture.whenStable()
+      expect(writeText).toHaveBeenCalledWith(
+        `+365: «Introdução à Criação do Mundo». ${window.location.origin}/mais365?dia=0`,
+      )
+      expect(show).toHaveBeenCalledWith("Ligação copiada.")
+    })
+
+    it("opens the day a shared link names", () => {
+      vi.spyOn(TestBed.inject(Router), "url", "get").mockReturnValue(
+        "/mais365?dia=1",
+      )
+      fixture = TestBed.createComponent(Mais365Component)
+      fixture.detectChanges()
+      TestBed.tick()
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector("#day-title")
+          ?.textContent,
+      ).toBe("No princípio")
+    })
   })
 
   // A run of one isn't one yet.

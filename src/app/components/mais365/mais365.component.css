@@ -381,3 +381,8 @@ progress::-moz-progress-bar {
     margin-top: 0;
   }
 }
+
+/* Sharing the day: last in its row, apart from the reading's own buttons. */
+.share {
+  margin-inline-start: auto;
+}
