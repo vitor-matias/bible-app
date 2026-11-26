@@ -25,6 +25,8 @@
   </div>
 
   <div class="today-column">
+  <!-- Said once a day is picked, not as the card loads or changes by itself. -->
+  <span class="visually-hidden" aria-live="polite">{{ announced() }}</span>
   @if (inReflection() && plan.active(); as day) {
   <!-- After the day's readings, the reflection; or an introduction, all of it. -->
   <section class="card reflection" aria-labelledby="reflection-title">
@@ -83,14 +85,21 @@
   @if (selected(); as day) {
   @if (!inReflection() || !plan.isActive(day)) {
   <section class="card today" aria-labelledby="day-title">
-    <p class="kicker"><span>{{ label(day) }}@if (day.day === plan.today()?.day && !isDone(day)) { · Hoje}@if (isDone(day)) { · Lido ✓}</span>
-      <span class="length">{{ minutes(day) }} min</span></p>
+    <p class="kicker"><span>{{ label(day) }}@if (day.day === plan.today()?.day && !isDone(day)) { · {{ readToday() ? 'A seguir' : 'Hoje' }}}@if (isDone(day)) { · Lido ✓}</span>
+      <span class="kicker-end">
+        <!-- From two, as the progress line's: lit once today is read. -->
+        @if (plan.streak() >= 2) {
+        <span class="chip"><mat-icon aria-hidden="true" [class.lit]="readToday()">local_fire_department</mat-icon>{{ plan.streak() }}<span class="visually-hidden"> dias seguidos</span></span>
+        }
+        <span class="length">{{ minutes(day) }} min</span>
+      </span></p>
     <h2 id="day-title">{{ day.title }}</h2>
     @if (day.priest) { <p class="priest">Com o {{ day.priest }}</p> }
     @if (day.readings.length) {
-    <ol class="readings">
+    <!-- A phone shows the first few: the card stays over the list. -->
+    <ol class="readings" [class.open]="expandedDay() === day.day">
       @for (reading of day.readings; track reading.bookId + reading.chapter; let i = $index) {
-      <li [class.passed]="passed(day, i)">
+      <li [class.passed]="passed(day, i)" [class.extra]="i >= shownReadings">
         <a [routerLink]="plan.link(reading)" [queryParams]="plan.query(reading)">
           <span>{{ readingLabel(reading) }}</span>
           @if (passed(day, i)) { <span class="check" aria-label="ouvido">✓</span> }
@@ -98,13 +107,32 @@
         </a>
       </li>
       }
+      @if (day.readings.length > shownReadings) {
+      <li class="more-row">
+        <button type="button" [attr.aria-expanded]="expandedDay() === day.day"
+          (click)="expandedDay.set(expandedDay() === day.day ? null : day.day)">
+          <mat-icon aria-hidden="true">{{ expandedDay() === day.day ? 'expand_less' : 'expand_more' }}</mat-icon>
+          {{ expandedDay() === day.day ? 'Menos leituras' : '+ ' + (day.readings.length - shownReadings) + ' leituras' }}
+        </button>
+      </li>
+      }
     </ol>
     }
+    @let after = isDone(day) && !plan.isActive(day) ? following(day) : undefined;
     <div class="actions">
       @if (plan.isActive(day)) {
       <button type="button" mat-flat-button class="main" (click)="plan.toggle()">
         <mat-icon>{{ playingDay(day) ? 'pause' : 'play_arrow' }}</mat-icon>
         {{ playingDay(day) ? 'Pausar' : 'Continuar' }}
+      </button>
+      } @else if (after) {
+      <!-- Read: on to the next day; listening to this one stays at hand. -->
+      <button type="button" mat-flat-button class="main" (click)="select(after)">
+        Dia {{ after.day }} <mat-icon iconPositionEnd>arrow_forward</mat-icon>
+      </button>
+      <button type="button" mat-icon-button class="listen" [attr.aria-label]="day.readings.length ? 'Ouvir e ler' : 'Ouvir'"
+        [title]="day.readings.length ? 'Ouvir e ler' : 'Ouvir'" (click)="plan.start(day)">
+        <mat-icon>headphones</mat-icon>
       </button>
       } @else {
       <button type="button" mat-flat-button class="main" (click)="plan.start(day)">
@@ -114,11 +142,15 @@
       <!-- One row, as the card stays on screen: listening named, the rest
            icons. Reading without audio is the readings' own rows above. -->
       <span class="tools">
-        <button type="button" mat-icon-button class="mark" [class.done]="isDone(day)"
+        <!-- The next day to read: its main step named, for those who don't listen. -->
+        @let named = day.day === plan.today()?.day && !isDone(day);
+        <button type="button" mat-button class="mark" [class.done]="isDone(day)" [class.named]="named"
+          [attr.aria-pressed]="isDone(day)"
           [attr.aria-label]="isDone(day) ? 'Marcar como não lido' : 'Marcar como lido'"
           [title]="isDone(day) ? 'Marcar como não lido' : 'Marcar como lido'"
           (click)="plan.markDone(day.day, !isDone(day))">
-          <mat-icon>check_circle</mat-icon>
+          <mat-icon>{{ isDone(day) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+          @if (named) { Lido }
         </button>
         @if (canShare) {
         <button type="button" mat-icon-button aria-label="Partilhar o dia" title="Partilhar o dia"
@@ -166,7 +198,7 @@
           @if (plan.isActive(day)) {
           <mat-icon class="day-mark" aria-hidden="true">graphic_eq</mat-icon><span class="visually-hidden day-state">a ouvir</span>
           } @else if (isDone(day)) {
-          <mat-icon class="day-mark" aria-hidden="true">check_circle</mat-icon><span class="visually-hidden day-state">lido</span>
+          <mat-icon class="day-mark filled" aria-hidden="true">check_circle</mat-icon><span class="visually-hidden day-state">lido</span>
           } @else if (day.day === plan.today()?.day) {
           <span class="visually-hidden day-state">a seguir</span>
           }

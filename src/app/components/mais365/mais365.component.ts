@@ -24,6 +24,7 @@ import { Router, RouterLink } from "@angular/router"
 import { shareableUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
+  localDay,
   Mais365Service,
   type PlanDay,
   type PlanSection,
@@ -56,7 +57,11 @@ import { StreakMilestoneComponent } from "./streak-milestone.component"
     Mais365ReminderComponent,
   ],
   templateUrl: "./mais365.component.html",
-  styleUrls: ["./mais365.component.css", "./mais365.native.css"],
+  styleUrls: [
+    "./mais365.component.css",
+    "./mais365-card.css",
+    "./mais365.native.css",
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Mais365Component implements OnInit, OnDestroy {
@@ -305,6 +310,28 @@ export class Mais365Component implements OnInit, OnDestroy {
   protected select(day: PlanDay): void {
     // The card stays in sight, on a phone too: it changes where it is.
     this.selected.set(day)
+    this.announced.set(`Dia ${day.day}: ${day.title}`)
+  }
+
+  /** What a screen reader hears of a day picked from the list. */
+  protected readonly announced = signal("")
+  /** Readings a phone shows before «+ N leituras». */
+  protected readonly shownReadings = 3
+  /** The day whose readings are all shown, on a phone. */
+  protected readonly expandedDay = signal<number | null>(null)
+  /** A day has been read today: the card's next one is «A seguir». */
+  protected readonly readToday = computed(
+    () => this.plan.lastReadOn() === localDay(new Date()),
+  )
+
+  /** The next day of readings after this one that is still unread. */
+  protected following(day: PlanDay): PlanDay | undefined {
+    const done = this.plan.done()
+    return this.plan
+      .days()
+      .find(
+        (d) => d.day > day.day && d.readings.length && !done.includes(d.day),
+      )
   }
 
   /**

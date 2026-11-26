@@ -2,7 +2,11 @@ import { signal } from "@angular/core"
 import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { provideRouter, Router } from "@angular/router"
 import { page } from "vitest/browser"
-import { Mais365Service, type PlanDay } from "../../services/mais365.service"
+import {
+  localDay,
+  Mais365Service,
+  type PlanDay,
+} from "../../services/mais365.service"
 import { Mais365ReminderService } from "../../services/mais365-reminder.service"
 import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { ToastService } from "../../services/toast.service"
@@ -53,6 +57,7 @@ describe("Mais365Component", () => {
     isActive: (day: PlanDay | undefined) =>
       !!day && plan.active()?.day === day.day,
     done: signal<number[]>([]),
+    lastReadOn: signal<string | undefined>(undefined),
     streak: signal(0),
     milestone: signal<{ days: number; key: string } | null>(null),
     celebrate: vi.fn(),
@@ -98,6 +103,7 @@ describe("Mais365Component", () => {
     plan.days.set([intro, day1])
     plan.today.set(intro)
     plan.done.set([])
+    plan.lastReadOn.set(undefined)
     plan.streak.set(0)
     plan.milestone.set(null)
     resource.isLoading.set(false)
@@ -690,5 +696,145 @@ describe("Mais365Component", () => {
     host.style.fontSize = "20px"
     const page = host.querySelector(".mais365") as HTMLElement
     expect(getComputedStyle(page).fontSize).toBe("20px")
+  })
+
+  describe("the day's card", () => {
+    const host = () => fixture.nativeElement as HTMLElement
+    const many: PlanDay = {
+      ...day1,
+      day: 175,
+      title: "Muitas leituras",
+      readings: Array.from({ length: 7 }, (_, i) =>
+        reading("gen", "Génesis", i + 1),
+      ),
+    }
+    const day2: PlanDay = { ...day1, day: 2, title: "Dia 2" }
+    const pick = (title: string) => {
+      button(title)?.click()
+      fixture.detectChanges()
+    }
+    const visibleRows = () =>
+      Array.from(
+        host().querySelectorAll<HTMLElement>(".readings > li:not(.more-row)"),
+      ).filter((li) => li.offsetParent !== null).length
+    const mark = () => host().querySelector<HTMLElement>(".mark") as HTMLElement
+
+    it("shows three readings on a phone, the rest behind «+ N leituras»", async () => {
+      plan.days.set([intro, day1, many])
+      fixture.detectChanges()
+      await page.viewport(375, 667)
+      try {
+        pick("Muitas leituras")
+        const more = host().querySelector<HTMLButtonElement>(
+          ".more-row button",
+        ) as HTMLElement
+        expect(visibleRows()).toBe(3)
+        expect(more.textContent).toContain("+ 4 leituras")
+        expect(more.getAttribute("aria-expanded")).toBe("false")
+        more.click()
+        fixture.detectChanges()
+        expect(visibleRows()).toBe(7)
+        expect(more.textContent).toContain("Menos leituras")
+        expect(more.getAttribute("aria-expanded")).toBe("true")
+        more.click()
+        fixture.detectChanges()
+        expect(visibleRows()).toBe(3)
+      } finally {
+        await page.viewport(800, 600)
+      }
+    })
+
+    it("has no «+ N leituras» row for three readings, and all rows on a wide screen", async () => {
+      pick("No princípio")
+      expect(host().querySelector(".more-row")).toBeNull()
+      plan.days.set([intro, day1, many])
+      fixture.detectChanges()
+      await page.viewport(1400, 900)
+      try {
+        pick("Muitas leituras")
+        expect(visibleRows()).toBe(7)
+        expect(
+          host().querySelector(".more-row")?.getBoundingClientRect().height,
+        ).toBe(0)
+      } finally {
+        await page.viewport(800, 600)
+      }
+    })
+
+    it("tells read from unread by two glyphs, on the card and in the list", () => {
+      pick("No princípio")
+      expect(mark().textContent).toContain("radio_button_unchecked")
+      expect(mark().getAttribute("aria-pressed")).toBe("false")
+      plan.done.set([1])
+      fixture.detectChanges()
+      expect(mark().textContent).toContain("check_circle")
+      expect(mark().getAttribute("aria-pressed")).toBe("true")
+      expect(
+        button("No princípio")?.querySelector(".day-mark.filled")?.textContent,
+      ).toContain("check_circle")
+    })
+
+    it("names the mark «Lido» on the next day to read, icon only elsewhere", () => {
+      expect(mark().textContent).toContain("Lido")
+      pick("No princípio")
+      expect(mark().textContent).not.toContain("Lido")
+      expect(mark().classList).not.toContain("named")
+    })
+
+    it("offers the next unread day once this one is read, «Ouvir e ler» beside it", () => {
+      plan.days.set([intro, day1, day2])
+      plan.done.set([0, 1])
+      plan.today.set(day2)
+      fixture.detectChanges()
+      pick("No princípio")
+      const main = host().querySelector(".actions .main") as HTMLElement
+      expect(main.textContent).toContain("Dia 2")
+      button("Ouvir e ler")?.click()
+      expect(plan.start).toHaveBeenCalledWith(day1)
+      main.click()
+      fixture.detectChanges()
+      expect(host().querySelector("#day-title")?.textContent).toBe("Dia 2")
+      // Nothing later to read: listening is the main step again.
+      plan.done.set([0, 1, 2])
+      pick("No princípio")
+      expect(
+        (host().querySelector(".actions .main") as HTMLElement).textContent,
+      ).toContain("Ouvir e ler")
+    })
+
+    it("says «A seguir» instead of «Hoje» once a day is read today", () => {
+      expect(host().querySelector(".kicker")?.textContent).toContain("Hoje")
+      plan.lastReadOn.set(localDay(new Date()))
+      fixture.detectChanges()
+      expect(host().querySelector(".kicker")?.textContent).toContain("A seguir")
+      expect(host().querySelector(".kicker")?.textContent).not.toContain("Hoje")
+      plan.lastReadOn.set("2020-01-01")
+      fixture.detectChanges()
+      expect(host().querySelector(".kicker")?.textContent).toContain("Hoje")
+    })
+
+    it("shows the streak on the card from two, lit once today is read", () => {
+      const chip = () => host().querySelector(".kicker .chip")
+      plan.streak.set(1)
+      fixture.detectChanges()
+      expect(chip()).toBeNull()
+      plan.streak.set(3)
+      fixture.detectChanges()
+      expect(chip()?.textContent).toContain("3")
+      expect(chip()?.querySelector(".lit")).toBeNull()
+      plan.lastReadOn.set(localDay(new Date()))
+      fixture.detectChanges()
+      expect(chip()?.querySelector(".lit")).not.toBeNull()
+    })
+
+    it("announces a day picked from the list, not the card as it loads", () => {
+      const live = host().querySelector(
+        ".today-column [aria-live]",
+      ) as HTMLElement
+      expect(live.getAttribute("aria-live")).toBe("polite")
+      expect(live.textContent).toBe("")
+      pick("No princípio")
+      expect(live.textContent).toBe("Dia 1: No princípio")
+    })
   })
 })
