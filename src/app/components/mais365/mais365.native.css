@@ -25,33 +25,6 @@
 
 /* ---- iOS: inset grouped lists, no accent colour ---- */
 
-/* UIKit's large title, drawn here so that it scrolls with the page; the bar
-   shows its own title once this one is under it (TitledPageChrome.largeTitle). */
-.large-title {
-  position: relative;
-  margin: -8px 0 12px;
-  font: 700 34px / 41px -apple-system, system-ui, sans-serif;
-  letter-spacing: 0.4px;
-}
-
-/* Watched: out of sight once the title's letters (8px above its box's foot)
-   have gone under the bar, behind the solid part of the fade there. */
-.large-title-edge {
-  position: absolute;
-  top: calc(-0.85 * var(--top));
-  left: 0;
-  width: 1px;
-  height: calc(100% - 8px);
-  pointer-events: none;
-}
-
-/* A phone on its side has UIKit's small title alone. */
-@media (max-height: 500px) {
-  .large-title {
-    display: none;
-  }
-}
-
 :host-context(.platform-ios.native-chrome) .mais365 {
   --accent: var(--text-color);
   --on-accent: var(--background-color);

@@ -3,16 +3,14 @@ import { type ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatDialog } from "@angular/material/dialog"
 import { provideRouter } from "@angular/router"
 import { Subject } from "rxjs"
-import { page } from "vitest/browser"
 import { Mais365Service } from "../../services/mais365.service"
 import { Mais365ReminderService } from "../../services/mais365-reminder.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { lastCall } from "../../testing/spy-obj"
 import { Mais365Component } from "./mais365.component"
 
-// The iOS app's large title: the page draws it, and tells the bar whether
-// it is in sight, so that the bar shows its own title only once it isn't.
-describe("Mais365Component's large title", () => {
+// The apps' bars over the page: their title, and the reminder's bell.
+describe("Mais365Component in the apps' bars", () => {
   let fixture: ComponentFixture<Mais365Component>
   const actions = new Subject<{ id: string }>()
   const reminderEnabled = signal(false)
@@ -68,38 +66,22 @@ describe("Mais365Component's large title", () => {
 
   afterEach(() => (fixture.nativeElement as HTMLElement).remove())
 
-  it("leads the iOS page, and holds the bar's title back", async () => {
-    await create(false)
-    expect(title()?.textContent).toBe("+365")
-    expect(lastCall(chrome.show)[0]).toEqual({
-      mode: "page",
-      themeMode: expect.any(String),
-      title: "+365",
-      search: false,
-      largeTitle: true,
-      reminder: false,
-    })
-  })
-
-  // A phone, where the title goes up with the page (on a tablet the page's
-  // column keeps it in view, beside the days).
-  it("gives the title to the bar once scrolled under it, and takes it back", async () => {
-    await page.viewport(390, 844)
-    try {
-      await create(false)
-      const heading = title() as HTMLElement
-      heading.style.display = "none"
-      await vi.waitFor(() =>
-        expect(lastCall(chrome.show)[0].largeTitle).toBe(false),
-      )
-      heading.style.display = ""
-      await vi.waitFor(() =>
-        expect(lastCall(chrome.show)[0].largeTitle).toBe(true),
-      )
-    } finally {
-      await page.viewport(800, 600)
-    }
-  })
+  // The podcast's cover leads the page: no large title of its own on iOS,
+  // the bar's small one from the top, as on Android.
+  it.each([false, true])(
+    "leaves the title to the bar (Android: %s)",
+    async (android) => {
+      await create(android)
+      expect(title()).toBeNull()
+      expect(lastCall(chrome.show)[0]).toEqual({
+        mode: "page",
+        themeMode: expect.any(String),
+        title: "+365",
+        search: false,
+        reminder: false,
+      })
+    },
+  )
 
   // A proper bar button in the apps, as their ··· and search: not the web's.
   it("puts the reminder's bell in the bar, rings it, and opens it from there", async () => {
@@ -117,11 +99,5 @@ describe("Mais365Component's large title", () => {
     reminderEnabled.set(true)
     TestBed.tick()
     expect(lastCall(chrome.show)[0].reminder).toBe(true)
-  })
-
-  it("is not on Android, whose bar keeps its title", async () => {
-    await create(true)
-    expect(title()).toBeNull()
-    expect(lastCall(chrome.show)[0].largeTitle).toBeUndefined()
   })
 })

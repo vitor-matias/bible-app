@@ -101,21 +101,6 @@ export class Mais365Component implements OnInit, OnDestroy {
   private engaged = false
   private readonly injector = inject(Injector)
 
-  /** The iOS app's page leads with a large title, as UIKit's pages do. */
-  protected readonly largeTitle =
-    this.nativeChrome.enabled && !this.nativeChrome.android
-  /** That title is in sight, not yet scrolled under the bar. */
-  private readonly largeTitleInView = signal(this.largeTitle)
-  private readonly largeTitleEdge =
-    !this.largeTitle || typeof IntersectionObserver === "undefined"
-      ? undefined
-      : new IntersectionObserver(([entry]) => {
-          // Not once the page has gone: the next page's bars are its own.
-          if (!entry || !this.host.isConnected) return
-          this.largeTitleInView.set(entry.isIntersecting)
-          this.showBars()
-        })
-
   constructor() {
     // The bar's bell rings once the reminder is on (in the apps).
     effect(() => {
@@ -155,12 +140,7 @@ export class Mais365Component implements OnInit, OnDestroy {
       const day = days.find((d) => d.day === asked)
       if (day) untracked(() => this.selected.set(day))
     })
-    afterNextRender(() => {
-      this.watchCard()
-      const edge = this.host.querySelector(".large-title-edge")
-      if (edge) this.largeTitleEdge?.observe(edge)
-    })
-    this.destroyRef.onDestroy(() => this.largeTitleEdge?.disconnect())
+    afterNextRender(() => this.watchCard())
     // The row moves as the days load, as a day is marked read, and as the
     // days before it unfold above it (no scroll follows to tell).
     afterRenderEffect(() => {
@@ -619,7 +599,6 @@ export class Mais365Component implements OnInit, OnDestroy {
       themeMode: this.themeService.currentMode,
       title: "+365",
       search: false,
-      largeTitle: this.largeTitle ? this.largeTitleInView() : undefined,
       // The bell in the bar, as the apps' own buttons: the page's is the web's.
       reminder: this.reminder.enabled(),
     })
