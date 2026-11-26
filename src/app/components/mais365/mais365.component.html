@@ -141,11 +141,11 @@
         Dia {{ after.day }} <mat-icon iconPositionEnd>arrow_forward</mat-icon>
       </button>
       <button type="button" mat-icon-button class="listen" [attr.aria-label]="day.readings.length ? 'Ouvir e ler' : 'Ouvir'"
-        [title]="day.readings.length ? 'Ouvir e ler' : 'Ouvir'" (click)="plan.start(day)">
+        [title]="day.readings.length ? 'Ouvir e ler' : 'Ouvir'" (click)="plan.start(day, 0, 'plan', true)">
         <mat-icon>headphones</mat-icon>
       </button>
       } @else {
-      <button type="button" mat-flat-button class="main" (click)="plan.start(day)">
+      <button type="button" mat-flat-button class="main" (click)="plan.start(day, 0, 'plan', true)">
         <mat-icon>headphones</mat-icon> {{ day.readings.length ? 'Ouvir e ler' : 'Ouvir' }}
       </button>
       }

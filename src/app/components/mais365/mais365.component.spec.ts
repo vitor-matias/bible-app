@@ -463,7 +463,7 @@ describe("Mais365Component", () => {
       "Com o Padre Miguel Vasconcelos e o Padre Francisco Molho",
     )
     button("Ouvir")?.click()
-    expect(plan.start).toHaveBeenCalledWith(intro)
+    expect(plan.start).toHaveBeenCalledWith(intro, 0, "plan", true)
   })
 
   // Off to a chapter from the card, the reader had no way back to the plan.
@@ -493,7 +493,7 @@ describe("Mais365Component", () => {
     ).toEqual(["/gen/1", "/gen/2", "/psa/19"])
     expect(button("Ler sem áudio")).toBeUndefined()
     button("Ouvir e ler")?.click()
-    expect(plan.start).toHaveBeenCalledWith(day1)
+    expect(plan.start).toHaveBeenCalledWith(day1, 0, "plan", true)
   })
 
   // Listening named, the rest as icons: the card's row never wraps.
@@ -1089,7 +1089,7 @@ describe("Mais365Component", () => {
       const main = host().querySelector(".actions .main") as HTMLElement
       expect(main.textContent).toContain("Dia 2")
       button("Ouvir e ler")?.click()
-      expect(plan.start).toHaveBeenCalledWith(day1)
+      expect(plan.start).toHaveBeenCalledWith(day1, 0, "plan", true)
       main.click()
       fixture.detectChanges()
       expect(host().querySelector("#day-title")?.textContent).toBe("Dia 2")

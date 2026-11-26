@@ -18,6 +18,7 @@ import {
   type ChapterEpisode,
   PodcastPlayerService,
 } from "./podcast-player.service"
+import { ToastService } from "./toast.service"
 
 /** One of a +365 day's readings: a chapter, and its part of the episode. */
 export interface PlanReading {
@@ -169,6 +170,7 @@ export class Mais365Service {
   private readonly books = inject(BookService)
   private readonly http = inject(HttpClient)
   private readonly analytics = inject(AnalyticsService)
+  private readonly toast = inject(ToastService)
 
   /**
    * A reading's address as the reader has it (/gn/1, not /gen/1): no redirect
@@ -291,6 +293,9 @@ export class Mais365Service {
     if (!day || this.player.current()?.url !== day.url) return null
     const at = this.player.position()
     if (at >= day.reflection) return "reflection"
+    // The episode's opening, before its first reading: no reading yet.
+    const first = day.readings.find(({ episode }) => episode.start != null)
+    if (first && at < (first.episode.start ?? 0) - 0.5) return null
     let reading = 0
     // Readings without timings (no heading found) can't be placed: skipped.
     day.readings.forEach(({ episode }, index) => {
@@ -319,6 +324,14 @@ export class Mais365Service {
 
   constructor() {
     this.keepTodayFresh()
+    // The intro over (played or scrubbed past), or the day gone: its offer too.
+    effect(() => {
+      const until = this.introUntil()
+      if (until === null) return
+      const past = this.player.position() >= until - 0.5
+      const gone = !this.active()
+      if (past || gone) untracked(() => this.hideIntroOffer())
+    })
     // First, so the stage below sees a last reading heard before it ends
     // the day. A reading heard: played across its end in one go, having been
     // entered near its start (⏭ and «Ouvir e ler» land on it).
@@ -447,6 +460,25 @@ export class Mais365Service {
     })
   }
 
+  /** Hides the intro's «Saltar», once past it or the day changed. */
+  private hideIntroOffer: () => void = () => {}
+  /** The intro plays until here: the first reading's start. */
+  private readonly introUntil = signal<number | null>(null)
+
+  /** While the intro plays, a way to the first reading. */
+  private offerSkip(start: number): void {
+    this.introUntil.set(start)
+    const hide = this.toast.offer("A introdução do +365", "Saltar", () => {
+      this.player.seek(start)
+      this.hideIntroOffer()
+    })
+    this.hideIntroOffer = () => {
+      hide()
+      this.introUntil.set(null)
+      this.hideIntroOffer = () => {}
+    }
+  }
+
   /** The day being played through is this one (a light or a full copy of it). */
   isActive(day: PlanDay | undefined): boolean {
     return !!day && this.active()?.day === day.day
@@ -463,8 +495,10 @@ export class Mais365Service {
     listed: PlanDay,
     at = 0,
     from: "plan" | "episode" = "plan",
+    /** The episode's own opening first, the podcast's welcome, with a way past it. */
+    intro = false,
   ): Promise<void> {
-    this.begin(listed, at)
+    this.begin(listed, at, intro && at === 0)
     // From the plan's page, or joined from a chapter's ⏮ ⏭ (at its first
     // reading too: from its second, ⏮ lands there).
     void this.analytics.track("plan_day_start", {
@@ -479,7 +513,8 @@ export class Mais365Service {
   }
 
   /** Starts `day` at its reading `at` (its first, or one stepped to by ⏮ ⏭). */
-  private begin(day: PlanDay, at = 0): void {
+  private begin(day: PlanDay, at = 0, intro = false): void {
+    this.hideIntroOffer()
     this.heard.clear()
     this.enteredAt.clear()
     // The day before's stage would stand for this one's if it never plays.
@@ -502,16 +537,24 @@ export class Mais365Service {
       })
       return
     }
-    // From its first reading, even with that reading paused further on.
+    // From its first reading, even with that reading paused further on; or
+    // from the episode's start, its intro before that reading.
+    const from = intro ? 0 : (first.episode.start ?? 0)
     if (this.player.isCurrent(first.episode)) {
-      this.player.seek(first.episode.start ?? 0)
+      this.player.seek(from)
     } else {
-      this.player.position.set(first.episode.start ?? 0)
+      this.player.position.set(from)
+    }
+    if (intro && (first.episode.start ?? 0) > 0) {
+      this.offerSkip(first.episode.start ?? 0)
     }
     this.active.set(day)
     this.open(first)
-    if (!this.player.isCurrent(first.episode) || !this.player.playing()) {
-      this.player.toggle(first.episode)
+    // The intro: the first reading's stream from the episode's start, taken
+    // as that reading once it begins (stage).
+    const episode = intro ? { ...first.episode, start: 0 } : first.episode
+    if (!this.player.isCurrent(episode) || !this.player.playing()) {
+      this.player.toggle(episode)
     }
   }
 

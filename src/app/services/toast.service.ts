@@ -65,6 +65,26 @@ export class ToastService {
   }
 
   /**
+   * A message with one thing to do, kept until done or hidden: the glass
+   * toast's tap in the apps, the snackbar's button on the web. Returns the
+   * way to hide it.
+   */
+  offer(
+    message: string,
+    action: string,
+    onAction: () => void,
+    symbol = "forward.end",
+  ): () => void {
+    this.returnWatch?.unsubscribe()
+    if (this.nativeChrome.enabled) {
+      return this.nativeChrome.toast(message, { symbol, onTap: onAction })
+    }
+    const snack = this.snackBar.open(message, action)
+    snack.onAction().subscribe(onAction)
+    return () => snack.dismiss()
+  }
+
+  /**
    * Puts the snackbar showing back on top of what opened after it, as the notes
    * do over a way back. Overlays are popovers: the browser stacks them by the
    * order they were shown, whatever their z-index, so this shows it anew.

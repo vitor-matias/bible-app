@@ -96,6 +96,37 @@ describe("ToastService", () => {
     })
   })
 
+  // An episode's intro: «Saltar» while it plays, until done or hidden.
+  describe("an offer of one thing to do", () => {
+    it("is the snackbar's button on the web, kept till hidden", () => {
+      const actions = new Subject<void>()
+      const ref = { onAction: () => actions, dismiss: vi.fn() }
+      const service = create(false)
+      snackBar.open.mockReturnValue(ref as never)
+      const skip = vi.fn()
+      const hide = service.offer("A introdução do +365", "Saltar", skip)
+      expect(snackBar.open).toHaveBeenCalledWith(
+        "A introdução do +365",
+        "Saltar",
+      )
+      actions.next()
+      expect(skip).toHaveBeenCalled()
+      hide()
+      expect(ref.dismiss).toHaveBeenCalled()
+    })
+
+    it("is the glass toast's tap in the apps", () => {
+      const skip = vi.fn()
+      const hide = create(true).offer("A introdução do +365", "Saltar", skip)
+      expect(nativeChrome.toast).toHaveBeenCalledWith("A introdução do +365", {
+        symbol: "forward.end",
+        onTap: skip,
+      })
+      hide()
+      expect(hideToast).toHaveBeenCalled()
+    })
+  })
+
   describe("over a sheet opened after it", () => {
     function popover(child: string): HTMLElement {
       const element = document.createElement("div")
