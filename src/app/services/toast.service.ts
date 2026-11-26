@@ -65,6 +65,22 @@ export class ToastService {
   }
 
   /**
+   * Somewhere to go, for a tap: the glass toast in the apps, the snackbar's
+   * button on the web.
+   */
+  showOpen(message: string, action: string, open: () => void): void {
+    this.returnWatch?.unsubscribe()
+    if (this.nativeChrome.enabled) {
+      this.nativeChrome.toast(message, { symbol: "headphones", onTap: open })
+      return
+    }
+    this.snackBar
+      .open(message, action, { duration: 8000 })
+      .onAction()
+      .subscribe(open)
+  }
+
+  /**
    * Puts the snackbar showing back on top of what opened after it, as the notes
    * do over a way back. Overlays are popovers: the browser stacks them by the
    * order they were shown, whatever their z-index, so this shows it anew.

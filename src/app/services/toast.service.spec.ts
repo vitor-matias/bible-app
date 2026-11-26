@@ -96,6 +96,36 @@ describe("ToastService", () => {
     })
   })
 
+  // Where a +365 day went on to, for a reader gone elsewhere.
+  describe("somewhere to open", () => {
+    it("is the snackbar's button on the web", () => {
+      const actions = new Subject<void>()
+      const service = create(false)
+      snackBar.open.mockReturnValue({ onAction: () => actions } as never)
+      const open = vi.fn()
+      service.showOpen("+365 · Agora: Salmo 19", "Abrir", open)
+      expect(snackBar.open).toHaveBeenCalledWith(
+        "+365 · Agora: Salmo 19",
+        "Abrir",
+        { duration: 8000 },
+      )
+      actions.next()
+      expect(open).toHaveBeenCalled()
+    })
+
+    it("is the glass toast's tap in the apps", () => {
+      const open = vi.fn()
+      create(true).showOpen("+365 · Agora: Salmo 19", "Abrir", open)
+      expect(nativeChrome.toast).toHaveBeenCalledWith(
+        "+365 · Agora: Salmo 19",
+        {
+          symbol: "headphones",
+          onTap: open,
+        },
+      )
+    })
+  })
+
   describe("over a sheet opened after it", () => {
     function popover(child: string): HTMLElement {
       const element = document.createElement("div")

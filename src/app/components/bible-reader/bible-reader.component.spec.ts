@@ -125,6 +125,9 @@ describe("BibleReaderComponent", () => {
     ])
 
     routerSpy = createSpyObj("Router", ["navigate"])
+    // Where the reader is, as +365 asks before turning it to a reading: as
+    // from the plan's page, it turns the reader to the day's readings.
+    Object.assign(routerSpy, { url: "/mais365" })
     routerSpy.navigate.mockResolvedValue(true)
     navigationInFlight = signal<Navigation | null>(null)
     ;(

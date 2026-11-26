@@ -18,6 +18,7 @@ import {
   type ChapterEpisode,
   PodcastPlayerService,
 } from "./podcast-player.service"
+import { ToastService } from "./toast.service"
 
 /** One of a +365 day's readings: a chapter, and its part of the episode. */
 export interface PlanReading {
@@ -170,6 +171,7 @@ export class Mais365Service {
   private readonly books = inject(BookService)
   private readonly http = inject(HttpClient)
   private readonly analytics = inject(AnalyticsService)
+  private readonly toast = inject(ToastService)
 
   /**
    * A reading's address as the reader has it (/gn/1, not /gen/1): no redirect
@@ -191,8 +193,35 @@ export class Mais365Service {
       : null
   }
 
+  /** The chapter last opened for the day: while the reader stays on it, it follows. */
+  private opened: string | null = null
+
+  private path(reading: PlanReading): string {
+    return this.link(reading).join("/").replace(/^\/+/, "/")
+  }
+
+  /**
+   * The reader is on the reading the day was at (or last opened), or on the
+   * plan's page: the next reading (or the reflection) is opened for it.
+   * Another chapter picked meanwhile isn't left without asking.
+   */
+  private following(before?: PlanReading): boolean {
+    const path = this.router.url.split(/[?#]/)[0]
+    return (
+      path === "/mais365" ||
+      path === this.opened ||
+      (!!before && path === this.path(before))
+    )
+  }
+
+  /** Where the day has gone on to, for a reader elsewhere: a tap opens it. */
+  private offerOpen(label: string, open: () => void): void {
+    this.toast.showOpen(`+365 · Agora: ${label}`, "Abrir", open)
+  }
+
   /** Turns the reader to a reading, at its first verse. */
   private open(reading: PlanReading): void {
+    this.opened = this.path(reading)
     const queryParams = this.query(reading)
     void (queryParams
       ? this.router.navigate(this.link(reading), { queryParams })
@@ -381,6 +410,11 @@ export class Mais365Service {
         // The same day's full copy (start()) re-adopts the reading for its
         // timings, but isn't a new entry into it: that stays where it was.
         const entering = stage !== last.stage || day?.day !== last.day?.day
+        // The reading the day was at: the reader on it follows on.
+        const before =
+          typeof last.stage === "number"
+            ? last.day?.readings[last.stage]
+            : undefined
         last = { day, stage }
         if (!day || stage === null) return
         this.reached = stage
@@ -403,7 +437,9 @@ export class Mais365Service {
           if (day.readings.length && this.allHeard(day)) {
             this.markDone(day.day, true, "heard")
           }
-          void this.router.navigate(["/mais365"])
+          const toPlan = () => void this.router.navigate(["/mais365"])
+          if (this.following(before)) toPlan()
+          else this.offerOpen("Reflexão", toPlan)
           return
         }
         const reading = day.readings[stage]
@@ -411,7 +447,9 @@ export class Mais365Service {
         // Named for the system's player: the chapter, not the whole day.
         this.player.adopt({ ...reading.episode, title: readingLabel(reading) })
         // Once: the full copy's re-adoption mustn't take the reader back.
-        if (entering) this.open(reading)
+        if (!entering) return
+        if (this.following(before)) this.open(reading)
+        else this.offerOpen(readingLabel(reading), () => this.open(reading))
       })
     })
     // The episode over (or failed): the session with it.

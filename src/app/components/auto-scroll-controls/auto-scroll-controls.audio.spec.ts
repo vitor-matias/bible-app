@@ -467,6 +467,8 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       chapter,
       episode: { ...day3, start },
     })
+    // On the reading being heard: the day turns it on to the next.
+    vi.spyOn(TestBed.inject(Router), "url", "get").mockReturnValue("/exo/5")
     TestBed.inject(Mais365Service).active.set({
       day: 3,
       title: "A Arca de Noé",

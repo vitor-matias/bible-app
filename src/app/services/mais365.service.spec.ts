@@ -24,6 +24,7 @@ import {
   type ChapterEpisode,
   PodcastPlayerService,
 } from "./podcast-player.service"
+import { ToastService } from "./toast.service"
 
 const episode = (day: number, url: string, start: number, end: number) => ({
   day,
@@ -165,6 +166,11 @@ describe("Mais365Service", () => {
     seek?: ReturnType<typeof vi.fn>
   }
   let navigate: ReturnType<typeof vi.fn>
+  /** Where the reader is: the plan's page, unless a spec moves it. */
+  const router: { url: string; navigate?: ReturnType<typeof vi.fn> } = {
+    url: "/mais365",
+  }
+  const toast = { showOpen: vi.fn() }
 
   let http: HttpTestingController
   let track: ReturnType<typeof vi.fn>
@@ -176,7 +182,8 @@ describe("Mais365Service", () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: PodcastPlayerService, useValue: player },
-        { provide: Router, useValue: { navigate } },
+        { provide: Router, useValue: router },
+        { provide: ToastService, useValue: toast },
         { provide: BookService, useValue: { findBookById: () => undefined } },
         { provide: AnalyticsService, useValue: { track } },
       ],
@@ -212,6 +219,9 @@ describe("Mais365Service", () => {
     localStorage.removeItem("mais365Done")
     localStorage.removeItem("mais365Progress")
     navigate = vi.fn().mockResolvedValue(true)
+    router.url = "/mais365"
+    router.navigate = navigate
+    toast.showOpen.mockClear()
     track = vi.fn().mockResolvedValue(undefined)
     player = {
       current: signal<ChapterEpisode | null>(null),
@@ -579,7 +589,8 @@ describe("Mais365Service", () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: PodcastPlayerService, useValue: player },
-        { provide: Router, useValue: { navigate } },
+        { provide: Router, useValue: router },
+        { provide: ToastService, useValue: toast },
         { provide: BookService, useValue: { findBookById: () => undefined } },
         { provide: AnalyticsService, useValue: { track } },
       ],
@@ -595,6 +606,41 @@ describe("Mais365Service", () => {
     expect(plan.plan.error()).toBeTruthy()
     expect(plan.days()).toEqual([])
     expect(plan.today()).toBeUndefined()
+  })
+
+  describe("a reader gone to another chapter", () => {
+    it("isn't taken to the next reading, but offered it", async () => {
+      const plan = await create()
+      const day = find(plan, 1)
+      await start(plan, day)
+      const [first, second] = day.readings.map((r) => r.episode)
+      play(first.start as number, (first.start as number) + 10)
+      // On the first reading: followed into the second.
+      router.url = "/gen/1"
+      navigate.mockClear()
+      play((first.end as number) - 2, (second.start as number) + 1)
+      expect(lastCall(navigate)[0]).toEqual(["/", "gen", 2])
+
+      // Gone to Êxodo 3 meanwhile: left there, the next reading offered.
+      router.url = "/ex/3"
+      navigate.mockClear()
+      const third = day.readings[2].episode
+      play((second.end as number) - 2, (third.start as number) + 1)
+      expect(navigate).not.toHaveBeenCalled()
+      expect(lastCall(toast.showOpen).slice(0, 2)).toEqual([
+        "+365 · Agora: Salmo 19",
+        "Abrir",
+      ])
+      lastCall(toast.showOpen)[2]()
+      expect(lastCall(navigate)[0]).toEqual(["/", "psa", 19])
+
+      // Nor taken to the plan's page for the reflection.
+      router.url = "/ex/3"
+      navigate.mockClear()
+      play((third.end as number) - 2, day.reflection + 1)
+      expect(navigate).not.toHaveBeenCalled()
+      expect(lastCall(toast.showOpen)[0]).toBe("+365 · Agora: Reflexão")
+    })
   })
 
   describe("checkpoints", () => {
