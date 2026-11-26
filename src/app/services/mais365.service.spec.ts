@@ -893,6 +893,22 @@ describe("Mais365Service", () => {
       expect(navigate).toHaveBeenCalledTimes(1)
     })
 
+    it("plays the intro again from the top after «Terminar»", async () => {
+      const plan = await create()
+      const day = find(plan, 1)
+      await startWithIntro(plan, day)
+      at(30)
+      plan.end()
+      const intro = { ...day.readings[0].episode, start: 0 }
+      player.seek = vi.fn()
+      player.isCurrent.mockImplementation(
+        (e: ChapterEpisode) => e.url === intro.url && e.start === intro.start,
+      )
+      player.playing.set(false)
+      await startWithIntro(plan, day)
+      expect(player.seek).toHaveBeenCalledWith(0)
+    })
+
     it("starts at the reading itself otherwise (⏮ ⏭, a chapter's episode)", async () => {
       const plan = await create()
       const day = find(plan, 1)

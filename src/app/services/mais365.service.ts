@@ -534,7 +534,15 @@ export class Mais365Service {
     // From its first reading, even with that reading paused further on; or
     // from the episode's start, its intro before that reading.
     const from = intro ? 0 : (first.episode.start ?? 0)
-    if (this.player.isCurrent(first.episode)) {
+    // The intro: the first reading's stream from the episode's start, taken
+    // as that reading once it begins (stage).
+    const episode = intro ? { ...first.episode, start: 0 } : first.episode
+    // Either entry left in the player (the intro's, after «Terminar»): from
+    // the top, not where it stopped.
+    if (
+      this.player.isCurrent(first.episode) ||
+      this.player.isCurrent(episode)
+    ) {
       this.player.seek(from)
     } else {
       this.player.position.set(from)
@@ -542,9 +550,6 @@ export class Mais365Service {
     this.active.set(day)
     // The intro stays on the plan's page; its reading opens once it begins.
     if (!intro) this.open(first)
-    // The intro: the first reading's stream from the episode's start, taken
-    // as that reading once it begins (stage).
-    const episode = intro ? { ...first.episode, start: 0 } : first.episode
     if (!this.player.isCurrent(episode) || !this.player.playing()) {
       this.player.toggle(episode)
     }
