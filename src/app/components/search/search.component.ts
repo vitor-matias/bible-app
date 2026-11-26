@@ -57,6 +57,7 @@ import {
   resolveVerseKey,
   verseRefValue,
 } from "../../utils/verse-ref"
+import { NowPlayingComponent } from "../now-playing/now-playing.component"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 import { getVerseQueryParams } from "../verse/verse.utils"
 
@@ -163,7 +164,12 @@ export interface PsalmOption {
   styleUrl: "./search.component.css",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SearchBarComponent, UnifiedGesturesDirective, MatIconModule],
+  imports: [
+    SearchBarComponent,
+    UnifiedGesturesDirective,
+    MatIconModule,
+    NowPlayingComponent,
+  ],
 })
 export class SearchComponent {
   private apiService = inject(BibleApiService)

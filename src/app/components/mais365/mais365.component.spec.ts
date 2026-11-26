@@ -625,6 +625,22 @@ describe("Mais365Component", () => {
     ).toBeNull()
   })
 
+  // Ended (✕): the card stays on that day, not the earliest unread one.
+  it("keeps the day just left on the card", () => {
+    plan.days.set([intro, day1])
+    plan.today.set(intro)
+    plan.active.set(day1)
+    plan.stage.set(0)
+    fixture.detectChanges()
+    plan.active.set(null)
+    plan.stage.set(null)
+    fixture.detectChanges()
+    expect(
+      (fixture.nativeElement as HTMLElement).querySelector("#day-title")
+        ?.textContent,
+    ).toBe(day1.title)
+  })
+
   // start() swaps the day's light copy for its full one when that loads.
   it("keeps a day picked while the playing day's full copy loads", () => {
     plan.active.set(day1)
@@ -867,8 +883,9 @@ describe("Mais365Component", () => {
     beforeEach(() => {
       plan.days.set([intro, ...days])
       plan.today.set(days[60])
-      // The card on today's day, as at the first paint.
-      plan.active.set(days[0])
+      // The card on today's day, as at the first paint (a day ended keeps
+      // its card: today's is the one left).
+      plan.active.set(days[60])
       fixture.detectChanges()
       plan.active.set(null)
       fixture.detectChanges()

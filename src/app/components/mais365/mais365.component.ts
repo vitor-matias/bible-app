@@ -439,6 +439,12 @@ export class Mais365Component implements OnInit, OnDestroy {
     source: () => ({ active: this.plan.active(), days: this.plan.days() }),
     computation: ({ active, days }, previous) => {
       const kept = previous?.value
+      // A day just ended (✕, or heard out): its card stays, not the
+      // earliest unread one.
+      const left = previous?.source.active
+      if (!active && left) {
+        return days.find((day) => day.day === left.day) ?? left
+      }
       if (active) {
         // The same day's full copy in place of its light one: a day picked
         // meanwhile stays picked.
