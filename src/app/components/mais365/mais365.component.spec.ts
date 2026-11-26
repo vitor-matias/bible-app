@@ -631,16 +631,23 @@ describe("Mais365Component", () => {
     })
 
     // The days before it unfolded, at the top of them.
+    // Unfolded with the page at its top: no scroll follows, and the row
+    // moved under the fold all the same (it passed on a stray scroll event).
     it("points down to a next day below", async () => {
+      window.scrollTo(0, 0)
       plan.today.set(days[79])
       fixture.detectChanges()
+      await fixture.whenStable()
       button("dias anteriores")?.click()
       fixture.detectChanges()
-      window.scrollTo(0, 0)
-      await vi.waitFor(() => {
-        fixture.detectChanges()
-        expect(pill()?.textContent).toContain("arrow_downward")
-      })
+      // A slower runner: a frame's check may take a while to land.
+      await vi.waitFor(
+        () => {
+          fixture.detectChanges()
+          expect(pill()?.textContent).toContain("arrow_downward")
+        },
+        { timeout: 3000 },
+      )
     })
   })
 

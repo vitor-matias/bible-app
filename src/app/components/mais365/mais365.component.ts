@@ -144,10 +144,12 @@ export class Mais365Component implements OnInit, OnDestroy {
       if (edge) this.largeTitleEdge?.observe(edge)
     })
     this.destroyRef.onDestroy(() => this.largeTitleEdge?.disconnect())
-    // The row moves as the days load and as a day is marked read.
+    // The row moves as the days load, as a day is marked read, and as the
+    // days before it unfold above it (no scroll follows to tell).
     afterRenderEffect(() => {
       this.plan.today()
       this.plan.days()
+      this.shownSections()
       this.checkNext()
     })
     // Measured as the page scrolls, not observed: a row under the card that
