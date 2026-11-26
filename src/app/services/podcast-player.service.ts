@@ -663,13 +663,16 @@ export class PodcastPlayerService {
     duration: number,
     playing: boolean,
   ): void {
-    if (typeof navigator === "undefined" || !navigator.mediaSession) return
-    const session = navigator.mediaSession
+    // Android's WebView has none: its shell shows the session (setMedia).
+    const session =
+      typeof navigator === "undefined" ? undefined : navigator.mediaSession
     // Ended or failed: nothing to show playing.
     if (!current) {
       this.nativeChrome.setMedia(null)
-      session.metadata = null
-      session.playbackState = "none"
+      if (session) {
+        session.metadata = null
+        session.playbackState = "none"
+      }
       return
     }
     // A chapter is the Bible's; only a day of the plan is +365's.
@@ -679,11 +682,12 @@ export class PodcastPlayerService {
         ? `+365 · Dia ${current.day}`
         : "+365"
       : "Bíblia Sagrada"
-    session.playbackState = playing ? "playing" : "paused"
+    if (session) session.playbackState = playing ? "playing" : "paused"
     if (
-      this.retellSession ||
-      session.metadata?.title !== current.title ||
-      session.metadata?.artist !== artist
+      session &&
+      (this.retellSession ||
+        session.metadata?.title !== current.title ||
+        session.metadata?.artist !== artist)
     ) {
       this.retellSession = false
       session.metadata = new MediaMetadata({
@@ -704,7 +708,6 @@ export class PodcastPlayerService {
     const whole = this.chainTime(position)
     const span = whole ? whole.length : (current.end ?? duration) - start
     const at = whole ? whole.elapsed : position - start
-    // Android's WebView doesn't bridge the above: its shell shows the session.
     this.nativeChrome.setMedia({
       title: current.title,
       artist,
@@ -713,7 +716,7 @@ export class PodcastPlayerService {
       duration: span > 0 ? Math.round(span) : 0,
       rate,
     })
-    if (!(span > 0)) return
+    if (!session || !(span > 0)) return
     try {
       session.setPositionState({
         duration: span,

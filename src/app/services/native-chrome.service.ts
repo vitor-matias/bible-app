@@ -97,6 +97,8 @@ export class NativeChromeService {
   private collapsed = false
   private autoScroll: AutoScrollChrome | null = null
   private podcast: PodcastChrome | null = null
+  /** ▶ was tapped on the shell's +365 controls, and the player hasn't played yet. */
+  private playAsked = false
   /** Auto-scroll or +365 reads on by itself: the bars make way, its controls stay. */
   private get handsFree(): boolean {
     return !!(this.autoScroll?.playing || this.podcast?.playing)
@@ -168,6 +170,12 @@ export class NativeChromeService {
           this.toastAction = undefined
           run?.()
         } else {
+          if (
+            action.id === "podcast-toggle" ||
+            action.id === "auto-scroll-listen"
+          ) {
+            this.playAsked = true
+          }
           this.actionSubject.next(action)
         }
       }),
@@ -258,11 +266,12 @@ export class NativeChromeService {
   /** Shows the +365 player over the text, in auto-scroll's place; null hides it. */
   setPodcast(state: PodcastChrome | null): void {
     if (!this.enabled) return
-    // Not for a player that comes up already playing (a +365 reading opened
-    // from the plan's page): the reader arrives with its bars.
-    if (this.podcast || !state?.playing) {
-      this.followHandsFree(this.podcast, state)
-    }
+    // Only a play asked for on the shell's own controls hides the bars: a
+    // reading opened from the plan's page arrives with them, whether its
+    // audio is already playing or starts a moment after the reader shows.
+    const starts = !!state?.playing && !this.podcast?.playing
+    if (!starts || this.playAsked) this.followHandsFree(this.podcast, state)
+    if (starts || !state || this.podcast?.playing) this.playAsked = false
     this.podcast = state
     this.push()
   }

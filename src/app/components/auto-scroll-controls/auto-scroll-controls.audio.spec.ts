@@ -695,6 +695,18 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(lastCall(setMedia)[0]).toBeNull()
   })
 
+  // The Android WebView has no navigator.mediaSession at all.
+  it("tells the Android shell even where the web view has no media session", async () => {
+    vi.spyOn(navigator, "mediaSession", "get").mockReturnValue(
+      undefined as never,
+    )
+    const setMedia = vi.spyOn(TestBed.inject(NativeChromeService), "setMedia")
+    await listen()
+    tap(toggle())
+    TestBed.tick()
+    expect(lastCall(setMedia)[0]?.playing).toBe(true)
+  })
+
   it("keeps the screen on while +365 plays", async () => {
     const keepAwake = TestBed.inject(KeepAwakeService)
     const start = vi.spyOn(keepAwake, "start")

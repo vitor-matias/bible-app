@@ -982,6 +982,7 @@ describe("NativeChromeService", () => {
       service.trackScroll(scroller)
       service.setPodcast(podcast)
       expect(collapsed()).toBe(false)
+      listener("action")({ id: "podcast-toggle" })
       service.setPodcast({ ...podcast, playing: true })
       expect(collapsed()).toBe(true)
       expect(lastState()).toEqual(
@@ -994,6 +995,38 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBe(false)
       service.setPodcast({ ...podcast, playing: true })
       service.setPodcast(null)
+      expect(collapsed()).toBe(false)
+    })
+
+    // «Continuar» on the plan's page starts the audio a moment after the
+    // reader showed (Android: the bars were left as an empty band).
+    it("leaves them up when a reading's audio starts by itself after the reader shows", () => {
+      const podcast = {
+        caption: "Génesis 2",
+        context: "+365 · Dia 3",
+        playing: false,
+        canPlay: true,
+        loaded: true,
+        elapsed: 0,
+        length: 210,
+        rate: 1,
+        rateAccessibilityLabel: "1 vez",
+        canSlower: true,
+        canFaster: true,
+        inPlan: true,
+        previousLabel: null,
+        nextLabel: null,
+        canScroll: false,
+        canClose: true,
+      }
+      service.trackScroll(scroller)
+      service.setPodcast(podcast)
+      service.setPodcast({ ...podcast, playing: true })
+      expect(collapsed()).toBe(false)
+      // A pause asked for, then the next start by itself: still not hidden.
+      listener("action")({ id: "podcast-toggle" })
+      service.setPodcast({ ...podcast, playing: false })
+      service.setPodcast({ ...podcast, playing: true })
       expect(collapsed()).toBe(false)
     })
 
