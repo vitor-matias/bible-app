@@ -67,6 +67,7 @@
         </button>
         <button class="auto-scroll-toggle audio-toggle" type="button" mat-fab
           [attr.aria-label]="playingThis() ? 'Pausar o +365' : 'Ouvir o +365'" [attr.aria-pressed]="playingThis()"
+          aria-keyshortcuts="K" [title]="(playingThis() ? 'Pausar' : 'Ouvir') + ' (K)'"
           [disabled]="!entry()" (click)="toggleAudio()">
           <mat-icon>{{ playingThis() ? 'pause' : 'play_arrow' }}</mat-icon>
         </button>

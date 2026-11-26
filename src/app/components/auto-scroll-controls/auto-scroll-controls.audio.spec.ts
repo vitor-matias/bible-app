@@ -456,6 +456,30 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.currentTime).toBe(56.5)
   })
 
+  // A desktop's shortcut, as video and podcast sites have it.
+  it("plays and pauses with K, but not while typing", async () => {
+    await listen()
+    const press = (target: EventTarget, init: KeyboardEventInit = {}) =>
+      target.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "k", bubbles: true, ...init }),
+      )
+    press(window)
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    press(window, { metaKey: true })
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    const field = document.createElement("input")
+    document.body.append(field)
+    press(field)
+    field.remove()
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Pausar o +365")
+    press(window)
+    fixture.detectChanges()
+    expect(toggle()?.getAttribute("aria-label")).toBe("Ouvir o +365")
+  })
+
   // The web's card ends a day as the apps' does: ✕ in the mode switch's place.
   it("ends the day from ✕ on the web", async () => {
     await listen()

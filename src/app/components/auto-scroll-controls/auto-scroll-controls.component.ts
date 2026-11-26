@@ -8,6 +8,7 @@ import {
   DestroyRef,
   ElementRef,
   effect,
+  HostListener,
   Injector,
   inject,
   input,
@@ -945,6 +946,31 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   /** The reader moving the text: read-along stands back for a while. */
   private noteReaderMoved = () => {
     this.readerMovedAt = Date.now()
+  }
+
+  /**
+   * K plays and pauses +365 on a desktop, as on video and podcast sites:
+   * not Space, which scrolls the page. Not in a field or over a dialog.
+   */
+  @HostListener("window:keydown", ["$event"])
+  onPlayKey(event: KeyboardEvent): void {
+    const target = event.target instanceof HTMLElement ? event.target : null
+    if (
+      event.key.toLowerCase() !== "k" ||
+      event.repeat ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      this.native ||
+      !this.audioMode() ||
+      !this.entry() ||
+      target?.isContentEditable ||
+      target?.closest("input, textarea, select, .cdk-overlay-container")
+    ) {
+      return
+    }
+    event.preventDefault()
+    this.toggleAudio()
   }
 
   private noteReaderKey = (event: KeyboardEvent) => {
