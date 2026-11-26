@@ -1,0 +1,131 @@
+/* The day's card: what the phone trims and the marks it carries. */
+.kicker-end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* The streak, from two days: a flame, filled once today is read. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.chip .mat-icon {
+  width: 1.2em;
+  height: 1.2em;
+  font-size: 1.2em;
+}
+
+.chip .lit,
+.day-mark.filled {
+  font-variation-settings: "FILL" 1;
+}
+
+.tools {
+  gap: 8px;
+}
+
+.today .actions .mat-mdc-button-base {
+  min-width: 44px;
+  height: 44px;
+}
+
+/* Icon-only unless it names itself («Lido», the next day's step). */
+.tools .mark {
+  --mat-button-text-label-text-color: var(--text-color);
+  padding: 0;
+}
+
+.tools .mark .mat-icon {
+  margin: 0;
+}
+
+.tools .mark.named {
+  padding: 0 12px 0 8px;
+}
+
+.tools .mark.named .mat-icon {
+  margin-inline-end: 4px;
+}
+
+.more-row {
+  display: none;
+}
+
+.more-row button {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.more-row button:focus-visible {
+  outline: 2px solid var(--text-color);
+  outline-offset: -2px;
+}
+
+/* A phone: the card stays over the list, so it shows three readings, the
+   rest a tap away. */
+@media not all and (min-width: 760px) and (min-height: 600px) {
+  .more-row {
+    display: block;
+  }
+
+  .readings:not(.open) .extra {
+    display: none;
+  }
+}
+
+/* And on a short screen, tighter still. */
+/* One column and short: narrow, or under 600px high (a phone on its side). */
+@media (max-width: 759px) and (max-height: 700px), (max-height: 599px) {
+  .today-column {
+    padding-block: 4px 8px;
+  }
+
+  .card {
+    padding: 12px 16px;
+  }
+
+  .card h2 {
+    margin: 2px 0 6px;
+    font-size: 1.2em;
+  }
+
+  .priest {
+    margin: -2px 0 6px;
+  }
+
+  .readings {
+    margin-bottom: 8px;
+  }
+}
+
+.today .actions .main {
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+/* A small phone: the readings and the action must both fit the card. */
+@media (max-width: 759px) and (max-height: 600px), (max-height: 599px) {
+  .today .priest {
+    display: none;
+  }
+
+  .today .readings a,
+  .more-row button {
+    min-height: 40px;
+  }
+}

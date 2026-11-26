@@ -427,13 +427,13 @@ progress::-moz-progress-bar {
 
 /* On a phone too, the day's card stays while the list scrolls under it:
    most readers come for it alone. The title and the progress go up with the
-   page; the list keeps a fifth of the screen at least. */
+   page; the list keeps two fifths of the screen at least. */
 @media not all and (min-width: 760px) and (min-height: 600px) {
   .today-column {
     position: sticky;
     top: var(--top);
     z-index: 1;
-    max-height: calc(80dvh - var(--top));
+    max-height: calc(60dvh - var(--top));
     overflow-y: auto;
     overscroll-behavior: contain;
     margin-inline: -16px;
