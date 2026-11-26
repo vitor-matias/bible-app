@@ -1029,12 +1029,12 @@ describe("Mais365Component", () => {
     })
 
     // «Lido» read as a state, the day done already: it says what to do.
-    it("names the mark «Já li» on the next day to read, icon only elsewhere", () => {
-      expect(mark().textContent).toContain("Já li")
-      expect(mark().textContent).not.toContain("Lido")
+    // «Lido» read as done already, «Marcar como lido» didn't fit a small
+    // phone: an empty circle, filled once read, said in words to readers.
+    it("shows the mark as an icon alone, named for screen readers", () => {
+      expect(mark().textContent?.trim()).toBe("radio_button_unchecked")
+      expect(mark().getAttribute("aria-label")).toBe("Marcar como lido")
       pick("No princípio")
-      expect(mark().textContent).not.toContain("Já li")
-      expect(mark().classList).not.toContain("named")
     })
 
     it("offers the next unread day once this one is read, «Ouvir e ler» beside it", () => {

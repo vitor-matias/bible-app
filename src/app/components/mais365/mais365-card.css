@@ -44,14 +44,6 @@
   margin: 0;
 }
 
-.tools .mark.named {
-  padding: 0 12px 0 8px;
-}
-
-.tools .mark.named .mat-icon {
-  margin-inline-end: 4px;
-}
-
 .more-row {
   display: none;
 }
