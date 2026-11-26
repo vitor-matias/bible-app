@@ -294,19 +294,22 @@ describe("Mais365Component", () => {
     expect(state("No princípio")).toBe("a ouvir")
   })
 
-  // One column: the card is above the list, out of sight from a day far down.
-  it("brings the card of a day picked into view on a narrow screen", async () => {
+  // One column: the card stays over the list, so a day picked changes it
+  // there; the page keeps its place in the list.
+  it("shows a day picked in the card that stays, on a narrow screen", async () => {
     await page.viewport(390, 800)
     try {
-      const scroll = vi
-        .spyOn(Element.prototype, "scrollIntoView")
-        .mockImplementation(() => {})
+      const scrollTo = vi.spyOn(window, "scrollTo")
+      const scrollBy = vi.spyOn(window, "scrollBy")
       button("No princípio")?.click()
       fixture.detectChanges()
       await fixture.whenStable()
-      expect(scroll.mock.contexts[0]).toBe(
-        (fixture.nativeElement as HTMLElement).querySelector(".card.today"),
-      )
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector("#day-title")
+          ?.textContent,
+      ).toBe("No princípio")
+      expect(scrollTo).not.toHaveBeenCalled()
+      expect(scrollBy).not.toHaveBeenCalled()
     } finally {
       await page.viewport(800, 600)
     }
@@ -445,20 +448,48 @@ describe("Mais365Component", () => {
       })
       expect(pill()?.textContent).toContain("arrow_upward")
 
-      const scroll = vi
-        .spyOn(Element.prototype, "scrollIntoView")
-        .mockImplementation(() => {})
+      const scroll = vi.spyOn(window, "scrollBy").mockImplementation(() => {})
       button("Dia 5")?.click()
       pill()?.click()
       fixture.detectChanges()
-      expect(scroll).toHaveBeenCalledWith(
-        expect.objectContaining({ block: "center" }),
-      )
-      expect(scroll.mock.contexts[0]).toBe(
-        (fixture.nativeElement as HTMLElement).querySelector("[data-next]"),
-      )
+      // Up, to the row: it is above the window.
+      const [options] = scroll.mock.lastCall as unknown as [ScrollToOptions]
+      expect(options.top).toBeLessThan(0)
       // Its card too, in place of the day picked.
       expect(text()).toContain("Dia 3 · Hoje")
+    })
+
+    // On a phone the day's card stays over the list as it scrolls: a row
+    // behind it is out of sight, and is brought out under it.
+    it("keeps the card on a phone, and counts a row behind it as away", async () => {
+      await page.viewport(390, 844)
+      try {
+        plan.today.set(days[2])
+        fixture.detectChanges()
+        const host = fixture.nativeElement as HTMLElement
+        const column = host.querySelector(".today-column") as HTMLElement
+        expect(getComputedStyle(column).position).toBe("sticky")
+        // The title and the progress go up with the page.
+        expect(column.querySelector(".intro, .progress")).toBeNull()
+        window.scrollTo(0, document.documentElement.scrollHeight)
+        await vi.waitFor(() => {
+          fixture.detectChanges()
+          expect(pill()?.textContent).toContain("arrow_upward")
+        })
+        // Scrolled just so the row is under the card: still away.
+        const row = host.querySelector("[data-next]") as HTMLElement
+        const card = column.getBoundingClientRect()
+        window.scrollBy(0, row.getBoundingClientRect().top - card.top - 4)
+        await vi.waitFor(() => {
+          fixture.detectChanges()
+          expect(row.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+            column.getBoundingClientRect().bottom,
+          )
+          expect(pill()?.textContent).toContain("arrow_upward")
+        })
+      } finally {
+        await page.viewport(800, 600)
+      }
     })
 
     // The days before it unfolded, at the top of them.

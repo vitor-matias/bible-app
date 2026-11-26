@@ -353,9 +353,12 @@ progress::-moz-progress-bar {
    all most readers come for, and stays in view while the days scroll by
    beside it. The same on the web and in the apps. */
 @media (min-width: 760px) {
+  /* The lead over the card, the days beside both. */
   .mais365 {
     display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr);
+    grid-template:
+      "lead list" auto
+      "today list" 1fr / minmax(0, 3fr) minmax(300px, 2fr);
     gap: clamp(24px, 4vw, 48px);
     max-width: 68rem;
     padding-inline: clamp(16px, 3vw, 32px);
@@ -363,7 +366,16 @@ progress::-moz-progress-bar {
 
   /* Two cards can be taller than the window: then the column scrolls in
      place, its foot still in reach. */
+  .lead {
+    grid-area: lead;
+  }
+
+  .days-column {
+    grid-area: list;
+  }
+
   .today-column {
+    grid-area: today;
     position: sticky;
     top: calc(var(--top) + 24px);
     align-self: start;
@@ -379,6 +391,24 @@ progress::-moz-progress-bar {
 
   .days-title {
     margin-top: 0;
+  }
+}
+
+/* On a phone too, the day's card stays while the list scrolls under it:
+   most readers come for it alone. The title and the progress go up with the
+   page; the list keeps a fifth of the screen at least. */
+@media (max-width: 759px) {
+  .today-column {
+    position: sticky;
+    top: var(--top);
+    z-index: 1;
+    max-height: calc(80dvh - var(--top));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    margin-inline: -16px;
+    padding: 8px 16px 12px;
+    background: var(--background-color);
+    box-shadow: 0 1px 0 var(--line);
   }
 }
 

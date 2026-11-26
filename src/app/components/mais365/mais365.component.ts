@@ -1,5 +1,4 @@
 import {
-  afterNextRender,
   afterRenderEffect,
   ChangeDetectionStrategy,
   Component,
@@ -7,7 +6,6 @@ import {
   DestroyRef,
   ElementRef,
   effect,
-  Injector,
   inject,
   linkedSignal,
   type OnDestroy,
@@ -73,25 +71,12 @@ export class Mais365Component implements OnInit, OnDestroy {
     (typeof navigator !== "undefined" &&
       (typeof navigator.share === "function" || !!navigator.clipboard))
   private readonly destroyRef = inject(DestroyRef)
-  private readonly injector = inject(Injector)
   private readonly host =
     inject<ElementRef<HTMLElement>>(ElementRef).nativeElement
 
   /** Where the next day to read is, scrolled out of sight: above or below. */
   protected readonly nextAway = signal<"up" | "down" | null>(null)
-  private readonly nextRow =
-    typeof IntersectionObserver === "undefined"
-      ? undefined
-      : new IntersectionObserver(([entry]) => {
-          if (!entry) return
-          this.nextAway.set(
-            entry.isIntersecting
-              ? null
-              : entry.boundingClientRect.top < 0
-                ? "up"
-                : "down",
-          )
-        })
+  private checking = 0
 
   constructor() {
     effect(() => {
@@ -106,12 +91,69 @@ export class Mais365Component implements OnInit, OnDestroy {
     afterRenderEffect(() => {
       this.plan.today()
       this.plan.days()
-      this.nextRow?.disconnect()
-      this.nextAway.set(null)
-      const row = this.host.querySelector("[data-next]")
-      if (row) this.nextRow?.observe(row)
+      this.checkNext()
     })
-    this.destroyRef.onDestroy(() => this.nextRow?.disconnect())
+    // Measured as the page scrolls, not observed: a row under the card that
+    // stays on a phone is out of sight, though on screen.
+    if (typeof window !== "undefined") {
+      const check = () => {
+        if (this.checking) return
+        this.checking = requestAnimationFrame(() => {
+          this.checking = 0
+          this.checkNext()
+        })
+      }
+      window.addEventListener("scroll", check, { passive: true })
+      window.addEventListener("resize", check, { passive: true })
+      this.destroyRef.onDestroy(() => {
+        window.removeEventListener("scroll", check)
+        window.removeEventListener("resize", check)
+        cancelAnimationFrame(this.checking)
+      })
+    }
+  }
+
+  /**
+   * The part of the window where a list row can be seen: below the card
+   * where it stays over the list (a phone), else below the bars.
+   */
+  private shownArea(
+    row: Element | null,
+  ): { top: number; bottom: number } | null {
+    if (!row) return null
+    const box = row.getBoundingClientRect()
+    const column = this.host.querySelector(".today-column")
+    const card = column?.getBoundingClientRect()
+    const over =
+      !!column &&
+      !!card &&
+      getComputedStyle(column).position === "sticky" &&
+      card.left < box.right &&
+      box.left < card.right
+    const bars = Number.parseFloat(
+      getComputedStyle(
+        this.host.querySelector(".mais365") ?? this.host,
+      ).getPropertyValue("--top"),
+    )
+    const top = Math.max(
+      over && card ? card.bottom : 0,
+      Number.isFinite(bars) ? bars : 0,
+    )
+    return { top, bottom: window.innerHeight }
+  }
+
+  /** Whether the next day's row is out of sight, and which way. */
+  private checkNext(): void {
+    const row = this.host.querySelector("[data-next]")
+    const shown = this.shownArea(row)
+    if (!row || !shown) {
+      this.nextAway.set(null)
+      return
+    }
+    const box = row.getBoundingClientRect()
+    this.nextAway.set(
+      box.bottom <= shown.top ? "up" : box.top >= shown.bottom ? "down" : null,
+    )
   }
 
   /** Back to the next day to read: its row in view, its card shown. */
@@ -119,7 +161,18 @@ export class Mais365Component implements OnInit, OnDestroy {
     const next = this.plan.today()
     if (!next) return
     this.selected.set(next)
-    this.scrollTo(this.host.querySelector("[data-next]"), "center")
+    const row = this.host.querySelector("[data-next]")
+    const shown = this.shownArea(row)
+    if (!row || !shown) return
+    // In the middle of what can be seen of the list: under the card that
+    // stays on a phone, not behind it.
+    const box = row.getBoundingClientRect()
+    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)")
+      .matches
+    window.scrollBy({
+      top: box.top + box.height / 2 - (shown.top + shown.bottom) / 2,
+      behavior: smooth ? "smooth" : "auto",
+    })
   }
 
   /**
@@ -171,31 +224,13 @@ export class Mais365Component implements OnInit, OnDestroy {
     return section.days.filter((day) => this.isDone(day)).length
   }
 
-  private scrollTo(target: Element | null, block: ScrollLogicalPosition): void {
-    const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)")
-      .matches
-    target?.scrollIntoView({ block, behavior: smooth ? "smooth" : "auto" })
-  }
-
   /**
    * A day picked from the list: its card, brought into view where the list
    * has pushed it out (one column; beside the list it stays in sight).
    */
   protected select(day: PlanDay): void {
+    // The card stays in sight, on a phone too: it changes where it is.
     this.selected.set(day)
-    const column = this.host.querySelector(".today-column")
-    if (!column || getComputedStyle(column).position === "sticky") return
-    // Once rendered: during a reflection the day's card is only now there.
-    afterNextRender(
-      () =>
-        // The day being heard through its reflection has that card alone.
-        this.scrollTo(
-          this.host.querySelector(".card.today") ??
-            this.host.querySelector(".card"),
-          "nearest",
-        ),
-      { injector: this.injector },
-    )
   }
 
   /**

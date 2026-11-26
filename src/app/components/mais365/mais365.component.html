@@ -1,6 +1,7 @@
 <!-- Named by the reader's header on the web, by the apps' bars natively. -->
 <div class="mais365" [attr.role]="nativeChrome.enabled ? 'main' : null">
-  <div class="today-column">
+  <!-- What the page is and how far in: scrolls away, the day's card stays. -->
+  <div class="lead">
   <p class="intro">A Bíblia num ano, um pouco por dia, com as leituras do podcast +365.</p>
   @if (plan.days().length) {
   <div class="progress">
@@ -14,7 +15,9 @@
     </div>
   </div>
   }
+  </div>
 
+  <div class="today-column">
   @if (inReflection() && plan.active(); as day) {
   <!-- After the day's readings, the reflection; or an introduction, all of it. -->
   <section class="card reflection" aria-labelledby="reflection-title">
