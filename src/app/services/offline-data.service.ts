@@ -30,6 +30,8 @@ export class OfflineDataService implements OnDestroy {
   private cacheFlagKey = "booksCacheReady"
   private groupIntrosCacheFlagKey = "groupIntrosCacheReady"
   private cacheTimestampKey = "booksCacheTimestamp"
+  // The API's hash of the catalog the cache holds (/v1/books/hash).
+  private cacheHashKey = "booksCacheHash"
   private cacheSchemaKey = "booksCacheSchemaVersion"
   // Bump when the persisted Book/Chapter/Verse shape changes incompatibly, so
   // stale IndexedDB records are dropped and re-cached.
@@ -143,22 +145,34 @@ export class OfflineDataService implements OnDestroy {
       (!storage || this.areGroupIntrosCached()) &&
       holds(true)
     const isExpired = this.isCacheExpired()
-    if (booksAlreadyCached && introsAlreadyCached && !isExpired) {
-      return false
-    }
     if (isExpired && this.networkService.isOffline) {
       // Offline: prefer stale data over losing offline reading.
       return false
     }
+    // A reimport that changed the data (Ester's numbered additions, say)
+    // reaches a cache before it expires. Offline, or with no answer, the
+    // cache is kept.
+    const hash = this.networkService.isOffline
+      ? undefined
+      : await this.fetchCatalogHash()
+    const catalogChanged =
+      !!hash && storage?.getItem(this.cacheHashKey) !== hash
+    if (
+      booksAlreadyCached &&
+      introsAlreadyCached &&
+      !isExpired &&
+      !catalogChanged
+    ) {
+      return false
+    }
 
     let failed = false
-    if (!booksAlreadyCached || isExpired) {
+    if (!booksAlreadyCached || isExpired || catalogChanged) {
       let books: Book[] | undefined
       try {
         books = await this.fetch<Book[]>(
           `${this.apiBase}/books?withChapters=true`,
-          // Native is cross-origin, where a custom header forces a CORS preflight.
-          Capacitor.isNativePlatform() ? {} : { "ngsw-bypass": "true" },
+          this.preloadHeaders(),
         )
         // An empty 200 parses as null: a failed download, worth retrying.
         if (!Array.isArray(books) || !books.length) {
@@ -174,6 +188,7 @@ export class OfflineDataService implements OnDestroy {
       if (books) {
         try {
           await this.setCachedBooks(books)
+          if (hash) storage?.setItem(this.cacheHashKey, hash)
           this.trackBooksCachedEvent()
         } catch (error) {
           console.error("Failed to preload books for offline use", error)
@@ -188,6 +203,23 @@ export class OfflineDataService implements OnDestroy {
       failed = this.introsIncomplete || failed
     }
     return failed
+  }
+
+  /** The API's hash of the catalog, or undefined when it has none to give. */
+  fetchCatalogHash(): Promise<string | undefined> {
+    return this.fetch<{ hash?: string }>(
+      `${this.apiBase}/books/hash`,
+      this.preloadHeaders(),
+    ).then(
+      (answer) => answer?.hash || undefined,
+      () => undefined,
+    )
+  }
+
+  /** Past the service worker, which would answer from its own copy. */
+  private preloadHeaders(): Record<string, string> {
+    // Native is cross-origin, where a custom header forces a CORS preflight.
+    return Capacitor.isNativePlatform() ? {} : { "ngsw-bypass": "true" }
   }
 
   /** Whether the last introductions preload cached every one of them. */
@@ -382,6 +414,7 @@ export class OfflineDataService implements OnDestroy {
           storage.removeItem(this.cacheFlagKey)
           storage.removeItem(this.groupIntrosCacheFlagKey)
           storage.removeItem(this.cacheTimestampKey)
+          storage.removeItem(this.cacheHashKey)
           // Only mark the schema current once the stale records are gone.
           storage.setItem(
             this.cacheSchemaKey,

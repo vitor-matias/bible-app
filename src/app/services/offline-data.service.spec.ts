@@ -5,7 +5,7 @@ import {
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject } from "rxjs"
-import type { Mock } from "vitest"
+import type { Mock, MockInstance } from "vitest"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
@@ -21,6 +21,7 @@ describe("OfflineDataService", () => {
   let networkService: SpyObj<NetworkService>
   let offline$: BehaviorSubject<boolean>
   let httpMock: HttpTestingController
+  let catalogHash: MockInstance<OfflineDataService["fetchCatalogHash"]>
   let mockLocalStorage: {
     _storage: Record<string, string>
     getItem: Mock
@@ -171,6 +172,10 @@ describe("OfflineDataService", () => {
     databaseService = TestBed.inject(DatabaseService) as SpyObj<DatabaseService>
     networkService = TestBed.inject(NetworkService) as SpyObj<NetworkService>
     httpMock = TestBed.inject(HttpTestingController)
+    // An API without the catalog hash; the specs that need one answer it.
+    catalogHash = vi
+      .spyOn(service, "fetchCatalogHash")
+      .mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -199,6 +204,74 @@ describe("OfflineDataService", () => {
 
       httpMock.expectNone("v1/books?withChapters=true")
       httpMock.expectNone("v1/intros")
+    })
+
+    describe("catalog hash", () => {
+      beforeEach(() => {
+        mockLocalStorage._storage["booksCacheReady"] = "true"
+        mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+        mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+        databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+      })
+
+      // A reimport (Ester's numbered additions) reaches a fresh cache.
+      it("downloads the books again when the catalog hashes differently", async () => {
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue("new")
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await promise
+
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe("new")
+        // The introductions are not in the catalog's hash.
+        httpMock.expectNone("v1/intros")
+      })
+
+      // Caches from before the hash get it with one more download.
+      it("downloads the books again when the cache has no hash", async () => {
+        catalogHash.mockResolvedValue("new")
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await promise
+
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe("new")
+      })
+
+      it("keeps the cache when the catalog hashes the same", async () => {
+        mockLocalStorage._storage["booksCacheHash"] = "same"
+        catalogHash.mockResolvedValue("same")
+
+        await service.preloadAllBooksAndChapters()
+
+        httpMock.expectNone("v1/books?withChapters=true")
+      })
+
+      it("asks for no hash offline", async () => {
+        Object.defineProperty(networkService, "isOffline", { value: true })
+
+        await service.preloadAllBooksAndChapters()
+
+        expect(catalogHash).not.toHaveBeenCalled()
+        httpMock.expectNone("v1/books?withChapters=true")
+      })
+
+      it("reads the hash from the API, and none from an API without it", async () => {
+        catalogHash.mockRestore()
+
+        const answered = service.fetchCatalogHash()
+        httpMock.expectOne("v1/books/hash").flush({ hash: "abc" })
+        expect(await answered).toBe("abc")
+
+        const missing = service.fetchCatalogHash()
+        httpMock
+          .expectOne("v1/books/hash")
+          .flush("", { status: 404, statusText: "Not Found" })
+        expect(await missing).toBeUndefined()
+      })
     })
 
     // The flags live in localStorage, which can outlast the records.
