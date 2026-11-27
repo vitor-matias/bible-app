@@ -39,6 +39,9 @@ export interface ToastOptions {
  * the iOS app, a native Material snackbar in the Android app
  * (NativeChromeService).
  */
+/** How long a «+365 · Agora: …» toast stays. */
+const OPEN_TOAST_MS = 8000
+
 @Injectable({
   providedIn: "root",
 })
@@ -71,11 +74,17 @@ export class ToastService {
   showOpen(message: string, action: string, open: () => void): void {
     this.returnWatch?.unsubscribe()
     if (this.nativeChrome.enabled) {
-      this.nativeChrome.toast(message, { symbol: "headphones", onTap: open })
+      const hide = this.nativeChrome.toast(message, {
+        symbol: "headphones",
+        onTap: open,
+      })
+      // As long as the web's snackbar: it went stale over the card (an
+      // «Agora: Reflexão» still up through the next day).
+      setTimeout(hide, OPEN_TOAST_MS)
       return
     }
     this.snackBar
-      .open(message, action, { duration: 8000 })
+      .open(message, action, { duration: OPEN_TOAST_MS })
       .onAction()
       .subscribe(open)
   }

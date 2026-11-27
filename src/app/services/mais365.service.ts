@@ -284,12 +284,11 @@ export class Mais365Service {
    */
   readonly doneOn = signal<Record<number, string>>(this.storedDoneOn())
   /**
-   * The readings heard through of the day last played, kept to come back
-   * to: each a checkpoint, «Continuar» goes on from the first one not heard.
+   * The readings heard through, by day, kept to come back to: each a
+   * checkpoint, «Continuar» goes on from the first one not heard. Every day
+   * keeps its own: hearing another, or marking it read, takes none away.
    */
-  readonly progress = signal<{ day: number; heard: number[] } | null>(
-    this.storedProgress(),
-  )
+  readonly progress = signal<Record<number, number[]>>(this.storedProgress())
   /** The local day, refreshed past midnight and on coming back to the app. */
   readonly clockDay = signal(localDay(new Date()))
   private readonly run = computed(() => {
@@ -418,10 +417,10 @@ export class Mais365Service {
               at - previousAt < 3
             ) {
               this.heard.add(index)
-              this.saveProgress({
-                day: day.day,
-                heard: [...this.heard].sort((a, b) => a - b),
-              })
+              this.saveProgress(
+                day.day,
+                [...this.heard].sort((a, b) => a - b),
+              )
             }
           })
         }
@@ -552,8 +551,7 @@ export class Mais365Service {
 
   /** The readings of `day` heard through, this time or an earlier one. */
   heardOf(day: PlanDay): number[] {
-    const progress = this.progress()
-    return progress?.day === day.day ? progress.heard : []
+    return this.progress()[day.day] ?? []
   }
 
   /**
@@ -571,34 +569,38 @@ export class Mais365Service {
 
   /** «Recomeçar»: what was heard of `day` forgotten, from its intro. */
   restart(day: PlanDay): Promise<void> {
-    if (this.progress()?.day === day.day) this.saveProgress(null)
+    this.saveProgress(day.day, null)
     return this.start(day, 0, "plan", true)
   }
 
-  private saveProgress(progress: { day: number; heard: number[] } | null) {
-    this.progress.set(progress)
+  private saveProgress(day: number, heard: number[] | null): void {
+    const { [day]: _, ...others } = this.progress()
+    this.progress.set(heard ? { ...others, [day]: heard } : others)
     try {
-      if (progress) localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress))
-      else localStorage.removeItem(PROGRESS_KEY)
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify(this.progress()))
     } catch {
       // Not kept: until the app closes.
     }
   }
 
-  private storedProgress(): { day: number; heard: number[] } | null {
+  private storedProgress(): Record<number, number[]> {
+    const indices = (heard: unknown): heard is number[] =>
+      Array.isArray(heard) && heard.every((index) => Number.isInteger(index))
     try {
       const stored: unknown = JSON.parse(
-        localStorage.getItem(PROGRESS_KEY) ?? "null",
+        localStorage.getItem(PROGRESS_KEY) ?? "{}",
       )
-      if (!stored || typeof stored !== "object") return null
-      const { day, heard } = stored as { day: unknown; heard: unknown }
-      return typeof day === "number" &&
-        Array.isArray(heard) &&
-        heard.every((index) => Number.isInteger(index))
-        ? { day, heard }
-        : null
+      if (!stored || typeof stored !== "object") return {}
+      // Kept by one day only before: { day, heard }.
+      const { day, heard } = stored as { day?: unknown; heard?: unknown }
+      if (typeof day === "number") return indices(heard) ? { [day]: heard } : {}
+      return Object.fromEntries(
+        Object.entries(stored).filter(
+          ([key, value]) => Number.isFinite(Number(key)) && indices(value),
+        ),
+      )
     } catch {
-      return null
+      return {}
     }
   }
 
@@ -805,8 +807,6 @@ export class Mais365Service {
     }
     const days = this.done().filter((d) => d !== day)
     this.done.set(done ? [...days, day] : days)
-    // Read: nothing left to go on with.
-    if (done && this.progress()?.day === day) this.saveProgress(null)
     // The day it was first read keeps its date, even unmarked: marked again,
     // it isn't read anew.
     if (done && !this.doneOn()[day]) {

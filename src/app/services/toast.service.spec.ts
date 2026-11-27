@@ -113,9 +113,12 @@ describe("ToastService", () => {
       expect(open).toHaveBeenCalled()
     })
 
-    it("is the glass toast's tap in the apps", () => {
+    it("is the glass toast's tap in the apps, gone after 8 s", async () => {
+      vi.useFakeTimers()
       const open = vi.fn()
       create(true).showOpen("+365 · Agora: Salmo 19", "Abrir", open)
+      await vi.advanceTimersByTimeAsync(8000)
+      expect(hideToast).toHaveBeenCalled()
       expect(nativeChrome.toast).toHaveBeenCalledWith(
         "+365 · Agora: Salmo 19",
         {

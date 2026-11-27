@@ -700,7 +700,7 @@ describe("Mais365Service", () => {
       TestBed.tick()
       expect(plan.heardOf(day)).toEqual([0])
       expect(JSON.parse(localStorage.getItem("mais365Progress") ?? "")).toEqual(
-        { day: 1, heard: [0] },
+        { 1: [0] },
       )
       expect(plan.resumeAt(day)).toEqual({ at: 1 })
 
@@ -716,8 +716,8 @@ describe("Mais365Service", () => {
       play(third.start as number, (third.end as number) + 0.5)
       expect(plan.stage()).toBe("reflection")
       expect(plan.done()).toEqual([1])
-      // Read: nothing left to go on with.
-      expect(plan.progress()).toBeNull()
+      // Read: nothing left to go on with, its chapters still ticked.
+      expect(plan.heardOf(day)).toEqual([0, 1, 2])
       expect(plan.resumeAt(day)).toBeNull()
     })
 
@@ -730,9 +730,25 @@ describe("Mais365Service", () => {
       const restarting = plan.restart(day)
       http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
       await restarting
-      expect(plan.progress()).toBeNull()
+      expect(plan.heardOf(day)).toEqual([])
       expect(plan.resumeAt(day)).toBeNull()
       expect(player.position()).toBe(0)
+    })
+
+    // Hearing another day took the first one's ticks away.
+    it("keeps each day's own, and reads the one-day form kept before", async () => {
+      localStorage.setItem(
+        "mais365Progress",
+        JSON.stringify({ day: 3, heard: [0] }),
+      )
+      const plan = await create()
+      expect(plan.heardOf(find(plan, 3))).toEqual([0])
+      const day = find(plan, 1)
+      await start(plan, day)
+      const first = day.readings[0].episode
+      play(first.start as number, (first.end as number) + 0.5)
+      expect(plan.heardOf(day)).toEqual([0])
+      expect(plan.heardOf(find(plan, 3))).toEqual([0])
     })
 
     it("offers nothing to go on with before a chapter is heard", async () => {
