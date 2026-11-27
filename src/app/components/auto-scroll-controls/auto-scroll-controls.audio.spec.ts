@@ -568,6 +568,21 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(closed).toHaveBeenCalled()
   })
 
+  it("names the plan's day on a chapter's card, saying nothing of timings it has", async () => {
+    await listen([
+      {
+        ...day3,
+        verses: [
+          [1, 57],
+          [2, 70],
+        ],
+      },
+    ])
+    expect(find(".audio-caption")?.textContent?.trim()).toBe(
+      "+365 · Dia 3 · Êxodo 5",
+    )
+  })
+
   it("says the day and the reading's place in it, and steps through its readings", async () => {
     const navigate = vi
       .spyOn(TestBed.inject(Router), "navigate")
@@ -576,7 +591,10 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     TestBed.inject(PodcastPlayerService).throughEpisode.set(true)
     await listen()
     tap(toggle())
-    expect(find(".audio-caption")?.textContent?.trim()).toBe("Êxodo 5")
+    // A chapter heard on its own says whose it is; this one has no timings.
+    expect(find(".audio-caption")?.textContent?.trim()).toBe(
+      "+365 · Dia 3 · Êxodo 5 · sem texto acompanhado",
+    )
     const reading = (chapter: number, start: number) => ({
       bookId: "exo",
       bookName: "Êxodo",

@@ -209,7 +209,28 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     }
     // The reading being heard, named by the plan ("Génesis 2").
     const heard = this.planEntry()
-    return day && heard ? `+365 · Dia ${day.day} · ${heard.title}` : chapter
+    // Without timings the text can't follow: said, or it looked broken.
+    const note = this.noReadAlong() ? " · sem texto acompanhado" : ""
+    if (day && heard) return `+365 · Dia ${day.day} · ${heard.title}${note}`
+    // A chapter heard on its own says whose it is, as the plan's do.
+    const entry = this.entry()
+    if (!entry) return chapter
+    const from = Number.isInteger(entry.day) ? `Dia ${entry.day} · ` : ""
+    return `+365 · ${from}${chapter}${note}`
+  })
+
+  /**
+   * A reading with no verse timings (no heading found in its audio): the
+   * text stays where it is. A plan day's come with its full copy, so until
+   * one of its readings has some, none are known missing.
+   */
+  private readonly noReadAlong = computed(() => {
+    const entry = this.entry()
+    if (!entry || entry.verses?.length || this.reflection()) return false
+    const day = this.plan.active()
+    if (!day) return true
+    if (this.plan.introUntil() !== null) return false
+    return day.readings.some((reading) => reading.episode.verses?.length)
   })
 
   private readonly nativeChrome = inject(NativeChromeService)

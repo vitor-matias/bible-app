@@ -51,7 +51,7 @@ error prints the new hash: put it in `vercel.json` and here, then update the VPS
 
 On the VPS, `/etc/nginx/sites-enabled/bible-app` includes
 `/etc/nginx/snippets/security-headers.conf` at server level and again in every page and
-asset location (`= /`, `= /search`, `= /manifest.webmanifest`, `= /index.csr.html`,
+asset location (`= /`, `= /search`, `= /mais365`, `= /manifest.webmanifest`, `= /index.csr.html`,
 `/` and its nested static-file location). The include has to be repeated because an
 `add_header` in a location (each of them sets `Cache-Control`) stops it inheriting the
 server-level ones. `location /v1/` has no include, and its own
@@ -102,6 +102,24 @@ In the same file, rename `Content-Security-Policy-Report-Only` to
 Browsers that already have the service worker get pages from its cache, with the headers
 the page was cached with, so they pick up a header change with the next app release.
 New visitors and plain browser tabs get it at once.
+
+### Client-rendered pages
+
+`/search` and `/mais365` are rendered in the browser (`RenderMode.Client`), so the
+build has no file for them. Each needs its own location serving the app shell with a
+200, or the `error_page 404` below answers a direct load (a shared link, a reload)
+with the shell and a 404 status. `/mais365` gets a copy of the `= /search` block on
+the VPS, with only the path changed; for example, if that block reads:
+
+```nginx
+location = /mais365 {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-cache" always;
+    try_files /index.csr.html =404;
+}
+```
+
+Check with `curl -sI https://biblia.capuchinhos.org/mais365` (expect `200`).
 
 ### Unknown URLs
 
