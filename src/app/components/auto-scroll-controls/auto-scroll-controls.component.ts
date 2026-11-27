@@ -405,6 +405,11 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   constructor() {
+    // A saved position re-checked once the card shows.
+    effect(() => {
+      if (!this.placed()) return
+      afterNextRender(() => this.keepInside(), { injector: this.injector })
+    })
     // The player shown on the page (a day turned the reader here, say):
     // focus lost with the page left goes to its play button.
     effect(() => {
@@ -811,6 +816,23 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     window.addEventListener("pointercancel", end)
   }
 
+  /**
+   * The dragged card inside the window and below the header. Also when it
+   * shows: a position saved under the header (before this rule) came back
+   * stuck there at every reload.
+   */
+  private keepInside(): void {
+    const at = this.position()
+    const card = this.host.nativeElement.querySelector(".audio-player")
+    if (!at || !card) return
+    const box = card.getBoundingClientRect()
+    const inside = this.withinWindow(at.left, at.top, box.width, box.height)
+    if (inside.left !== at.left || inside.top !== at.top) {
+      this.position.set(inside)
+      this.store(POSITION_KEY, inside)
+    }
+  }
+
   /** Ends a drag under way, if any: its listeners go. */
   private endDrag?: () => void
 
@@ -820,12 +842,16 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     width: number,
     height: number,
   ) {
+    // Below the header: under it, the grip and ⌄ can't be reached.
+    const header =
+      document.querySelector(".reader-header")?.getBoundingClientRect()
+        .bottom ?? 0
     return {
       left: Math.round(
         Math.min(Math.max(8, left), window.innerWidth - width - 8),
       ),
       top: Math.round(
-        Math.min(Math.max(8, top), window.innerHeight - height - 8),
+        Math.max(header + 8, Math.min(top, window.innerHeight - height - 8)),
       ),
     }
   }
@@ -864,15 +890,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     update()
     query.addEventListener("change", update)
     // A dragged card stays inside a window made smaller.
-    const keepInside = () => {
-      const at = this.position()
-      const card = this.host.nativeElement.querySelector(".audio-player")
-      if (!at || !card) return
-      const box = card.getBoundingClientRect()
-      this.position.set(
-        this.withinWindow(at.left, at.top, box.width, box.height),
-      )
-    }
+    const keepInside = () => this.keepInside()
     window.addEventListener("resize", keepInside)
     // The width the reader gives it from the resize corner, remembered.
     const resized =

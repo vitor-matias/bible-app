@@ -2039,6 +2039,39 @@ describe("AutoScrollControlsComponent +365 mode", () => {
       expect(container().style.top).toBe("8px")
     })
 
+    // Under the header, its grip and ⌄ couldn't be reached, even on reload.
+    describe("below the reader's header", () => {
+      let header: HTMLElement
+      beforeEach(() => {
+        header = document.createElement("header")
+        header.className = "reader-header"
+        header.style.cssText = "position:fixed;top:0;left:0;right:0;height:56px"
+        document.body.append(header)
+      })
+      afterEach(() => header.remove())
+
+      it("is dragged no higher than under the header", async () => {
+        await listen()
+        drag(find(".audio-caption") as Element, [300, -500])
+        expect(container().style.top).toBe("64px")
+      })
+
+      it("brings a place saved under the header back below it", async () => {
+        localStorage.setItem(
+          "audioCardPosition",
+          JSON.stringify({ left: 100, top: 0 }),
+        )
+        fixture = TestBed.createComponent(AutoScrollControlsComponent)
+        await listen()
+        await fixture.whenStable()
+        fixture.detectChanges()
+        expect(container().style.top).toBe("64px")
+        expect(
+          JSON.parse(localStorage.getItem("audioCardPosition") ?? "").top,
+        ).toBe(64)
+      })
+    })
+
     it("stops following the pointer once the browser cancels it", async () => {
       await listen()
       const caption = find(".audio-caption") as Element
