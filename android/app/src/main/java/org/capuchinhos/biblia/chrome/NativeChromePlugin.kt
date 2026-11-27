@@ -28,9 +28,13 @@ import com.getcapacitor.annotation.CapacitorPlugin
 @CapacitorPlugin(name = "NativeChrome")
 class NativeChromePlugin : Plugin() {
     private lateinit var chrome: ChromeController
+    private lateinit var media: MediaSessionBridge
 
     override fun load() {
         chrome = ChromeController(activity, bridge.webView, ::send, ::sendInsets, ::sendPalette)
+        media = MediaSessionBridge(context) { action, seconds ->
+            send(action, JSObject().apply { if (seconds != null) put("seconds", seconds) })
+        }
     }
 
     override fun handleOnConfigurationChanged(newConfig: Configuration) {
@@ -40,6 +44,7 @@ class NativeChromePlugin : Plugin() {
 
     override fun handleOnDestroy() {
         chrome.destroy()
+        media.end()
         super.handleOnDestroy()
     }
 
@@ -59,6 +64,16 @@ class NativeChromePlugin : Plugin() {
         val value = if (call.data.isNull("value")) null else call.data.optDouble("value", Double.NaN)
         activity.runOnUiThread {
             chrome.showProgress(value?.takeUnless { it.isNaN() }?.toFloat())
+            call.resolve()
+        }
+    }
+
+    /** The system's media session for the +365 audio, which the WebView doesn't bridge; null ends it. */
+    @PluginMethod
+    fun setMedia(call: PluginCall) {
+        val state = call.getObject("media", null)?.let(MediaState::from)
+        activity.runOnUiThread {
+            media.update(state)
             call.resolve()
         }
     }

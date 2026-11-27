@@ -28,6 +28,22 @@ export type NativeChromeAction =
         | "auto-scroll-toggle"
         | "auto-scroll-slower"
         | "auto-scroll-faster"
+        /** The auto-scroll control's 🎧: listen to +365 instead. */
+        | "auto-scroll-listen"
+        /** The +365 player's controls (PodcastChrome). */
+        | "podcast-toggle"
+        | "podcast-previous"
+        | "podcast-next"
+        /** One speed button: the next speed, round to the slowest. */
+        | "podcast-speed"
+        /** ⇅: scroll the text instead of listening. */
+        | "podcast-scroll"
+        /** ✕ «Terminar»: stop listening; a day under way ends, not read. */
+        | "podcast-close"
+        /** The menu's «+365»: the reading plan's page. */
+        | "plan"
+        /** The page's bell (TitledPageChrome.reminder): its daily reminder. */
+        | "reminder"
         | "share"
         | "report"
         | "about"
@@ -57,6 +73,14 @@ export type NativeChromeAction =
   | { id: "footnote-link"; index: number }
   | { id: "footnotes-closed" }
   | { id: "search-input"; text: string }
+  /** Back (negative) or on by `seconds`: the apps' own skip lengths (±15 s). */
+  | { id: "podcast-skip"; seconds: number }
+  /** The +365 scrubber let go: seconds into the part (PodcastChrome.length). */
+  | { id: "podcast-seek"; seconds: number }
+  /** The Android system's media session (MediaChrome): play, pause, ±15 s, seek. */
+  | { id: "media-play" | "media-pause" }
+  | { id: "media-skip"; seconds: number }
+  | { id: "media-seek"; seconds: number }
   | { id: "search-submit"; text: string }
   | { id: "report-submit"; topic: string; details: string }
 
@@ -114,6 +138,19 @@ export interface TitledPageChrome {
   themeMode: ThemeMode
   title: string
   search: boolean
+  /**
+   * The page draws a large title of its own at its top (iOS) and says here
+   * whether it is in sight: while it is, the bar holds its own title back,
+   * and shows it once that one has scrolled under the bar, as UIKit's large
+   * titles do. Left out by a page with none. Android ignores it.
+   */
+  largeTitle?: boolean
+  /**
+   * A bell in the bar, for the page's daily reminder (the +365 plan): set,
+   * whether it is on (a ringing bell) or off. Left out by a page with none.
+   * Its tap is the «reminder» action.
+   */
+  reminder?: boolean
 }
 
 export type PageChrome = ReaderChrome | SearchChrome | TitledPageChrome
@@ -135,6 +172,77 @@ export interface AutoScrollChrome {
   canFaster: boolean
   /** False at the page's end, where there's nothing left to play. */
   canPlay: boolean
+  /** +365 reads this chapter: a 🎧 (auto-scroll-listen) beside the speeds. */
+  canListen: boolean
+}
+
+/**
+ * What the Android app's system media session shows (lock screen, shade):
+ * the audio loaded in the player, wherever it plays. Android WebView does not
+ * bridge navigator.mediaSession. Whole seconds; while playing, the shell runs
+ * the position on by `rate` between updates.
+ */
+export interface MediaChrome {
+  title: string
+  artist: string
+  playing: boolean
+  position: number
+  /** Seconds; 0 while unknown. */
+  duration: number
+  rate: number
+}
+
+/**
+ * The +365 player floating over the text, as AutoScrollChrome's control
+ * does: caption, scrubber, then ⏮ ⟲10 ▶/⏸ ⟳10 ⏭ and − +. While it is shown
+ * the shells count it in the bottom inset they report, so the web's
+ * read-along keeps the line being read clear of it. Mirrors PodcastState in
+ * NativeChrome.swift and ChromeState.kt.
+ */
+export interface PodcastChrome {
+  /** "Génesis 2", or "+365 · Dia 1 · Génesis 2" in a day of the plan. */
+  caption: string
+  /**
+   * What plays, beside the passage the shell shows itself: "+365 · Dia 6",
+   * "+365 · Dia 1 · Reflexão"; null outside a day of the plan.
+   */
+  context: string | null
+  playing: boolean
+  /** Play can be pressed: the chapter's episode is known. */
+  canPlay: boolean
+  /** In the player: ±15 s and the scrubber work. */
+  loaded: boolean
+  /**
+   * Seconds into the part (the chapter, the reflection), whole: sent at
+   * most once a second; while playing, the shells run the scrubber on by
+   * `rate` between updates.
+   */
+  elapsed: number
+  /** The part's length in seconds; 0 while unknown (scrubber disabled). */
+  length: number
+  rate: number
+  /** In words, for VoiceOver/TalkBack: "1,25 vezes". */
+  rateAccessibilityLabel: string
+  canSlower: boolean
+  canFaster: boolean
+  /**
+   * ⏮ ⏭ step through the episode's readings: in a day of the plan, its own
+   * (and on to the reflection); listening to a chapter, the readings of its
+   * episode's day, which starts that day there. Each label is the button's
+   * accessibility label ("Voltar a Génesis 1", "Saltar para Salmo 19"),
+   * null where there is none (shown disabled). The web's own card shows
+   * them only `inPlan`.
+   */
+  inPlan: boolean
+  previousLabel: string | null
+  nextLabel: string | null
+  /** ⇅ shows (podcast-scroll): in the scrolling view, outside a plan day. */
+  canScroll: boolean
+  /**
+   * ✕ shows (podcast-close) where ⇅ doesn't: in a plan day, and in pages,
+   * so the card always has a way out in its first slot.
+   */
+  canClose: boolean
 }
 
 /**
@@ -151,6 +259,11 @@ export type NativeChromeState =
        */
       scrolled: boolean
       autoScroll: AutoScrollChrome | null
+      /**
+       * The +365 player, in place of autoScroll's controls while the reader
+       * listens; null otherwise. Never both.
+       */
+      podcast: PodcastChrome | null
       /**
        * The heading of the section being read, which the Android bar shows
        * under the passage; null before the first one is passed.
@@ -286,6 +399,8 @@ export interface NativeChromePlugin {
    * progress line; null hides it. Android only.
    */
   setProgress(progress: { value: number | null }): Promise<void>
+  /** The system media session; null ends it. Android only. */
+  setMedia(media: { media: MediaChrome | null }): Promise<void>
   showPicker(data: PassagePickerData): Promise<void>
   /**
    * A tip on the bar's passage that it opens the books, for a reader who never

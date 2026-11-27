@@ -23,6 +23,7 @@ import {
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject, throwError } from "rxjs"
 import type { Mock } from "vitest"
+import { MAIS365_BOOK } from "../../bible-canon"
 import { PagedNavigationDirective } from "../../directives/paged-navigation/paged-navigation.directive"
 import { indexBookmarkLabel } from "../../pastoral-index-bookmarks"
 import { AnalyticsService } from "../../services/analytics.service"
@@ -33,11 +34,13 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { REVERT_STATE } from "../../services/depth-location-strategy"
 import { HapticsService } from "../../services/haptics.service"
+import { Mais365Service } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP } from "../../services/toast.service"
@@ -122,6 +125,9 @@ describe("BibleReaderComponent", () => {
     ])
 
     routerSpy = createSpyObj("Router", ["navigate"])
+    // Where the reader is, as +365 asks before turning it to a reading: as
+    // from the plan's page, it turns the reader to the day's readings.
+    Object.assign(routerSpy, { url: "/mais365" })
     routerSpy.navigate.mockResolvedValue(true)
     navigationInFlight = signal<Navigation | null>(null)
     ;(
@@ -763,6 +769,14 @@ describe("BibleReaderComponent", () => {
     it("shows an empty state with a retry instead of a blank page", () => {
       expect(emptyState()?.getAttribute("role")).toBe("alert")
       expect(emptyState()?.textContent).toContain("Tentar novamente")
+    })
+
+    // Only the installed app downloads the Bible: a tab promised it.
+    it("tells a browser tab to install the app to read offline", () => {
+      expect(emptyState()?.textContent).toContain(
+        "Para ler sem ligação, instale a app.",
+      )
+      expect(emptyState()?.textContent).not.toContain("é descarregada")
     })
 
     // A first launch offline was a bare error page: no header, no menu.
@@ -2081,6 +2095,45 @@ describe("BibleReaderComponent", () => {
         }
       })
 
+      // The reader stops above the home indicator, and the room under the
+      // text counted it again: the copyright sat an inset (34px) above the
+      // arrows. And that room was the auto-scroll button's (84px) without it.
+      it("put the web's copyright in the arrows' row on a phone, over the inset", async () => {
+        const root = document.documentElement.style
+        root.setProperty("--app-inset-bottom", "34px")
+        try {
+          expect(frame, "the specs run in a frame").toBeTruthy()
+          if (frame) frame.style.width = "390px"
+          TestBed.resetTestingModule()
+          await setUpTestBed({ imports: [MatSidenavModule] })
+          fixture = TestBed.createComponent(BibleReaderComponent, {
+            inferTagName: true,
+          })
+          component = fixture.componentInstance
+          fixture.detectChanges()
+          component.viewMode = "scrolling"
+          component.chapter = { bookId: "gen", number: 2 } as Chapter
+          component.chapterNumber = 2
+          ;(
+            component as unknown as { cdr: ChangeDetectorRef }
+          ).cdr.markForCheck()
+          fixture.detectChanges()
+          const host = fixture.nativeElement as HTMLElement
+          const footer = host.querySelector(
+            ".mat-drawer-content > .copyright-footer",
+          ) as HTMLElement
+          expect(getComputedStyle(footer).marginBottom).toBe("-34px")
+          // The arrows' own 52px up, and the inset.
+          expect(
+            getComputedStyle(
+              host.querySelector(".mat-drawer-content") as HTMLElement,
+            ).paddingBottom,
+          ).toBe("86px")
+        } finally {
+          root.removeProperty("--app-inset-bottom")
+        }
+      })
+
       it("keep a tablet's margins inside each of its two columns", () => {
         const { view, chapter } = pagedAt(1024)
 
@@ -2214,6 +2267,319 @@ describe("BibleReaderComponent", () => {
     expect(main[0].querySelector(".bookBlock")).not.toBeNull()
   })
 
+  // The book changes as soon as the route does, the chapter only once it loads.
+  describe("the floating control", () => {
+    beforeEach(async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ imports: [MatSidenavModule] })
+      fixture = TestBed.createComponent(BibleReaderComponent)
+      component = fixture.componentInstance
+    })
+
+    // The control glides the text along; the reader only marks the verse.
+    it("marks the verse +365 reads, and only that one", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.chapter = {
+        bookId: "gen",
+        number: 3,
+        verses: [1, 2, 3].map((number) => ({
+          bookId: "gen",
+          chapterNumber: 3,
+          number,
+          text: [],
+        })),
+      } as unknown as Chapter
+      component.chapterNumber = 3
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      const verse = (number: number) =>
+        fixture.nativeElement.querySelector(`[id="${number}"]`) as HTMLElement
+      const content = fixture.nativeElement.querySelector(
+        "mat-drawer-content",
+      ) as HTMLElement
+      const scrollBy = vi.spyOn(content, "scrollBy")
+
+      component.onReadingVerse(2)
+      fixture.detectChanges()
+      expect(verse(2).classList).toContain("verse-reading")
+      component.onReadingVerse(3)
+      fixture.detectChanges()
+      expect(verse(3).classList).toContain("verse-reading")
+      expect(verse(2).classList).not.toContain("verse-reading")
+      component.onReadingVerse(null)
+      fixture.detectChanges()
+      expect(fixture.nativeElement.querySelector(".verse-reading")).toBeNull()
+      expect(scrollBy).not.toHaveBeenCalled()
+
+      // Hiding the control takes the mark with it.
+      component.showAutoScrollControls = true
+      component.onReadingVerse(2)
+      component.toggleAutoScrollControlsVisibility()
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      expect(fixture.nativeElement.querySelector(".verse-reading")).toBeNull()
+    })
+
+    it("turns the pages read-along asks for, in pages only", () => {
+      const pagedNav = { nextPage: vi.fn(), scrollToPage: vi.fn() }
+      Object.defineProperty(component, "pagedNav", { value: pagedNav })
+      const verse = document.createElement("div")
+
+      component.onPageTurn("next")
+      expect(pagedNav.nextPage).not.toHaveBeenCalled()
+
+      component.viewMode = "paged"
+      component.onPageTurn("next")
+      component.onPageTurn(verse)
+      expect(pagedNav.nextPage).toHaveBeenCalledWith("smooth")
+      expect(pagedNav.scrollToPage).toHaveBeenCalledWith(verse, "smooth")
+
+      // Reduced motion: both turns jump.
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList)
+      component.onPageTurn("next")
+      component.onPageTurn(verse)
+      expect(pagedNav.nextPage).toHaveBeenLastCalledWith("auto")
+      expect(pagedNav.scrollToPage).toHaveBeenLastCalledWith(verse, "auto")
+    })
+
+    it("gets the chapter on screen, not the book coming", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.showAutoScrollControls = true
+      component.chapter = { bookId: "gen", number: 3, verses: [] } as Chapter
+      component.chapterNumber = 3
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      component.book = { ...component.book, id: "exo" } as Book
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+
+      const controls = fixture.nativeElement.querySelector(
+        "app-auto-scroll-controls",
+      ) as { bookId?: string; chapter?: number } | null
+      expect(controls).not.toBeNull()
+      expect(controls?.bookId).toBe("gen")
+      expect(controls?.chapter).toBe(3)
+    })
+  })
+
+  describe("+365 day with the control hidden", () => {
+    beforeEach(async () => {
+      TestBed.resetTestingModule()
+      await setUpTestBed({ imports: [MatSidenavModule] })
+      fixture = TestBed.createComponent(BibleReaderComponent)
+      component = fixture.componentInstance
+    })
+
+    // It went with the +365 pages, though its menu item stayed and About's
+    // text scrolls as a chapter's.
+    it("keeps auto-scroll on the About page", () => {
+      fixture.detectChanges()
+      component.book = {
+        id: "about",
+        abrv: "Sobre",
+        shortName: "Sobre a Bíblia",
+        name: "Sobre a Bíblia",
+        chapterCount: 1,
+      } as Book
+      component.books = [component.book]
+      component.showAutoScrollControls = true
+      component.chapter = { bookId: "about", number: 1, verses: [] } as Chapter
+      component.chapterNumber = 1
+      ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+      fixture.detectChanges()
+      expect(component.isPage).toBe(true)
+      expect(
+        fixture.nativeElement.querySelector("app-auto-scroll-controls"),
+      ).not.toBeNull()
+    })
+
+    it("shows the player for the day, keeps it once the day lets go, and hides it from the menu", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.showAutoScrollControls = false
+      component.chapter = { bookId: "gen", number: 3, verses: [] } as Chapter
+      component.chapterNumber = 3
+      const controls = () => {
+        ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+        fixture.detectChanges()
+        return fixture.nativeElement.querySelector("app-auto-scroll-controls")
+      }
+      expect(controls()).toBeNull()
+
+      const player = TestBed.inject(PodcastPlayerService)
+      const plan = TestBed.inject(Mais365Service)
+      const episode = {
+        day: 2,
+        title: "Dia 2",
+        url: "dia2",
+        start: 0,
+        end: 300,
+      }
+      player.current.set(episode)
+      plan.active.set({
+        day: 2,
+        title: "A queda",
+        theme: "A queda",
+        url: "dia2",
+        duration: 1466,
+        readings: [{ bookId: "gen", bookName: "Génesis", chapter: 3, episode }],
+        reflection: 900,
+      })
+      expect(controls()).not.toBeNull()
+
+      // Another day's chapter played: the day lets go, the card stays.
+      player.current.set({ ...episode, day: 4, url: "dia4" })
+      TestBed.tick()
+      expect(plan.active()).toBeNull()
+      expect(controls()).not.toBeNull()
+
+      component.toggleAutoScrollControlsVisibility()
+      expect(controls()).toBeNull()
+      expect(component["readingVerse"]()).toBeNull()
+    })
+
+    it("leaves «Mostrar o leitor» out of the menu in pages +365 doesn't read", () => {
+      fixture.detectChanges()
+      component.showAutoScrollControls = false
+      component.chapter = { bookId: "exo", number: 1, verses: [] } as Chapter
+      component.chapterNumber = 1
+      const episodesFor = vi
+        .spyOn(TestBed.inject(PodcastPlayerService), "episodesFor")
+        .mockReturnValue(of([]))
+      const reader = component as unknown as {
+        lookUpChapterAudio: () => void
+        menuControlVisible: () => boolean | null
+      }
+      component.viewMode = "scrolling"
+      reader.lookUpChapterAudio()
+      expect(episodesFor).not.toHaveBeenCalled()
+      expect(reader.menuControlVisible()).toBe(false)
+
+      component.viewMode = "paged"
+      reader.lookUpChapterAudio()
+      expect(episodesFor).toHaveBeenCalledWith("exo", 1)
+      expect(reader.menuControlVisible()).toBeNull()
+
+      episodesFor.mockReturnValue(
+        of([{ day: 3, title: "Dia 3", url: "u", start: 0, end: 10 }]),
+      )
+      reader.lookUpChapterAudio()
+      expect(reader.menuControlVisible()).toBe(false)
+
+      // A day that let go still holds its card's place, but plays nothing
+      // in a chapter +365 doesn't read: no «Esconder» for a player not there.
+      episodesFor.mockReturnValue(of([]))
+      reader.lookUpChapterAudio()
+      ;(
+        component as unknown as { heldByPlan: { set(v: boolean): void } }
+      ).heldByPlan.set(true)
+      expect(reader.menuControlVisible()).toBeNull()
+    })
+
+    it("hides at the first «Esconder» with the preference on and a day holding it", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.showAutoScrollControls = true
+      component.chapter = { bookId: "gen", number: 3, verses: [] } as Chapter
+      component.chapterNumber = 3
+      const controls = () => {
+        ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+        fixture.detectChanges()
+        return fixture.nativeElement.querySelector("app-auto-scroll-controls")
+      }
+      const player = TestBed.inject(PodcastPlayerService)
+      const episode = {
+        day: 2,
+        title: "Dia 2",
+        url: "dia2",
+        start: 0,
+        end: 300,
+      }
+      player.current.set(episode)
+      TestBed.inject(Mais365Service).active.set({
+        day: 2,
+        title: "A queda",
+        theme: "A queda",
+        url: "dia2",
+        duration: 1466,
+        readings: [{ bookId: "gen", bookName: "Génesis", chapter: 3, episode }],
+        reflection: 900,
+      })
+      expect(controls()).not.toBeNull()
+      component.onReadingVerse(4)
+
+      component.toggleAutoScrollControlsVisibility()
+      expect(controls()).toBeNull()
+      expect(component["readingVerse"]()).toBeNull()
+      expect(component.showAutoScrollControls).toBe(false)
+      // The day goes with the card: no unseen playing, no pages turned.
+      expect(TestBed.inject(Mais365Service).active()).toBeNull()
+      expect(player.throughEpisode()).toBe(false)
+
+      // «Mostrar» brings it back.
+      component.toggleAutoScrollControlsVisibility()
+      expect(controls()).not.toBeNull()
+    })
+
+    // «Esconder» outside a day: the chapter's audio let go, not left for the
+    // lock screen to resume with no player on screen.
+    it("lets a chapter's audio go when the control is hidden", () => {
+      fixture.detectChanges()
+      component.showAutoScrollControls = true
+      const player = TestBed.inject(PodcastPlayerService)
+      player.current.set({
+        day: 3,
+        title: "Génesis 3",
+        url: "u",
+        start: 0,
+        end: 10,
+      })
+      component.toggleAutoScrollControlsVisibility()
+      expect(player.current()).toBeNull()
+    })
+
+    it("lets the apps' ✕ take away a control only a day held", () => {
+      fixture.detectChanges()
+      component.books = [component.book]
+      component.showAutoScrollControls = false
+      component.chapter = { bookId: "gen", number: 3, verses: [] } as Chapter
+      component.chapterNumber = 3
+      const controls = () => {
+        ;(component as unknown as { cdr: ChangeDetectorRef }).cdr.markForCheck()
+        fixture.detectChanges()
+        return fixture.nativeElement.querySelector("app-auto-scroll-controls")
+      }
+      const episode = {
+        day: 2,
+        title: "Dia 2",
+        url: "dia2",
+        start: 0,
+        end: 300,
+      }
+      TestBed.inject(PodcastPlayerService).current.set(episode)
+      const plan = TestBed.inject(Mais365Service)
+      plan.active.set({
+        day: 2,
+        title: "A queda",
+        theme: "A queda",
+        url: "dia2",
+        duration: 1466,
+        readings: [{ bookId: "gen", bookName: "Génesis", chapter: 3, episode }],
+        reflection: 900,
+      })
+      expect(controls()).not.toBeNull()
+      plan.active.set(null)
+      // What the control's playerClosed output, the ✕, calls.
+      component.onPlayerClosed()
+      expect(controls()).toBeNull()
+      expect(component.showAutoScrollControls).toBe(false)
+    })
+  })
+
   describe("Drawer Actions", () => {
     beforeEach(() => {
       fixture.detectChanges()
@@ -2339,13 +2705,38 @@ describe("BibleReaderComponent", () => {
       expect(component.showAutoScrollControls).toBe(false)
     })
 
-    it("brings the auto-scroll controls back after the pages", () => {
+    // Pages don't scroll, but the control plays +365 there (its «Ouvir» only).
+    it("keeps the control through the pages, stopping the scroll", () => {
+      component.toggleAutoScrollControlsVisibility()
+
+      component.onToggleViewMode()
+      expect(component.showAutoScrollControls).toBe(true)
+      expect(autoScrollServiceSpy.stop).toHaveBeenCalled()
+      component.onToggleViewMode()
+      expect(component.showAutoScrollControls).toBe(true)
+    })
+
+    // The apps' native bar has no +365 mode: in pages it could only offer
+    // auto-scroll, and their menu can't hide it there.
+    it("keeps the apps' native bar out of the pages", () => {
+      Object.assign(TestBed.inject(NativeChromeService), { enabled: true })
       component.toggleAutoScrollControlsVisibility()
 
       component.onToggleViewMode()
       expect(component.showAutoScrollControls).toBe(false)
       component.onToggleViewMode()
       expect(component.showAutoScrollControls).toBe(true)
+    })
+
+    // The control unmounted with the audio playing on and no way to pause it.
+    it("stops a chapter's audio when the apps' pages take its control away", () => {
+      Object.assign(TestBed.inject(NativeChromeService), { enabled: true })
+      component.toggleAutoScrollControlsVisibility()
+      const stop = vi.spyOn(TestBed.inject(PodcastPlayerService), "stop")
+
+      component.onToggleViewMode()
+
+      expect(stop).toHaveBeenCalled()
     })
 
     it("onToggleViewMode should switch back to scrolling mode", async () => {
@@ -3718,6 +4109,32 @@ describe("BibleReaderComponent", () => {
       fixture.destroy()
       expect(stop).toHaveBeenCalledTimes(2)
     })
+  })
+
+  // On the web the reader hosts the +365 plan too: it had no header.
+  it("hosts the +365 plan under its header, named as it", async () => {
+    TestBed.resetTestingModule()
+    ;(routeMock as { snapshot: { data: object } }).snapshot.data = {
+      indexPage: IndexPageStub,
+      pageBook: MAIS365_BOOK,
+    }
+    await setUpTestBed({ imports: [NgComponentOutlet, MatSidenavModule] })
+    fixture = TestBed.createComponent(BibleReaderComponent, {
+      inferTagName: true,
+    })
+    fixture.detectChanges()
+    await fixture.whenStable()
+    const host = fixture.nativeElement as HTMLElement
+
+    expect(fixture.componentInstance.book).toBe(MAIS365_BOOK)
+    const header = host.querySelector("header") as unknown as {
+      book: Book
+      indexShareText: string | null
+    }
+    expect(header.book).toBe(MAIS365_BOOK)
+    expect(header.indexShareText).toBeNull()
+    expect(host.querySelector(".index-block index-page-stub")).not.toBeNull()
+    expect(preferencesServiceSpy.setLastBookId).not.toHaveBeenCalled()
   })
 
   // On the web the reader hosts the index, as it does the About page.

@@ -49,9 +49,12 @@ class ChromeContractTest {
         assertTrue(state.collapsed)
         assertTrue(state.scrolled)
         assertEquals(
-            AutoScrollState(true, "1,5", "1,5 linhas por segundo", canSlower = true, canFaster = true, canPlay = false),
+            AutoScrollState(
+                true, "1,5", "1,5 linhas por segundo", canSlower = true, canFaster = true, canPlay = false, canListen = true,
+            ),
             state.autoScroll,
         )
+        assertNull(state.podcast)
         assertEquals("As bem-aventuranças", state.subtitle)
         assertEquals(0xFF121212.toInt(), state.pageColor)
     }
@@ -74,8 +77,36 @@ class ChromeContractTest {
         assertNull(state.buildVersion)
         assertNull(state.textSize)
         assertNull(state.autoScroll)
+        assertNull(state.podcast)
         assertNull(state.subtitle)
         assertNull(state.pageColor)
+    }
+
+    @Test
+    fun readsThePodcast() {
+        val state = fixture("reader-podcast")
+        assertNull(state.autoScroll)
+        assertEquals(
+            PodcastState(
+                caption = "+365 · Dia 1 · Génesis 2",
+                context = "+365 · Dia 1",
+                playing = true,
+                canPlay = true,
+                loaded = true,
+                elapsed = 40.0,
+                length = 210.4,
+                rate = 1.25,
+                rateAccessibilityLabel = "1,25 vezes",
+                canSlower = true,
+                canFaster = true,
+                inPlan = true,
+                previousLabel = "Voltar a Génesis 1",
+                nextLabel = "Saltar para Salmo 19",
+                canScroll = false,
+                canClose = true,
+            ),
+            state.podcast,
+        )
     }
 
     @Test
@@ -95,8 +126,18 @@ class ChromeContractTest {
         assertEquals("light", state.themeMode)
         assertEquals("Livros", state.title)
         assertTrue(state.search)
+        assertNull(state.reminder)
         assertTrue(state.scrolled)
         assertEquals(0xFFFFFFFF.toInt(), state.pageColor)
+    }
+
+    /** The large title is the iOS page's: here the bar keeps the page's title, as on any page. */
+    @Test
+    fun readsAPageWithALargeTitleAsAPlainPage() {
+        val state = fixture("page-large-title")
+        assertEquals(ChromeMode.Page, state.mode)
+        assertEquals("+365", state.title)
+        assertEquals(fixture("page").copy(themeMode = "dark", title = "+365", search = false, reminder = true, scrolled = false, pageColor = 0xFF000000.toInt()), state)
     }
 
     @Test

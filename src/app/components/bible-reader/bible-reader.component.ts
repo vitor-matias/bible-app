@@ -9,10 +9,12 @@ import {
   HostListener,
   Injector,
   inject,
+  linkedSignal,
   type OnDestroy,
   type OnInit,
   PendingTasks,
   PLATFORM_ID,
+  signal,
   type Type,
   ViewChild,
 } from "@angular/core"
@@ -55,15 +57,18 @@ import { BibleReaderAnimationService } from "../../services/bible-reader-animati
 import { BookService } from "../../services/book.service"
 import { REVERT_STATE } from "../../services/depth-location-strategy"
 import { HapticsService } from "../../services/haptics.service"
+import { Mais365Service } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import { NativeFootnotesService } from "../../services/native-footnotes.service"
 import { NetworkService } from "../../services/network.service"
 import { OfflineDataService } from "../../services/offline-data.service"
 import { PastoralIndexState } from "../../services/pastoral-index-state.service"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
 import { introductionTitle, passageLabel } from "../../utils/passage-label"
+import { isStandaloneApp } from "../../utils/platform"
 import {
   isAddition,
   parseVerseRef,
@@ -128,12 +133,15 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private indexState = inject(PastoralIndexState)
 
   /**
-   * The Índice Bíblico-Pastoral's page, on the web, where the reader hosts it
-   * as it does the About page: resolved by its route, so it stays in its own
-   * chunk and still renders while prerendering.
+   * A page the reader hosts on the web, as it does the About page: the Índice
+   * Bíblico-Pastoral, or the +365 plan. Resolved by its route, so it stays in
+   * its own chunk and still renders while prerendering.
    */
   readonly indexPage: Type<unknown> | undefined =
     this.route.snapshot.data["indexPage"]
+
+  /** How the header names a hosted page other than the index (+365). */
+  readonly pageBook: Book | undefined = this.route.snapshot.data["pageBook"]
 
   /** The index as the header names it: the theme open, for its ribbon and share. */
   readonly indexBook = computed<Book>(() => ({
@@ -183,6 +191,50 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   private nativeFootnotes = inject(NativeFootnotesService)
   private location = inject(Location)
   protected readonly backButton = inject(BackButtonService)
+  private readonly plan = inject(Mais365Service)
+  private readonly player = inject(PodcastPlayerService)
+  /**
+   * Whether +365 reads the open chapter, looked up in page view on the web
+   * (where the control is only the +365 player); null until known.
+   */
+  private readonly chapterAudio = signal<boolean | null>(null)
+
+  /**
+   * The menu's «Mostrar/Esconder»: left out in pages where +365 doesn't read
+   * the chapter, as there would be nothing to show.
+   */
+  protected menuControlVisible(): boolean | null {
+    const shown = this.showAutoScrollControls || this.heldByPlan()
+    // A day under way plays its part whatever the chapter; one let go
+    // (held only to keep its card) plays nothing here.
+    const nothingHere =
+      this.effectiveViewMode === "paged" &&
+      !this.chapterAudio() &&
+      !this.plan.active()
+    return nothingHere ? null : shown
+  }
+
+  private lookUpChapterAudio(): void {
+    this.chapterAudio.set(null)
+    const chapter = this.chapter
+    if (!chapter || this.nativeChrome.enabled) return
+    if (this.effectiveViewMode !== "paged") return
+    this.player
+      .episodesFor(chapter.bookId, chapter.number)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((episodes) => {
+        if (this.chapter === chapter) this.chapterAudio.set(episodes.length > 0)
+      })
+  }
+  /**
+   * A +365 day shows its player even with the control hidden, and keeps it
+   * once the day lets go (another episode played, the stream failed): only
+   * the menu takes it away, so it never vanishes under what it plays.
+   */
+  protected readonly heldByPlan = linkedSignal<boolean, boolean>({
+    source: () => !!this.plan.active(),
+    computation: (active, previous) => active || (previous?.value ?? false),
+  })
   /** The verses a link asked to open the notes of, until the chapter is here. */
   private linkedNotes: string | null = null
   private dismissLinkedNotes?: () => void
@@ -229,6 +281,44 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
   book!: Book
   books: Book[] = []
+
+  /**
+   * The paged view has no scrolling, but on the web the control still plays
+   * +365 there. The apps' native bar has no +365 mode yet: it stays off in
+   * pages, where it could only offer auto-scroll and the menu can't hide it.
+   */
+  private autoScrollControlsShown(): boolean {
+    return (
+      this.autoScrollControlsPreference &&
+      (this.viewMode === "scrolling" || !this.nativeChrome.enabled)
+    )
+  }
+
+  /** The verse +365 is reading, marked and kept in view (read-along). */
+  protected readonly readingVerse = signal<number | null>(null)
+  /** The verse +365 reads now, marked (read-along). */
+  onReadingVerse(verse: number | null): void {
+    this.readingVerse.set(verse)
+  }
+
+  /**
+   * Read-along in pages: the control asks for the next page once the reading
+   * leaves this one, or for the page a verse starts on.
+   */
+  onPageTurn(target: "next" | HTMLElement): void {
+    if (this.effectiveViewMode !== "paged") return
+    const behavior = window.matchMedia?.("(prefers-reduced-motion: reduce)")
+      .matches
+      ? "auto"
+      : "smooth"
+    if (target === "next") this.pagedNav?.nextPage(behavior)
+    else this.pagedNav?.scrollToPage(target, behavior)
+  }
+
+  /** A book's short name, "Génesis", for the +365 card's caption. */
+  bookName(id: string): string {
+    return this.books.find((book) => book.id === id)?.shortName ?? ""
+  }
   /** The book list could not be loaded and nothing is cached. */
   booksUnavailable = false
   /** Whether to say the books are loading while there's nothing to show. */
@@ -236,6 +326,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   /** The loading is the Bible's first download, not a read of the copy kept. */
   firstDownload = false
   retryingBooks = false
+  /** The installed app, which stores the Bible: a browser tab doesn't. */
+  protected readonly installed = isStandaloneApp()
   /** The first chapter opened could not be loaded: there is none to stay on. */
   chapterUnavailable = false
   retryingChapter = false
@@ -351,8 +443,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.autoScrollControlsPreference =
       this.preferencesService.getAutoScrollControlsVisible()
-    this.showAutoScrollControls =
-      this.viewMode === "scrolling" && this.autoScrollControlsPreference
+    this.showAutoScrollControls = this.autoScrollControlsShown()
     this.bookService.books$
       .pipe(takeUntil(this.destroy$))
       .subscribe((books) => {
@@ -362,7 +453,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     // Its page needs neither the books nor a route to read: it is all here.
     if (this.indexPage) {
-      this.book = PASTORAL_INDEX_BOOK
+      this.book = this.pageBook ?? PASTORAL_INDEX_BOOK
       this.getChapter(1)
       return
     }
@@ -1090,6 +1181,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
 
     this.chapter = chapterData
     this.chapterNumber = chapter
+    this.lookUpChapterAudio()
     this.linkedVerse = undefined
     // Not the About page shown for want of the books: the passage asked for
     // (the address) is what a failed first load must keep.
@@ -1270,8 +1362,27 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.bookDrawer.close()
   }
 
+  /** ✕ in the apps: a control only the day held goes, not left as auto-scroll's. */
+  onPlayerClosed(): void {
+    this.heldByPlan.set(false)
+    if (!this.showAutoScrollControls) this.readingVerse.set(null)
+  }
+
   toggleAutoScrollControlsVisibility(): void {
-    this.showAutoScrollControls = !this.showAutoScrollControls
+    // On screen by the preference or held by a +365 day, as the menu says:
+    // «Esconder» takes it away at once, both ways.
+    const visible = this.showAutoScrollControls || this.heldByPlan()
+    this.showAutoScrollControls = !visible
+    if (visible) {
+      // A +365 day under way goes with it, as playing does with the control;
+      // a chapter's audio too, let go, so the lock screen or a headset can't
+      // resume it with no player left on screen.
+      if (this.plan.active()) this.plan.end()
+      else this.player.stop()
+      this.heldByPlan.set(false)
+      // The control gone, nothing says which verse is read any more.
+      this.readingVerse.set(null)
+    }
     this.autoScrollControlsPreference = this.showAutoScrollControls
     this.preferencesService.setAutoScrollControlsVisible(
       this.showAutoScrollControls,
@@ -1282,6 +1393,7 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const reading = this.verseBeingRead()
     this.viewMode = this.viewMode === "scrolling" ? "paged" : "scrolling"
     this.preferencesService.setViewMode(this.viewMode)
+    this.lookUpChapterAudio()
 
     void this.analyticsService.track("view_mode_toggle", {
       mode: this.viewMode,
@@ -1289,8 +1401,13 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
       chapter: this.chapterNumber,
     })
 
-    this.showAutoScrollControls =
-      this.viewMode === "scrolling" && this.autoScrollControlsPreference
+    this.showAutoScrollControls = this.autoScrollControlsShown()
+    if (!this.showAutoScrollControls && !this.heldByPlan()) {
+      this.readingVerse.set(null)
+      // The control goes (the apps' pages have none): a chapter's audio with
+      // it, as when hidden, or nothing in the app could pause it.
+      if (!this.plan.active()) this.player.stop()
+    }
     this.cdr.markForCheck()
     if (this.viewMode === "paged") this.autoScrollService.stop()
     // The verse being read stays on screen, once the new layout is in.

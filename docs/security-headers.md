@@ -10,15 +10,16 @@ strict CSP, and two CSPs on one response would both apply.
 ## The policy
 
 ```
-default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
+default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; media-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'
 ```
 
 | Directive | Allows | Why |
 | --- | --- | --- |
-| `default-src 'self'` | everything else from the page's own origin | covers images, the self-hosted fonts (`media/`), the manifest, the service worker (`ngsw-worker.js`) and Vercel Speed Insights (`/_vercel/…`, preview only). `'self'` also keeps it host-neutral. |
+| `default-src 'self'` | everything else from the page's own origin | covers images, the self-hosted fonts (`media/`), the manifest, the service worker (`app-worker.js`, which imports `ngsw-worker.js`) and Vercel Speed Insights (`/_vercel/…`, preview only). `'self'` also keeps it host-neutral. |
 | `script-src` | the bundle, one inline script by hash, Umami's `script.js` | the inline script is the theme script in `src/index.html` (dark theme before the bundle arrives). It is identical on all ~1,400 prerendered pages, so one hash covers them. Event replay is off and hydration state is a JSON data block, which CSP does not govern, so no other inline script exists and no nonce is needed. |
 | `style-src 'self' 'unsafe-inline'` | the stylesheet plus inline styles | Angular adds every component's styles as `<style>` elements at runtime, and the prerendered HTML carries `style="…"` attributes (about a hundred on a chapter page). A nonce would have to be minted per response, which static nginx and the service worker's cached `index.csr.html` cannot do, and nonces never cover attributes. Inline CSS cannot run code. |
 | `connect-src` | `/v1`, `build-info.json`, `ngsw.json`, Umami's `/api/send` | the API is relative (`v1`) on the web. |
+| `media-src` | any HTTPS audio | the auto-scroll control's «Ouvir» mode streams +365 episodes from the podcast's host, and `anchor.fm` redirects to a storage host (today a CloudFront bucket) that the podcast platform can change at any time. Naming it would silently break the audio when it moves; media cannot run code, so any HTTPS source is allowed instead. |
 | `object-src 'none'` | no plugins | |
 | `base-uri 'self'` | `<base href="/">` | stops an injected `<base>` from redirecting relative URLs. |
 | `form-action 'self'` | forms post only here | |
@@ -26,8 +27,10 @@ default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4
 
 `Permissions-Policy` turns off what the app never uses (camera, microphone,
 geolocation, payment, sensors, USB, …, `browsing-topics`) and keeps `clipboard-write`
-(«Copiar ligação») and `screen-wake-lock` (the reader keeps the screen awake while it
-scrolls) for the site itself. `web-share` («Partilhar») is not listed: its default is
+(«Copiar ligação»), `screen-wake-lock` (the reader keeps the screen awake while it
+scrolls) and `autoplay` for the site itself. `autoplay` because a chapter read over
+several days (Salmo 119, Provérbios 1–6) plays its parts as one: each next part starts
+by itself, without a tap, when the one before ends. `web-share` («Partilhar») is not listed: its default is
 already `self`, and Chrome logs "Unrecognized feature: 'web-share'" on every page where
 it does not support Web Share.
 
@@ -48,7 +51,7 @@ error prints the new hash: put it in `vercel.json` and here, then update the VPS
 
 On the VPS, `/etc/nginx/sites-enabled/bible-app` includes
 `/etc/nginx/snippets/security-headers.conf` at server level and again in every page and
-asset location (`= /`, `= /search`, `= /manifest.webmanifest`, `= /index.csr.html`,
+asset location (`= /`, `= /search`, `= /mais365`, `= /manifest.webmanifest`, `= /index.csr.html`,
 `/` and its nested static-file location). The include has to be repeated because an
 `add_header` in a location (each of them sets `Cache-Control`) stops it inheriting the
 server-level ones. `location /v1/` has no include, and its own
@@ -59,16 +62,17 @@ browser applies together (on nginx 1.29.3 or later, `add_header_inherit off;` in
 location would do the same job; production runs 1.26). Adding lines to the snippet
 therefore covers every page and asset in one edit and leaves `/v1/` untouched; the
 `/v1/books` curl check below confirms it. Assets (`.js`, `.css`, fonts) get the CSP too;
-browsers ignore it on them, except on `ngsw-worker.js`, where it governs the service
-worker, which only fetches from the site and from Umami (tested).
+browsers ignore it on them, except on the worker scripts, where it governs the service
+worker, which only fetches from the site and from Umami (tested): the +365 audio
+never reaches it (`public/app-worker.js`) and loads under `media-src`.
 
 ### Step 1: report-only (a few days)
 
 Append to `/etc/nginx/snippets/security-headers.conf`:
 
 ```nginx
-add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
-add_header Permissions-Policy "accelerometer=(), autoplay=(), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=(), clipboard-write=(self), screen-wake-lock=(self)" always;
+add_header Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' 'sha256-gnBbdaetSnVqVzVRqxgV1FQC1p87z4tqJ4FdsLYKUuY=' https://umami.dojo.pt; style-src 'self' 'unsafe-inline'; connect-src 'self' https://umami.dojo.pt; media-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'" always;
+add_header Permissions-Policy "accelerometer=(), autoplay=(self), bluetooth=(), browsing-topics=(), camera=(), display-capture=(), fullscreen=(), geolocation=(), gyroscope=(), hid=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), serial=(), usb=(), xr-spatial-tracking=(), clipboard-write=(self), screen-wake-lock=(self)" always;
 add_header Cross-Origin-Opener-Policy "same-origin" always;
 ```
 
@@ -98,6 +102,24 @@ In the same file, rename `Content-Security-Policy-Report-Only` to
 Browsers that already have the service worker get pages from its cache, with the headers
 the page was cached with, so they pick up a header change with the next app release.
 New visitors and plain browser tabs get it at once.
+
+### Client-rendered pages
+
+`/search` and `/mais365` are rendered in the browser (`RenderMode.Client`), so the
+build has no file for them. Each needs its own location serving the app shell with a
+200, or the `error_page 404` below answers a direct load (a shared link, a reload)
+with the shell and a 404 status. `/mais365` gets a copy of the `= /search` block on
+the VPS, with only the path changed; for example, if that block reads:
+
+```nginx
+location = /mais365 {
+    include /etc/nginx/snippets/security-headers.conf;
+    add_header Cache-Control "no-cache" always;
+    try_files /index.csr.html =404;
+}
+```
+
+Check with `curl -sI https://biblia.capuchinhos.org/mais365` (expect `200`).
 
 ### Unknown URLs
 

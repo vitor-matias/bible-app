@@ -62,12 +62,6 @@
   color: inherit;
 }
 
-/* The reason an item is disabled, under its label. */
-.menu-item-note {
-  display: block;
-  font-size: 0.75rem;
-}
-
 /* Small print under the last item, level with the items' icons, on one line. */
 .menu-version {
   padding: 4px 16px 8px;

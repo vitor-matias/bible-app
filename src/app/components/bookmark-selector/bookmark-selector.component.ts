@@ -96,7 +96,14 @@ export class BookmarkSelectorComponent implements OnInit {
   data = inject<{
     bookId: string
     chapter: number
+    /** False on a page no ribbon can lead back to (+365): the ribbons to open only. */
+    canMark?: boolean
   }>(MAT_BOTTOM_SHEET_DATA)
+
+  /** Whether a ribbon can be laid in this page. */
+  get canMark(): boolean {
+    return this.data.canMark !== false
+  }
   private bookmarkService = inject(BookmarkService)
   private bookService = inject(BookService)
 
@@ -177,6 +184,7 @@ export class BookmarkSelectorComponent implements OnInit {
   }
 
   private moveOffer(): MoveOffer | undefined {
+    if (!this.canMark) return undefined
     const offer = this.mover.offer(this.ribbons)
     if (!offer) return undefined
     const { from, name, done } = offer
@@ -266,6 +274,7 @@ export class BookmarkSelectorComponent implements OnInit {
     }
 
     // 2. If empty -> Assign to current
+    if (!this.canMark) return
     this.ribbonsService.assign(
       ribbon.value,
       this.data.bookId,

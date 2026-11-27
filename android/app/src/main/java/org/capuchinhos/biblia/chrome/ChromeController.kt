@@ -179,6 +179,9 @@ class ChromeController(
     /** The reader's top bar as last drawn, in dp: it follows the text size. */
     private var readerBar = BarMetrics.topBar
 
+    /** The +365 card's height as last drawn (dp). */
+    private var podcastCard = 0f
+
     /**
      * The status bar's and navigation bar's heights, in dp, from the overlay.
      * State, so that what is placed by them (the snackbar) follows a rotation.
@@ -293,8 +296,8 @@ class ChromeController(
         // After SystemBars, whose style calls arrive with the theme's and
         // reset the window's background.
         activity.window.decorView.post { applySystemBars() }
-        // Auto-scroll is read hands-free: the screen mustn't lock under it.
-        if (next.mode == ChromeMode.Reader && next.autoScroll?.playing == true) {
+        // Auto-scroll and +365 are hands-free: the screen mustn't lock under them.
+        if (next.mode == ChromeMode.Reader && (next.autoScroll?.playing == true || next.podcast?.playing == true)) {
             activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -333,7 +336,7 @@ class ChromeController(
 
     /** The space the bars cover now, which the page pads its content by. */
     val insets: ChromeInsets
-        get() = chromeInsets(state, collapsed, systemTop, systemBottom, readerBar)
+        get() = chromeInsets(state, collapsed, systemTop, systemBottom, readerBar, podcastCard)
 
     /** The scheme's colours as last sent to the web app. */
     private var sentPalette: Map<String, Int>? = null
@@ -351,6 +354,14 @@ class ChromeController(
     fun onTopBarHeight(height: Float) {
         if (height == readerBar) return
         readerBar = height
+        reportInsets()
+    }
+
+    /** The +365 card was laid out at this height (dp): whole, so a fraction doesn't resend the insets. */
+    fun onPodcastCardHeight(height: Float) {
+        val whole = kotlin.math.ceil(height)
+        if (whole == podcastCard) return
+        podcastCard = whole
         reportInsets()
     }
 
@@ -466,6 +477,12 @@ class ChromeController(
     }
 
     fun sendWithColor(action: String, color: String) = send(action, JSObject().put("color", color))
+
+    /** The +365 scrubber let go, [seconds] into the part. */
+    fun podcastSeek(seconds: Double) = send("podcast-seek", JSObject().put("seconds", seconds))
+
+    /** ↺15 and ↻15: back (negative) or on by [seconds]. */
+    fun podcastSkip(seconds: Int) = send("podcast-skip", JSObject().put("seconds", seconds))
 
     fun footnoteLink(index: Int) = send("footnote-link", JSObject().put("index", index))
 

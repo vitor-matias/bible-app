@@ -295,14 +295,31 @@ a.references::after {
   transition: background-color 0.4s ease;
 }
 
-:host(.verse-highlight) .verseRun,
-:host(.verse-highlight) .verseNumber,
-:host(.verse-highlight) .footnoteIndicator {
+:host(.verse-highlight) :is(.verseRun, .verseNumber, .footnoteIndicator) {
   background-color: var(--verse-highlight-color);
 }
 
 :host(.verse-highlight) .verseRun {
   padding-block: 0.1em;
+}
+
+/* Read-along (+365): only a faint line under the verse being read. Not on
+   cross-reference links (a.verseRun), whose own underline says "link". */
+/* :where() adds no specificity, so the reduced-motion rule below still wins. */
+.verseRun:where(:not(a)) {
+  text-decoration: underline transparent;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.28em;
+  /* With the highlight's own fade, which this shorthand would otherwise drop. */
+  transition:
+    background-color 0.4s ease,
+    text-decoration-color 0.15s ease;
+}
+
+/* Not the space before its number, which justified text widens (the
+   highlight's stroke does need it, to run on into the number). */
+:host(.verse-reading) .verseRun:not(a, .verseLead) {
+  text-decoration-color: color-mix(in srgb, currentColor 28%, transparent);
 }
 
 /* Numbers are 65% size and top-aligned, so they need a much larger bottom

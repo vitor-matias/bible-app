@@ -17,12 +17,14 @@ import type {
   BookmarksSheetState,
   ChromeInsets,
   FootnotesSheetState,
+  MediaChrome,
   NativeChromeAction,
   NativeChromeState,
   NativePalette,
   NativeShareOptions,
   NativeToastOptions,
   PageChrome,
+  PodcastChrome,
   ReportSheetState,
 } from "./native-chrome.types"
 
@@ -94,6 +96,13 @@ export class NativeChromeService {
   private modalOpen = false
   private collapsed = false
   private autoScroll: AutoScrollChrome | null = null
+  private podcast: PodcastChrome | null = null
+  /** ▶ was tapped on the shell's +365 controls, and the player hasn't played yet. */
+  private playAsked = false
+  /** Auto-scroll or +365 reads on by itself: the bars make way, its controls stay. */
+  private get handsFree(): boolean {
+    return !!(this.autoScroll?.playing || this.podcast?.playing)
+  }
   /** What tapping the current toast does, when it is a button. */
   private toastAction?: () => void
   /** Counts the toasts shown, so a stale one's hide does nothing. */
@@ -110,6 +119,8 @@ export class NativeChromeService {
   private tracked?: HTMLElement
   private lastScroller?: Element
   private readingFrame?: number
+  /** The media session as last sent (JSON). */
+  private sentMedia?: string
   /** The progress line's value as last sent. */
   private sentProgress?: number | null
   /** When the reading position was last worked out (scheduleReading). */
@@ -159,6 +170,12 @@ export class NativeChromeService {
           this.toastAction = undefined
           run?.()
         } else {
+          if (
+            action.id === "podcast-toggle" ||
+            action.id === "auto-scroll-listen"
+          ) {
+            this.playAsked = true
+          }
           this.actionSubject.next(action)
         }
       }),
@@ -241,18 +258,37 @@ export class NativeChromeService {
   /** Shows auto-scroll's controls above the reader's toolbar; null hides them. */
   setAutoScroll(state: AutoScrollChrome | null): void {
     if (!this.enabled) return
-    const wasPlaying = this.autoScroll?.playing ?? false
-    if (!state) {
-      // Leaving auto-scroll leaves the bars up: its own scrolling doesn't
-      // count as reading on.
-      this.collapsed = false
-    } else if (state.playing !== wasPlaying) {
-      // Reading hands-free, the bars make way and auto-scroll's controls
-      // take the toolbar's place; pausing brings them back.
-      this.collapsed = state.playing
-    }
+    this.followHandsFree(this.autoScroll, state)
     this.autoScroll = state
     this.push()
+  }
+
+  /** Shows the +365 player over the text, in auto-scroll's place; null hides it. */
+  setPodcast(state: PodcastChrome | null): void {
+    if (!this.enabled) return
+    // Only a play asked for on the shell's own controls hides the bars: a
+    // reading opened from the plan's page arrives with them, whether its
+    // audio is already playing or starts a moment after the reader shows.
+    const starts = !!state?.playing && !this.podcast?.playing
+    if (!starts || this.playAsked) this.followHandsFree(this.podcast, state)
+    if (starts || !state || this.podcast?.playing) this.playAsked = false
+    this.podcast = state
+    this.push()
+  }
+
+  private followHandsFree(
+    before: { playing: boolean } | null,
+    after: { playing: boolean } | null,
+  ): void {
+    if (!after) {
+      // Leaving the control leaves the bars up: its own scrolling doesn't
+      // count as reading on.
+      if (before) this.collapsed = false
+    } else if (after.playing !== (before?.playing ?? false)) {
+      // Reading hands-free, the bars make way and the control takes the
+      // toolbar's place; pausing brings them back.
+      this.collapsed = after.playing
+    }
   }
 
   showPicker(data: PassagePickerData): void {
@@ -445,7 +481,7 @@ export class NativeChromeService {
         // Material's bars follow the scrolling; a tap only brings hidden
         // ones back, for whoever doesn't think to scroll up. Not while
         // auto-scroll reads on.
-        if (this.collapsed && !this.autoScroll?.playing) {
+        if (this.collapsed && !this.handsFree) {
           this.setCollapsed(false)
         }
         return
@@ -496,7 +532,7 @@ export class NativeChromeService {
       if (element.scrollTop > 0) {
         // Auto-scroll moves the text every frame, which would stop a glide.
         const jump =
-          this.autoScroll?.playing ||
+          this.handsFree ||
           view.matchMedia("(prefers-reduced-motion: reduce)").matches
         element.scrollTo({ top: 0, behavior: jump ? "auto" : "smooth" })
         return
@@ -614,6 +650,18 @@ export class NativeChromeService {
     this.plugin.setProgress({ value }).catch(() => {})
   }
 
+  /** The Android system's media session shows `media`; null ends it. */
+  setMedia(media: MediaChrome | null): void {
+    if (!this.android) return
+    const sent = JSON.stringify(media)
+    if (sent === this.sentMedia) return
+    this.sentMedia = sent
+    this.plugin.setMedia({ media }).catch(() => {
+      // Not applied: the next one must not be skipped as a repeat.
+      if (this.sentMedia === sent) this.sentMedia = undefined
+    })
+  }
+
   /** The page's background colour as declared (`#ffffff`, `#121212`). */
   private pageColor(): string | null {
     const view = this.document.defaultView
@@ -647,6 +695,7 @@ export class NativeChromeService {
           collapsed: reader && !filtering && (this.modalOpen || this.collapsed),
           scrolled: this.scrolled,
           autoScroll: reader ? this.autoScroll : null,
+          podcast: reader ? this.podcast : null,
           subtitle: reader ? this.subtitle : null,
           pageColor: this.pageColor(),
         }

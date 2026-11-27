@@ -5,10 +5,12 @@ import {
 } from "@angular/material/bottom-sheet"
 import { By } from "@angular/platform-browser"
 import { ActivatedRoute, Router, RouterLink } from "@angular/router"
+import { Subject } from "rxjs"
 import { UnifiedGesturesDirective } from "../../directives/unified-gesture.directive"
 import { AnalyticsService } from "../../services/analytics.service"
 import { BibleReferenceService } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { ToastService } from "../../services/toast.service"
 import { createSpyObj, type SpyObj } from "../../testing/spy-obj"
 import { FootnotesBottomSheetComponent } from "./footnotes-bottom-sheet.component"
@@ -23,6 +25,8 @@ describe("FootnotesBottomSheetComponent", () => {
   let bookServiceSpy: SpyObj<BookService>
   let analyticsServiceSpy: SpyObj<AnalyticsService>
   let toastSpy: SpyObj<ToastService>
+  let dismissed: Subject<unknown>
+  let release: ReturnType<typeof vi.fn>
 
   const mockData = {
     footnotes: [
@@ -37,7 +41,17 @@ describe("FootnotesBottomSheetComponent", () => {
   }
 
   beforeEach(async () => {
-    bottomSheetRefSpy = createSpyObj("MatBottomSheetRef", ["dismiss"])
+    bottomSheetRefSpy = createSpyObj("MatBottomSheetRef", [
+      "dismiss",
+      "afterDismissed",
+    ])
+    dismissed = new Subject()
+    bottomSheetRefSpy.afterDismissed.mockReturnValue(dismissed)
+    // As BackButtonService.closeOnBack wraps it: no result passed along.
+    bottomSheetRefSpy.dismiss.mockImplementation(() =>
+      dismissed.next(undefined),
+    )
+    release = vi.fn()
     bibleRefSpy = createSpyObj("BibleReferenceService", ["extract"])
     bookServiceSpy = createSpyObj("BookService", ["findBook", "getUrlAbrv"])
     analyticsServiceSpy = createSpyObj("AnalyticsService", ["track"])
@@ -53,12 +67,19 @@ describe("FootnotesBottomSheetComponent", () => {
         { provide: BookService, useValue: bookServiceSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
         { provide: ToastService, useValue: toastSpy },
+        { provide: PodcastPlayerService, useValue: { hold: () => release } },
         { provide: ActivatedRoute, useValue: {} }, // For RouterModule
       ],
     }).compileComponents()
 
     fixture = TestBed.createComponent(FootnotesBottomSheetComponent)
     component = fixture.componentInstance
+  })
+
+  it("holds +365 while open and lets it go on once closed", () => {
+    expect(release).not.toHaveBeenCalled()
+    component.close()
+    expect(release).toHaveBeenCalledWith(true)
   })
 
   it("adds no space around a reference, between it and the punctuation", () => {
@@ -334,6 +355,8 @@ describe("FootnotesBottomSheetComponent", () => {
       expect(bottomSheetRefSpy.dismiss).toHaveBeenCalled()
       expect(toastSpy.showReturn).toHaveBeenCalledTimes(1)
       expect(toastSpy.showReturn).toHaveBeenCalledWith(mockData.verse)
+      // Gone to the reference: +365 stays paused.
+      expect(release).toHaveBeenCalledWith(false)
     })
   })
 

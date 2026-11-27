@@ -19,6 +19,7 @@ import {
   BibleReferenceService,
 } from "../../services/bible-reference.service"
 import { BookService } from "../../services/book.service"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { ToastService } from "../../services/toast.service"
 import { getVerseQueryParams, parseReferences } from "../verse/verse.utils"
 
@@ -119,10 +120,19 @@ export class FootnotesBottomSheetComponent {
   private bookService = inject(BookService)
   private analyticsService = inject(AnalyticsService)
   private toast = inject(ToastService)
+  /** One of its references was followed: +365 stays paused. */
+  private followed = false
 
   constructor() {
     // Opened over a way back, which is still to be within reach.
     afterNextRender(() => this.toast.bringToFront())
+
+    // +365 pauses while the note is read, and goes on once it is closed;
+    // not after a reference was followed to another passage.
+    const release = inject(PodcastPlayerService).hold()
+    this.bottomSheetRef
+      .afterDismissed()
+      .subscribe(() => release(!this.followed))
 
     const data = this.data
 
@@ -164,6 +174,8 @@ export class FootnotesBottomSheetComponent {
 
   /** The link navigates; this closes the sheet and offers the way back. */
   followReference(): void {
+    // Kept here: BackButtonService's dismiss passes no result along.
+    this.followed = true
     this.close()
     this.toast.showReturn(this.data.verse)
   }

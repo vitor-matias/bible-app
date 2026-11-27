@@ -39,6 +39,9 @@ export interface ToastOptions {
  * the iOS app, a native Material snackbar in the Android app
  * (NativeChromeService).
  */
+/** How long a «+365 · Agora: …» toast stays. */
+const OPEN_TOAST_MS = 8000
+
 @Injectable({
   providedIn: "root",
 })
@@ -62,6 +65,28 @@ export class ToastService {
     this.snackBar.open(message, options.action ?? "Fechar", {
       duration: options.duration ?? 3000,
     })
+  }
+
+  /**
+   * Somewhere to go, for a tap: the glass toast in the apps, the snackbar's
+   * button on the web.
+   */
+  showOpen(message: string, action: string, open: () => void): void {
+    this.returnWatch?.unsubscribe()
+    if (this.nativeChrome.enabled) {
+      const hide = this.nativeChrome.toast(message, {
+        symbol: "headphones",
+        onTap: open,
+      })
+      // As long as the web's snackbar: it went stale over the card (an
+      // «Agora: Reflexão» still up through the next day).
+      setTimeout(hide, OPEN_TOAST_MS)
+      return
+    }
+    this.snackBar
+      .open(message, action, { duration: OPEN_TOAST_MS })
+      .onAction()
+      .subscribe(open)
   }
 
   /**
@@ -125,6 +150,29 @@ export class ToastService {
     )
   }
 
+  /** The way back to the +365 reflection still playing, from one of its readings. */
+  showReturnToPlan(): void {
+    this.showWayBack(
+      "Voltar ao plano de leitura",
+      (extras: NavigationExtras = {}) =>
+        this.router.navigate(["/mais365"], extras),
+      (url) => url.split(/[?#]/)[0] === "/mais365",
+    )
+    this.planWayBack = this.wayBackHide
+  }
+
+  /** The way back to the plan, gone with its day (ended, or let go). */
+  dismissReturnToPlan(): void {
+    if (!this.planWayBack || this.planWayBack !== this.wayBackHide) return
+    this.returnWatch?.unsubscribe()
+    this.planWayBack()
+    this.planWayBack = this.wayBackHide = undefined
+  }
+
+  /** The way back showing, to take it down; the plan's, when that's it. */
+  private wayBackHide?: () => void
+  private planWayBack?: () => void
+
   private showWayBack(
     message: string,
     goTo: (extras?: NavigationExtras) => void,
@@ -170,6 +218,7 @@ export class ToastService {
         returnToPage: true,
       })
       this.returnWatch = this.hideOnReturn(isOrigin, hide)
+      this.wayBackHide = hide
       return
     }
     const snack = this.snackBar.openFromComponent(TwoActionSnackComponent, {
@@ -180,6 +229,7 @@ export class ToastService {
       () => snack.dismiss(),
       snack.afterDismissed(),
     )
+    this.wayBackHide = () => snack.dismiss()
   }
 
   /**

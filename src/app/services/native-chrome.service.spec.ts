@@ -47,6 +47,7 @@ describe("NativeChromeService", () => {
   let plugin: {
     setState: Mock
     setProgress: Mock
+    setMedia: Mock
     showPicker: Mock
     showPassageHint: Mock
     showBookmarks: Mock
@@ -72,6 +73,7 @@ describe("NativeChromeService", () => {
         .mockName("setState")
         .mockResolvedValue({ top: 116, bottom: 82 }),
       setProgress: vi.fn().mockName("setProgress").mockResolvedValue(undefined),
+      setMedia: vi.fn().mockName("setMedia").mockResolvedValue(undefined),
       showPicker: vi.fn().mockName("showPicker").mockResolvedValue(undefined),
       showPassageHint: vi
         .fn()
@@ -202,6 +204,7 @@ describe("NativeChromeService", () => {
       scrolled: false,
       subtitle: null,
       autoScroll: null,
+      podcast: null,
       pageColor: null,
     })
   })
@@ -461,6 +464,7 @@ describe("NativeChromeService", () => {
       scrolled: false,
       subtitle: null,
       autoScroll: null,
+      podcast: null,
       pageColor: null,
     })
   })
@@ -665,6 +669,7 @@ describe("NativeChromeService", () => {
         canSlower: true,
         canFaster: true,
         canPlay: true,
+        canListen: false,
       })
       tap()
 
@@ -904,6 +909,7 @@ describe("NativeChromeService", () => {
         canSlower: true,
         canFaster: true,
         canPlay: true,
+        canListen: false,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
@@ -932,6 +938,7 @@ describe("NativeChromeService", () => {
         canSlower: true,
         canFaster: true,
         canPlay: true,
+        canListen: false,
       }
       service.trackScroll(scroller)
       service.setAutoScroll(autoScroll)
@@ -949,6 +956,101 @@ describe("NativeChromeService", () => {
       expect(collapsed()).toBe(true)
 
       service.setAutoScroll({ ...autoScroll, playing: false })
+      expect(collapsed()).toBe(false)
+    })
+
+    // Reading along with +365 is hands-free too.
+    it("hides them while +365 plays, and brings them back on pause or close", () => {
+      const podcast = {
+        caption: "Génesis 2",
+        context: null,
+        playing: false,
+        canPlay: true,
+        loaded: true,
+        elapsed: 0,
+        length: 210,
+        rate: 1,
+        rateAccessibilityLabel: "1 vez",
+        canSlower: true,
+        canFaster: true,
+        inPlan: false,
+        previousLabel: null,
+        nextLabel: null,
+        canScroll: true,
+        canClose: false,
+      }
+      service.trackScroll(scroller)
+      service.setPodcast(podcast)
+      expect(collapsed()).toBe(false)
+      listener("action")({ id: "podcast-toggle" })
+      service.setPodcast({ ...podcast, playing: true })
+      expect(collapsed()).toBe(true)
+      expect(lastState()).toEqual(
+        expect.objectContaining({ podcast: { ...podcast, playing: true } }),
+      )
+      // The time going on leaves them as they are.
+      service.setPodcast({ ...podcast, playing: true, elapsed: 1 })
+      expect(collapsed()).toBe(true)
+      service.setPodcast({ ...podcast, playing: false, elapsed: 1 })
+      expect(collapsed()).toBe(false)
+      service.setPodcast({ ...podcast, playing: true })
+      service.setPodcast(null)
+      expect(collapsed()).toBe(false)
+    })
+
+    // «Continuar» on the plan's page starts the audio a moment after the
+    // reader showed (Android: the bars were left as an empty band).
+    it("leaves them up when a reading's audio starts by itself after the reader shows", () => {
+      const podcast = {
+        caption: "Génesis 2",
+        context: "+365 · Dia 3",
+        playing: false,
+        canPlay: true,
+        loaded: true,
+        elapsed: 0,
+        length: 210,
+        rate: 1,
+        rateAccessibilityLabel: "1 vez",
+        canSlower: true,
+        canFaster: true,
+        inPlan: true,
+        previousLabel: null,
+        nextLabel: null,
+        canScroll: false,
+        canClose: true,
+      }
+      service.trackScroll(scroller)
+      service.setPodcast(podcast)
+      service.setPodcast({ ...podcast, playing: true })
+      expect(collapsed()).toBe(false)
+      // A pause asked for, then the next start by itself: still not hidden.
+      listener("action")({ id: "podcast-toggle" })
+      service.setPodcast({ ...podcast, playing: false })
+      service.setPodcast({ ...podcast, playing: true })
+      expect(collapsed()).toBe(false)
+    })
+
+    // A +365 reading opened from the plan's page: the bars stay up on arrival.
+    it("keeps them up for a player that comes already playing", () => {
+      service.trackScroll(scroller)
+      service.setPodcast({
+        caption: "Génesis 1",
+        context: "+365 · Dia 1",
+        playing: true,
+        canPlay: true,
+        loaded: true,
+        elapsed: 0,
+        length: 210,
+        rate: 1,
+        rateAccessibilityLabel: "1 vez",
+        canSlower: true,
+        canFaster: true,
+        inPlan: true,
+        previousLabel: null,
+        nextLabel: null,
+        canScroll: false,
+        canClose: true,
+      })
       expect(collapsed()).toBe(false)
     })
 
@@ -1115,6 +1217,7 @@ describe("NativeChromeService", () => {
           canSlower: true,
           canFaster: true,
           canPlay: true,
+          canListen: false,
         })
         expect(collapsed()).toBe(true)
         line.click()
@@ -1439,6 +1542,35 @@ describe("NativeChromeService", () => {
       expect(getComputedStyle(host).getPropertyValue("--cap-brown")).toMatch(
         BROWN,
       )
+    })
+  })
+
+  // Android's WebView doesn't bridge navigator.mediaSession.
+  describe("the system media session", () => {
+    const media = {
+      title: "Génesis 2",
+      artist: "+365 · Dia 3",
+      playing: true,
+      position: 10,
+      duration: 200,
+      rate: 1,
+    }
+
+    it("is sent once for each change, and ended with null, in the Android app", () => {
+      const service = create("android")
+      service.setMedia(media)
+      service.setMedia({ ...media })
+      expect(plugin.setMedia).toHaveBeenCalledTimes(1)
+      expect(plugin.setMedia).toHaveBeenLastCalledWith({ media })
+      service.setMedia({ ...media, playing: false })
+      service.setMedia(null)
+      expect(plugin.setMedia).toHaveBeenCalledTimes(3)
+      expect(plugin.setMedia).toHaveBeenLastCalledWith({ media: null })
+    })
+
+    it("is left to the iOS web view, which bridges it", () => {
+      create("ios").setMedia(media)
+      expect(plugin.setMedia).not.toHaveBeenCalled()
     })
   })
 })

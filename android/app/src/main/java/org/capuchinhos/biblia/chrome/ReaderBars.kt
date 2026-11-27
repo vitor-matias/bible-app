@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
@@ -76,6 +77,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -140,7 +142,8 @@ private fun readerBarHeight(): Dp {
  * web app says when: `collapsed`). They stay composed and slide off the
  * screen, so coming back costs no rebuilding while the page scrolls. The
  * chapter arrows wait in the bottom corners while the bars show; auto-scroll's
- * control floats over the text, between them.
+ * control floats over the text, between them. While the reader listens, the
+ * +365 card has the arrows' place instead.
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -235,7 +238,7 @@ internal fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: 
                 .padding(bottom = FloatingToolbarDefaults.ScreenOffset),
             contentAlignment = Alignment.BottomCenter,
         ) {
-            if (state.chapterNavigation) {
+            if (state.chapterNavigation && state.podcast == null) {
                 Box(
                     Modifier
                         .graphicsLayer { translationY = away * bottomPx }
@@ -261,7 +264,8 @@ internal fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: 
         // stays while they hide for reading; paused, it goes with them, as on
         // iOS. Not over a panel, which the bars make way for too.
         AnimatedVisibility(
-            visible = state.autoScroll != null && !state.inert && (state.autoScroll?.playing == true || !collapsed),
+            visible = state.autoScroll != null && state.podcast == null && !state.inert &&
+                (state.autoScroll?.playing == true || !collapsed),
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(statusInsets.only(WindowInsetsSides.Top))
@@ -275,14 +279,59 @@ internal fun ReaderBars(chrome: ChromeController, state: ChromeState, barColor: 
         ) {
             state.autoScroll?.let { AutoScrollControl(chrome, it, enabled) }
         }
+        // The +365 player, in the arrows' place: listening frees room rather
+        // than adding a layer. The page counts it in its bottom inset
+        // (chromeInsets), so the line being read stays clear.
+        AnimatedVisibility(
+            visible = podcastCardShows(state, collapsed),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(bottomInsets)
+                .padding(bottom = BarMetrics.toolbarOffset.dp)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .padding(horizontal = 16.dp),
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            state.podcast?.let { podcast ->
+                PodcastCard(
+                    chrome,
+                    podcast,
+                    state.passageLabel,
+                    state.passageAccessibilityLabel,
+                    enabled,
+                    Modifier
+                        .widthIn(max = 520.dp)
+                        .fillMaxWidth()
+                        .onSizeChanged { with(density) { chrome.onPodcastCardHeight(it.height.toDp().value) } },
+                )
+            }
+        }
+        // Paused with the bars away, "▶ Génesis 12" in the arrows' row.
+        AnimatedVisibility(
+            visible = podcastMiniShows(state, collapsed),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .windowInsetsPadding(bottomInsets)
+                .padding(bottom = BarMetrics.toolbarOffset.dp)
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .padding(horizontal = 16.dp),
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            PodcastMini(chrome, state, enabled)
+        }
     }
 }
 
 /** Auto-scroll's control keeps this far from the bars and the arrows. */
-private val AUTO_SCROLL_GAP = 12.dp
+private val AUTO_SCROLL_GAP = BarMetrics.floatingGap.dp
 
 /** How long between the ▾'s two bobs while the tip is up. */
 private const val PASSAGE_HINT_BOB_EVERY_MS = 8000L
+
+/** How long the tip stays a launch: back on the next until the title is tapped. */
+private const val PASSAGE_HINT_SHOWN_MS = 10_000L
 
 /**
  * "Mateus 5 ▾", the button to the book and chapter picker, with the heading
@@ -314,6 +363,12 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
             if (!chrome.passageHint || titleAway) return@LaunchedEffect
             try {
                 coroutineScope {
+                    // Not for minutes over the title: ten seconds a launch, back
+                    // on the next until the passage is used.
+                    launch {
+                        delay(PASSAGE_HINT_SHOWN_MS)
+                        chrome.endPassageHint()
+                    }
                     while (true) {
                         // Shown again if it was dismissed (a touch elsewhere).
                         if (!tooltip.isVisible) launch { tooltip.show() }
@@ -561,6 +616,8 @@ private fun MoreMenu(chrome: ChromeController, state: ChromeState, enabled: Bool
             }
             // A page that can't have it at all (the pastoral index) leaves it
             // out; a chapter in pages shows it disabled.
+            // The reading plan, before auto-scroll, as in the web's menu.
+            MenuItem("+365: ler um pouco por dia", R.drawable.ic_calendar_month) { choose("plan") }
             if (state.autoScrollAvailable || state.viewMode != null) {
                 MenuItem("Deslocamento automático", R.drawable.ic_arrow_circle_down, state.autoScrollAvailable,
                     checked = state.autoScrollVisible) { choose("auto-scroll") }
@@ -641,6 +698,14 @@ internal fun PageBar(chrome: ChromeController, state: ChromeState, barColor: Col
             title = { Text(state.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
             actions = {
                 if (state.search) BarButton(R.drawable.ic_search, "Pesquisar", enabled) { chrome.send("search") }
+                // The page's daily reminder (the +365 plan): ringing while it is on.
+                state.reminder?.let { on ->
+                    BarButton(
+                        if (on) R.drawable.ic_notifications_active else R.drawable.ic_notifications_off,
+                        "Notificação diária",
+                        enabled,
+                    ) { chrome.send("reminder") }
+                }
             },
             colors = barColors(barColor),
         )

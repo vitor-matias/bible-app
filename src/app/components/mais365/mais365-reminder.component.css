@@ -1,0 +1,257 @@
+/* In a dialog of its own, over the page: the page's colours aren't here. */
+.reminder {
+  --line: color-mix(in srgb, currentColor 14%, transparent);
+  --muted: color-mix(in srgb, currentColor 68%, transparent);
+  /* The header's brown and antiquewhite, turned round at night, as the page. */
+  --accent: #543d27;
+  --on-accent: antiquewhite;
+  padding: 8px 20px 12px;
+}
+
+:host-context(.dark-theme) .reminder {
+  --accent: antiquewhite;
+  --on-accent: #543d27;
+}
+
+/* Material 3's dialog (web, Android): its headline, then «Fechar» as a text
+   button at the end of its foot. */
+.head {
+  display: flex;
+  align-items: center;
+  padding: 16px 0 8px;
+}
+
+.heading {
+  margin: 0;
+  font-size: 1.5em;
+  font-weight: 400;
+  line-height: 1.33;
+}
+
+/* ✕ is iOS's. Material's icon colour is its light theme's: unseen at night. */
+.close {
+  display: none;
+  color: inherit;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-inline-end: -12px;
+  padding-top: 12px;
+}
+
+.actions button {
+  color: var(--accent);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 56px;
+  padding: 8px 0;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.row + .row {
+  border-top: 1px solid var(--line);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hint,
+.why {
+  font-size: 0.85em;
+  color: var(--muted);
+}
+
+.why {
+  margin: 0;
+  padding: 0 0 12px;
+}
+
+/* A switch: the knob on a track, the accent once on. */
+.switch {
+  flex: none;
+  position: relative;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  border-radius: 13px;
+  appearance: none;
+  background: var(--line);
+  cursor: inherit;
+  transition: background-color 200ms ease-out;
+}
+
+.switch::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--background-color);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  transition: translate 200ms ease-out;
+}
+
+.switch:checked {
+  background: var(--accent);
+}
+
+.switch:checked::before {
+  translate: 18px 0;
+}
+
+.switch:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.switch:focus-visible,
+input[type="time"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type="time"] {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  color: inherit;
+  background: var(--line);
+}
+
+:host-context(.dark-theme) input[type="time"] {
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch,
+  .switch::before {
+    transition: none;
+  }
+}
+
+/* iOS: a sheet's bar, its title centred and ✕ in a grey circle at the end
+   (HIG, Sheets). */
+:host-context(.platform-ios.native-chrome) .head {
+  display: grid;
+  grid-template-columns: 30px 1fr 30px;
+  margin: 4px 0 8px;
+  padding: 0;
+}
+
+:host-context(.platform-ios.native-chrome) .heading {
+  grid-column: 2;
+  text-align: center;
+  font: 600 17px / 22px -apple-system, system-ui, sans-serif;
+}
+
+:host-context(.platform-ios.native-chrome) .close {
+  --mat-icon-button-state-layer-size: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  grid-column: 3;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-color) 12%, transparent);
+}
+
+:host-context(.platform-ios.native-chrome) .close .mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+:host-context(.platform-ios.native-chrome) .actions {
+  display: none;
+}
+
+/* iOS: an inset grouped row, with UIKit's switch (green, 51 x 31). */
+:host-context(.platform-ios.native-chrome) .reminder {
+  border-radius: 26px;
+}
+
+:host-context(.platform-ios.native-chrome) .row {
+  min-height: 44px;
+}
+
+:host-context(.platform-ios.native-chrome) .row + .row {
+  border-top-width: 0.5px;
+}
+
+:host-context(.platform-ios.native-chrome) .switch {
+  width: 51px;
+  height: 31px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--text-color) 16%, transparent);
+}
+
+:host-context(.platform-ios.native-chrome) .switch::before {
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  background: #fff;
+  box-shadow:
+    0 3px 8px rgb(0 0 0 / 15%),
+    0 1px 1px rgb(0 0 0 / 16%);
+}
+
+:host-context(.platform-ios.native-chrome) .switch:checked {
+  background: #34c759;
+}
+
+:host-context(.platform-ios.native-chrome) .switch:checked::before {
+  translate: 20px 0;
+}
+
+/* Android: Material 3's switch (52 x 32), its track outlined while off. */
+:host-context(.platform-android.native-chrome) .reminder {
+  border-radius: 12px;
+}
+
+:host-context(.platform-android.native-chrome) .switch {
+  width: 52px;
+  height: 32px;
+  border: 2px solid var(--muted);
+  border-radius: 16px;
+  background: var(--android-surface-container-high, var(--line));
+}
+
+:host-context(.platform-android.native-chrome) .switch::before {
+  top: 6px;
+  left: 6px;
+  width: 16px;
+  height: 16px;
+  background: var(--muted);
+  box-shadow: none;
+  transition-property: translate, width, height, top, left;
+}
+
+:host-context(.platform-android.native-chrome) .switch:checked {
+  border-color: var(--accent);
+}
+
+:host-context(.platform-android.native-chrome) .switch:checked::before {
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  translate: 20px 0;
+  background: var(--on-accent);
+}

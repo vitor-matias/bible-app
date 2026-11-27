@@ -3,17 +3,21 @@ import { DOCUMENT } from "@angular/common"
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import type { Mock } from "vitest"
+import media from "../../../native-contract/media.json"
 import none from "../../../native-contract/none.json"
 import page from "../../../native-contract/page.json"
+import pageLargeTitle from "../../../native-contract/page-large-title.json"
 import reader from "../../../native-contract/reader.json"
 import readerFilter from "../../../native-contract/reader-filter.json"
 import readerMinimal from "../../../native-contract/reader-minimal.json"
+import readerPodcast from "../../../native-contract/reader-podcast.json"
 import search from "../../../native-contract/search.json"
 import { lastCall } from "../testing/spy-obj"
 import { NATIVE_CHROME_PLUGIN } from "../tokens"
 import { NativeChromeService } from "./native-chrome.service"
 import type {
   AutoScrollChrome,
+  PodcastChrome,
   ReaderChrome,
   SearchChrome,
   TitledPageChrome,
@@ -80,6 +84,15 @@ const PAGE: TitledPageChrome = {
   search: true,
 }
 
+const PAGE_LARGE_TITLE: TitledPageChrome = {
+  mode: "page",
+  themeMode: "dark",
+  title: "+365",
+  search: false,
+  largeTitle: true,
+  reminder: true,
+}
+
 const READER_FILTER: ReaderChrome = {
   ...READER,
   passageLabel: "Índice Bíblico-Pastoral",
@@ -104,6 +117,26 @@ const AUTO_SCROLL: AutoScrollChrome = {
   canSlower: true,
   canFaster: true,
   canPlay: false,
+  canListen: true,
+}
+
+const PODCAST: PodcastChrome = {
+  caption: "+365 · Dia 1 · Génesis 2",
+  context: "+365 · Dia 1",
+  playing: true,
+  canPlay: true,
+  loaded: true,
+  elapsed: 40,
+  length: 210.4,
+  rate: 1.25,
+  rateAccessibilityLabel: "1,25 vezes",
+  canSlower: true,
+  canFaster: true,
+  inPlan: true,
+  previousLabel: "Voltar a Génesis 1",
+  nextLabel: "Saltar para Salmo 19",
+  canScroll: false,
+  canClose: true,
 }
 
 /**
@@ -152,8 +185,10 @@ function driven(from: object, chrome: object): Record<string, unknown> {
 
 describe("the native chrome contract fixtures", () => {
   let setState: Mock
+  let setMedia: Mock
 
   beforeEach(() => {
+    setMedia = vi.fn().mockResolvedValue(undefined)
     setState = vi
       .fn()
       .mockName("setState")
@@ -166,6 +201,7 @@ describe("the native chrome contract fixtures", () => {
           useValue: {
             setState,
             setProgress: () => Promise.resolve(),
+            setMedia,
             addListener: () => Promise.resolve({ remove: () => {} }),
           },
         },
@@ -198,6 +234,12 @@ describe("the native chrome contract fixtures", () => {
 
   const sent = () => lastCall(vi.mocked(setState))[0]
 
+  it("matches what the player sends the Android system's media session", () => {
+    vi.spyOn(Capacitor, "getPlatform").mockReturnValue("android")
+    service().setMedia(media)
+    expect(lastCall(vi.mocked(setMedia))[0]).toEqual({ media })
+  })
+
   it("matches what the reader's bars send, with auto-scroll playing", () => {
     const chrome = service()
     chrome.show(READER)
@@ -205,6 +247,16 @@ describe("the native chrome contract fixtures", () => {
     expect(differences(sent(), reader)).toEqual([])
     expect(driven(sent(), READER)).toEqual(driven(reader, READER))
     expect(sent().autoScroll).toEqual(reader.autoScroll)
+  })
+
+  it("matches what the reader's bars send, with the +365 player in auto-scroll's place", () => {
+    const chrome = service()
+    chrome.show(READER)
+    chrome.setAutoScroll(null)
+    chrome.setPodcast(PODCAST)
+    expect(differences(sent(), readerPodcast)).toEqual([])
+    expect(sent().podcast).toEqual(readerPodcast.podcast)
+    expect(sent().autoScroll).toBeNull()
   })
 
   it("matches what the reader's bars send, with nothing optional", () => {
@@ -225,6 +277,14 @@ describe("the native chrome contract fixtures", () => {
     service().show(PAGE)
     expect(differences(sent(), page)).toEqual([])
     expect(driven(sent(), PAGE)).toEqual(driven(page, PAGE))
+  })
+
+  it("matches what a page with a large title of its own sends", () => {
+    service().show(PAGE_LARGE_TITLE)
+    expect(differences(sent(), pageLargeTitle)).toEqual([])
+    expect(driven(sent(), PAGE_LARGE_TITLE)).toEqual(
+      driven(pageLargeTitle, PAGE_LARGE_TITLE),
+    )
   })
 
   it("matches what a page with a list's filter sends", () => {

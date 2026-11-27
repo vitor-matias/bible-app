@@ -1978,9 +1978,22 @@ describe("SearchComponent", () => {
       fixture.detectChanges()
 
       expect(component.nothingStored).toBe(true)
+      // A browser tab: only the installed app stores the Bible.
       expect(fixture.nativeElement.textContent).toContain(
-        "a Bíblia ainda não está guardada neste dispositivo",
+        "Para pesquisar sem ligação, instale a app.",
       )
+    })
+
+    // A tab promised a download it never makes.
+    it("tells the installed app to open once online", () => {
+      vi.spyOn(window, "matchMedia").mockReturnValue({
+        matches: true,
+      } as MediaQueryList)
+      const installed = TestBed.createComponent(SearchComponent)
+      expect(installed.componentInstance.nothingStoredMessage).toContain(
+        "Abra a app uma vez com ligação",
+      )
+      installed.destroy()
     })
 
     it("tells what search can still do before searching", () => {

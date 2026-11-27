@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Symbols Rounded "skip_previous (filled)", as the web app's icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/black"
+            android:pathData="M220 -270V-690Q220 -703 228.5 -711.5Q237 -720 250 -720Q263 -720 271.5 -711.5Q280 -703 280 -690V-270Q280 -257 271.5 -248.5Q263 -240 250 -240Q237 -240 228.5 -248.5Q220 -257 220 -270ZM693 -273 430 -455Q423 -460 420 -466.5Q417 -473 417 -480Q417 -487 420 -493.5Q423 -500 430 -505L693 -687Q697 -690 701 -691.5Q705 -693 710 -693Q722 -693 731 -685Q740 -677 740 -663V-297Q740 -283 731 -275Q722 -267 710 -267Q705 -267 701 -268.5Q697 -270 693 -273ZM680 -605V-355L499 -480ZM680 -355V-605L499 -480Z" />
+    </group>
+</vector>

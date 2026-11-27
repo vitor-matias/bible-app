@@ -5,13 +5,15 @@ import UIKit
 /// pause where play was. Slower and faster show only while playing, when the
 /// speed can be judged, by eye: the number says nothing a reader needs, and
 /// only VoiceOver reads it. There is no close button: ⋯ hides auto-scroll, as
-/// it showed it.
+/// it showed it. Where +365 reads the chapter a 🎧 leads, playing or paused,
+/// to listen instead: [🎧 | ▶], [🎧 − + | ⏸].
 ///
 /// The reader drags it wherever they like, and it stays there, then and on
 /// later launches. The view itself spans the reading area, between the bars;
 /// only the glass takes touches, and the rest passes them to the page.
 final class AutoScrollControl: UIView {
-    /// The tapped control's action: auto-scroll-toggle, -slower or -faster.
+    /// The tapped control's action: auto-scroll-toggle, -slower, -faster or
+    /// -listen.
     var send: ((String) -> Void)?
     /// The reader has dropped it in a new place.
     var onMoved: (() -> Void)?
@@ -27,10 +29,13 @@ final class AutoScrollControl: UIView {
     private lazy var slowerButton = button("minus", "Diminuir velocidade", "auto-scroll-slower")
     private lazy var fasterButton = button("plus", "Aumentar velocidade", "auto-scroll-faster")
     private lazy var playButton = button("play.fill", "Iniciar", "auto-scroll-toggle")
+    private lazy var listenButton = button("headphones", "Ouvir o +365 em vez de deslocar", "auto-scroll-listen")
     private let divider = UIView()
-    /// Shown only while playing.
-    private var speedViews: [UIView] { [slowerButton, fasterButton, divider] }
+    /// Left of play: 🎧 where +365 reads the chapter, − + while playing, and
+    /// the divider with either.
+    private var sideViews: [UIView] { [listenButton, slowerButton, fasterButton, divider] }
     private var playing = false
+    private var canListen = false
 
     /// Where the reader left the circle: its centre, across and down the
     /// space it can take, each from 0 to 1.
@@ -74,10 +79,10 @@ final class AutoScrollControl: UIView {
         row.axis = .horizontal
         row.alignment = .center
         row.translatesAutoresizingMaskIntoConstraints = false
-        for view in speedViews + [playButton] { row.addArrangedSubview(view) }
+        for view in sideViews + [playButton] { row.addArrangedSubview(view) }
         // Narrowing as the capsule closes, they're cut off rather than drawn
         // over each other.
-        for view in speedViews { view.clipsToBounds = true }
+        for view in sideViews { view.clipsToBounds = true }
         background.contentView.addSubview(row)
 
         // The circle's right edge where the reader put it. Near the left side
@@ -106,16 +111,17 @@ final class AutoScrollControl: UIView {
         ])
         // Just under required: hidden, the stack holds these at zero width,
         // and that must win without breaking a constraint.
-        for (view, width) in [(slowerButton, 44), (fasterButton, 44), (divider, 1)] as [(UIView, CGFloat)] {
+        for (view, width) in [(listenButton, 44), (slowerButton, 44), (fasterButton, 44), (divider, 1)]
+            as [(UIView, CGFloat)] {
             let constraint = view.widthAnchor.constraint(equalToConstant: width)
             constraint.priority = .required - 1
             constraint.isActive = true
         }
-        for button in [slowerButton, fasterButton, playButton] {
+        for button in [listenButton, slowerButton, fasterButton, playButton] {
             button.heightAnchor.constraint(equalToConstant: Self.height).isActive = true
         }
-        showSpeed(false)
-        fadeSpeed(false)
+        showSides()
+        fadeSides()
 
         background.addGestureRecognizer(UIPanGestureRecognizer(target: self, action: #selector(dragged(_:))))
     }
@@ -203,6 +209,7 @@ final class AutoScrollControl: UIView {
     }
 
     func configure(_ state: AutoScrollState, enabled: Bool) {
+        listenButton.isEnabled = enabled
         slowerButton.isEnabled = enabled && state.canSlower
         fasterButton.isEnabled = enabled && state.canFaster
         // Pause always; play not at the page's end, with nothing left to play.
@@ -213,41 +220,51 @@ final class AutoScrollControl: UIView {
         playButton.configuration?.image = UIImage(systemName: state.playing ? "pause.fill" : "play.fill")
         playButton.accessibilityLabel = state.playing ? "Pausar" : "Iniciar"
         playButton.largeContentTitle = playButton.accessibilityLabel
-        guard state.playing != playing else { return }
+        guard state.playing != playing || state.canListen != canListen else { return }
         playing = state.playing
+        canListen = state.canListen
         // Anything else this update changed first, outside the animation.
         layoutIfNeeded()
         // Animated only on screen: shown again, it starts as a circle at once.
         guard !isHidden && alpha > 0 && !UIAccessibility.isReduceMotionEnabled else {
-            showSpeed(playing)
-            fadeSpeed(playing)
+            showSides()
+            fadeSides()
             return
         }
         // − and + fade in once the capsule has nearly opened, and out before
         // it closes: in step with it, they ran into each other on the way.
         UIView.animate(withDuration: 0.4, delay: playing ? 0 : 0.08, usingSpringWithDamping: 0.8,
                        initialSpringVelocity: 0, options: [.beginFromCurrentState, .allowUserInteraction]) {
-            self.showSpeed(self.playing)
+            self.showSides()
         }
         UIView.animate(withDuration: playing ? 0.2 : 0.1, delay: playing ? 0.15 : 0,
                        options: [.beginFromCurrentState, .allowUserInteraction]) {
-            self.fadeSpeed(self.playing)
+            self.fadeSides()
         }
     }
 
-    private func showSpeed(_ shown: Bool) {
+    private func shows(_ view: UIView) -> Bool {
+        if view === listenButton { return canListen }
+        if view === divider { return playing || canListen }
+        return playing
+    }
+
+    private func showSides() {
         // VoiceOver on − or + when the speed goes (auto-scroll stopped by
         // itself) moves to play, rather than to nothing.
-        let focusLeaving = !shown && speedViews.contains { $0.accessibilityElementIsFocused() }
-        for view in speedViews { view.isHidden = !shown }
+        let focusLeaving = sideViews.contains { !shows($0) && $0.accessibilityElementIsFocused() }
+        // Only those that change: a stack view counts each hide made inside
+        // an animation, and one hidden twice stayed hidden when shown once
+        // (− + gone after 🎧 went, paused).
+        for view in sideViews where view.isHidden == shows(view) { view.isHidden = !shows(view) }
         layoutIfNeeded()
         if focusLeaving {
             UIAccessibility.post(notification: .layoutChanged, argument: playButton)
         }
     }
 
-    private func fadeSpeed(_ shown: Bool) {
-        for view in speedViews { view.alpha = shown ? 1 : 0 }
+    private func fadeSides() {
+        for view in sideViews { view.alpha = shows(view) ? 1 : 0 }
     }
 
     private func button(_ symbol: String, _ label: String, _ action: String) -> UIButton {

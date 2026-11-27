@@ -114,3 +114,9 @@ h3 {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* A page no ribbon can be laid in (+365): the empty ones, faded. */
+.color-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}

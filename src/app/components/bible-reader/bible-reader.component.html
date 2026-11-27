@@ -1,9 +1,9 @@
 @if (book) {
 <div class="text-container" unifiedGestures fontSizeContext="reader" (swipeLeft)="onSwipeLeft()" (swipeRight)="onSwipeRight()"
   (swipeMove)="onSwipeMove($event)" (swipeCancel)="onSwipeCancel()" (textSizeChange)="onTextSizeChange($event)">
-  <header class="reader-header" [book]="indexPage ? indexBook() : book"
-    [indexShareText]="indexPage ? indexShareText() : null" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
-    [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
+  <header class="reader-header" [book]="indexPage && !pageBook ? indexBook() : book"
+    [indexShareText]="indexPage && !pageBook ? indexShareText() : null" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
+    [autoScrollControlsVisible]="menuControlVisible()" (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize($event)"
     (decreaseFontSizeEvent)="onDecreaseFontSize($event)" (resetFontSizeEvent)="onResetFontSize()" [textSize]="textSize"
@@ -36,8 +36,13 @@
       <div class="books-unavailable chapter-unavailable" role="alert">
         <mat-icon class="books-unavailable-icon" aria-hidden="true">cloud_off</mat-icon>
         <h2 class="books-unavailable-title">Não foi possível carregar a Bíblia</h2>
+        <!-- Only the installed app downloads the Bible: a tab promised it. -->
+        @if (installed) {
         <p>Verifique a ligação à internet. Na primeira utilização, a Bíblia é descarregada para depois poder ser lida sem
           ligação.</p>
+        } @else {
+        <p>Verifique a ligação à internet. Para ler sem ligação, instale a app.</p>
+        }
         <button type="button" mat-flat-button (click)="retryBooks()" [disabled]="retryingBooks">
           {{ retryingBooks ? "A tentar…" : "Tentar novamente" }}
         </button>
@@ -76,7 +81,7 @@
             <book-intro [introduction]="book.introduction || []"></book-intro>
             } @else {
             @for (verse of chapter.verses; track verse; let i = $index) {
-            <verse [id]="verse.number" class="verse" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)"></verse>
+            <verse [id]="verse.number" class="verse" [class.verse-reading]="verse.number === readingVerse()" [data]="verse" [nextVerseStartsWithQuote]="checkIfNextVerseStartsWithQuote(i)"></verse>
             }
             }
             }
@@ -125,10 +130,6 @@
       </button>
       }
       }
-      @if (showAutoScrollControls && drawerContent && bookBlock) {
-      <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock">
-      </app-auto-scroll-controls>
-      }
       @if (canGoNext) {
       @if (effectiveViewMode === 'scrolling') {
       <a class="floating-nav-button next-chapter" mat-mini-fab aria-label="Capítulo seguinte"
@@ -145,6 +146,16 @@
       }
     </mat-drawer-content>
   </mat-drawer-container>
+  <!-- Outside the scroller: iOS Safari clips a fixed element inside it to its
+       box, which cut the card's shadow and, shortened, the card itself. -->
+  <!-- About's text scrolls as a chapter's; the hosted pages (the index, +365) have none. -->
+  @if (!indexPage && chapter && (showAutoScrollControls || heldByPlan()) && drawerContent && bookBlock) {
+  <app-auto-scroll-controls [scrollElement]="drawerContent.nativeElement" [lineHeightElement]="bookBlock"
+    [bookId]="chapter.bookId" [chapter]="chapter.number"
+    [bookName]="bookName(chapter.bookId)" [paged]="effectiveViewMode === 'paged'"
+    (readingVerse)="onReadingVerse($event)" (pageTurn)="onPageTurn($event)" (playerClosed)="onPlayerClosed()">
+  </app-auto-scroll-controls>
+  }
 </div>
 } @else if (showLoading) {
 <!-- Shown after a moment (styles.css), so a quick load never flashes it. -->

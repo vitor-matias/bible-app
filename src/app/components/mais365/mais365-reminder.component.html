@@ -1,0 +1,34 @@
+<div class="reminder">
+  <!-- Its title: a sheet's bar in iOS, with ✕ at the end; a Material
+       dialog's headline elsewhere, closed from «Fechar» at its foot. -->
+  <header class="head">
+    <h2 class="heading">Notificação diária</h2>
+    <button type="button" mat-icon-button class="close" aria-label="Fechar" mat-dialog-close>
+      <mat-icon>close</mat-icon>
+    </button>
+  </header>
+  <label class="row">
+    <span class="text">
+      <span class="title">Receber notificação</span>
+    </span>
+    <input #toggleInput type="checkbox" role="switch" class="switch" [checked]="reminder.enabled()"
+      [disabled]="!!reminder.unsupported || reminder.busy()" (change)="toggle(toggleInput)">
+  </label>
+  @if (reminder.enabled()) {
+  <label class="row time">
+    <span class="title">Hora</span>
+    <input #timeInput type="time" required [value]="reminder.time()" (change)="reminder.setTime(timeInput.value)">
+  </label>
+  <label class="row">
+    <span class="title">Só se ainda não tiver lido</span>
+    <input #unreadInput type="checkbox" role="switch" class="switch" [checked]="reminder.onlyUnread()"
+      (change)="reminder.setOnlyUnread(unreadInput.checked)">
+  </label>
+  }
+  @if (reminder.unsupported ?? reminder.problem(); as why) {
+  <p class="why" role="status">{{ why }}</p>
+  }
+  <div class="actions">
+    <button type="button" mat-button mat-dialog-close>Fechar</button>
+  </div>
+</div>

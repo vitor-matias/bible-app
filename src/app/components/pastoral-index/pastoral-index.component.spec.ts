@@ -1723,6 +1723,9 @@ describe("PastoralIndexComponent", () => {
     )
     actions.next({ id: "search" } as NativeChromeAction)
     expect(navigate).toHaveBeenCalledWith(["/search"])
+    // The menu's «+365», as the reader's header has it.
+    actions.next({ id: "plan" })
+    expect(navigate).toHaveBeenCalledWith(["/mais365"])
 
     fixture.destroy()
     expect(chrome.hide).toHaveBeenCalled()

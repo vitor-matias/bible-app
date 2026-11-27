@@ -1,14 +1,23 @@
+import { provideHttpClient } from "@angular/common/http"
+import {
+  HttpTestingController,
+  provideHttpClientTesting,
+} from "@angular/common/http/testing"
 import { ChangeDetectorRef } from "@angular/core"
 import { ComponentFixture, TestBed } from "@angular/core/testing"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { Subject } from "rxjs"
 import type { Mock } from "vitest"
+import { apiBaseUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
+import { Mais365Service } from "../../services/mais365.service"
 import { NativeChromeService } from "../../services/native-chrome.service"
 import type { NativeChromeAction } from "../../services/native-chrome.types"
+import { PodcastPlayerService } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { ToastService } from "../../services/toast.service"
 import { createSpyObj, lastCall, type SpyObj } from "../../testing/spy-obj"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
@@ -37,6 +46,7 @@ describe("AutoScrollControlsComponent", () => {
       "stop",
       "updateAutoScrollSpeed",
       "getAutoScrollSpeedLabel",
+      "getAutoScrollSpeedSpokenLabel",
     ])
     // Mock getters which can't be spied directly using createSpyObj on properties
     Object.defineProperty(autoScrollServiceSpy, "autoScrollEnabled", {
@@ -66,6 +76,8 @@ describe("AutoScrollControlsComponent", () => {
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent, MatButtonModule, MatIconModule],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: AutoScrollService, useValue: autoScrollServiceSpy },
         { provide: PreferencesService, useValue: preferencesServiceSpy },
         { provide: AnalyticsService, useValue: analyticsServiceSpy },
@@ -280,6 +292,8 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     enabled: boolean
     actions$: Subject<NativeChromeAction>
     setAutoScroll: Mock
+    setPodcast: Mock
+    setMedia: Mock
   }
   let autoScroll: SpyObj<AutoScrollService>
   let playing: boolean
@@ -311,6 +325,8 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       enabled: true,
       actions$: actions,
       setAutoScroll: vi.fn().mockName("setAutoScroll"),
+      setPodcast: vi.fn().mockName("setPodcast"),
+      setMedia: vi.fn().mockName("setMedia"),
     }
     playing = false
     speed = 1
@@ -347,6 +363,8 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     await TestBed.configureTestingModule({
       imports: [AutoScrollControlsComponent],
       providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
         { provide: NativeChromeService, useValue: nativeChrome },
         { provide: AutoScrollService, useValue: autoScroll },
         {
@@ -375,6 +393,281 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
 
   const lastState = () => lastCall(vi.mocked(nativeChrome.setAutoScroll))[0]
 
+  const lastPodcast = () => lastCall(vi.mocked(nativeChrome.setPodcast))[0]
+  /** Génesis 30, which +365 reads from 60 s to 300 s in. */
+  const withEpisode = async () => {
+    fixture.componentRef.setInput("bookId", "gen")
+    fixture.componentRef.setInput("chapter", 30)
+    fixture.componentRef.setInput("bookName", "Génesis")
+    fixture.detectChanges()
+    TestBed.inject(HttpTestingController)
+      .expectOne(`${apiBaseUrl}/audio/gen/30`)
+      .flush({
+        episodes: [
+          {
+            day: 15,
+            title: "Dia 15",
+            url: "https://anchor.fm/s/x/15.m4a",
+            start: 60,
+            end: 300,
+          },
+        ],
+      })
+    await fixture.whenStable()
+    fixture.detectChanges()
+  }
+
+  // A +365 day mounts the control in pages too; let go, it plays nothing there.
+  it("shows no auto-scroll in pages", () => {
+    fixture.componentRef.setInput("paged", true)
+    fixture.detectChanges()
+    TestBed.tick()
+    expect(lastState()).toBeNull()
+  })
+
+  // A day let go keeps the control mounted in pages: no player left there
+  // that nothing could dismiss, even on a chapter +365 reads.
+  it("shows no player in pages without a day under way", async () => {
+    await withEpisode()
+    // Pages make it the +365 player (audioMode) on a chapter +365 reads.
+    fixture.componentRef.setInput("paged", true)
+    fixture.detectChanges()
+    TestBed.tick()
+    expect(lastPodcast()).toBeNull()
+    expect(lastState()).toBeNull()
+  })
+
+  // The passage names the chapter open; the grey line, what of the day plays.
+  it("names the reading playing when another chapter is open", async () => {
+    // Elsewhere, the day offers its reading in a toast: not this spec's.
+    vi.spyOn(TestBed.inject(ToastService), "showOpen").mockImplementation(
+      () => {},
+    )
+    await withEpisode()
+    const episode = (start: number, end: number) => ({
+      day: 15,
+      title: "Dia 15",
+      url: "u",
+      start,
+      end,
+    })
+    const plan = TestBed.inject(Mais365Service)
+    plan.active.set({
+      day: 15,
+      title: "Dia 15",
+      theme: "Dia 15",
+      url: "u",
+      duration: 1300,
+      readings: [
+        {
+          bookId: "gen",
+          bookName: "Génesis",
+          chapter: 29,
+          episode: episode(60, 300),
+        },
+        {
+          bookId: "gen",
+          bookName: "Génesis",
+          chapter: 30,
+          episode: episode(300, 600),
+        },
+      ],
+      reflection: 900,
+    })
+    const player = TestBed.inject(PodcastPlayerService)
+    player.mode.set("audio")
+    player.current.set({ ...episode(60, 300), title: "Génesis 29" })
+    player.position.set(100)
+    TestBed.tick()
+    expect(lastPodcast()?.context).toBe("+365 · Dia 15 · Génesis 29")
+    // On the chapter being read: the passage says it, the line the day.
+    player.current.set({ ...episode(300, 600), title: "Génesis 30" })
+    player.position.set(400)
+    TestBed.tick()
+    expect(lastPodcast()?.context).toBe("+365 · Dia 15")
+    player.current.set(null)
+    plan.active.set(null)
+    TestBed.tick()
+  })
+
+  it("leaves listening on ✕, a day under way ended", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("play"))
+      return Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("pause"))
+    })
+    const plan = TestBed.inject(Mais365Service)
+    const end = vi.spyOn(plan, "end")
+    await withEpisode()
+    actions.next({ id: "auto-scroll-listen" })
+    actions.next({ id: "podcast-toggle" })
+    TestBed.tick()
+    const player = TestBed.inject(PodcastPlayerService)
+    expect(player.playing()).toBe(true)
+
+    const closed = vi.fn()
+    fixture.componentInstance.playerClosed.subscribe(closed)
+    actions.next({ id: "podcast-close" })
+    TestBed.tick()
+    expect(closed).toHaveBeenCalled()
+    expect(player.playing()).toBe(false)
+    expect(player.mode()).toBe("scroll")
+    expect(lastPodcast()).toBeNull()
+    expect(lastState()).toEqual(expect.objectContaining({ canListen: true }))
+    // No day was under way: nothing to end.
+    expect(end).not.toHaveBeenCalled()
+    for (const request of TestBed.inject(HttpTestingController).match(
+      `${apiBaseUrl}/mais365`,
+    )) {
+      request.flush({ days: [] })
+    }
+  })
+
+  it("steps ⏮ ⏭ through the episode's readings, and skips by the app's seconds", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("play"))
+      return Promise.resolve()
+    })
+    const plan = TestBed.inject(Mais365Service)
+    const start = vi.spyOn(plan, "start").mockResolvedValue()
+    await withEpisode()
+    actions.next({ id: "auto-scroll-listen" })
+    TestBed.tick()
+    // Listening, the days are asked for: Génesis 30 is Dia 15's second reading.
+    const reading = (chapter: number) => ({
+      bookId: "gen",
+      bookName: "Génesis",
+      chapter,
+      episode: { day: 15, title: "Dia 15", url: "u", start: 0, end: 10 },
+    })
+    TestBed.inject(HttpTestingController)
+      .expectOne(`${apiBaseUrl}/mais365`)
+      .flush({
+        days: [
+          {
+            day: 15,
+            title: "Dia 15",
+            theme: "Dia 15",
+            url: "u",
+            duration: 1300,
+            // Génesis 29 untimed (no heading found): ⏮ steps over it.
+            readings: [
+              reading(28),
+              {
+                ...reading(29),
+                episode: { ...reading(29).episode, start: null },
+              },
+              reading(30),
+              reading(31),
+            ],
+            reflection: 900,
+          },
+        ],
+      })
+    await fixture.whenStable()
+    TestBed.tick()
+    expect(lastPodcast()).toEqual(
+      expect.objectContaining({
+        inPlan: false,
+        previousLabel: "Voltar a Génesis 28",
+        nextLabel: "Saltar para Génesis 31",
+      }),
+    )
+    // Joined from the episode, onto its first reading too.
+    actions.next({ id: "podcast-previous" })
+    expect(start).toHaveBeenCalledWith(
+      expect.objectContaining({ day: 15 }),
+      0,
+      "episode",
+    )
+    actions.next({ id: "podcast-next" })
+    expect(start).toHaveBeenCalledWith(
+      expect.objectContaining({ day: 15 }),
+      3,
+      "episode",
+    )
+
+    actions.next({ id: "podcast-toggle" })
+    const audio = vi.mocked(HTMLMediaElement.prototype.play).mock
+      .contexts[0] as HTMLMediaElement
+    audio.currentTime = 100
+    actions.next({ id: "podcast-skip", seconds: -15 })
+    expect(audio.currentTime).toBe(85)
+
+    // One speed button: on through the speeds, round from 2× to ½×.
+    const player = TestBed.inject(PodcastPlayerService)
+    for (const rate of [1.1, 1.25, 1.5, 2, 0.5, 0.75, 1]) {
+      actions.next({ id: "podcast-speed" })
+      expect(player.rate()).toBe(rate)
+    }
+  })
+
+  it("offers 🎧 where +365 reads the chapter", async () => {
+    await withEpisode()
+    expect(lastState()).toEqual(expect.objectContaining({ canListen: true }))
+  })
+
+  it("hands the +365 player to the app, and plays, seeks and swaps back from it", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("play"))
+      return Promise.resolve()
+    })
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (
+      this: HTMLMediaElement,
+    ) {
+      this.dispatchEvent(new Event("pause"))
+    })
+    await withEpisode()
+    actions.next({ id: "auto-scroll-listen" })
+    TestBed.tick()
+    expect(lastCall(vi.mocked(nativeChrome.setAutoScroll))[0]).toBeNull()
+    expect(lastPodcast()).toEqual(
+      expect.objectContaining({
+        // The chapter, as heard on its own; this one has no timings.
+        caption: "Génesis 30 · sem texto acompanhado",
+        playing: false,
+        canPlay: true,
+        inPlan: false,
+        canScroll: true,
+      }),
+    )
+
+    actions.next({ id: "podcast-toggle" })
+    TestBed.tick()
+    expect(lastPodcast()).toEqual(
+      expect.objectContaining({ playing: true, loaded: true }),
+    )
+    const audio = vi.mocked(HTMLMediaElement.prototype.play).mock
+      .contexts[0] as HTMLMediaElement
+    actions.next({ id: "podcast-seek", seconds: 30 })
+    expect(audio.currentTime).toBe(90)
+
+    actions.next({ id: "podcast-scroll" })
+    TestBed.tick()
+    expect(lastPodcast()).toBeNull()
+    expect(lastState()).toEqual(expect.objectContaining({ canListen: true }))
+  })
+
+  // Read-along glides in the apps too: a swipe of the reader's holds it off.
+  it("notices the reader's own swipe", () => {
+    const moved = () =>
+      (fixture.componentInstance as unknown as { readerMovedAt: number })
+        .readerMovedAt
+    expect(moved()).toBe(0)
+    page.dispatchEvent(new TouchEvent("touchmove"))
+    expect(moved()).toBeGreaterThan(0)
+  })
+
   it("draws no web controls; the toolbar shows them", () => {
     expect(
       fixture.nativeElement.querySelector(".auto-scroll-controls"),
@@ -386,6 +679,7 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
       canSlower: true,
       canFaster: true,
       canPlay: true,
+      canListen: false,
     })
   })
 

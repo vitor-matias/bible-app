@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Material Symbols Rounded "swap_vert", as the web app's icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="960"
+    android:viewportHeight="960">
+    <group android:translateY="960">
+        <path
+            android:fillColor="@android:color/black"
+            android:pathData="M323 -480V-766L223 -666Q214 -657 202 -657Q190 -657 181 -666Q172 -675 172 -687Q172 -699 181 -708L332 -859Q337 -864 342 -866Q347 -868 353 -868Q359 -868 364 -866Q369 -864 374 -859L525 -708Q534 -699 534 -687Q534 -675 525 -666Q516 -657 504 -657Q492 -657 483 -666L383 -766V-480Q383 -467 374.5 -458.5Q366 -450 353 -450Q340 -450 331.5 -458.5Q323 -467 323 -480ZM586 -101 435 -252Q426 -261 426 -273Q426 -285 435 -294Q444 -303 456 -303Q468 -303 477 -294L577 -194V-480Q577 -493 585.5 -501.5Q594 -510 607 -510Q620 -510 628.5 -501.5Q637 -493 637 -480V-194L737 -294Q746 -303 758 -303Q770 -303 779 -294Q788 -285 788 -273Q788 -261 779 -252L628 -101Q623 -96 618 -94Q613 -92 607 -92Q601 -92 596 -94Q591 -96 586 -101Z" />
+    </group>
+</vector>

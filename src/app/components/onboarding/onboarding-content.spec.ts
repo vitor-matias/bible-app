@@ -75,6 +75,7 @@ describe("ONBOARDING_STEPS", () => {
     expect(step("welcome")?.features.map((f) => f.icon)).toEqual([
       "explore",
       "history",
+      "calendar_month",
       "touch_app",
     ])
     expect(step(INSTALL_STEP_ID)?.intro).toContain("sem ligação")

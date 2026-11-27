@@ -12,6 +12,10 @@ final class MainViewController: CAPBridgeViewController {
 
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(chromePlugin)
+        // A reminder's tap that opened the app, held till now (AppDelegate).
+        if let router = bridge?.notificationRouter {
+            NotificationRelay.shared.attach(router)
+        }
     }
 }
 
@@ -60,6 +64,8 @@ struct ChromeState: Equatable {
     var buildVersion: String?
 
     var autoScroll: AutoScrollState?
+    /// The +365 player, in auto-scroll's place while the reader listens.
+    var podcast: PodcastState?
 
     /// A list's filter (the pastoral index), for a page with no chapter arrows:
     /// a button in their place, which opens the bottom search field.
@@ -89,6 +95,12 @@ struct ChromeState: Equatable {
 
     // Page
     var title = ""
+    /// The page's own large title is in sight: the bar holds its title back
+    /// until that one has scrolled under it. Nil on a page with none.
+    var largeTitle: Bool?
+    /// A bell in the bar for the page's daily reminder: whether it is on.
+    /// Nil on a page with none.
+    var reminder: Bool?
 
     init() {}
 
@@ -120,7 +132,10 @@ struct ChromeState: Equatable {
         filterOpen = call.getBool("filterOpen", false)
         query = call.getString("query", "")
         title = call.getString("title", "")
+        largeTitle = call.getBool("largeTitle")
+        reminder = call.getBool("reminder")
         autoScroll = call.getObject("autoScroll").map(AutoScrollState.init)
+        podcast = call.getObject("podcast").map(PodcastState.init)
     }
 }
 
@@ -134,6 +149,8 @@ struct AutoScrollState: Equatable {
     var canFaster: Bool
     /// False at the page's end, where there's nothing left to play.
     var canPlay: Bool
+    /// +365 reads this chapter: a 🎧 (auto-scroll-listen) shows.
+    var canListen: Bool
 
     init(_ object: JSObject) {
         playing = object["playing"] as? Bool ?? false
@@ -142,6 +159,61 @@ struct AutoScrollState: Equatable {
         canSlower = object["canSlower"] as? Bool ?? false
         canFaster = object["canFaster"] as? Bool ?? false
         canPlay = object["canPlay"] as? Bool ?? true
+        canListen = object["canListen"] as? Bool ?? false
+    }
+}
+
+/// The +365 player's card, floating over the text above the toolbar. Mirrors
+/// `PodcastChrome` in native-chrome.types.ts.
+struct PodcastState: Equatable {
+    /// "Génesis 2", or "+365 · Dia 1 · Génesis 2" in a day of the plan.
+    var caption: String
+    var playing: Bool
+    /// The chapter's episode is known.
+    var canPlay: Bool
+    /// In the player: ±10 s and the scrubber work.
+    var loaded: Bool
+    /// Whole seconds into the part, sent at most once a second.
+    var elapsed: Double
+    /// The part's length in seconds; 0 while unknown.
+    var length: Double
+    var rate: Double
+    /// In words, for VoiceOver: "1,25 vezes".
+    var rateAccessibilityLabel: String
+    var canSlower: Bool
+    var canFaster: Bool
+    /// In a day of the plan ⏮ and ⏭ show, as a pair; a nil label shows its
+    /// button disabled.
+    var inPlan: Bool
+    var previousLabel: String?
+    var nextLabel: String?
+    /// ⇅: scroll the text instead.
+    var canScroll: Bool
+    /// Said beside the passage: "+365 · Dia 1", or the reflection; nil when
+    /// it would only repeat the passage.
+    var context: String?
+    /// ✕ «Terminar», in ⇅'s slot when there is no ⇅.
+    var canClose: Bool
+
+    init(_ object: JSObject) {
+        // Whole numbers and fractions both arrive as NSNumber.
+        let number = { (key: String) in (object[key] as? NSNumber)?.doubleValue ?? 0 }
+        caption = object["caption"] as? String ?? ""
+        playing = object["playing"] as? Bool ?? false
+        canPlay = object["canPlay"] as? Bool ?? false
+        loaded = object["loaded"] as? Bool ?? false
+        elapsed = number("elapsed")
+        length = number("length")
+        rate = (object["rate"] as? NSNumber)?.doubleValue ?? 1
+        rateAccessibilityLabel = object["rateAccessibilityLabel"] as? String ?? ""
+        canSlower = object["canSlower"] as? Bool ?? false
+        canFaster = object["canFaster"] as? Bool ?? false
+        inPlan = object["inPlan"] as? Bool ?? false
+        previousLabel = object["previousLabel"] as? String
+        nextLabel = object["nextLabel"] as? String
+        canScroll = object["canScroll"] as? Bool ?? false
+        context = object["context"] as? String
+        canClose = object["canClose"] as? Bool ?? false
     }
 }
 

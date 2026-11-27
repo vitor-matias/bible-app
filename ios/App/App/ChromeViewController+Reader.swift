@@ -6,8 +6,19 @@ extension ChromeViewController {
         // The same item throughout, its menu updated: replacing the item
         // would close the menu while a choice that keeps it open is applied.
         let send: (String) -> Void = { [weak self] id in self?.plugin.send(id) }
-        moreItem.menu = ReaderMenu.make(state, send: send)
-        fontItem.menu = ReaderMenu.font(state, compact: traitCollection.verticalSizeClass == .compact, send: send)
+        // Only when what they show changed: +365's time and auto-scroll's
+        // come several times a second, and a menu given anew while open
+        // redraws (the aA menu twitched while a podcast played).
+        var shown = state
+        shown.podcast = nil
+        shown.autoScroll = nil
+        let compact = traitCollection.verticalSizeClass == .compact
+        if shown != menusShownFor || compact != menusCompact {
+            menusShownFor = shown
+            menusCompact = compact
+            moreItem.menu = ReaderMenu.make(state, send: send)
+            fontItem.menu = ReaderMenu.font(state, compact: compact, send: send)
+        }
         moreItem.isEnabled = enabled
         bookmarksItem.isEnabled = enabled
         // The chapter's ribbon, in its colour; the bars are otherwise monochrome.
@@ -50,12 +61,27 @@ extension ChromeViewController {
         if let autoScroll = state.autoScroll {
             autoScrollControl.configure(autoScroll, enabled: enabled)
         }
+        if let podcast = state.podcast {
+            podcastControl.configure(podcast, passage: state.passageLabel,
+                                     passageAccessibility: state.passageAccessibilityLabel, enabled: enabled)
+        } else {
+            // Gone (the page left, the player closed): its scrubber stops
+            // running on, though the card only fades and stays in the window.
+            podcastControl.stop()
+        }
 
+        // The player tucked away, paused, leaves a mini player here: ▶ and the
+        // passage, and a tap resumes rather than showing the bars. With
+        // nothing to play yet, the tap shows the bars, and it says so.
+        let listens = state.podcast.map { $0.canPlay && !$0.playing } ?? false
         if var config = compactPassage.configuration {
             config.title = state.passageLabel
+            config.image = listens ? UIImage(systemName: "play.fill") : nil
             compactPassage.configuration = config
         }
-        compactPassage.accessibilityLabel = state.passageAccessibilityLabel
+        compactPassage.accessibilityLabel = listens ? "Ouvir o +365, \(state.passageLabel)"
+            : state.passageAccessibilityLabel
+        compactPassage.accessibilityHint = listens ? nil : "Mostrar os controlos"
         compactPassage.largeContentTitle = state.passageLabel
 
         filterItem.isEnabled = enabled
@@ -78,7 +104,9 @@ extension ChromeViewController {
         // the floating toolbar, which centres it on the screen, under the page;
         // the system toolbar would centre it in its own strip, off the text.
         let leading = usesVerticalBar ? [] : (toolbarLeadingInset > 0 ? [leadingInsetSpace] : []) + arrows
-        let floating = leading + [passageSpaces[0], passageItem, passageSpaces[1]]
+        // While the reader listens the passage is the player's (PodcastControl),
+        // one glass with it: the toolbar keeps the arrows.
+        let floating = leading + (state.podcast == nil ? [passageSpaces[0], passageItem, passageSpaces[1]] : [])
         let system = usesVerticalBar ? arrows : []
         // An item shows in one bar at a time: the bar losing it lets go first.
         let setFloating = { if self.toolbar.items ?? [] != floating { self.toolbar.setItems(floating, animated: false) } }
@@ -130,6 +158,9 @@ extension ChromeViewController {
         } else if let speed = next.autoScroll?.speedAccessibilityLabel,
                   let before = previous.autoScroll?.speedAccessibilityLabel, speed != before {
             announce(speed)
+        } else if let rate = next.podcast?.rateAccessibilityLabel,
+                  let before = previous.podcast?.rateAccessibilityLabel, rate != before {
+            announce(rate)
         }
     }
 

@@ -87,6 +87,19 @@ describe("VerseComponent", () => {
     expect(component).toBeTruthy()
   })
 
+  // Read along (+365): the verse is underlined, not the space before its
+  // number, which justified text widens.
+  it("underlines the verse being read, not the space before its number", () => {
+    setData(fixture, makeVerse({ number: 2 }))
+    fixture.nativeElement.classList.add("verse-reading")
+    fixture.detectChanges()
+    const color = (selector: string) =>
+      getComputedStyle(fixture.nativeElement.querySelector(selector))
+        .textDecorationColor
+    expect(color(".verseLead")).toBe("rgba(0, 0, 0, 0)")
+    expect(color(".verseRun:not(.verseLead)")).not.toBe("rgba(0, 0, 0, 0)")
+  })
+
   // Ester's Greek additions are stored as verses after the one they trail, so
   // a verse's position is not what the page prints.
   describe("supplements", () => {
@@ -1158,6 +1171,30 @@ describe("VerseComponent", () => {
       highlightHost()
 
       expect(getComputedStyle(marker).paddingBottom).toBe(restingPadding)
+    })
+
+    it("keeps a cross-reference link's own underline, read along or not", () => {
+      mockBibleRef.extract.mockReturnValue([
+        { book: "JHN", chapter: 1, verses: [], match: "Jo 1,1", index: 0 },
+      ] as never)
+      setData(
+        fixture,
+        makeVerse({
+          text: [
+            { type: "text", text: "plain" },
+            { type: "references", text: "Jo 1,1" },
+          ],
+        }),
+      )
+      fixture.detectChanges()
+      const link = fixture.nativeElement.querySelector(
+        "a.verseRun",
+      ) as HTMLElement
+      expect(link).not.toBeNull()
+      const underline = () => getComputedStyle(link).textDecorationColor
+      expect(underline()).toBe(getComputedStyle(link).color)
+      fixture.nativeElement.classList.add("verse-reading")
+      expect(underline()).toBe(getComputedStyle(link).color)
     })
 
     it("should wrap the space before a references block so the stroke does not break", () => {

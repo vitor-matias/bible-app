@@ -15,6 +15,7 @@ import type {
   NativeChromeAction,
 } from "./native-chrome.types"
 import { NativeFootnotesService } from "./native-footnotes.service"
+import { PodcastPlayerService } from "./podcast-player.service"
 import { PreferencesService } from "./preferences.service"
 import { SystemTextSizeService } from "./system-text-size.service"
 import { TextAlignService } from "./text-align.service"
@@ -62,7 +63,23 @@ describe("NativeFootnotesService", () => {
     text: [],
   } as unknown as Verse
 
+  // The +365 player's hold() and what lets it go, one per sheet.
+  let releases: Mock[]
+  // Holds and releases in the order they came, as the player counts them.
+  let order: string[]
+  const player = {
+    hold: () => {
+      const n = releases.length
+      order.push(`hold ${n}`)
+      const release = vi.fn(() => order.push(`release ${n}`))
+      releases.push(release)
+      return release
+    },
+  }
+
   beforeEach(() => {
+    releases = []
+    order = []
     actions = new Subject()
     nativeChrome = {
       enabled: true,
@@ -82,6 +99,7 @@ describe("NativeFootnotesService", () => {
     TestBed.configureTestingModule({
       providers: [
         { provide: NativeChromeService, useValue: nativeChrome },
+        { provide: PodcastPlayerService, useValue: player },
         { provide: BibleReferenceService, useValue: bibleRef },
         { provide: Router, useValue: router },
         { provide: AnalyticsService, useValue: analytics },
@@ -252,6 +270,35 @@ describe("NativeFootnotesService", () => {
     actions.next({ id: "footnote-link", index: 0 })
 
     expect(router.navigate).toHaveBeenCalled()
+  })
+
+  it("pauses +365 while the notes are up, and lets it go on once closed", async () => {
+    service.open([footnote], verse)
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(releases).toHaveLength(1)
+    expect(releases[0]).not.toHaveBeenCalled()
+    actions.next({ id: "footnotes-closed" })
+    expect(releases[0]).toHaveBeenCalledWith()
+  })
+
+  // Played on, a +365 day would take the reader off the passage followed.
+  it("leaves +365 paused for a reference followed", async () => {
+    service.open([footnote], verse)
+    await new Promise((resolve) => setTimeout(resolve))
+    actions.next({ id: "footnote-link", index: 0 })
+    expect(releases[0]).toHaveBeenCalledWith(false)
+  })
+
+  it("lets +365 go when no sheet came up, or another took its place", async () => {
+    nativeChrome.showFootnotes.mockResolvedValueOnce(false)
+    service.open([footnote], verse)
+    await new Promise((resolve) => setTimeout(resolve))
+    expect(releases[0]).toHaveBeenCalledWith()
+    service.open([footnote], verse)
+    service.open([footnote], verse)
+    expect(releases[1]).toHaveBeenCalledWith()
+    // The new hold before the last one goes: never none, which resumes.
+    expect(order.indexOf("hold 2")).toBeLessThan(order.indexOf("release 1"))
   })
 
   // Over another sheet none comes up, and no footnotes-closed would follow.

@@ -3,6 +3,7 @@ import { InjectionToken, inject } from "@angular/core"
 import { App } from "@capacitor/app"
 import { registerPlugin, SystemBars } from "@capacitor/core"
 import { Haptics } from "@capacitor/haptics"
+import { LocalNotifications } from "@capacitor/local-notifications"
 import { Network } from "@capacitor/network"
 import { SplashScreen } from "@capacitor/splash-screen"
 import { type StoreApps, storeApps } from "./config"
@@ -44,6 +45,13 @@ export const HAPTICS_PLUGIN = new InjectionToken<typeof Haptics>(
     factory: () => createNoopNgOnDestroyProxy(Haptics),
   },
 )
+
+export const LOCAL_NOTIFICATIONS_PLUGIN = new InjectionToken<
+  typeof LocalNotifications
+>("Capacitor Local Notifications Plugin", {
+  providedIn: "root",
+  factory: () => createNoopNgOnDestroyProxy(LocalNotifications),
+})
 
 export const SPLASH_SCREEN_PLUGIN = new InjectionToken<typeof SplashScreen>(
   "Capacitor Splash Screen Plugin",

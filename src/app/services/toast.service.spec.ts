@@ -96,6 +96,39 @@ describe("ToastService", () => {
     })
   })
 
+  // Where a +365 day went on to, for a reader gone elsewhere.
+  describe("somewhere to open", () => {
+    it("is the snackbar's button on the web", () => {
+      const actions = new Subject<void>()
+      const service = create(false)
+      snackBar.open.mockReturnValue({ onAction: () => actions } as never)
+      const open = vi.fn()
+      service.showOpen("+365 · Agora: Salmo 19", "Abrir", open)
+      expect(snackBar.open).toHaveBeenCalledWith(
+        "+365 · Agora: Salmo 19",
+        "Abrir",
+        { duration: 8000 },
+      )
+      actions.next()
+      expect(open).toHaveBeenCalled()
+    })
+
+    it("is the glass toast's tap in the apps, gone after 8 s", async () => {
+      vi.useFakeTimers()
+      const open = vi.fn()
+      create(true).showOpen("+365 · Agora: Salmo 19", "Abrir", open)
+      await vi.advanceTimersByTimeAsync(8000)
+      expect(hideToast).toHaveBeenCalled()
+      expect(nativeChrome.toast).toHaveBeenCalledWith(
+        "+365 · Agora: Salmo 19",
+        {
+          symbol: "headphones",
+          onTap: open,
+        },
+      )
+    })
+  })
+
   describe("over a sheet opened after it", () => {
     function popover(child: string): HTMLElement {
       const element = document.createElement("div")
@@ -167,6 +200,39 @@ describe("ToastService", () => {
     // The web's button label doesn't make a native one.
     expect(nativeChrome.toast).toHaveBeenCalledWith("Erro")
     expect(snackBar.open).not.toHaveBeenCalled()
+  })
+
+  it("offers the way back to the reading plan", () => {
+    const service = create(false)
+    const navigate = vi
+      .spyOn(TestBed.inject(Router), "navigate")
+      .mockResolvedValue(true)
+    service.showReturnToPlan()
+    const data = snackBar.openFromComponent.mock.lastCall?.[1]?.data as {
+      message: string
+      returnUrl: () => void
+    }
+    expect(data.message).toBe("Voltar ao plano de leitura")
+    data.returnUrl()
+    expect(navigate).toHaveBeenCalledWith(["/mais365"], {})
+  })
+
+  // Its day ended or let go: the way back to the plan leads nowhere.
+  it("takes down the way back to the plan, and only that one", () => {
+    const service = create(false)
+    const dismiss = vi.fn()
+    snackBar.openFromComponent.mockReturnValue({
+      dismiss,
+      afterDismissed: () => new Subject<void>(),
+    } as never)
+    service.showReturnToPlan()
+    service.dismissReturnToPlan()
+    expect(dismiss).toHaveBeenCalledTimes(1)
+    // Another way back since: left alone.
+    service.showReturnToPlan()
+    service.showReturnToIndex("amor")
+    service.dismissReturnToPlan()
+    expect(dismiss).toHaveBeenCalledTimes(1)
   })
 
   describe("showReturn", () => {

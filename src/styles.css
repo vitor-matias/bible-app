@@ -100,6 +100,13 @@ body {
   box-sizing: border-box;
 }
 
+/* No zoom on a double tap (two quick taps on ±15 s zoomed the page), and no
+   wait for one before a tap counts. Pinching still zooms, for those who
+   need it; where the reader pans only (pan-y), that wins. */
+html {
+  touch-action: manipulation;
+}
+
 *, *::before, *::after {
   box-sizing: inherit;
 }
@@ -404,9 +411,11 @@ html.dark-theme .onboarding-dialog .mat-mdc-button .mdc-button__label {
 }
 
 
-/* "Tentar novamente" when the Bible can't load: the span rule would paint its
-   label the text colour, which in the iOS app is also its fill. */
-.books-unavailable .mdc-button__label {
+/* "Tentar novamente" when the Bible can't load, and the +365 page's buttons:
+   the span rule would paint their labels the text colour, dark on the brown
+   fill (and in the iOS app the fill itself). */
+.books-unavailable .mdc-button__label,
+.mais365 .mdc-button__label {
   color: inherit;
 }
 
@@ -469,16 +478,336 @@ bible-reader .books-loading {
   /* The auto-scroll controls take the foot of the screen, centred, 16px up
      and 48px tall (auto-scroll-controls.component.css): at 320 px they
      covered the arrows' corners, at 393 px they ran beside them. The arrows,
-     and a toast above them, go 20px higher while they show. */
+     and a toast above them, go 32px higher while they show: the copyright
+     centred between them, three lines tall, clears the controls too. */
   body:has(.auto-scroll-controls)
     .floating-nav-button:is(.prev-chapter, .next-chapter) {
-    bottom: calc(72px + var(--app-inset-bottom));
+    bottom: calc(84px + var(--app-inset-bottom));
   }
 
   body:not(.native-chrome):has(.auto-scroll-controls)
     .cdk-overlay-pane
     .mat-mdc-snack-bar-container {
-    margin-bottom: calc(128px + var(--app-inset-bottom));
+    margin-bottom: calc(140px + var(--app-inset-bottom));
+  }
+}
+
+/* The «Ouvir» card (auto-scroll-controls.component.css) is
+   --audio-card-height tall, 16px up on a phone and 24px elsewhere. While it
+   shows there, docked (not dragged elsewhere on a desktop, nor tucked into
+   its pill), everything below keeps clear of it, from that one height: the text
+   (room after the last line when scrolling, shorter columns when paged), the
+   pages' copyright line just above it, and on a phone the ‹ › arrows and a
+   toast above them. */
+:root {
+  --audio-card-height: 106px;
+}
+
+body:has(.auto-scroll-controls:not(.placed) .audio-player) {
+  --audio-card-room: calc(var(--audio-card-height) + 32px + var(--app-inset-bottom));
+}
+
+/* Only where the card would cover text. On wider screens it sits in the
+   bottom-right corner (its left edge at 100vw - 384px) beside the text:
+   the scrolling text, at most 48rem wide and centred, clears it from 1536px;
+   the pages' columns, 65% wide less 3vw a side from 1400px, from 1873px. */
+@media (max-width: 1535px) and (orientation: portrait),
+  (max-width: 1535px) and (min-height: 501px) {
+  /* Room after the last line, to scroll it above the card; the verse being
+     read is kept above it by the read-along. Not a shorter scroller: iOS
+     Safari clips the fixed card and arrows, inside it, to its box. */
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .mat-drawer-content:not(:has(.paged-view-container)) {
+    padding-bottom: var(--audio-card-room);
+  }
+}
+
+@media (max-width: 1872px) and (orientation: portrait),
+  (max-width: 1872px) and (min-height: 501px) {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .paged-view-container {
+    height: calc(
+      100dvh - var(--app-header-height) - var(--app-chrome-top) - 15px -
+        var(--audio-card-room)
+    );
+  }
+
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .fixed-footer {
+    bottom: calc(var(--audio-card-height) + 18px + var(--app-inset-bottom));
+  }
+}
+
+@media (max-width: 768px) and (orientation: portrait),
+  (max-width: 768px) and (min-height: 501px) {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(var(--audio-card-height) + 36px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(var(--audio-card-height) + 92px + var(--app-inset-bottom));
+  }
+}
+
+/* A phone, scrolling, on the web: the copyright ends the chapter between
+   the ‹ › arrows, in their row, as in the apps, not in a band under them
+   (it ran behind them). Its sides clear the arrows (24px in, 48px wide, and
+   16px of air); its bottom is theirs: 84px up, or level with them over the
+   «Ouvir» card (whose room under the text is the card's and 32px, the
+   arrows' bottom 4px more). */
+@media (max-width: 768px) {
+  /* Android's own sizes on a phone (14px over 11px, lines at 1.25), to keep
+     to three lines or so between the arrows; the box is the arrows' own
+     48px, its text centred on them and spilling evenly above and below,
+     with the room above for it. */
+  body:not(.native-chrome) bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) {
+    width: auto;
+    height: 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* The bottom inset off: the reader already stops above it, and the room
+       under the text (84px, or the card's) counts it again, which set the
+       copyright an inset (34px on an iPhone) above the arrows. */
+    margin: 24px calc(88px + var(--app-inset-right)) calc(-1 * var(--app-inset-bottom))
+      calc(88px + var(--app-inset-left));
+    padding: 0;
+    font-size: 14px;
+    line-height: 1.25;
+  }
+
+  body:not(.native-chrome) bible-reader .mat-drawer-content > .copyright-footer:not(.fixed-footer) .copyright-details {
+    font-size: 11px;
+  }
+
+  /* The arrows' own bottom: 52px up, or 84px over the auto-scroll button
+     (above). At 84px always, it sat 32px over the arrows without it. */
+  body:not(.native-chrome) bible-reader .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) {
+    padding-bottom: calc(52px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls):not(:has(.audio-player))
+    bible-reader
+    .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) {
+    padding-bottom: calc(84px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
+    bible-reader
+    .mat-drawer-content
+    > .copyright-footer:not(.fixed-footer) {
+    margin-bottom: calc(4px - var(--app-inset-bottom));
+  }
+}
+
+/* The «Ouvir» controls live outside the reader's scroller (iOS Safari clips
+   fixed elements inside it): over an open book list they'd show, which
+   covered them while they were inside. */
+bible-reader:has(.mat-drawer.mat-drawer-opened) .auto-scroll-controls {
+  visibility: hidden;
+}
+
+/* A phone held sideways (landscape, at most 500px tall): too low for the
+   card below the text, but with width to spare. The card sits in the bottom
+   right corner instead, as tall as its rows (the timeline, ±15 s round ▶,
+   then the rest), and the text (scrolling or in pages) and the › arrow move
+   left of it, keeping all of their height. Here, not in the card's
+   stylesheet, which is at its size budget. */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --audio-side-width: 176px;
+    /* Its right edge: into the side's safe area, which is mostly margin
+       around the notch, as far as the notch leaves room. */
+    --audio-side-right: max(8px, calc(var(--app-inset-right) - 20px));
+  }
+
+  body .auto-scroll-controls.audio:not(.placed):has(.audio-player) {
+    right: var(--audio-side-right);
+    bottom: calc(8px + var(--app-inset-bottom));
+    left: auto;
+    transform: none;
+  }
+
+  /* Over the width a desktop's card was given (inline), its resizing and
+     its narrow-card shrinking (the card's own .movable rule weighs as much
+     as three classes). */
+  body .auto-scroll-controls.audio .audio-player {
+    width: var(--audio-side-width) !important;
+    min-width: 0 !important;
+    height: auto;
+    resize: none;
+    container-type: normal;
+    grid-template-rows: none;
+    gap: 4px;
+    padding: 12px 12px 8px;
+  }
+
+  body .auto-scroll-controls .audio-grip {
+    display: none;
+  }
+
+  /* Up to two lines, from the left, clear of the hide button. */
+  body .auto-scroll-controls .audio-caption {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    padding-right: 30px;
+    white-space: normal;
+    text-align: start;
+  }
+
+  /* Hide: the card's top right corner, a full 40px to tap. */
+  body .auto-scroll-controls .audio-collapse {
+    top: 0;
+    right: 2px;
+    --mat-icon-button-state-layer-size: 40px;
+    padding: 11px;
+  }
+
+  /* The slider over the times, one at each end of it. */
+  body .auto-scroll-controls .audio-progress {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0;
+  }
+
+  body .auto-scroll-controls .audio-position {
+    order: -1;
+    flex: none;
+    width: 100%;
+    margin: -4px 0 -12px;
+  }
+
+  body .auto-scroll-controls .audio-time {
+    min-width: 0;
+    font-size: 11px;
+  }
+
+  /* Three to a row: ±15 s round a bigger ▶, then ⏮ speed ⏭ in a day of the
+     plan, or ⇅ and the speed under ±15 s. */
+  body .auto-scroll-controls .audio-buttons {
+    grid-template-columns: repeat(3, 1fr);
+    justify-items: center;
+    row-gap: 2px;
+    margin-top: 4px;
+    --mat-icon-button-state-layer-size: 40px;
+    --mat-button-text-container-height: 40px;
+  }
+
+  body .auto-scroll-controls .audio-transport {
+    display: contents;
+  }
+
+  body .auto-scroll-controls.audio .audio-player .audio-toggle {
+    width: 52px;
+    height: 52px;
+  }
+
+  body .auto-scroll-controls :is(.plan-back, .audio-buttons > .mode-toggle) {
+    order: 1;
+    grid-column: 1;
+    justify-self: center;
+  }
+
+  /* No room for ✕ in three-to-a-row: the card's ⌄ tucks it away here. */
+  body .auto-scroll-controls .audio-buttons > :is(span:first-child, .plan-close) {
+    display: none;
+  }
+
+  body .auto-scroll-controls .audio-rate {
+    order: 2;
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  body .auto-scroll-controls .mode-toggle ~ .audio-rate {
+    grid-column: 3;
+  }
+
+  body .auto-scroll-controls .plan-skip {
+    order: 3;
+  }
+
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) bible-reader .mat-drawer-content {
+    padding-right: calc(var(--audio-side-width) + 16px);
+  }
+
+  /* The scrolling text as wide as the room between the ‹ arrow and the
+     card, not the 55% a wide screen gets. */
+  body:has(.auto-scroll-controls:not(.placed) .audio-player)
+    bible-reader
+    .mat-drawer-content:not(:has(.paged-view-container))
+    .bookBlock {
+    max-width: none;
+    margin-left: calc(88px + var(--app-inset-left));
+    margin-right: 16px;
+  }
+
+  /* The › arrow on top of the card, centred over it: the text has the
+     card's side to itself. */
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .floating-nav-button.next-chapter {
+    top: auto;
+    transform: none;
+    right: calc(var(--audio-side-right) + (var(--audio-side-width) - 48px) / 2);
+    /* The card's height as it measures it (AutoScrollControlsComponent). */
+    bottom: calc(
+      8px + var(--app-inset-bottom) + var(--audio-card-live-height, 186px) +
+        12px
+    );
+  }
+
+  /* The pages' copyright line too. */
+  body:has(.auto-scroll-controls:not(.placed) .audio-player) .fixed-footer {
+    right: calc(var(--audio-side-width) + 16px + var(--app-inset-right, 0px));
+  }
+}
+
+/* The card tucked into its pill, small and centred: the arrows sit level
+   with it (as they do beside the card where there's room, so they stay put
+   when the card is tucked or shown), and a toast above it. */
+@media (max-width: 768px) {
+  body:has(.audio-mini)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(20px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.audio-mini)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(80px + var(--app-inset-bottom));
+  }
+}
+
+/* With room beside the card (360px, and an arrow and its margins each
+   side), the arrows sit beside it instead of above it, centred on it: it is
+   16px up, and they are 48px tall. */
+@media (min-width: 520px) and (max-width: 768px) and (orientation: portrait),
+  (min-width: 520px) and (max-width: 768px) and (min-height: 501px) {
+  body:has(.auto-scroll-controls:not(.placed) .audio-player)
+    .floating-nav-button:is(.prev-chapter, .next-chapter) {
+    bottom: calc(
+      16px + (var(--audio-card-live-height, var(--audio-card-height)) - 48px) / 2 +
+        var(--app-inset-bottom)
+    );
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(var(--audio-card-height) + 32px + var(--app-inset-bottom));
+  }
+}
+
+/* Wider (a tablet upright): the card, docked at the foot, and the toast
+   centred over it covered ⏮ and ↺15. Above it. */
+@media (min-width: 769px) {
+  body:not(.native-chrome):has(.auto-scroll-controls:not(.placed) .audio-player)
+    .cdk-overlay-pane
+    .mat-mdc-snack-bar-container {
+    margin-bottom: calc(
+      var(--audio-card-live-height, var(--audio-card-height)) + 40px +
+        var(--app-inset-bottom)
+    );
   }
 }
 
@@ -664,21 +993,22 @@ body .mat-mdc-form-field {
   --app-reader-gap: 8px;
 }
 
-/* The search page is a grouped list: on iOS, the system's grouped colours.
+/* The search page is a grouped list (the index and +365 too): on iOS, the
+   system's grouped colours.
    Android keeps the theme's, as its Material bars do. */
 .platform-ios.native-chrome app-search,
-.platform-ios.native-chrome:has(pastoral-index) {
+.platform-ios.native-chrome:has(pastoral-index, mais365) {
   --background-color: #f2f2f7;
   --card-background: #ffffff;
 }
 
 html.dark-theme .platform-ios.native-chrome app-search,
-html.dark-theme .platform-ios.native-chrome:has(pastoral-index) {
+html.dark-theme .platform-ios.native-chrome:has(pastoral-index, mais365) {
   --background-color: #000000;
   --card-background: #1c1c1e;
 }
 
-.native-chrome :is(app-search, book-index, pastoral-index) {
+.native-chrome :is(app-search, book-index, pastoral-index, mais365) {
   --app-chrome-top: var(--native-chrome-top, env(safe-area-inset-top));
   --app-chrome-bottom: var(--native-chrome-bottom, env(safe-area-inset-bottom));
 }
@@ -883,6 +1213,16 @@ html.ragged-text .footnotes-container {
   --android-on-surface-variant: #d2c4ba;
 }
 
+/* The iOS sheets' own background (systemBackground in light, the elevated
+   #1C1C1E in dark), for web panels that should read as the app's sheets. */
+.platform-ios {
+  --ios-sheet-background: #ffffff;
+}
+
+.dark-theme .platform-ios {
+  --ios-sheet-background: #1c1c1e;
+}
+
 /* The Android bars' colours (Theme.kt's brown; the palette event sets the
    wallpaper's on the body), for web surfaces that sit among them. */
 .platform-android {
@@ -905,7 +1245,7 @@ html.ragged-text .footnotes-container {
    layer, so a plain blur rather than glass. The Android app's Material bars
    are opaque, and Android's WebView before 140 garbled the blurred, masked
    layer into a frozen patch of old text. */
-.platform-ios.native-chrome :is(bible-reader, app-search, book-index, pastoral-index)::before,
+.platform-ios.native-chrome :is(bible-reader, app-search, book-index, pastoral-index, mais365)::before,
 .platform-ios.native-chrome :is(bible-reader, app-search, pastoral-index)::after {
   content: "";
   position: fixed;
@@ -918,7 +1258,7 @@ html.ragged-text .footnotes-container {
   transition: height 0.3s ease;
 }
 
-.platform-ios.native-chrome book-index::before,
+.platform-ios.native-chrome :is(book-index, mais365)::before,
 .platform-ios.native-chrome :is(bible-reader, app-search, pastoral-index)::before {
   top: 0;
   height: var(--app-chrome-top);
@@ -1011,6 +1351,31 @@ html:has(mat-snack-bar-container) .footnotes-container {
   bible-reader .floating-nav-button {
     opacity: 1 !important;
   }
+}
+
+/* ±15 s for +365, as the apps' players have: Material Symbols has replay_10
+   and _30 but no 15, so the circular arrow with the number set in it
+   (mirrored going forward). Used by the player card and the plan's page. */
+.skip-15 {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skip-15.forward .mat-icon {
+  transform: scaleX(-1);
+}
+
+.skip-15 > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 1px;
+  font: 700 8px/1 system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 /* A run-in heading beside the chapter number, dash included, is not stretched:

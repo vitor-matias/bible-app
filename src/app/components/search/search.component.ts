@@ -39,7 +39,7 @@ import { SeoService } from "../../services/seo.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
 import { passageLabel } from "../../utils/passage-label"
-import { leftToTheBrowser } from "../../utils/platform"
+import { isStandaloneApp, leftToTheBrowser } from "../../utils/platform"
 import {
   isAmbiguousPsalmNumber,
   PSALMS_BOOK_ID,
@@ -57,6 +57,7 @@ import {
   resolveVerseKey,
   verseRefValue,
 } from "../../utils/verse-ref"
+import { NowPlayingComponent } from "../now-playing/now-playing.component"
 import { SearchBarComponent } from "../search-bar/search-bar.component"
 import { getVerseQueryParams } from "../verse/verse.utils"
 
@@ -73,9 +74,14 @@ export const TYPING_PAUSE_MS = 1500
  */
 export const SEARCH_RESULT_CAP = 100
 
-/** Offline, before the Bible was ever stored on the device. */
-const NOTHING_STORED =
-  "Sem ligação, e a Bíblia ainda não está guardada neste dispositivo. Abra a app uma vez com ligação para a guardar."
+/**
+ * Offline, before the Bible was ever stored on the device. Only the
+ * installed app stores it: a browser tab promised a download it never makes.
+ */
+const nothingStored = (): string =>
+  isStandaloneApp()
+    ? "Sem ligação, e a Bíblia ainda não está guardada neste dispositivo. Abra a app uma vez com ligação para a guardar."
+    : "Sem ligação. Para pesquisar sem ligação, instale a app."
 
 /** The server's search failed, and no Bible is stored to search instead. */
 const SEARCH_FAILED =
@@ -163,7 +169,12 @@ export interface PsalmOption {
   styleUrl: "./search.component.css",
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SearchBarComponent, UnifiedGesturesDirective, MatIconModule],
+  imports: [
+    SearchBarComponent,
+    UnifiedGesturesDirective,
+    MatIconModule,
+    NowPlayingComponent,
+  ],
 })
 export class SearchComponent {
   private apiService = inject(BibleApiService)
@@ -222,7 +233,7 @@ export class SearchComponent {
   searchFailed = false
   /** Why it failed: no connection, or too many searches (HTTP 429). */
   searchFailedMessage = SEARCH_FAILED
-  readonly nothingStoredMessage = NOTHING_STORED
+  readonly nothingStoredMessage = nothingStored()
   private observer: IntersectionObserver | null = null
 
   /**
@@ -926,7 +937,7 @@ export class SearchComponent {
     this.searching = false
     // The heading has the count; a toast over the list only hid a result.
     this.statusMessage = this.nothingStored
-      ? NOTHING_STORED
+      ? this.nothingStoredMessage
       : this.totalResults === 0
         ? `Nenhum resultado para «${text}»`
         : this.resultsHeading

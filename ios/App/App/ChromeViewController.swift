@@ -24,6 +24,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     /// Auto-scroll's controls, while ⋯ shows them: floating over the text,
     /// where the reader drags them.
     let autoScrollControl = AutoScrollControl()
+    /// The +365 player, in auto-scroll's place while the reader listens: above
+    /// the toolbar, the width of its glass.
+    let podcastControl = PodcastControl()
     let searchField = SearchFieldView()
     let toast = ToastView()
     var toastBottom: NSLayoutConstraint!
@@ -47,6 +50,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
     var passageHintView: PassageHintView?
     /// The web app asked for it and the reader hasn't yet used the passage.
     var passageHintPending = false
+    /// What the reader's menus were last built for (configureReader).
+    var menusShownFor: ChromeState?
+    var menusCompact = false
     /// Bars meant to be on screen; a fade-out may still be running for others.
     var shownBars = Set<ObjectIdentifier>()
     var reportedInsets = ChromeInsets()
@@ -72,6 +78,12 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         toolbar.delegate = self
         autoScrollControl.send = { [weak self] id in self?.plugin.send(id) }
         autoScrollControl.onMoved = { [weak self] in self?.fadeAutoScrollForToast() }
+        podcastControl.send = { [weak self] id, extra in self?.plugin.send(id, extra) }
+        // As the toolbar's passage: used, the tip is done with.
+        podcastControl.onPassage = { [weak self] in
+            self?.endPassageHint()
+            self?.plugin.send("passage")
+        }
         // Bar glyphs stay monochrome, like the rest of the native parts.
         topBar.tintColor = .label
         toolbar.tintColor = .label
@@ -80,7 +92,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         searchField.onSubmit = { [weak self] text in self?.plugin.send("search-submit", ["text": text]) }
         searchField.onChange = { [weak self] text in self?.plugin.send("search-input", ["text": text]) }
 
-        for bar in [topBar, autoScrollControl, toolbar, compactPassage, searchField] as [UIView] {
+        for bar in [topBar, autoScrollControl, podcastControl, toolbar, compactPassage, searchField] as [UIView] {
             bar.translatesAutoresizingMaskIntoConstraints = false
             bar.alpha = 0
             bar.isHidden = true
@@ -151,6 +163,25 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             autoScrollControl.bottomAnchor.constraint(equalTo: toolbar.topAnchor),
             autoScrollControl.leadingAnchor.constraint(equalTo: bottomBars.leadingAnchor),
             autoScrollControl.trailingAnchor.constraint(equalTo: bottomBars.trailingAnchor),
+            // Where the toolbar rests, in its place, as wide as its glass up
+            // to a column's width.
+            podcastControl.bottomAnchor.constraint(equalTo: toolbar.bottomAnchor),
+            {
+                let centre = podcastControl.centerXAnchor.constraint(equalTo: toolbar.centerXAnchor)
+                centre.priority = .init(999)
+                return centre
+            }(),
+            {
+                let width = podcastControl.widthAnchor.constraint(equalTo: bottomBars.widthAnchor,
+                                                                  constant: -2 * Glass.barMargin)
+                width.priority = .init(998)
+                return width
+            }(),
+            podcastControl.widthAnchor.constraint(lessThanOrEqualToConstant: 520),
+            podcastControl.leadingAnchor.constraint(greaterThanOrEqualTo: bottomBars.leadingAnchor,
+                                                    constant: Glass.barMargin),
+            podcastControl.trailingAnchor.constraint(lessThanOrEqualTo: bottomBars.trailingAnchor,
+                                                     constant: -Glass.barMargin),
             searchField.leadingAnchor.constraint(equalTo: safeArea.leadingAnchor, constant: 16),
             searchField.trailingAnchor.constraint(equalTo: safeArea.trailingAnchor, constant: -16),
             // Rests above the home indicator, and rides up with the keyboard.
@@ -224,7 +255,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         let previous = state
         state = next
         let animated = previous.mode != .none || next.mode != .none
-        if next.mode != .reader || next.collapsed || next.inert || next.filterOpen || usesVerticalBar || next.passageLabel != previous.passageLabel {
+        // The +365 card takes the toolbar's place: the tip would point at nothing.
+        if next.mode != .reader || next.collapsed || next.inert || next.filterOpen || usesVerticalBar
+            || next.podcast != nil || next.passageLabel != previous.passageLabel {
             dismissPassageHint()
         }
 
@@ -234,7 +267,7 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         if next.mode != .none {
             view.window?.overrideUserInterfaceStyle = Self.interfaceStyle(next.themeMode)
         }
-        for bar in [topBar, autoScrollControl, toolbar, compactPassage, searchField] as [UIView] {
+        for bar in [topBar, autoScrollControl, podcastControl, toolbar, compactPassage, searchField] as [UIView] {
             bar.isUserInteractionEnabled = !next.inert
             bar.accessibilityElementsHidden = next.inert
         }
@@ -245,6 +278,8 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         } else {
             setSystemBarItems(title: nil, left: [], right: [])
         }
+        // Off the reader the card is hidden: its scrubber's timer stops too.
+        if next.mode != .reader { podcastControl.stop() }
         switch next.mode {
         case .reader:
             configureReader(next)
@@ -272,13 +307,37 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             }
         case .page:
             pageItem.title = next.title
+            // A page with a large title of its own: the bar's fades in as
+            // that one goes under it, and out as it comes back.
+            let titleView = next.largeTitle == nil ? nil : pageTitleView
+            if pageItem.titleView !== titleView { pageItem.titleView = titleView }
+            if let largeTitle = next.largeTitle {
+                pageTitleLabel.text = next.title
+                pageTitleLabel.sizeToFit()
+                pageTitleView.frame.size = pageTitleLabel.bounds.size
+                let alpha: CGFloat = largeTitle ? 0 : 1
+                if previous.largeTitle == nil {
+                    pageTitleLabel.alpha = alpha
+                } else {
+                    UIView.animate(withDuration: 0.2, delay: 0, options: [.beginFromCurrentState]) {
+                        self.pageTitleLabel.alpha = alpha
+                    }
+                }
+            }
             pageSearchItem.isEnabled = !next.inert
-            let search = next.search ? pageSearchItem : nil
+            pageReminderItem.isEnabled = !next.inert
+            if let on = next.reminder {
+                // Ringing while a reminder is set, as the web's bell.
+                pageReminderItem.image = UIImage(systemName: on ? "bell.fill" : "bell.slash")
+                pageReminderItem.accessibilityValue = on ? "Ligado" : "Desligado"
+            }
+            let right = [next.search ? pageSearchItem : nil,
+                         next.reminder == nil ? nil : pageReminderItem].compactMap { $0 }
             if usesVerticalBar {
-                pageItem.rightBarButtonItem = nil
-                setSystemBarItems(title: next.title, left: [systemBackItem], right: search.map { [$0] } ?? [])
-            } else if pageItem.rightBarButtonItem !== search {
-                pageItem.rightBarButtonItem = search
+                pageItem.rightBarButtonItems = nil
+                setSystemBarItems(title: next.title, left: [systemBackItem], right: right)
+            } else if pageItem.rightBarButtonItems ?? [] != right {
+                pageItem.rightBarButtonItems = right
             }
             setTopBarItems([pageBackItem, pageItem], animated: previous.mode != .none)
         case .none:
@@ -297,7 +356,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         collapsed = collapse
         let systemBars = usesVerticalBar && next.mode != .none
         setShown(topBar, next.mode != .none && !systemBars, animated: animated)
-        setShown(toolbar, next.mode == .reader && !next.filterOpen, animated: animated)
+        // While the reader listens the player takes the toolbar's place: its
+        // passage, and ⏮ ⏭ through the episode in the arrows' stead.
+        setShown(toolbar, next.mode == .reader && !next.filterOpen && next.podcast == nil, animated: animated)
         setShown(compactPassage, next.mode == .reader && !next.filterOpen, animated: animated)
         navigationController?.setNavigationBarHidden(!systemBars, animated: animated)
         let systemToolbar = next.mode == .reader && !next.filterOpen
@@ -308,20 +369,31 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
         if ChromeState.focusesSearchField(from: previous, to: next) {
             searchField.focus()
         }
-        setShown(autoScrollControl, next.mode == .reader && next.autoScroll != nil, animated: animated)
-        // Playing or paused, auto-scroll's controls stay or go with the bars.
+        // One at a time: the +365 player while the reader listens.
+        setShown(autoScrollControl, next.mode == .reader && next.autoScroll != nil && next.podcast == nil,
+                 animated: animated)
+        setShown(podcastControl, next.mode == .reader && next.podcast != nil, animated: animated)
+        // Playing or paused, auto-scroll's controls and the player stay or go
+        // with the bars.
         if collapseChanged || previous.inert != next.inert
-            || previous.autoScroll?.playing != next.autoScroll?.playing {
+            || previous.autoScroll?.playing != next.autoScroll?.playing
+            || previous.podcast?.playing != next.podcast?.playing {
             animateCollapse(animated: animated)
         }
-        // The insets depend on the collapse too (auto-scroll's stack), which
-        // no layout pass follows.
+        // The insets depend on the collapse too, which no layout pass
+        // follows; the player shown for the first time needs its height first.
+        view.layoutIfNeeded()
         reportInsets()
 
-        // Auto-scroll is read hands-free: the screen mustn't lock under it.
-        UIApplication.shared.isIdleTimerDisabled = next.mode == .reader && next.autoScroll?.playing == true
+        // Auto-scroll and +365 are read hands-free: the screen mustn't lock
+        // under them, the web's wake lock aside.
+        UIApplication.shared.isIdleTimerDisabled = next.mode == .reader
+            && (next.autoScroll?.playing == true || next.podcast?.playing == true)
 
         setNeedsStatusBarAppearanceUpdate()
+        // A toast shown before the bars changed (the +365 card arriving under
+        // «Voltar ao plano»): moved above them, not left on the scrubber.
+        if toastShowing { placeToast() }
         view.layoutIfNeeded()
         // Still wanted, and its passage is back on screen.
         if passageHintPending, passageHintView == nil {
@@ -353,6 +425,27 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
 
     /// Pesquisar, on a plain page.
     private lazy var pageSearchItem = barButton("magnifyingglass", "Pesquisar", "search")
+
+    /// The page's daily reminder (the +365 plan), as the web's bell.
+    private lazy var pageReminderItem = barButton("bell.slash", "Notificação diária", "reminder")
+
+    /// A page's title in the bar, where the page has a large one of its own
+    /// (ChromeState.largeTitle): a view, so that it can fade.
+    private lazy var pageTitleLabel: UILabel = {
+        let label = UILabel()
+        label.font = limitedFont(.headline, limit: barTextScaleLimit)
+        label.adjustsFontForContentSizeCategory = true
+        label.accessibilityTraits = .header
+        return label
+    }()
+
+    /// The bar sets its title view's own alpha as its items change: the
+    /// label fades inside this.
+    private lazy var pageTitleView: UIView = {
+        let view = UIView()
+        view.addSubview(pageTitleLabel)
+        return view
+    }()
 
     // The toolbars' items too are made once and updated in place. Made anew
     // with each update, the one VoiceOver was on (an arrow, +) was gone after
@@ -416,8 +509,17 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             attributes.font = limitedFont(.systemFont(ofSize: 13, weight: .medium), .footnote, limit: barTextScaleLimit)
             return attributes
         }
+        // The mini player's ▶, at the title's size.
+        config.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+        config.imagePadding = 6
         let button = UIButton(configuration: config, primaryAction: UIAction { [weak self] _ in
-            self?.plugin.send("show-bars")
+            // Shown with a podcast set only while it is paused (targetAlpha);
+            // one with no episode to play shows the bars instead.
+            if let podcast = self?.state.podcast, !podcast.playing, podcast.canPlay {
+                self?.plugin.send("podcast-toggle")
+            } else {
+                self?.plugin.send("show-bars")
+            }
         })
         button.accessibilityHint = "Mostrar os controlos"
         button.showsLargeContentViewer = true

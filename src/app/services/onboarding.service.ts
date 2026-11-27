@@ -18,13 +18,18 @@ import {
 } from "../components/onboarding/onboarding-content"
 import { AnalyticsService } from "./analytics.service"
 import { NativeChromeService } from "./native-chrome.service"
+import { PodcastPlayerService } from "./podcast-player.service"
 import { PreferencesService } from "./preferences.service"
 
 /** Let the reader paint before the wizard slides over it on a first visit. */
 export const FIRST_LAUNCH_DELAY_MS = 800
 
-/** The /app landing page, with or without a trailing slash or query. */
-const isLanding = (url: string) => /^\/app\/?([?#]|$)/.test(url)
+/**
+ * Where new visitors arrive, with or without a trailing slash or query: the
+ * /app landing page, and a +365 day sent as a link (/mais365?dia=N), which
+ * the wizard would cover.
+ */
+const isLanding = (url: string) => /^\/(?:app|mais365|365)\/?([?#]|$)/.test(url)
 
 @Injectable({
   providedIn: "root",
@@ -46,6 +51,7 @@ export class OnboardingService {
   }
   private readonly nativeChrome = inject(NativeChromeService)
   private readonly router = inject(Router)
+  private readonly player = inject(PodcastPlayerService)
 
   /**
    * Schedules the wizard on a first visit (never on a share-target launch),
@@ -59,14 +65,17 @@ export class OnboardingService {
   ): boolean {
     if (this.seen()) return false
     if (this.isShareTargetLaunch(search)) return false
-    if (isLanding(path)) {
+    if (isLanding(path) || this.player.throughEpisode()) {
       // /app is where new visitors arrive, so postponed, never dropped. The
-      // store links cancel their navigation and so never end one.
+      // store links cancel their navigation and so never end one. Nor over
+      // a +365 day playing (a shared plan link): after it.
       this.router.events
         .pipe(
           first(
             (e) =>
-              e instanceof NavigationEnd && !isLanding(e.urlAfterRedirects),
+              e instanceof NavigationEnd &&
+              !isLanding(e.urlAfterRedirects) &&
+              !this.player.throughEpisode(),
           ),
         )
         .subscribe(() => this.showOnFirstLaunch(search, ""))
@@ -76,6 +85,11 @@ export class OnboardingService {
     setTimeout(() => {
       // Re-check: the menu can open and close the wizard during the delay.
       if (this.seen()) return
+      // A day started meanwhile: after it.
+      if (this.player.throughEpisode()) {
+        this.showOnFirstLaunch(search, path)
+        return
+      }
       this.open("first_launch")
     }, FIRST_LAUNCH_DELAY_MS)
     return true

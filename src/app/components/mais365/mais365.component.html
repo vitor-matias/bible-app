@@ -1,0 +1,266 @@
+<!-- Named by the reader's header on the web, by the apps' bars natively. -->
+<div class="mais365" [attr.role]="nativeChrome.enabled ? 'main' : null">
+  <!-- What the page is and how far in: scrolls away, the day's card stays. -->
+  <!-- The page's own column: on a phone only the card in it stays put, on a
+       wide screen all of it does, beside the days. -->
+  <div class="side">
+  <div class="lead">
+  <div class="intro-row">
+    <!-- The podcast's own cover (EJNS), as podcast apps show a show. -->
+    <img class="cover" src="imgs/mais365-cover.jpg" width="160" height="160"
+      alt="+365, podcast: a Bíblia inteira, um dia de cada vez.">
+    <p class="intro">No +365, somos convidados a percorrer toda a Bíblia, os seus 73 livros, ao longo de 365 dias.
+      <a class="credit" href="https://ejns.pt/mais365/" target="_blank" rel="noopener">Um podcast EJNS</a></p>
+    <!-- The daily reminder, a tap away: it took a card of its own before.
+         The apps' bars carry it as one of their own buttons. -->
+    @if (!nativeChrome.enabled) {
+    <button type="button" mat-icon-button class="bell" aria-label="Notificação diária" title="Notificação diária"
+      [class.on]="reminder.enabled()" (click)="openReminder()">
+      <mat-icon>{{ reminder.enabled() ? 'notifications_active' : 'notifications_off' }}</mat-icon>
+    </button>
+    }
+  </div>
+  @if (plan.days().length) {
+  <div class="progress">
+    <progress id="plan-progress" [value]="read()" [max]="planLength()"
+      [attr.aria-valuetext]="read() + ' de ' + planLength() + ' dias lidos'"></progress>
+    <div class="progress-line">
+      <label for="plan-progress">{{ read() }} de {{ planLength() }} dias lidos</label>
+      <!-- From two: one day isn't a run yet. -->
+      @if (plan.streak() >= 2) {
+      <span class="streak"><mat-icon aria-hidden="true">local_fire_department</mat-icon>{{ plan.streak() }} dias seguidos</span>
+      }
+      <!-- Behind the newest day out: how far, so catching up has a size. -->
+      @if (behind() > 0) {
+      <span class="behind">{{ behind() === 1 ? '1 dia em atraso' : behind() + ' dias em atraso' }}</span>
+      }
+    </div>
+  </div>
+  }
+  </div>
+
+  <div class="today-column">
+  <!-- Said once a day is picked, not as the card loads or changes by itself. -->
+  <span class="visually-hidden" aria-live="polite">{{ announced() }}</span>
+  @if (here(); as here) {
+  @let day = here.day;
+  <!-- After the day's readings, the reflection; or an introduction, all of it;
+       or, before the readings, the episode's opening. -->
+  <section class="card reflection" aria-labelledby="reflection-title">
+    <p class="kicker">
+      <span>{{ label(day) }} · {{ day.readings.length && !here.intro ? 'Reflexão' : 'Introdução' }}</span>
+      <button type="button" mat-icon-button class="finish" aria-label="Terminar" title="Terminar" (click)="plan.end()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </p>
+    <h2 id="reflection-title">{{ day.theme }}</h2>
+    @if (day.priest) { <p class="priest">Com o {{ day.priest }}</p> }
+    @if (day.readings.length) {
+    <p class="day-readings">Leituras:
+      @for (reading of day.readings; track reading.bookId + reading.chapter; let last = $last) {
+      <a [routerLink]="plan.link(reading)" [queryParams]="plan.query(reading)" (click)="toast.showReturnToPlan()">{{ readingLabel(reading) }}</a>{{ last ? '' : ', ' }}
+      }
+    </p>
+    }
+    <div class="position">
+      <span class="time" aria-hidden="true">{{ time(player.position() - here.from) }}</span>
+      <mat-slider [min]="here.from" [max]="here.to" [step]="1" [displayWith]="spokenTime">
+        <input matSliderThumb [attr.aria-label]="here.intro || !day.readings.length ? 'Posição na introdução' : 'Posição na reflexão'" [value]="sliderValue()"
+          (dragStart)="dragging.set(true)" (dragEnd)="dragging.set(false)" (valueChange)="player.seek($event)">
+      </mat-slider>
+      <span class="time" aria-hidden="true">−{{ time(here.to - player.position()) }}</span>
+    </div>
+    <!-- As the reader's card: the transport centred, ⏮ ⏭ always there (off
+         with nowhere to go), the speed on its own at the end. -->
+    <div class="actions transport">
+      <span></span>
+      <div class="controls">
+        @let previous = plan.previous();
+        <button type="button" mat-icon-button
+          [attr.aria-label]="previous ? 'Voltar a ' + readingLabel(previous) : 'Sem leitura antes'"
+          [title]="previous ? 'Voltar a ' + readingLabel(previous) : ''" [disabled]="!previous" (click)="plan.back()">
+          <mat-icon>skip_previous</mat-icon>
+        </button>
+        <button type="button" mat-icon-button aria-label="Recuar 15 segundos" (click)="skipBack(here.from)">
+          <span class="skip-15" aria-hidden="true"><mat-icon>replay</mat-icon><span>15</span></span>
+        </button>
+        <button type="button" mat-fab class="play" [attr.aria-label]="player.playing() ? 'Pausar' : 'Ouvir'"
+          (click)="plan.toggle()">
+          <mat-icon>{{ player.playing() ? 'pause' : 'play_arrow' }}</mat-icon>
+        </button>
+        <button type="button" mat-icon-button aria-label="Avançar 15 segundos" (click)="player.skip(15)">
+          <span class="skip-15 forward" aria-hidden="true"><mat-icon>replay</mat-icon><span>15</span></span>
+        </button>
+        <!-- In the opening, past it to the first reading. -->
+        @let next = here.intro ? plan.next() : null;
+        @let skipTo = next && next !== 'reflection' ? 'Saltar para ' + readingLabel(next) : null;
+        <button type="button" mat-icon-button class="skip-intro" [attr.aria-label]="skipTo ?? 'Nada a seguir'"
+          [title]="skipTo ?? ''" [disabled]="!skipTo" (click)="plan.skip()">
+          <mat-icon>skip_next</mat-icon>
+        </button>
+      </div>
+      <!-- One speed button, as the reader's player. -->
+      <button type="button" mat-button class="speed" [attr.aria-label]="'Velocidade do +365: ' + rateSpoken()"
+        (click)="player.cycleRate(); rateChanged.set(true)">{{ rateTitle(player.rate()) }}</button>
+      <span class="visually-hidden" aria-live="polite">{{ rateChanged() ? rateSpoken() : "" }}</span>
+    </div>
+  </section>
+  }
+  @if (plan.plan.isLoading() && !plan.days().length) {
+  <p class="status" role="status">A carregar o plano…</p>
+  } @else if (plan.plan.error() && !plan.days().length) {
+  <div class="status" role="alert">
+    <p>Não foi possível carregar o plano. Verifique a ligação à internet.</p>
+    <button type="button" mat-flat-button (click)="plan.plan.reload()">Tentar novamente</button>
+  </div>
+  }
+  <!-- Another day picked while one plays: shown under the player. -->
+  @if (selected(); as day) {
+  @if (!here() || !plan.isActive(day)) {
+  <section class="card today" aria-labelledby="day-title">
+    <p class="kicker"><span>{{ label(day) }}@if (day.day === plan.today()?.day && !isDone(day)) { · {{ readToday() ? 'A seguir' : 'Hoje' }}}@if (isDone(day)) { · Lido ✓}</span>
+      <span class="kicker-end">
+        <!-- From two, as the progress line's: lit once today is read. -->
+        @if (plan.streak() >= 2) {
+        <span class="chip"><mat-icon aria-hidden="true" [class.lit]="readToday()">local_fire_department</mat-icon>{{ plan.streak() }}<span class="visually-hidden"> dias seguidos</span></span>
+        }
+        <span class="length">{{ minutes(day) }} min</span>
+      </span></p>
+    <h2 id="day-title">{{ day.title }}</h2>
+    @if (day.priest) { <p class="priest">Com o {{ day.priest }}</p> }
+    @if (day.readings.length) {
+    <!-- A phone shows the first few: the card stays over the list. -->
+    <ol class="readings" [class.open]="expandedDay() === day.day">
+      @for (reading of day.readings; track reading.bookId + reading.chapter; let i = $index) {
+      <li [class.passed]="passed(day, i)" [class.extra]="i >= shownReadings">
+        <!-- Off to the chapter, with the way back to the plan, as the reflection's links. -->
+        <a [routerLink]="plan.link(reading)" [queryParams]="plan.query(reading)" (click)="toast.showReturnToPlan()">
+          <span>{{ readingLabel(reading) }}</span>
+          @if (passed(day, i)) { <span class="check" aria-label="ouvido">✓</span> }
+          <mat-icon aria-hidden="true">chevron_right</mat-icon>
+        </a>
+      </li>
+      }
+      @if (day.readings.length > shownReadings) {
+      <li class="more-row">
+        <button type="button" [attr.aria-expanded]="expandedDay() === day.day"
+          (click)="expandedDay.set(expandedDay() === day.day ? null : day.day)">
+          <mat-icon aria-hidden="true">{{ expandedDay() === day.day ? 'expand_less' : 'expand_more' }}</mat-icon>
+          {{ expandedDay() === day.day ? 'Menos leituras' : '+ ' + (day.readings.length - shownReadings) + ' leituras' }}
+        </button>
+      </li>
+      }
+    </ol>
+    }
+    @let after = isDone(day) && !plan.isActive(day) ? following(day) : undefined;
+    <div class="actions">
+      @if (plan.isActive(day)) {
+      <button type="button" mat-flat-button class="main" (click)="plan.toggle()">
+        <mat-icon>{{ playingDay(day) ? 'pause' : 'play_arrow' }}</mat-icon>
+        {{ playingDay(day) ? 'Pausar' : 'Continuar' }}
+      </button>
+      } @else if (after) {
+      <!-- Read: on to the next day; listening to this one stays at hand. -->
+      <button type="button" mat-flat-button class="main" (click)="select(after)">
+        Dia {{ after.day }} <mat-icon iconPositionEnd>arrow_forward</mat-icon>
+      </button>
+      <button type="button" mat-icon-button class="listen" [attr.aria-label]="day.readings.length ? 'Ouvir e ler' : 'Ouvir'"
+        [title]="day.readings.length ? 'Ouvir e ler' : 'Ouvir'" (click)="plan.start(day, 0, 'plan', true)">
+        <mat-icon>headphones</mat-icon>
+      </button>
+      } @else if (plan.resumeAt(day); as resume) {
+      <!-- Left part-heard: on from where it was left, to the second, or from
+           its first chapter not heard. -->
+      <button type="button" mat-flat-button class="main"
+        (click)="plan.start(day, resume.at, 'plan', false, resume.seconds)">
+        <mat-icon>headphones</mat-icon>
+        @if (resume.seconds !== undefined) { Continuar em {{ time(resume.seconds) }} } @else { Continuar }
+      </button>
+      <button type="button" mat-icon-button class="restart" aria-label="Recomeçar" title="Recomeçar"
+        (click)="plan.restart(day)">
+        <mat-icon>replay</mat-icon>
+      </button>
+      } @else {
+      <button type="button" mat-flat-button class="main" (click)="plan.start(day, 0, 'plan', true)">
+        <mat-icon>headphones</mat-icon> {{ day.readings.length ? 'Ouvir e ler' : 'Ouvir' }}
+      </button>
+      }
+      <!-- One row, as the card stays on screen: listening named, the rest
+           icons. Reading without audio is the readings' own rows above. -->
+      <span class="tools">
+        <button type="button" mat-button class="mark" [class.done]="isDone(day)"
+          [attr.aria-pressed]="isDone(day)"
+          [attr.aria-label]="isDone(day) ? 'Marcar como não lido' : 'Marcar como lido'"
+          [title]="isDone(day) ? 'Marcar como não lido' : 'Marcar como lido'"
+          (click)="plan.markDone(day.day, !isDone(day))">
+          <mat-icon>{{ isDone(day) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+        </button>
+        @if (canShare) {
+        <button type="button" mat-icon-button aria-label="Partilhar o dia" title="Partilhar o dia"
+          (click)="share(day)">
+          <mat-icon>{{ nativeChrome.enabled && !nativeChrome.android ? 'ios_share' : 'share' }}</mat-icon>
+        </button>
+        }
+      </span>
+    </div>
+  </section>
+  }
+  }
+
+  </div>
+  </div>
+  @if (plan.days().length) {
+  <div class="days-column">
+  <h2 class="days-title">Dias</h2>
+  <!-- Opened where the reader is: the days before, a tap away. -->
+  @if (foldable()) {
+  <button #earlier type="button" class="earlier" [attr.aria-expanded]="showEarlier()" (click)="toggleEarlier(earlier)">
+    <mat-icon aria-hidden="true">{{ showEarlier() ? 'expand_more' : 'expand_less' }}</mat-icon>
+    @if (showEarlier()) { Ocultar {{ foldableDays() === 1 ? 'o dia anterior' : 'os dias anteriores' }} }
+    @else { Mostrar {{ foldableDays() === 0 ? 'as introduções anteriores' : foldableDays() === 1 ? 'o dia anterior' : 'os ' + foldableDays() + ' dias anteriores' }} }
+  </button>
+  }
+  @for (shown of shownSections(); track shown.section.days[0].day; let i = $index) {
+  @let section = shown.section;
+  <section class="period" [attr.aria-labelledby]="section.name ? 'period-' + i : null">
+    @if (section.name) {
+    <h3 [id]="'period-' + i">{{ section.name }}
+      <span class="period-count">{{ sectionRead(section) }}/{{ sectionTotal(section) }}<span class="visually-hidden"> lidos</span></span></h3>
+    }
+    <ul class="days">
+      @for (day of shown.days; track day.day) {
+      <li [attr.data-day]="day.day" [attr.data-next]="day.day === plan.today()?.day ? '' : null">
+        <button type="button" class="day" [class.selected]="day.day === selected()?.day" [class.done]="isDone(day)"
+          [class.next]="day.day === plan.today()?.day && !isDone(day)"
+          [attr.aria-pressed]="day.day === selected()?.day" (click)="select(day)">
+          <span class="day-number">{{ label(day) }}</span>
+          <span class="day-text">
+            <span class="day-title">{{ day.title }}</span>
+            @if (day.readings.length) { <span class="day-summary">{{ summary(day) }}</span> }
+          </span>
+          <!-- Said, not only drawn: mat-icon hides itself from screen readers. -->
+          @if (plan.isActive(day)) {
+          <mat-icon class="day-mark" aria-hidden="true">graphic_eq</mat-icon><span class="visually-hidden day-state">a ouvir</span>
+          } @else if (isDone(day)) {
+          <mat-icon class="day-mark filled" aria-hidden="true">check_circle</mat-icon><span class="visually-hidden day-state">lido</span>
+          } @else if (day.day === plan.today()?.day) {
+          <span class="visually-hidden day-state">a seguir</span>
+          }
+        </button>
+      </li>
+      }
+    </ul>
+  </section>
+  }
+  <!-- Scrolled away from the next day to read: a way back to it. -->
+  @if (nextAway(); as away) {
+  @if (plan.today(); as next) {
+  <button type="button" mat-flat-button class="to-next" (click)="toNext()">
+    <mat-icon>{{ away === 'up' ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+    {{ label(next) }}
+  </button>
+  }
+  }
+  </div>
+  }
+</div>

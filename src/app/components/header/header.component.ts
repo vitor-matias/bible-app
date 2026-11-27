@@ -27,6 +27,7 @@ import { MatSidenavModule } from "@angular/material/sidenav"
 import { MatToolbarModule } from "@angular/material/toolbar"
 import { MatTooltipModule } from "@angular/material/tooltip"
 import { Router, RouterModule } from "@angular/router"
+import { MAIS365_BOOK } from "../../bible-canon"
 import { PRIVACY_POLICY_URL, shareableUrl } from "../../config"
 import type { TextSize } from "../../directives/unified-gesture.directive"
 import {
@@ -107,7 +108,8 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
   readonly book = input.required<Book>()
   readonly chapterNumber = input.required<number>()
-  readonly autoScrollControlsVisible = input(false)
+  /** null: no such control here (the menu leaves its entry out). */
+  readonly autoScrollControlsVisible = input<boolean | null>(false)
   /** The reader's text size, for the Android app's text sheet; null before it opens. */
   readonly textSize = input<TextSize | null>(null)
   readonly viewMode = input<"scrolling" | "paged">("scrolling")
@@ -131,11 +133,17 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
     return isIndexBookmark(this.book().id)
   }
 
+  /** A page of the app's, not a book's text: About, the index, the +365 plan. */
+  get isPage(): boolean {
+    const { id } = this.book()
+    return id === "about" || id === MAIS365_BOOK.id || this.isIndex
+  }
+
   /** Accessible name for the h1, whose visible label cycles on the home page. */
   get headingLabel(): string {
     const book = this.book()
     if (!book) return ""
-    if (book.id === "about" || this.isIndex) return book.name
+    if (this.isPage) return book.name
     // A standalone introduction is already named after itself.
     if (book.introSlug) return book.name
     const chapterNumber = this.chapterNumber()
@@ -348,7 +356,12 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
 
     this.backButton.closeOnBack(
       this.bottomSheet.open(BookmarkSelectorComponent, {
-        data: { bookId: book.id, chapter: chapterNumber },
+        // No ribbon in the +365 page: it isn't a passage to come back to.
+        data: {
+          bookId: book.id,
+          chapter: chapterNumber,
+          ...(book.id === MAIS365_BOOK.id && { canMark: false }),
+        },
         ariaLabel: "Marcadores",
         ariaModal: true,
         restoreFocus: MENU_BUTTON,
@@ -435,6 +448,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
   shareText(): string {
     const book = this.book()
     if (!book || book.id === "about") return "Leia a Bíblia nesta app."
+    if (book.id === MAIS365_BOOK.id) return "A Bíblia num ano, com o +365."
     if (this.isIndex) return this.indexShareText() ?? book.name
     const search = typeof window === "undefined" ? "" : window.location.search
     return sharedPassage(book, this.chapterNumber(), search)
@@ -513,7 +527,7 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
       themeMode: this.themeService.currentMode,
       viewMode: isAbout ? null : this.viewMode(),
       raggedText: isAbout ? null : this.textAlign.ragged,
-      autoScrollVisible: this.autoScrollControlsVisible(),
+      autoScrollVisible: this.autoScrollControlsVisible() ?? false,
       autoScrollAvailable: this.viewMode() !== "paged",
       canShare: this.canShare,
       canReport: this.analyticsService.areAnalyticsAvailable(),
@@ -586,6 +600,9 @@ export class HeaderComponent implements OnInit, OnChanges, OnDestroy {
         break
       case "about":
         this.openAbout()
+        break
+      case "plan":
+        void this.router.navigate(["/mais365"])
         break
       case "help":
         this.onboardingService.open("menu")

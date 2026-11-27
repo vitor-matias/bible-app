@@ -115,7 +115,9 @@ mat-icon {
 }
 
 .searchButton {
-  position: fixed;
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 28px);
+  translate: 0 -50%;
   /* Clear of a navigation bar or notch at the side of a landscape screen
      (Android's 3-button bar covered this button). */
   right: calc(8px + var(--app-inset-right));
@@ -140,8 +142,13 @@ mat-icon {
   color: #543d27;
 }
 
+/* Both round buttons are pinned in the toolbar, mid-row under the notch: as
+   position: fixed with no top, iOS Safari waking from sleep sometimes put
+   them up in the status bar. */
 .menuButton {
-  position: fixed;
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 28px);
+  translate: 0 -50%;
   left: calc(8px + var(--app-inset-left));
   background-color: antiquewhite;
   color: #543d27;

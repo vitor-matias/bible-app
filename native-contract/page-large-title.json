@@ -1,0 +1,15 @@
+{
+  "mode": "page",
+  "themeMode": "dark",
+  "title": "+365",
+  "search": false,
+  "largeTitle": true,
+  "reminder": true,
+  "inert": false,
+  "collapsed": false,
+  "scrolled": false,
+  "autoScroll": null,
+  "podcast": null,
+  "subtitle": null,
+  "pageColor": "#000000"
+}

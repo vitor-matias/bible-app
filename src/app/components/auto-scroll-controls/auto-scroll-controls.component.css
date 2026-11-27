@@ -1,12 +1,30 @@
+/* The reader's ‹ › arrows' colours (bible-reader.component.css): their
+   highlight for the controls' surfaces, their brown for what's on them.
+   Scrolling and «Ouvir» share them; only the big «Ouvir» card is solid. */
 .auto-scroll-controls {
+  --ink: var(--cap-brown);
+  --glass: color-mix(in srgb, var(--highlight-color) 90%, transparent);
+  --muted: color-mix(in srgb, var(--ink) 65%, transparent);
   position: fixed;
   bottom: calc(24px + var(--app-inset-bottom));
   z-index: 100;
   display: flex;
   align-items: center;
   gap: 8px;
-  opacity: 0.85;
+  /* A touch see-through, ▶ and the pill alike (the card is solid). */
+  opacity: 0.9;
   font-family: "Roboto", sans-serif;
+}
+
+/* The frosted pill (the card's glass): auto-scroll's speed, «Ouvir» tucked.
+   Over dark text it was too see-through at 60% and 85%. */
+:is(.auto-scroll-speed, .audio-mini) {
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  background-color: var(--glass);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .auto-scroll-speed {
@@ -14,33 +32,16 @@
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
-  border-radius: 999px;
-  background-color: var(--card-background);
   font-size: 13px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .auto-scroll-speed .mat-icon {
-  color: var(--text-color);
-}
-
-.auto-scroll-speed span {
-  min-width: 60px;
-  text-align: center;
-  font-weight: 400;
+  color: var(--ink);
 }
 
 .floating-nav-button {
-  opacity: 0.8;
-  transition: opacity 0.3s;
   color: var(--cap-brown);
   background-color: var(--highlight-color);
-}
-
-@media (hover: hover) {
-  .floating-nav-button:hover {
-    opacity: 1;
-  }
 }
 
 @media (max-width: 768px) {
@@ -55,4 +56,312 @@
   .auto-scroll-controls {
     right: calc(16px + var(--app-inset-right));
   }
+}
+/* «Ouvir»: one frosted card, like the iOS app's glass bars. Its height is
+   --audio-card-height (styles.css), which also sets the room the reader keeps
+   clear under it: the rows below add up to exactly that. */
+/* The reader's ‹ › arrows' colours (bible-reader.component.css): their
+   highlight for the card (and its pill), their brown for what's on it. */
+.auto-scroll-controls.audio {
+  opacity: 1;
+}
+
+.audio-player {
+  position: relative;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: 14px 32px 1fr;
+  width: min(360px, calc(100vw - 16px));
+  height: var(--audio-card-height);
+  padding: 8px 10px 6px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+  background-color: var(--glass);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.18),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+  color: var(--ink);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .audio-player {
+    --glass: var(--highlight-color);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+.audio-caption {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14px;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Elapsed, the slider, what's left: one line, as in a phone's media player. */
+.audio-progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.audio-time {
+  flex: none;
+  min-width: 34px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+.audio-time:last-child {
+  text-align: end;
+}
+
+.audio-position {
+  flex: 1;
+  min-width: 0;
+  /* Material draws it 48px tall: overlap the rows around it, not push them. */
+  margin: -7px 0;
+  --mat-slider-active-track-color: var(--ink);
+  --mat-slider-inactive-track-color: var(--ink);
+  --mat-slider-inactive-track-opacity: 0.18;
+  --mat-slider-handle-color: var(--ink);
+  --mat-slider-focus-handle-color: var(--ink);
+  --mat-slider-hover-handle-color: var(--ink);
+  --mat-slider-ripple-color: var(--ink);
+  --mat-slider-hover-state-layer-color: color-mix(in srgb, var(--ink) 8%, transparent);
+  --mat-slider-focus-state-layer-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  --mat-slider-disabled-active-track-color: var(--ink);
+  --mat-slider-disabled-inactive-track-color: var(--ink);
+  --mat-slider-disabled-handle-color: var(--muted);
+  --mat-slider-active-track-height: 4px;
+  --mat-slider-inactive-track-height: 4px;
+  --mat-slider-handle-height: 14px;
+  --mat-slider-handle-width: 14px;
+}
+
+.audio-buttons {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  /* Material's icon buttons, a size down: six of them fit a 320px screen. */
+  --mat-icon-button-state-layer-size: 40px;
+}
+
+.audio-buttons .mat-icon {
+  color: var(--ink);
+}
+
+.audio-buttons button:disabled .mat-icon {
+  opacity: 0.35;
+}
+
+.mode-toggle,
+.plan-close {
+  justify-self: start;
+}
+
+/* A day of the plan adds ⏮ ⏭: the narrowest desktop card would cut off +. */
+.audio-player.movable.in-plan {
+  min-width: 264px;
+}
+
+.audio-transport {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.audio-rate {
+  justify-self: end;
+  display: flex;
+}
+
+/* Round and 40px, as the buttons beside it: it was a 64px pill. */
+.audio-speed {
+  --mat-button-text-container-shape: 50%;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+/* Every play button, scrolling or listening: the controls' brown, round,
+   with their highlight on it (over the arrows' look it would otherwise
+   take as a .floating-nav-button). */
+.auto-scroll-controls .auto-scroll-toggle {
+  --mat-fab-container-color: var(--ink);
+  --mat-fab-foreground-color: var(--highlight-color);
+  /* Mini FABs read their own tokens. */
+  --mat-fab-small-container-color: var(--ink);
+  --mat-fab-small-foreground-color: var(--highlight-color);
+  --mat-fab-container-shape: 50%;
+  border-radius: 50%;
+  background-color: var(--ink);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+}
+
+.auto-scroll-controls .auto-scroll-toggle .mat-icon {
+  /* Solid ▶ and ❚❚: the outlined set draws them hollow. */
+  font-variation-settings: "FILL" 1;
+  color: var(--highlight-color);
+}
+
+/* The card's, the one solid thing in it, a size up. */
+.audio-player .audio-toggle {
+  width: 44px;
+  height: 44px;
+}
+
+.audio-player .audio-toggle .mat-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+}
+
+/* Narrowest phones (320px): a little less air between the controls. */
+@media (max-width: 359px) {
+  .audio-player {
+    padding-inline: 6px;
+  }
+
+  .audio-buttons {
+    --mat-icon-button-state-layer-size: 36px;
+  }
+
+  .audio-transport {
+    gap: 0;
+  }
+}
+
+/* Dark: the same card the other way round, warm and dark with cream on it. */
+:host-context(.dark-theme) .auto-scroll-controls {
+  --ink: #ecdcc6;
+  --glass: color-mix(in srgb, #2b2119 88%, transparent);
+}
+
+:host-context(.dark-theme) :is(.audio-player, .audio-mini, .auto-scroll-speed) {
+  border-color: color-mix(in srgb, var(--ink) 14%, transparent);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+:host-context(.dark-theme) .auto-scroll-controls .auto-scroll-toggle {
+  --mat-fab-foreground-color: #2b2119;
+  --mat-fab-small-foreground-color: #2b2119;
+}
+
+:host-context(.dark-theme) .auto-scroll-controls .auto-scroll-toggle .mat-icon {
+  color: #2b2119;
+}
+
+/* Dragged on a desktop: where the reader put it. */
+.auto-scroll-controls.placed {
+  right: auto;
+  bottom: auto;
+  transform: none;
+}
+
+/* A desktop: dragged by its body, widened or narrowed from its corner. */
+.audio-player.movable {
+  overflow: hidden;
+  resize: horizontal;
+  min-width: 230px;
+  max-width: 640px;
+  cursor: grab;
+  container-type: inline-size;
+}
+
+/* Narrowed below 290px: everything a little closer so it still fits. */
+@container (max-width: 290px) {
+  .audio-buttons {
+    --mat-icon-button-state-layer-size: 32px;
+  }
+
+  .audio-transport {
+    gap: 0;
+  }
+
+  .audio-progress {
+    gap: 4px;
+  }
+
+  .audio-time {
+    min-width: 28px;
+    font-size: 10px;
+  }
+}
+
+.audio-player.movable:active {
+  cursor: grabbing;
+}
+
+/* The grip, mirroring the hide button: top left, on the caption's line. */
+.audio-grip {
+  position: absolute;
+  top: 5px;
+  left: 12px;
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  color: var(--muted);
+  /* Lying down: two rows of dots, as a sheet's grabber. */
+  rotate: 90deg;
+}
+
+.audio-player.movable :is(button, mat-slider) {
+  cursor: pointer;
+}
+
+/* The card's hide button, in its top corner beside the caption. */
+/* Its middle on the caption's line, and over the + button's. */
+.audio-collapse {
+  position: absolute;
+  top: 3px;
+  right: 18px;
+  --mat-icon-button-state-layer-size: 24px;
+  --mat-icon-button-icon-size: 18px;
+  padding: 3px;
+}
+
+.audio-collapse .mat-icon,
+.audio-expand .mat-icon {
+  color: var(--ink);
+}
+
+/* 18px, in the middle of its 24px button: the icon took Material's 24px
+   (the token doesn't reach it), poking out of its own hover circle. */
+.audio-collapse .mat-icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+/* Tucked away: play and «show» in a small pill where the card was. */
+
+.audio-mini {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+}
+
+.audio-mini .audio-toggle {
+  width: 40px;
+  height: 40px;
+}
+
+/* A ring for the keyboard: Material's own cue is a faint state layer. */
+button:focus-visible {
+  outline: 2px solid var(--text-color);
+  outline-offset: 2px;
 }

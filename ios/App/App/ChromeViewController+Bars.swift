@@ -30,14 +30,34 @@ extension ChromeViewController {
         // reading (not its play button), but not over a panel, as the other
         // bars don't, nor under a toast.
         if bar === autoScrollControl { return state.inert || autoScrollTucked || toastCoversAutoScroll ? 0 : 1 }
+        // So does the player's, while it plays.
+        if bar === podcastControl { return state.inert || podcastTucked ? 0 : 1 }
         // Not over a panel, which hides the bars too.
-        if bar === compactPassage { return collapsed && !state.inert ? 1 : 0 }
+        // Nor while the player shows the passage itself.
+        if bar === compactPassage {
+            let playerHasIt = state.podcast != nil && !podcastTucked
+            return collapsed && !state.inert && !playerHasIt ? 1 : 0
+        }
         return collapsed && bar !== searchField ? 0 : 1
     }
 
     /// The bars are hidden for reading while auto-scroll is paused: its play
     /// button goes with them, as nothing is scrolling to pause.
     private var autoScrollTucked: Bool { collapsed && state.autoScroll?.playing != true }
+
+    /// The same for the +365 player, paused.
+    private var podcastTucked: Bool { collapsed && state.podcast?.playing != true }
+
+    /// The player's card and its gap, while the reader listens: the
+    /// read-along keeps the line being read above it. Tucked away or behind a
+    /// dialog too, as the toolbar's room is kept while hidden: the paged
+    /// view, sized by it, laid its pages out again each time the bars hid.
+    private var podcastInset: CGFloat {
+        // In the toolbar's place: only what it stands taller than the toolbar,
+        // and the gap above it, as Android's floatingGap.
+        state.podcast == nil ? 0
+            : max(0, podcastControl.bounds.height - toolbar.bounds.height) + PodcastControl.gap
+    }
 
     /// Slides the top bar off screen and shrinks the toolbar into the small
     /// passage, as Safari's bar does; showing them, the passage grows back into
@@ -51,7 +71,7 @@ extension ChromeViewController {
             self.topBar.transform = slide ? CGAffineTransform(translationX: 0, y: -self.insets.top) : .identity
             self.toolbar.transform = slide ? morph.toolbar : .identity
             self.compactPassage.transform = motion && !self.collapsed ? morph.pill : .identity
-            for bar in [self.topBar, self.autoScrollControl] { bar.alpha = self.targetAlpha(bar) }
+            for bar in [self.topBar, self.autoScrollControl, self.podcastControl] { bar.alpha = self.targetAlpha(bar) }
             self.view.layoutIfNeeded()
         }
         // The bar going fades in the first part of the move, and the one
@@ -87,7 +107,10 @@ extension ChromeViewController {
     func passageMorph() -> (toolbar: CGAffineTransform, pill: CGAffineTransform) {
         let pill = compactPassage.bounds.size
         let capsule = CGSize(width: passageButton.bounds.width + 2 * Glass.padding, height: toolbar.bounds.height)
-        guard pill.width > 0, pill.height > 0, capsule.width > 0, capsule.height > 0 else {
+        // With the +365 player in the bar the capsule isn't there: off the
+        // window, its old bounds would send the pill in from a wrong place.
+        guard state.podcast == nil, passageButton.window != nil,
+              pill.width > 0, pill.height > 0, capsule.width > 0, capsule.height > 0 else {
             return (.identity, .identity)
         }
         // Where the capsule's centre is with the toolbar untransformed:
@@ -125,7 +148,7 @@ extension ChromeViewController {
             return ChromeInsets(top: top,
                                 bottom: state.filterOpen
                                     ? view.bounds.height - searchField.frame.minY
-                                    : safeArea.bottom + toolbar.bounds.height,
+                                    : safeArea.bottom + toolbar.bounds.height + podcastInset,
                                 collapsed: collapsed)
         case .search:
             return ChromeInsets(top: top, bottom: view.bounds.height - searchField.frame.minY)

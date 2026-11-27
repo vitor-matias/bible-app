@@ -114,6 +114,19 @@ internal fun AutoScrollControl(chrome: ChromeController, autoScroll: AutoScrollS
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // +365 reads this chapter: listen instead, the player taking
+                // this control's place. Beside play, paused or playing.
+                if (autoScroll.canListen) {
+                    Surface(
+                        shape = CircleShape,
+                        color = colors.surfaceContainer,
+                        shadowElevation = FloatingToolbarDefaults.ContainerExpandedElevation,
+                    ) {
+                        BarButton(R.drawable.ic_headphones, "Ouvir o +365 em vez de deslocar", enabled) {
+                            chrome.send("auto-scroll-listen")
+                        }
+                    }
+                }
                 AnimatedVisibility(
                     visible = autoScroll.playing,
                     enter = expandHorizontally(expandFrom = Alignment.End) + fadeIn(),
@@ -194,7 +207,7 @@ internal fun AutoScrollControl(chrome: ChromeController, autoScroll: AutoScrollS
  */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SpeedButton(
+internal fun SpeedButton(
     @DrawableRes icon: Int,
     label: String,
     leading: Boolean,

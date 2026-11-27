@@ -20,7 +20,7 @@
   <div class="colors-grid">
     @for (ribbon of ribbons; track ribbon.value) {
     <div class="ribbon-item">
-      <button type="button" class="color-button"
+      <button type="button" class="color-button" [disabled]="!ribbon.bookmark && !canMark"
         [matContextMenuTriggerFor]="ribbonMenu" [matContextMenuTriggerDisabled]="!ribbon.bookmark"
         [attr.aria-describedby]="ribbon.bookmark ? 'ribbon-remove-hint' : null"
         (click)="handleRibbonClick(ribbon)" (pointerdown)="pressStart($event, ribbon)"

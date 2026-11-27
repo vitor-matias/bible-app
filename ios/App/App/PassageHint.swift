@@ -58,7 +58,8 @@ extension ChromeViewController {
     /// where there's no room above it.
     func presentPassageHint() {
         guard passageHintPending, passageHintView == nil, presentedViewController == nil, state.mode == .reader,
-              !state.filterOpen, !state.collapsed, !state.inert, !toastShowing, !collapsed, !usesVerticalBar, passageButton.window != nil else { return }
+              !state.filterOpen, !state.collapsed, !state.inert, !toastShowing, !collapsed, !usesVerticalBar,
+              state.podcast == nil, passageButton.window != nil else { return }
         let hint = PassageHintView()
         hint.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(hint)
@@ -78,6 +79,12 @@ extension ChromeViewController {
         UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 1, initialSpringVelocity: 0) {
             hint.alpha = 1
             hint.transform = .identity
+        }
+        // Not for minutes over the title or the +365 card: ten seconds a
+        // launch, back on the next until the passage is used.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self, weak hint] in
+            guard let self, let hint, self.passageHintView === hint else { return }
+            self.endPassageHint()
         }
     }
 

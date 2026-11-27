@@ -1,0 +1,4 @@
+/* How far behind the reader's own pace, beside how many days are read. */
+.behind {
+  color: var(--muted);
+}

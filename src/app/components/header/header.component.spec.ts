@@ -9,6 +9,7 @@ import { ActivatedRoute, Router } from "@angular/router"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject, of, Subject } from "rxjs"
 import type { Mock } from "vitest"
+import { MAIS365_BOOK } from "../../bible-canon"
 import { PRIVACY_POLICY_URL } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
@@ -1201,6 +1202,28 @@ describe("HeaderComponent", () => {
       expect(component.shareText()).toBe("Ler Amor no Índice.")
     })
 
+    // On the web the reader hosts the +365 plan under this header: it showed
+    // no header at all, on its own page.
+    it("names the +365 plan plainly, with no chapter button", () => {
+      fixture.componentRef.setInput("book", MAIS365_BOOK)
+      fixture.componentRef.setInput("chapterNumber", 1)
+      fixture.detectChanges()
+
+      const heading = (fixture.nativeElement as HTMLElement).querySelector(
+        "h1",
+      ) as HTMLElement
+      expect(heading.getAttribute("aria-label")).toBe("+365")
+      expect(heading.querySelectorAll("mat-button-toggle").length).toBe(1)
+      expect(component.shareText()).toBe("A Bíblia num ano, com o +365.")
+      // Its ribbons open from here, but none is laid in it: it led nowhere.
+      component.openBookmarkSelector()
+      expect(bottomSheetSpy.open.mock.lastCall?.[1]?.data).toEqual({
+        bookId: "mais365",
+        chapter: 1,
+        canMark: false,
+      })
+    })
+
     // The audit's complaint: with two stacked labels crossfading, both stayed
     // in the DOM, so the page h1 read "<title> Escolher Livro" — words no page
     // text repeats.
@@ -1892,6 +1915,11 @@ describe("HeaderComponent with the iOS native bars", () => {
   it("navigates to search", () => {
     actions.next({ id: "search" })
     expect(router.navigate).toHaveBeenCalledWith(["/search"])
+  })
+
+  it("opens the +365 plan from the menu", () => {
+    actions.next({ id: "plan" })
+    expect(router.navigate).toHaveBeenCalledWith(["/mais365"])
   })
 
   it("sets the chosen theme and shows it as chosen", () => {

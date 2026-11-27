@@ -5,6 +5,8 @@
   <search-bar [value]="fieldValue" [focusOnOpen]="!hasSearched" (searchValue)="onSearchSubmit($event)" (typing)="onTyping($event)"></search-bar>
   }
   <main unifiedGestures fontSizeContext="search" class="search-container" [class.has-suggestion]="passageSuggestions.length > 0 || themes.length > 0" #container>
+  <!-- +365 playing: no reader's player here to pause it from. -->
+  <now-playing></now-playing>
 
   <!-- A typed reference, offered at once: no wait for the search. -->
   @for (suggestion of passageSuggestions; track suggestion.label) {

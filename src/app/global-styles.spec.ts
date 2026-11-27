@@ -28,6 +28,12 @@ describe("global styles", () => {
 
   // Swapping in the reader's font (then PT Serif) rewrapped the prerendered
   // chapter once it was on screen, which alone made for a CLS of 0.75 on /gn/1.
+  it("doesn't zoom on a double tap, while pinching still can", () => {
+    expect(getComputedStyle(document.documentElement).touchAction).toBe(
+      "manipulation",
+    )
+  })
+
   it("does not swap the reader's font in after the text has painted", () => {
     const faces = Array.from(document.fonts).filter((face) =>
       face.family.includes("Literata"),
@@ -111,12 +117,13 @@ describe("global styles", () => {
       afterEach(() => controls.remove())
 
       it("lifts the arrows above them", () => {
-        // 16px up and 48px tall, as the controls are, and 8px apart.
-        expect(getComputedStyle(arrow).bottom).toBe("172px")
+        // 16px up and 48px tall, as the controls are, and 20px apart: room
+        // for the copyright centred between the arrows to clear them.
+        expect(getComputedStyle(arrow).bottom).toBe("184px")
       })
 
       it("lifts a toast above the lifted arrows", () => {
-        expect(getComputedStyle(openToast()).marginBottom).toBe("228px")
+        expect(getComputedStyle(openToast()).marginBottom).toBe("240px")
       })
     })
   })
