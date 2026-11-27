@@ -381,14 +381,15 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     )
   })
 
-  it("pauses the episode when the controls are hidden", async () => {
+  // Leaving the reader (for search, say) doesn't stop it: search says what
+  // plays and pauses it. Hidden from the menu, the reader lets it go.
+  it("plays on when the reader leaves", async () => {
     await listen()
     tap(toggle())
     const stream = audio()
     fixture.destroy()
-    expect(stream.paused).toBe(true)
-    // Let go: nothing for the system's player to resume.
-    expect(TestBed.inject(PodcastPlayerService).current()).toBeNull()
+    expect(stream.paused).toBe(false)
+    expect(TestBed.inject(PodcastPlayerService).current()).not.toBeNull()
   })
 
   it("shows the system's player the chapter's own time, and seeks within it", async () => {

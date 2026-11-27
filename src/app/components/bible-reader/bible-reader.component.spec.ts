@@ -2478,6 +2478,23 @@ describe("BibleReaderComponent", () => {
       expect(controls()).not.toBeNull()
     })
 
+    // «Esconder» outside a day: the chapter's audio let go, not left for the
+    // lock screen to resume with no player on screen.
+    it("lets a chapter's audio go when the control is hidden", () => {
+      fixture.detectChanges()
+      component.showAutoScrollControls = true
+      const player = TestBed.inject(PodcastPlayerService)
+      player.current.set({
+        day: 3,
+        title: "Génesis 3",
+        url: "u",
+        start: 0,
+        end: 10,
+      })
+      component.toggleAutoScrollControlsVisibility()
+      expect(player.current()).toBeNull()
+    })
+
     it("lets the apps' ✕ take away a control only a day held", () => {
       fixture.detectChanges()
       component.books = [component.book]

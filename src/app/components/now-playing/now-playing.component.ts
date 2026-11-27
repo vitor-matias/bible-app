@@ -40,6 +40,18 @@ import { PodcastPlayerService } from "../../services/podcast-player.service"
       border-radius: 28px;
       background: color-mix(in srgb, var(--text-color) 8%, transparent);
     }
+    /* The apps' bars cover the page's top: just under them, over the
+       results as they scroll. */
+    :host-context(.native-chrome) .now-playing {
+      position: fixed;
+      top: calc(var(--app-chrome-top, 0px) + 8px);
+      left: 16px;
+      right: 16px;
+      z-index: 2;
+      margin: 0;
+      background: color-mix(in srgb, var(--background-color) 85%, var(--text-color) 15%);
+      box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
+    }
     .what {
       display: flex;
       flex-direction: column;

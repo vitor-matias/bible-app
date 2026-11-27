@@ -1,3 +1,4 @@
+import { signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
 import { MatDialog, type MatDialogRef } from "@angular/material/dialog"
 import { type Event, NavigationEnd, Router } from "@angular/router"
@@ -13,6 +14,7 @@ import { createSpyObj, lastCall, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { NativeChromeService } from "./native-chrome.service"
 import { FIRST_LAUNCH_DELAY_MS, OnboardingService } from "./onboarding.service"
+import { PodcastPlayerService } from "./podcast-player.service"
 import { PreferencesService } from "./preferences.service"
 
 describe("OnboardingService", () => {
@@ -143,6 +145,22 @@ describe("OnboardingService", () => {
     })
   })
 
+  // «Ouvir e ler» from a shared link: the reader plays the day, and the
+  // wizard waited for it, covering it with nothing to pause behind.
+  it("doesn't open over a +365 day playing, but after it", async () => {
+    vi.useFakeTimers()
+    const player = TestBed.inject(PodcastPlayerService)
+    service.showOnFirstLaunch("?dia=3", "/mais365")
+    player.throughEpisode.set(true)
+    routerEvents$.next(new NavigationEnd(1, "/gn/1", "/gn/1"))
+    await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+    expect(dialogSpy.open).not.toHaveBeenCalled()
+    player.throughEpisode.set(false)
+    routerEvents$.next(new NavigationEnd(2, "/gn/2", "/gn/2"))
+    await vi.advanceTimersByTimeAsync(FIRST_LAUNCH_DELAY_MS)
+    expect(dialogSpy.open).toHaveBeenCalledTimes(1)
+  })
+
   it("waits out a shared +365 link, then shows the wizard once the visitor moves on", async () => {
     vi.useFakeTimers()
     expect(service.showOnFirstLaunch("?dia=5", "/mais365")).toBe(false)
@@ -253,6 +271,11 @@ describe("OnboardingService", () => {
           {
             provide: NativeChromeService,
             useValue: { enabled: true, showOnboarding },
+          },
+          // Only whether a +365 day plays: the player itself isn't these specs'.
+          {
+            provide: PodcastPlayerService,
+            useValue: { throughEpisode: signal(false) },
           },
         ],
       })

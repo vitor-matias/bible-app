@@ -1371,8 +1371,11 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     const visible = this.showAutoScrollControls || this.heldByPlan()
     this.showAutoScrollControls = !visible
     if (visible) {
-      // A +365 day under way goes with it, as playing does with the control.
+      // A +365 day under way goes with it, as playing does with the control;
+      // a chapter's audio too, let go, so the lock screen or a headset can't
+      // resume it with no player left on screen.
       if (this.plan.active()) this.plan.end()
+      else this.player.stop()
       this.heldByPlan.set(false)
       // The control gone, nothing says which verse is read any more.
       this.readingVerse.set(null)
