@@ -391,6 +391,13 @@ describe("Mais365Component", () => {
     fixture.detectChanges()
     expect(text()).toContain("4 dias em atraso")
 
+    // A day marked by mistake, then unmarked, keeps its date: not a start.
+    plan.done.set([])
+    plan.doneOn.set({ 1: "2026-11-20" })
+    plan.clockDay.set("2026-11-27")
+    fixture.detectChanges()
+    expect(text()).not.toContain("em atraso")
+
     // Read at the pace: nothing said.
     plan.done.set([1, 2])
     plan.doneOn.set({ 1: "2026-11-25", 2: "2026-11-26" })

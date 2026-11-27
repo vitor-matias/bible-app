@@ -461,8 +461,13 @@ export class Mais365Component implements OnInit, OnDestroy {
    * late starter was "278 dias em atraso" after their first.
    */
   protected readonly behind = computed(() => {
-    // The earliest: "YYYY-MM-DD" sorts as dates do.
-    const [first] = Object.values(this.plan.doneOn()).sort()
+    // The earliest of the days read now ("YYYY-MM-DD" sorts as dates do):
+    // a day unmarked keeps its date, but isn't read.
+    const dates = this.plan.doneOn()
+    const [first] = this.plan
+      .done()
+      .flatMap((day) => dates[day] ?? [])
+      .sort()
     if (!first) return 0
     const due = Math.max(1, daysBetween(first, this.plan.clockDay()))
     const unread = this.plan
