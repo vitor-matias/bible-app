@@ -220,6 +220,7 @@ describe("Mais365Service", () => {
   beforeEach(() => {
     localStorage.removeItem("mais365Done")
     localStorage.removeItem("mais365Progress")
+    localStorage.removeItem("mais365Position")
     navigate = vi.fn().mockResolvedValue(true)
     router.url = "/mais365"
     router.navigate = navigate
@@ -745,7 +746,11 @@ describe("Mais365Service", () => {
       expect(JSON.parse(localStorage.getItem("mais365Progress") ?? "")).toEqual(
         { 1: [0] },
       )
-      expect(plan.resumeAt(day)).toEqual({ at: 1 })
+      // In the second chapter, to the second it was left at.
+      expect(plan.resumeAt(day)).toEqual({
+        at: 1,
+        seconds: (second.start as number) + 30,
+      })
 
       // Coming back: from the second chapter, the first still counting.
       player.toggle.mockClear()
@@ -792,6 +797,86 @@ describe("Mais365Service", () => {
       play(first.start as number, (first.end as number) + 0.5)
       expect(plan.heardOf(day)).toEqual([0])
       expect(plan.heardOf(find(plan, 3))).toEqual([0])
+    })
+
+    // A reload sent the listener back to the reading's start, or the day's.
+    describe("to the second", () => {
+      it("writes the place down as it plays, and on pause", async () => {
+        const plan = await create()
+        const day = find(plan, 1)
+        await start(plan, day)
+        const first = day.readings[0].episode.start as number
+        play(first, first + 25)
+        const kept = () =>
+          JSON.parse(localStorage.getItem("mais365Position") ?? "null")
+        // Every 10 s heard, not every timeupdate.
+        expect(kept().at).toBeGreaterThanOrEqual(first + 15)
+        expect(kept().at).toBeLessThanOrEqual(first + 25)
+        at(first + 27)
+        player.playing.set(false)
+        TestBed.tick()
+        expect(kept()).toEqual({ day: 1, at: first + 27 })
+      })
+
+      it("goes on from that second, in the reading it was in", async () => {
+        localStorage.setItem(
+          "mais365Position",
+          JSON.stringify({ day: 1, at: 426 }),
+        )
+        const plan = await create()
+        const day = find(plan, 1)
+        const [, second] = day.readings.map((r) => r.episode)
+        expect(second.start as number).toBeLessThan(426)
+        expect(plan.resumeAt(day)).toEqual({ at: 1, seconds: 426 })
+
+        const resuming = plan.start(day, 1, "plan", false, 426)
+        http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+        await resuming
+        expect(player.position()).toBe(426)
+        expect(lastCall(player.toggle)[0]).toEqual(second)
+      })
+
+      it("goes back into the episode's intro when left there", async () => {
+        localStorage.setItem(
+          "mais365Position",
+          JSON.stringify({ day: 1, at: 20 }),
+        )
+        const plan = await create()
+        const day = find(plan, 1)
+        expect(plan.resumeAt(day)).toEqual({ at: 0, seconds: 20 })
+        const resuming = plan.start(day, 0, "plan", false, 20)
+        http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+        await resuming
+        expect(player.position()).toBe(20)
+        expect(lastCall(player.toggle)[0].title).toBe("Introdução")
+        // The intro stays on the plan's page.
+        expect(navigate).not.toHaveBeenCalled()
+      })
+
+      it("forgets it once the day is read", async () => {
+        localStorage.setItem(
+          "mais365Position",
+          JSON.stringify({ day: 1, at: 426 }),
+        )
+        const plan = await create()
+        plan.markDone(1, true)
+        expect(localStorage.getItem("mais365Position")).toBeNull()
+        plan.markDone(1, false)
+        expect(plan.resumeAt(find(plan, 1))).toBeNull()
+      })
+
+      it("forgets it to start over", async () => {
+        localStorage.setItem(
+          "mais365Position",
+          JSON.stringify({ day: 1, at: 426 }),
+        )
+        const plan = await create()
+        const restarting = plan.restart(find(plan, 1))
+        http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(find(plan, 1)))
+        await restarting
+        TestBed.tick()
+        expect(plan.resumeAt(find(plan, 1))).toBeNull()
+      })
     })
 
     it("offers nothing to go on with before a chapter is heard", async () => {

@@ -80,7 +80,9 @@ describe("Mais365Component", () => {
     start: vi.fn(),
     restart: vi.fn(),
     heardOf: vi.fn((_day: PlanDay): number[] => []),
-    resumeAt: vi.fn((_day: PlanDay): { at: number } | null => null),
+    resumeAt: vi.fn(
+      (_day: PlanDay): { at: number; seconds?: number } | null => null,
+    ),
     end: vi.fn(),
     toggle: vi.fn(),
     markDone: vi.fn(),
@@ -583,11 +585,27 @@ describe("Mais365Component", () => {
       ).toEqual([true, false, false])
       expect(button("Ouvir e ler")).toBeUndefined()
       button("Continuar")?.click()
-      expect(plan.start).toHaveBeenCalledWith(day1, 1, "plan")
+      expect(plan.start).toHaveBeenCalledWith(day1, 1, "plan", false, undefined)
       button("Recomeçar")?.click()
       expect(plan.restart).toHaveBeenCalledWith(day1)
     } finally {
       plan.heardOf.mockImplementation(() => [])
+      plan.resumeAt.mockImplementation(() => null)
+    }
+  })
+
+  // A reload went back to the reading's start: it says, and goes on from, the second.
+  it("goes on from the second the day was left at", () => {
+    plan.days.set([day1])
+    plan.today.set(day1)
+    plan.resumeAt.mockImplementation((day) =>
+      day.day === 1 ? { at: 1, seconds: 426 } : null,
+    )
+    try {
+      fixture.detectChanges()
+      button("Continuar em 7:06")?.click()
+      expect(plan.start).toHaveBeenCalledWith(day1, 1, "plan", false, 426)
+    } finally {
       plan.resumeAt.mockImplementation(() => null)
     }
   })

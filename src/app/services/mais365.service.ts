@@ -130,6 +130,10 @@ export interface PlanDay {
 }
 
 const PROGRESS_KEY = "mais365Progress"
+/** Where a day was left, to the second: { day, at } (seconds into it). */
+const POSITION_KEY = "mais365Position"
+/** How often, playing, the position is written down. */
+const POSITION_EVERY = 10
 const DONE_KEY = "mais365Done"
 /** The day each was read on (local "YYYY-MM-DD"), for the streak: kept beside
  * DONE_KEY, which predates it, so days read before have none. */
@@ -314,6 +318,10 @@ export class Mais365Service {
    * keeps its own: hearing another, or marking it read, takes none away.
    */
   readonly progress = signal<Record<number, number[]>>(this.storedProgress())
+  /** Where the last day was left, to the second, while not read. */
+  readonly leftAt = signal<{ day: number; at: number } | null>(
+    this.storedPosition(),
+  )
   /** The local day, refreshed past midnight and on coming back to the app. */
   readonly clockDay = signal(localDay(new Date()))
   private readonly run = computed(() => {
@@ -421,6 +429,35 @@ export class Mais365Service {
   }
 
   constructor() {
+    // Where the day is, written down every POSITION_EVERY seconds heard, on
+    // pause, and as the page goes: a reload, or the app closed, goes on from
+    // there (it went back to the reading's start, or the day's).
+    let writtenAt: number | undefined
+    effect(() => {
+      const day = this.active()
+      const at = this.player.position()
+      const playing = this.player.playing()
+      untracked(() => {
+        if (!day || this.player.current()?.url !== day.url) return
+        if (
+          playing &&
+          writtenAt !== undefined &&
+          Math.abs(at - writtenAt) < POSITION_EVERY
+        )
+          return
+        writtenAt = at
+        this.keepPosition(day.day, at)
+      })
+    })
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", () => {
+        const day = this.active()
+        if (document.visibilityState !== "hidden" || !day) return
+        if (this.player.current()?.url === day.url) {
+          this.keepPosition(day.day, this.player.position())
+        }
+      })
+    }
     this.keepTodayFresh()
     // First, so the stage below sees a last reading heard before it ends
     // the day. A reading heard: played across its end in one go, having been
@@ -538,6 +575,8 @@ export class Mais365Service {
         if (heardOut && (!day.readings.length || this.allHeard(day))) {
           this.markDone(day.day, true, "heard")
         }
+        // Over: nothing left to go on from.
+        if (heardOut) this.keepPosition(day.day, null)
         this.end()
       })
     })
@@ -595,9 +634,20 @@ export class Mais365Service {
    * Where «Continuar» takes `day`: its first timed reading not yet heard;
    * null with none heard, all heard, or the day read.
    */
-  resumeAt(day: PlanDay): { at: number } | null {
+  resumeAt(day: PlanDay): { at: number; seconds?: number } | null {
+    if (this.done().includes(day.day)) return null
+    // Left mid-way: there, to the second, in the reading it was in.
+    const left = this.leftAt()
+    if (left?.day === day.day && left.at >= 5) {
+      const at = day.readings.reduce(
+        (found, { episode: { start } }, index) =>
+          start != null && start <= left.at ? index : found,
+        0,
+      )
+      return { at, seconds: left.at }
+    }
     const heard = this.heardOf(day)
-    if (!heard.length || this.done().includes(day.day)) return null
+    if (!heard.length) return null
     const at = day.readings.findIndex(
       ({ episode }, index) => episode.start != null && !heard.includes(index),
     )
@@ -607,6 +657,7 @@ export class Mais365Service {
   /** «Recomeçar»: what was heard of `day` forgotten, from its intro. */
   restart(day: PlanDay): Promise<void> {
     this.saveProgress(day.day, null)
+    this.keepPosition(day.day, null)
     return this.start(day, 0, "plan", true)
   }
 
@@ -617,6 +668,34 @@ export class Mais365Service {
       localStorage.setItem(PROGRESS_KEY, JSON.stringify(this.progress()))
     } catch {
       // Not kept: until the app closes.
+    }
+  }
+
+  /** Where `day` was left; null forgets it (read, restarted, heard out). */
+  private keepPosition(day: number, at: number | null): void {
+    // A day read needs none: it isn't continued.
+    const value = at === null || this.done().includes(day) ? null : { day, at }
+    if (value === null && this.leftAt()?.day !== day) return
+    this.leftAt.set(value)
+    try {
+      if (value) localStorage.setItem(POSITION_KEY, JSON.stringify(value))
+      else localStorage.removeItem(POSITION_KEY)
+    } catch {
+      // Not kept: until the app closes.
+    }
+  }
+
+  private storedPosition(): { day: number; at: number } | null {
+    try {
+      const stored: unknown = JSON.parse(
+        localStorage.getItem(POSITION_KEY) ?? "null",
+      )
+      const { day, at } = (stored ?? {}) as { day?: unknown; at?: unknown }
+      return typeof day === "number" && typeof at === "number"
+        ? { day, at }
+        : null
+    } catch {
+      return null
     }
   }
 
@@ -659,8 +738,10 @@ export class Mais365Service {
     from: "plan" | "episode" = "plan",
     /** The episode's own opening first, the podcast's welcome, with a way past it. */
     intro = false,
+    /** Where in the episode, to the second («Continuar em 7:06»). */
+    seconds?: number,
   ): Promise<void> {
-    this.begin(listed, at, intro && at === 0)
+    this.begin(listed, at, intro && at === 0, seconds)
     // From the plan's page, or joined from a chapter's ⏮ ⏭ (at its first
     // reading too: from its second, ⏮ lands there).
     void this.analytics.track("plan_day_start", {
@@ -675,7 +756,7 @@ export class Mais365Service {
   }
 
   /** Starts `day` at its reading `at` (its first, or one stepped to by ⏮ ⏭). */
-  private begin(day: PlanDay, at = 0, intro = false): void {
+  private begin(day: PlanDay, at = 0, intro = false, seconds?: number): void {
     // What was heard of it before counts on: the day is read once all is.
     this.heard.clear()
     for (const index of this.heardOf(day)) this.heard.add(index)
@@ -697,17 +778,26 @@ export class Mais365Service {
         start: null,
         end: null,
       }
-      if (this.player.isCurrent(whole)) this.player.seek(0)
-      else this.player.position.set(0)
+      if (this.player.isCurrent(whole)) this.player.seek(seconds ?? 0)
+      else this.player.position.set(seconds ?? 0)
       this.active.set(day)
       if (!this.player.isCurrent(whole) || !this.player.playing()) {
         this.player.toggle(whole)
       }
       return
     }
+    // Left in the episode's intro, before its first reading: back in it.
+    if (
+      seconds !== undefined &&
+      first.episode.start != null &&
+      seconds < first.episode.start
+    ) {
+      intro = true
+    }
     // From its first reading, even with that reading paused further on; or
-    // from the episode's start, its intro before that reading.
-    const from = intro ? 0 : (first.episode.start ?? 0)
+    // from the episode's start, its intro before that reading; or where it
+    // was left.
+    const from = seconds ?? (intro ? 0 : (first.episode.start ?? 0))
     // The intro: the first reading's stream from the episode's start, taken
     // as that reading once it begins (stage).
     // Up to that reading, and named as what it is (not the API's "Dia 7 -
@@ -815,6 +905,10 @@ export class Mais365Service {
     if (day && stage !== "reflection") {
       void this.analytics.track("plan_day_end", { day: day.day, stage })
     }
+    // «Terminar» mid-way: «Continuar» goes on from this second.
+    if (day && this.player.current()?.url === day.url) {
+      this.keepPosition(day.day, this.player.position())
+    }
     // Let go: the system's player can't resume a day ended.
     this.player.stop()
     this.release()
@@ -844,6 +938,7 @@ export class Mais365Service {
     }
     const days = this.done().filter((d) => d !== day)
     this.done.set(done ? [...days, day] : days)
+    if (done) this.keepPosition(day, null)
     // The day it was first read keeps its date, even unmarked: marked again,
     // it isn't read anew.
     if (done && !this.doneOn()[day]) {

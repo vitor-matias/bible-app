@@ -165,9 +165,12 @@
         <mat-icon>headphones</mat-icon>
       </button>
       } @else if (plan.resumeAt(day); as resume) {
-      <!-- Left part-heard: on from its first chapter not heard, or over. -->
-      <button type="button" mat-flat-button class="main" (click)="plan.start(day, resume.at, 'plan')">
-        <mat-icon>headphones</mat-icon> Continuar
+      <!-- Left part-heard: on from where it was left, to the second, or from
+           its first chapter not heard. -->
+      <button type="button" mat-flat-button class="main"
+        (click)="plan.start(day, resume.at, 'plan', false, resume.seconds)">
+        <mat-icon>headphones</mat-icon>
+        @if (resume.seconds !== undefined) { Continuar em {{ time(resume.seconds) }} } @else { Continuar }
       </button>
       <button type="button" mat-icon-button class="restart" aria-label="Recomeçar" title="Recomeçar"
         (click)="plan.restart(day)">
