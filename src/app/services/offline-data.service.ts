@@ -104,10 +104,10 @@ export class OfflineDataService implements OnDestroy {
    * mid-download can leave the request hanging until the timeout, and the
    * reconnect would join it instead of starting again.
    */
-  private fetch<T>(url: string, headers: Record<string, string> = {}) {
+  private fetch<T>(url: string) {
     return firstValueFrom(
       this.http
-        .get<T>(url, { headers })
+        .get<T>(url, { headers: this.preloadHeaders() })
         .pipe(
           timeout(PRELOAD_TIMEOUT_MS),
           takeUntil(this.networkService.isOffline$.pipe(filter(Boolean))),
@@ -170,7 +170,6 @@ export class OfflineDataService implements OnDestroy {
       try {
         books = await this.fetch<Book[]>(
           `${this.apiBase}/books?withChapters=true`,
-          this.preloadHeaders(),
         )
         // An empty 200 parses as null: a failed download, worth retrying.
         if (!Array.isArray(books) || !books.length) {
@@ -207,10 +206,7 @@ export class OfflineDataService implements OnDestroy {
 
   /** The API's hash of the catalog, or undefined when it has none to give. */
   fetchCatalogHash(): Promise<string | undefined> {
-    return this.fetch<{ hash?: string }>(
-      `${this.apiBase}/books/hash`,
-      this.preloadHeaders(),
-    ).then(
+    return this.fetch<{ hash?: string }>(`${this.apiBase}/books/hash`).then(
       (answer) => answer?.hash || undefined,
       () => undefined,
     )

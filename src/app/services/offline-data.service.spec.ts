@@ -758,7 +758,15 @@ describe("OfflineDataService", () => {
       const req = httpMock.expectOne("v1/books?withChapters=true")
       expect(req.request.headers.get("ngsw-bypass")).toBe("true")
       req.flush(mockBooks)
-      await flushIntros()
+      // The introductions too: a stale copy would be stored as current.
+      await flushMacrotask()
+      const intros = httpMock.expectOne("v1/intros")
+      expect(intros.request.headers.get("ngsw-bypass")).toBe("true")
+      intros.flush([{ slug: "reis", name: "REIS" }])
+      await flushMacrotask()
+      const intro = httpMock.expectOne("v1/intros/reis")
+      expect(intro.request.headers.get("ngsw-bypass")).toBe("true")
+      intro.flush({ slug: "reis", name: "REIS", introduction: [] })
       await promise
     })
 
