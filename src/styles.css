@@ -566,7 +566,11 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    margin: 24px calc(88px + var(--app-inset-right)) 0 calc(88px + var(--app-inset-left));
+    /* The bottom inset off: the reader already stops above it, and the room
+       under the text (84px, or the card's) counts it again, which set the
+       copyright an inset (34px on an iPhone) above the arrows. */
+    margin: 24px calc(88px + var(--app-inset-right)) calc(-1 * var(--app-inset-bottom))
+      calc(88px + var(--app-inset-left));
     padding: 0;
     font-size: 14px;
     line-height: 1.25;
@@ -576,7 +580,15 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
     font-size: 11px;
   }
 
+  /* The arrows' own bottom: 52px up, or 84px over the auto-scroll button
+     (above). At 84px always, it sat 32px over the arrows without it. */
   body:not(.native-chrome) bible-reader .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) {
+    padding-bottom: calc(52px + var(--app-inset-bottom));
+  }
+
+  body:not(.native-chrome):has(.auto-scroll-controls):not(:has(.audio-player))
+    bible-reader
+    .mat-drawer-content:has(> .copyright-footer:not(.fixed-footer)) {
     padding-bottom: calc(84px + var(--app-inset-bottom));
   }
 
@@ -584,7 +596,7 @@ body:has(.auto-scroll-controls:not(.placed) .audio-player) {
     bible-reader
     .mat-drawer-content
     > .copyright-footer:not(.fixed-footer) {
-    margin-bottom: 4px;
+    margin-bottom: calc(4px - var(--app-inset-bottom));
   }
 }
 

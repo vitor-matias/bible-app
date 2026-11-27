@@ -2095,6 +2095,45 @@ describe("BibleReaderComponent", () => {
         }
       })
 
+      // The reader stops above the home indicator, and the room under the
+      // text counted it again: the copyright sat an inset (34px) above the
+      // arrows. And that room was the auto-scroll button's (84px) without it.
+      it("put the web's copyright in the arrows' row on a phone, over the inset", async () => {
+        const root = document.documentElement.style
+        root.setProperty("--app-inset-bottom", "34px")
+        try {
+          expect(frame, "the specs run in a frame").toBeTruthy()
+          if (frame) frame.style.width = "390px"
+          TestBed.resetTestingModule()
+          await setUpTestBed({ imports: [MatSidenavModule] })
+          fixture = TestBed.createComponent(BibleReaderComponent, {
+            inferTagName: true,
+          })
+          component = fixture.componentInstance
+          fixture.detectChanges()
+          component.viewMode = "scrolling"
+          component.chapter = { bookId: "gen", number: 2 } as Chapter
+          component.chapterNumber = 2
+          ;(
+            component as unknown as { cdr: ChangeDetectorRef }
+          ).cdr.markForCheck()
+          fixture.detectChanges()
+          const host = fixture.nativeElement as HTMLElement
+          const footer = host.querySelector(
+            ".mat-drawer-content > .copyright-footer",
+          ) as HTMLElement
+          expect(getComputedStyle(footer).marginBottom).toBe("-34px")
+          // The arrows' own 52px up, and the inset.
+          expect(
+            getComputedStyle(
+              host.querySelector(".mat-drawer-content") as HTMLElement,
+            ).paddingBottom,
+          ).toBe("86px")
+        } finally {
+          root.removeProperty("--app-inset-bottom")
+        }
+      })
+
       it("keep a tablet's margins inside each of its two columns", () => {
         const { view, chapter } = pagedAt(1024)
 
