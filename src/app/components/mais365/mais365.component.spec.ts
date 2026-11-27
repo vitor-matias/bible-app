@@ -397,6 +397,10 @@ describe("Mais365Component", () => {
       { ...day1, day: 3, title: "Dia 3" },
     ])
     plan.today.set(day1)
+    // A newcomer, no day read: not "behind".
+    fixture.detectChanges()
+    expect(text()).not.toContain("em atraso")
+    plan.done.set([0])
     fixture.detectChanges()
     expect(text()).toContain("2 dias em atraso")
     plan.today.set({ ...day1, day: 3, title: "Dia 3" })

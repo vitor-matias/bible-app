@@ -466,6 +466,8 @@ export class Mais365Component implements OnInit, OnDestroy {
       .days()
       .filter((day) => Number.isInteger(day.day))
       .at(-1)?.day
+    // Not before a day is read: a newcomer isn't "behind" 281 days.
+    if (!this.plan.done().length) return 0
     if (!next || latest === undefined || this.isDone(next)) return 0
     return Math.max(0, latest - Math.ceil(next.day))
   })
