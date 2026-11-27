@@ -44,6 +44,8 @@ export class OfflineDataService implements OnDestroy {
   private preloadPromise: Promise<void> | null = null
   private retryTimer?: ReturnType<typeof setTimeout>
   private retryDelayMs = PRELOAD_RETRY_BASE_MS
+  /** The API hash a download didn't match: while it is served, no download. */
+  private rejectedHash?: string
   /** IndexedDB refused a write: downloading again would only fail to store it. */
   private storageFailed = false
   /** The last introductions download left some out; the flag can't say so without localStorage. */
@@ -154,6 +156,8 @@ export class OfflineDataService implements OnDestroy {
     const hash = this.networkService.isOffline
       ? undefined
       : await this.fetchCatalogHash()
+    // A reconnect would only download the same mismatch again.
+    if (hash && hash === this.rejectedHash) return false
     const catalogChanged = !!hash && storage.getItem(this.cacheHashKey) !== hash
     if (
       booksAlreadyCached &&
@@ -187,8 +191,9 @@ export class OfflineDataService implements OnDestroy {
         // list); no hash where the browser can't compute one.
         computed = await sha256Hex(JSON.stringify(books)).catch(() => undefined)
         if (hash && computed !== hash) {
-          // Not retried this session: another try would likely match no better.
+          // Not retried this session while the API serves this hash.
           rejected = true
+          this.rejectedHash = hash
           books = undefined
           console.error(
             "The books download doesn't match the catalog's hash; keeping the cache",

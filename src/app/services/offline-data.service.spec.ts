@@ -307,6 +307,31 @@ describe("OfflineDataService", () => {
         httpMock.expectNone("v1/intros")
       })
 
+      // Every reconnect runs the preload again.
+      it("downloads no more this session while the API serves the hash it rejected", async () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue("not what was served")
+
+        const first = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+        await first
+
+        await service.preloadAllBooksAndChapters()
+        httpMock.expectNone("v1/books?withChapters=true")
+
+        // A new hash (the catalog fixed) is tried again.
+        catalogHash.mockResolvedValue(served)
+        const third = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
+        await third
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe(served)
+      })
+
       // Each later preload would find the same mismatch and download again.
       it("downloads no more this session when the hash can't be stored", async () => {
         vi.spyOn(console, "error").mockReturnValue(undefined)
