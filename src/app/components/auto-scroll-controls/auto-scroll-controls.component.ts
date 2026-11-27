@@ -220,11 +220,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     // Without timings the text can't follow: said, or it looked broken.
     const note = this.noReadAlong() ? " · sem texto acompanhado" : ""
     if (day && heard) return `+365 · Dia ${day.day} · ${heard.title}${note}`
-    // A chapter heard on its own says whose it is, as the plan's do.
-    const entry = this.entry()
-    if (!entry) return chapter
-    const from = Number.isInteger(entry.day) ? `Dia ${entry.day} · ` : ""
-    return `+365 · ${from}${chapter}${note}`
+    // A chapter heard on its own is named as the chapter, not its episode.
+    return `${chapter}${note}`
   })
 
   /**
