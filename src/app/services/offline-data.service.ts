@@ -184,6 +184,9 @@ export class OfflineDataService implements OnDestroy {
       // the Bible again.
       if (books) {
         try {
+          // Until they are fetched again: the books restart the 40-day
+          // clock, and an app closed before then would keep the old ones.
+          storage.removeItem(this.groupIntrosCacheFlagKey)
           await this.setCachedBooks(books)
           this.storeCatalogHash(storage, hash)
           this.trackBooksCachedEvent()

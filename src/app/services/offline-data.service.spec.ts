@@ -302,6 +302,24 @@ describe("OfflineDataService", () => {
         httpMock.expectNone("v1/books?withChapters=true")
       })
 
+      // An app closed mid-refresh kept the old introductions' flag, which
+      // the restarted 40-day clock then vouched for.
+      it("drops the introductions' flag until they are fetched again", async () => {
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue("new")
+
+        void service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+
+        // The introductions request is still out, as when the app closes.
+        expect(
+          mockLocalStorage._storage["groupIntrosCacheReady"],
+        ).toBeUndefined()
+        httpMock.expectOne("v1/intros").flush([])
+      })
+
       it("keeps the cache when the catalog hashes the same", async () => {
         mockLocalStorage._storage["booksCacheHash"] = "same"
         catalogHash.mockResolvedValue("same")
