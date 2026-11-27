@@ -7,6 +7,7 @@ import { AnalyticsService } from "./analytics.service"
 import { KeepAwakeService } from "./keep-awake.service"
 import { NativeChromeService } from "./native-chrome.service"
 import type { NativeChromeAction } from "./native-chrome.types"
+import { ToastService } from "./toast.service"
 
 /** A +365 episode that reads a chapter, as bible-api's /audio lists it. */
 export interface ChapterEpisode {
@@ -146,6 +147,7 @@ const partAt = (
 export class PodcastPlayerService {
   private http = inject(HttpClient)
   private readonly nativeChrome = inject(NativeChromeService)
+  private readonly toast = inject(ToastService)
   private audio?: HTMLAudioElement
   /**
    * A chapter read in parts, over several days' episodes (Salmo 119,
@@ -679,8 +681,19 @@ export class PodcastPlayerService {
       // failure (a broken load fires "error"). Nor is another entry's.
       const aborted =
         error instanceof DOMException && error.name === "AbortError"
-      if (!aborted && this.isCurrent(episode)) this.forget()
+      if (aborted || !this.isCurrent(episode)) return
+      this.forget()
+      // Refused for want of a tap (Safari) says nothing; a stream that
+      // can't load (offline) says so, not a ▶ that does nothing.
+      if (!(error instanceof DOMException && error.name === "NotAllowedError"))
+        this.unavailable()
     })
+  }
+
+  private unavailable(): void {
+    this.toast.show(
+      "Não foi possível ouvir o +365. Verifique a ligação à internet.",
+    )
   }
 
   /** Lets the next touch load the chapter afresh, from its start. */
@@ -869,7 +882,10 @@ export class PodcastPlayerService {
     // A stream that ended or failed is not resumed: play() would restart an
     // ended one at 0:00 and keep failing on a broken load.
     on("ended", () => this.forget())
-    on("error", () => this.forget())
+    on("error", () => {
+      this.forget()
+      this.unavailable()
+    })
     return audio
   }
 }

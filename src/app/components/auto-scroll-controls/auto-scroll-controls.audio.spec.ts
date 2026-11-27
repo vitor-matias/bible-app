@@ -19,6 +19,7 @@ import {
   type ChapterEpisode,
   PodcastPlayerService,
 } from "../../services/podcast-player.service"
+import { ToastService } from "../../services/toast.service"
 import { lastCall } from "../../testing/spy-obj"
 import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
 
@@ -379,6 +380,18 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(toggle()?.getAttribute("aria-label")).toBe(
       "Ativar deslocamento automático",
     )
+  })
+
+  // Offline: ▶ did nothing and said nothing.
+  it("says so when the stream can't load", async () => {
+    const show = vi.spyOn(TestBed.inject(ToastService), "show")
+    await listen()
+    tap(toggle())
+    audio().dispatchEvent(new Event("error"))
+    expect(show).toHaveBeenCalledWith(
+      "Não foi possível ouvir o +365. Verifique a ligação à internet.",
+    )
+    expect(TestBed.inject(PodcastPlayerService).current()).toBeNull()
   })
 
   // Leaving the reader (for search, say) doesn't stop it: search says what
