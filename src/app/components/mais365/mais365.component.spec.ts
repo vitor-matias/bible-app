@@ -369,52 +369,6 @@ describe("Mais365Component", () => {
     })
   })
 
-  // 281 rows to scroll to the day the group is on.
-  describe("«Ir para o dia»", () => {
-    const go = (value: string) => {
-      const host = fixture.nativeElement as HTMLElement
-      const input = host.querySelector<HTMLInputElement>("#go-to-day")
-      if (!input) throw new Error("no «Ir para o dia»")
-      input.value = value
-      // As the button submits it: the browser's own checks first.
-      host.querySelector<HTMLFormElement>("form.go-to-day")?.requestSubmit()
-      fixture.detectChanges()
-    }
-
-    it("opens the day asked for", () => {
-      plan.days.set([intro, day1, { ...day1, day: 3, title: "Dia três" }])
-      fixture.detectChanges()
-      go("3")
-      expect(
-        (fixture.nativeElement as HTMLElement).querySelector("#day-title")
-          ?.textContent,
-      ).toBe("Dia três")
-    })
-
-    it.each([
-      ["999", "O Dia 999 do +365 ainda não saiu."],
-      ["-1", "Esse dia não existe no +365."],
-      ["6.4", "Esse dia não existe no +365."],
-    ])("says «%s» isn't there", (value, message) => {
-      const show = vi
-        .spyOn(TestBed.inject(ToastService), "show")
-        .mockImplementation(() => {})
-      fixture.detectChanges()
-      go(value)
-      expect(show).toHaveBeenCalledWith(message)
-    })
-  })
-
-  // Material lifts a button's label (z-index 1): «Ir» showed through the
-  // day's card staying put above the list on a phone.
-  it("keeps «Ir para o dia» in its own layer, under the card", () => {
-    fixture.detectChanges()
-    const form = (fixture.nativeElement as HTMLElement).querySelector(
-      "form.go-to-day",
-    ) as HTMLElement
-    expect(getComputedStyle(form).isolation).toBe("isolate")
-  })
-
   // Fallen behind one's own pace: a late starter isn't "278 dias em atraso".
   it("says how many days behind the reader's own pace", () => {
     const text = () => (fixture.nativeElement as HTMLElement).textContent ?? ""

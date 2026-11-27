@@ -454,20 +454,6 @@ export class Mais365Component implements OnInit, OnDestroy {
     )
   }
 
-  /** «Ir para o dia»: that day's card and row, as a ?dia= link opens them. */
-  protected goToDay(event: Event, value: string): void {
-    event.preventDefault()
-    if (value.trim() === "") return
-    const asked = Number(value)
-    const day = this.plan.days().find((d) => d.day === asked)
-    if (!day) {
-      this.notThere(Number.isInteger(asked) ? asked : value)
-      return
-    }
-    this.showAsked(day)
-    this.announced.set(`${this.label(day)}: ${day.title}`)
-  }
-
   /**
    * How far behind the reader's own pace: a day a day since the first day
    * they read (today's isn't due before tomorrow), less the days read; never
