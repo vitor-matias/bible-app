@@ -241,12 +241,11 @@ internal class MediaCleanupService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_NOT_STICKY
 
+    // Only when the task goes: Android also stops an idle started service
+    // about a minute into the background, which, cancelling here, took a
+    // paused notification away. end() cancels it when listening ends.
     override fun onTaskRemoved(rootIntent: Intent?) {
         NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID)
         stopSelf()
-    }
-
-    override fun onDestroy() {
-        NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID)
     }
 }

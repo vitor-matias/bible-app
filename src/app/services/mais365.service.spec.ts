@@ -1099,12 +1099,39 @@ describe("Mais365Service", () => {
         readOn({ 1: "2026-11-25", 2: "2026-11-26" })
         const plan = await create()
         expect(plan.streak()).toBe(2)
+        // Each new day lists the days again.
+        const relisted = () => {
+          TestBed.tick()
+          for (const request of http.match(`${apiBaseUrl}/mais365`)) {
+            request.flush({ days: PLAN })
+          }
+        }
         await vi.advanceTimersByTimeAsync(60_000)
+        relisted()
         expect(plan.clockDay()).toBe("2026-11-27")
         expect(plan.streak()).toBe(2)
         await vi.advanceTimersByTimeAsync(24 * 3600_000)
+        relisted()
         expect(plan.clockDay()).toBe("2026-11-28")
         expect(plan.streak()).toBe(0)
+      })
+
+      // An app kept open never listed the day published since.
+      it("fetches the days again on a new day, keeping the list meanwhile", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] })
+        vi.setSystemTime(new Date(2026, 10, 26, 10))
+        const plan = await create()
+        const listed = plan.days().length
+        vi.setSystemTime(new Date(2026, 10, 27, 10))
+        document.dispatchEvent(new Event("visibilitychange"))
+        TestBed.tick()
+        expect(plan.days().length).toBe(listed)
+        const newer = { ...PLAN[2], day: 4, title: "Dia novo" }
+        http
+          .expectOne(`${apiBaseUrl}/mais365`)
+          .flush({ days: [...PLAN, newer] })
+        await TestBed.inject(ApplicationRef).whenStable()
+        expect(plan.days().map((d) => d.day)).toContain(4)
       })
 
       it("recomputes when the app becomes visible again", async () => {
@@ -1116,6 +1143,8 @@ describe("Mais365Service", () => {
         document.dispatchEvent(new Event("visibilitychange"))
         expect(plan.clockDay()).toBe("2026-11-28")
         expect(plan.streak()).toBe(0)
+        TestBed.tick()
+        http.expectOne(`${apiBaseUrl}/mais365`).flush({ days: PLAN })
       })
     })
 

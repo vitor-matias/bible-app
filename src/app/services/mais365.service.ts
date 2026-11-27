@@ -448,6 +448,17 @@ export class Mais365Service {
   }
 
   constructor() {
+    // Again each new day (midnight, or back to the app): an app kept open
+    // missed the day published since. reload() keeps the list meanwhile.
+    let listedOn: string | undefined
+    effect(() => {
+      const day = this.clockDay()
+      if (!this.wanted()) return
+      if (listedOn !== undefined && listedOn !== day) {
+        untracked(() => this.plan.reload())
+      }
+      listedOn = day
+    })
     // The reader gone to another chapter (the book picker, a link) while a
     // reading plays: the day plays on, with a way back to that reading.
     this.router.events
