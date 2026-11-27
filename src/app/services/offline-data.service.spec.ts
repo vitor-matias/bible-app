@@ -307,6 +307,46 @@ describe("OfflineDataService", () => {
         httpMock.expectNone("v1/intros")
       })
 
+      describe("when the browser can't hash", () => {
+        beforeEach(() => {
+          vi.spyOn(crypto.subtle, "digest").mockRejectedValue(
+            new DOMException("not available", "NotSupportedError"),
+          )
+          vi.spyOn(console, "error").mockReturnValue(undefined)
+          mockLocalStorage._storage["booksCacheHash"] = "old"
+        })
+
+        // Nothing to check it against: stored as before, with no hash.
+        it("stores a download the API gave no hash for, dropping the old hash", async () => {
+          mockLocalStorage._storage["booksCacheTimestamp"] = (
+            Date.now() - FORTY_ONE_DAYS_MS
+          ).toString()
+
+          const promise = service.preloadAllBooksAndChapters()
+          await flushMacrotask()
+          httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+          await flushIntros()
+          await promise
+
+          expect(databaseService.clearAndPutAll).toHaveBeenCalled()
+          expect(mockLocalStorage._storage["booksCacheHash"]).toBeUndefined()
+        })
+
+        // It can't be confirmed, so it isn't stored.
+        it("rejects a download the API gave a hash for", async () => {
+          catalogHash.mockResolvedValue(served)
+
+          const promise = service.preloadAllBooksAndChapters()
+          await flushMacrotask()
+          httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+          await flushMacrotask()
+          await promise
+
+          expect(databaseService.clearAndPutAll).not.toHaveBeenCalled()
+          expect(mockLocalStorage._storage["booksCacheHash"]).toBe("old")
+        })
+      })
+
       // Every reconnect runs the preload again.
       it("downloads no more this session while the API serves the hash it rejected", async () => {
         vi.spyOn(console, "error").mockReturnValue(undefined)
