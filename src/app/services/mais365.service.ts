@@ -366,7 +366,15 @@ export class Mais365Service {
     day.readings.forEach(({ episode }, index) => {
       if (episode.start != null && episode.start <= at) reading = index
     })
-    return reading
+    // Past its end, in the jingle before the next: the next one's already,
+    // not a reading stuck at −0:00 for seconds while the audio goes on.
+    const { end } = day.readings[reading].episode
+    const next = day.readings.find(
+      ({ episode }, index) => index > reading && episode.start != null,
+    )
+    return end != null && at >= end && next
+      ? day.readings.indexOf(next)
+      : reading
   })
 
   /**
@@ -468,8 +476,12 @@ export class Mais365Service {
             this.markDone(day.day, true, "heard")
           }
           const toPlan = () => void this.router.navigate(["/mais365"])
-          if (this.following(before)) toPlan()
-          else this.offerOpen("Reflexão", toPlan)
+          // Followed in place, as the day's turns between readings: Back
+          // leaves the day, not for its last reading under the reflection.
+          if (this.following(before)) {
+            if (this.router.url.split(/[?#]/)[0] !== "/mais365")
+              void this.router.navigate(["/mais365"], { replaceUrl: true })
+          } else this.offerOpen("Reflexão", toPlan)
           return
         }
         const reading = day.readings[stage]

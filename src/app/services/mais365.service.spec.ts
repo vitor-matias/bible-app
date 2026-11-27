@@ -314,7 +314,8 @@ describe("Mais365Service", () => {
       ([name]) => name === "plan_reflection",
     )
     expect(reflections).toEqual([["plan_reflection", { day: 0 }]])
-    expect(navigate).toHaveBeenCalledTimes(1)
+    // Already on the plan's page, where an introduction plays: no step.
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   // The reader may have gone elsewhere (back to /mais365, a cross-reference)
@@ -485,11 +486,14 @@ describe("Mais365Service", () => {
     const plan = await create()
     const day = find(plan, 1)
     await start(plan, day)
+    // On the last reading: taken to the plan's page in its place, so Back
+    // leaves the day rather than land on that reading under the reflection.
+    router.url = "/psa/19"
     hearAll(day)
     at(day.reflection + 1)
     expect(plan.stage()).toBe("reflection")
     expect(plan.done()).toEqual([1])
-    expect(lastCall(navigate)).toEqual([["/mais365"]])
+    expect(lastCall(navigate)).toEqual([["/mais365"], { replaceUrl: true }])
     // The reflection's own span: play goes on from here, not a chapter's top.
     expect(player.current()?.start).toBe(day.reflection)
     expect(player.current()?.title).toBe("Reflexão: No princípio")
@@ -686,6 +690,20 @@ describe("Mais365Service", () => {
         },
       ]),
     ).toBe("Ester A · Ester 2")
+  })
+
+  // The jingle between two readings: the next one's, not the last one
+  // stuck at −0:00.
+  it("moves on to the next reading once the one before has ended", async () => {
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
+    const [first, second] = day.readings.map((r) => r.episode)
+    at((first.end as number) - 1)
+    expect(plan.stage()).toBe(0)
+    at((first.end as number) + 1)
+    expect((first.end as number) + 1).toBeLessThan(second.start as number)
+    expect(plan.stage()).toBe(1)
   })
 
   describe("checkpoints", () => {
