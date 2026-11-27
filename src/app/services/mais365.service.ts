@@ -808,6 +808,7 @@ export class Mais365Service {
       if (!this.player.isCurrent(whole) || !this.player.playing()) {
         this.player.toggle(whole)
       }
+      this.seekLeftAt(seconds)
       return
     }
     // Left in the episode's intro, before its first reading: back in it.
@@ -850,6 +851,15 @@ export class Mais365Service {
     if (!this.player.isCurrent(episode) || !this.player.playing()) {
       this.player.toggle(episode)
     }
+    this.seekLeftAt(seconds)
+  }
+
+  /**
+   * «Continuar em 7:06»: there, once playing. toggle() loads a stream not
+   * held at the reading's start (its #t=), over any place set before it.
+   */
+  private seekLeftAt(seconds: number | undefined): void {
+    if (seconds !== undefined) this.player.seek(seconds)
   }
 
   /**

@@ -858,6 +858,13 @@ describe("Mais365Service", () => {
           "mais365Position",
           JSON.stringify({ day: 1, at: 426 }),
         )
+        // As the real player: a stream not held loads at the reading's start.
+        player.toggle.mockImplementation((episode: ChapterEpisode) => {
+          player.current.set(episode)
+          player.position.set(episode.start ?? 0)
+          player.playing.set(true)
+        })
+        player.seek = vi.fn((at: number) => player.position.set(at))
         const plan = await create()
         const day = find(plan, 1)
         const [, second] = day.readings.map((r) => r.episode)
@@ -876,6 +883,12 @@ describe("Mais365Service", () => {
           "mais365Position",
           JSON.stringify({ day: 1, at: 20 }),
         )
+        player.toggle.mockImplementation((episode: ChapterEpisode) => {
+          player.current.set(episode)
+          player.position.set(episode.start ?? 0)
+          player.playing.set(true)
+        })
+        player.seek = vi.fn((at: number) => player.position.set(at))
         const plan = await create()
         const day = find(plan, 1)
         expect(plan.resumeAt(day)).toEqual({ at: 0, seconds: 20 })
