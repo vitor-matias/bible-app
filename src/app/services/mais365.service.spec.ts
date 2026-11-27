@@ -850,7 +850,8 @@ describe("Mais365Service", () => {
         at(first + 27)
         player.playing.set(false)
         TestBed.tick()
-        expect(kept()).toEqual({ day: 1, at: first + 27 })
+        // With where the reading was entered: its start, here.
+        expect(kept()).toEqual({ day: 1, at: first + 27, entered: first })
       })
 
       it("goes on from that second, in the reading it was in", async () => {
@@ -894,6 +895,40 @@ describe("Mais365Service", () => {
         TestBed.tick()
         expect(player.position()).toBe(700)
         expect(navigate).not.toHaveBeenCalled()
+      })
+
+      // Entered late on resuming, the reading never counted as heard.
+      it("still reads the day when its reading is gone on with from where it was left", async () => {
+        player.toggle.mockImplementation((episode: ChapterEpisode) => {
+          player.current.set(episode)
+          player.position.set(episode.start ?? 0)
+          player.playing.set(true)
+        })
+        player.seek = vi.fn((at: number) => player.position.set(at))
+        const plan = await create()
+        const day = find(plan, 1)
+        await start(plan, day)
+        const [first, second, third] = day.readings.map((r) => r.episode)
+        play(first.start as number, (first.start as number) + 100)
+        plan.end()
+        TestBed.tick()
+        const resume = plan.resumeAt(day)
+        expect(resume?.seconds).toBe((first.start as number) + 100)
+
+        const resuming = plan.start(
+          day,
+          resume?.at,
+          "plan",
+          false,
+          resume?.seconds,
+        )
+        http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+        await resuming
+        TestBed.tick()
+        play((first.start as number) + 100, (first.end as number) + 0.5)
+        play(second.start as number, (second.end as number) + 0.5)
+        play(third.start as number, (third.end as number) + 0.5)
+        expect(plan.done()).toEqual([1])
       })
 
       it("goes back into the episode's intro when left there", async () => {

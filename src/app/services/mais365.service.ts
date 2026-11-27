@@ -132,6 +132,15 @@ export interface PlanDay {
 const PROGRESS_KEY = "mais365Progress"
 /** Where a day was left, to the second: { day, at } (seconds into it). */
 const POSITION_KEY = "mais365Position"
+/**
+ * Where a day was left, and where the reading it was in had been entered:
+ * resumed there, that reading still counts as heard from its start.
+ */
+interface LeftAt {
+  day: number
+  at: number
+  entered?: number
+}
 /** How often, playing, the position is written down. */
 const POSITION_EVERY = 10
 const DONE_KEY = "mais365Done"
@@ -338,9 +347,7 @@ export class Mais365Service {
    */
   readonly progress = signal<Record<number, number[]>>(this.storedProgress())
   /** Where the last day was left, to the second, while not read. */
-  readonly leftAt = signal<{ day: number; at: number } | null>(
-    this.storedPosition(),
-  )
+  readonly leftAt = signal<LeftAt | null>(this.storedPosition())
   /** The local day, refreshed past midnight and on coming back to the app. */
   readonly clockDay = signal(localDay(new Date()))
   private readonly run = computed(() => {
@@ -437,6 +444,8 @@ export class Mais365Service {
   private readonly heard = new Set<number>()
   /** Where each reading was entered, to tell playing it from landing late. */
   private readonly enteredAt = new Map<number, number>()
+  /** «Continuar em»: where the reading resumed into had been entered. */
+  private resumedEntry?: { stage: number; entered: number }
   /** The last place the day was at: stage() is null once its stream is gone. */
   private reached: number | "reflection" | null = null
 
@@ -582,7 +591,16 @@ export class Mais365Service {
           return
         }
         const reading = day.readings[stage]
-        if (entering) this.enteredAt.set(stage, this.player.position())
+        if (entering) {
+          // Resumed where it was left: entered where it was then, so a
+          // reading begun at its start still counts as heard through.
+          const resumed = this.resumedEntry
+          this.enteredAt.set(
+            stage,
+            resumed?.stage === stage ? resumed.entered : this.player.position(),
+          )
+          this.resumedEntry = undefined
+        }
         // Named for the system's player: the chapter, not the whole day.
         this.player.adopt({ ...reading.episode, title: readingLabel(reading) })
         // Once: the full copy's re-adoption mustn't take the reader back.
@@ -709,7 +727,13 @@ export class Mais365Service {
   /** Where `day` was left; null forgets it (read, restarted, heard out). */
   private keepPosition(day: number, at: number | null): void {
     // A day read needs none: it isn't continued.
-    const value = at === null || this.done().includes(day) ? null : { day, at }
+    const stage = this.stage()
+    const entered =
+      typeof stage === "number" ? this.enteredAt.get(stage) : undefined
+    const value: LeftAt | null =
+      at === null || this.done().includes(day)
+        ? null
+        : { day, at, ...(entered !== undefined && { entered }) }
     if (value === null && this.leftAt()?.day !== day) return
     this.leftAt.set(value)
     try {
@@ -720,15 +744,18 @@ export class Mais365Service {
     }
   }
 
-  private storedPosition(): { day: number; at: number } | null {
+  private storedPosition(): LeftAt | null {
     try {
       const stored: unknown = JSON.parse(
         localStorage.getItem(POSITION_KEY) ?? "null",
       )
-      const { day, at } = (stored ?? {}) as { day?: unknown; at?: unknown }
-      return typeof day === "number" && typeof at === "number"
-        ? { day, at }
-        : null
+      const { day, at, entered } = (stored ?? {}) as {
+        day?: unknown
+        at?: unknown
+        entered?: unknown
+      }
+      if (typeof day !== "number" || typeof at !== "number") return null
+      return typeof entered === "number" ? { day, at, entered } : { day, at }
     } catch {
       return null
     }
@@ -796,6 +823,13 @@ export class Mais365Service {
     this.heard.clear()
     for (const index of this.heardOf(day)) this.heard.add(index)
     this.enteredAt.clear()
+    const left = this.leftAt()
+    this.resumedEntry =
+      seconds !== undefined &&
+      left?.day === day.day &&
+      left.entered !== undefined
+        ? { stage: at, entered: left.entered }
+        : undefined
     // The day before's stage would stand for this one's if it never plays.
     this.reached = null
     this.player.throughEpisode.set(true)
