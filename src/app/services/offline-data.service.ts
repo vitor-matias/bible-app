@@ -17,6 +17,8 @@ export const PRELOAD_TIMEOUT_MS = 5 * 60_000
 /** First wait before a failed download is tried again; it doubles each time. */
 export const PRELOAD_RETRY_BASE_MS = 30_000
 export const PRELOAD_RETRY_MAX_MS = 30 * 60_000
+/** How long a hash a download didn't match keeps the books from downloading. */
+export const REJECTED_HASH_RETRY_MS = 60 * 60_000
 
 @Injectable({
   providedIn: "root",
@@ -44,8 +46,11 @@ export class OfflineDataService implements OnDestroy {
   private preloadPromise: Promise<void> | null = null
   private retryTimer?: ReturnType<typeof setTimeout>
   private retryDelayMs = PRELOAD_RETRY_BASE_MS
-  /** The API hash a download didn't match: while it is served, no download. */
-  private rejectedHash?: string
+  /**
+   * The API hash a download didn't match, and when: while it is served, no
+   * download for an hour (a mismatch caught mid-reimport may clear sooner).
+   */
+  private rejected?: { hash: string; at: number }
   /** IndexedDB refused a write: downloading again would only fail to store it. */
   private storageFailed = false
   /** The last introductions download left some out; the flag can't say so without localStorage. */
@@ -157,7 +162,13 @@ export class OfflineDataService implements OnDestroy {
       ? undefined
       : await this.fetchCatalogHash()
     // A reconnect would only download the same mismatch again.
-    if (hash && hash === this.rejectedHash) return false
+    if (
+      hash &&
+      hash === this.rejected?.hash &&
+      Date.now() - this.rejected.at < REJECTED_HASH_RETRY_MS
+    ) {
+      return false
+    }
     const catalogChanged = !!hash && storage.getItem(this.cacheHashKey) !== hash
     if (
       booksAlreadyCached &&
@@ -193,7 +204,7 @@ export class OfflineDataService implements OnDestroy {
         if (hash && computed !== hash) {
           // Not retried this session while the API serves this hash.
           rejected = true
-          this.rejectedHash = hash
+          this.rejected = { hash, at: Date.now() }
           books = undefined
           console.error(
             "The books download doesn't match the catalog's hash; keeping the cache",
@@ -332,7 +343,11 @@ export class OfflineDataService implements OnDestroy {
     // Merge into whatever IndexedDB already holds; the load never rejects.
     await this.ensureCacheLoaded()
 
-    const existingBooks = this.cachedBooks ?? []
+    // A full download replaces the books, so one a reimport removed or renamed
+    // doesn't linger; the introductions, written apart, stay.
+    const existingBooks = (this.cachedBooks ?? []).filter(
+      (book) => !markBooksReady || !!book.introSlug,
+    )
     this.cachedBooks = [
       ...new Map(
         [...existingBooks, ...books].map((book) => [book.id, book]),

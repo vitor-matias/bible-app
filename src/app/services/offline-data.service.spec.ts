@@ -14,6 +14,7 @@ import {
   OfflineDataService,
   PRELOAD_RETRY_BASE_MS,
   PRELOAD_TIMEOUT_MS,
+  REJECTED_HASH_RETRY_MS,
 } from "./offline-data.service"
 
 describe("OfflineDataService", () => {
@@ -347,8 +348,29 @@ describe("OfflineDataService", () => {
         })
       })
 
+      // A reimport that removed or renamed a book would otherwise keep it.
+      it("replaces the stored books on a full download, keeping the introductions", async () => {
+        catalogHash.mockResolvedValue(served)
+        const removed = { ...mockBooks[0], id: "removed", name: "Removed" }
+        databaseService.getAll.mockResolvedValue([
+          ...mockBooks,
+          removed,
+          introRecord,
+        ])
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
+        await promise
+
+        const ids = (await service.getCachedBooksAsync()).map((book) => book.id)
+        expect(ids).not.toContain("removed")
+        expect(ids).toContain(introRecord.id)
+      })
+
       // Every reconnect runs the preload again.
-      it("downloads no more this session while the API serves the hash it rejected", async () => {
+      it("downloads no more for an hour while the API serves the hash it rejected", async () => {
         vi.spyOn(console, "error").mockReturnValue(undefined)
         mockLocalStorage._storage["booksCacheHash"] = "old"
         catalogHash.mockResolvedValue("not what was served")
@@ -361,6 +383,16 @@ describe("OfflineDataService", () => {
 
         await service.preloadAllBooksAndChapters()
         httpMock.expectNone("v1/books?withChapters=true")
+
+        // An hour on, the same hash is tried again (a mismatch caught
+        // mid-reimport may have cleared).
+        const now = Date.now()
+        vi.spyOn(Date, "now").mockReturnValue(now + REJECTED_HASH_RETRY_MS + 1)
+        const second = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+        await second
 
         // A new hash (the catalog fixed) is tried again.
         catalogHash.mockResolvedValue(served)
@@ -1351,7 +1383,7 @@ describe("OfflineDataService", () => {
       expect(genBook?.chapters?.length).toBe(2)
     })
 
-    it("should add new books from incoming", async () => {
+    it("should add new books from a partial write", async () => {
       const existing: Book[] = [
         {
           id: "gen",
@@ -1373,12 +1405,18 @@ describe("OfflineDataService", () => {
       ]
 
       await service.setCachedBooks(existing)
-      await service.setCachedBooks(incoming)
+      await service.setCachedBooks(incoming, { markBooksReady: false })
 
       const books = await service.getCachedBooksAsync()
       expect(books.length).toBe(2)
       expect(books.find((b) => b.id === "gen")).toBeDefined()
       expect(books.find((b) => b.id === "exo")).toBeDefined()
+
+      // A full write is the whole catalog: it replaces the books.
+      await service.setCachedBooks(incoming)
+      expect((await service.getCachedBooksAsync()).map((b) => b.id)).toEqual([
+        "exo",
+      ])
     })
   })
 
