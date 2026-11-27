@@ -165,11 +165,15 @@ export class OfflineDataService implements OnDestroy {
     }
 
     let failed = false
+    // A download that doesn't hash as the API says is not stored, nor are
+    // the introductions refreshed with it: the cache stays as it was.
+    let rejected = false
     // The introductions are fetched again too: the books restart the shared
     // 40-day clock, and a reimport may have changed them.
     const refreshIntros = isExpired || catalogChanged
     if (!booksAlreadyCached || refreshIntros) {
       let books: Book[] | undefined
+      let computed: string | undefined
       try {
         books = await this.fetch<Book[]>(
           `${this.apiBase}/books?withChapters=true`,
@@ -178,6 +182,17 @@ export class OfflineDataService implements OnDestroy {
         if (!Array.isArray(books) || !books.length) {
           books = undefined
           throw new Error("Unexpected response for the books download")
+        }
+        // The text the API hashed, as it sent it (JSON.stringify of the same
+        // list); no hash where the browser can't compute one.
+        computed = await sha256Hex(JSON.stringify(books)).catch(() => undefined)
+        if (hash && computed !== hash) {
+          // Not retried this session: another try would likely match no better.
+          rejected = true
+          books = undefined
+          console.error(
+            "The books download doesn't match the catalog's hash; keeping the cache",
+          )
         }
       } catch (error) {
         failed = true
@@ -191,7 +206,7 @@ export class OfflineDataService implements OnDestroy {
           // would keep the old ones under the restarted clock.
           if (refreshIntros) storage.removeItem(this.groupIntrosCacheFlagKey)
           await this.setCachedBooks(books)
-          this.storeCatalogHash(storage, hash)
+          this.storeCatalogHash(storage, computed)
           this.trackBooksCachedEvent()
         } catch (error) {
           console.error("Failed to preload books for offline use", error)
@@ -201,7 +216,7 @@ export class OfflineDataService implements OnDestroy {
 
     // preloadGroupIntros logs instead of throwing, so a bad /intros response
     // never masks a successful books preload.
-    if (!introsAlreadyCached || refreshIntros) {
+    if ((!introsAlreadyCached || refreshIntros) && !rejected) {
       this.introsIncomplete = !(await this.preloadGroupIntros())
       failed = this.introsIncomplete || failed
     }
@@ -217,8 +232,9 @@ export class OfflineDataService implements OnDestroy {
   }
 
   /**
-   * The hash of the books just stored, or none when it wasn't retrieved: the
-   * replaced catalog's hash would vouch for them if the API went back to it.
+   * The hash computed from the books just stored, or none when it couldn't
+   * be: the replaced catalog's hash would vouch for them if the API went
+   * back to it. Only a hash computed here is kept, never one only received.
    * A failed write stops further downloads this session, as setCachedBooks
    * does: each one would find the same mismatch.
    */
@@ -472,4 +488,15 @@ export class OfflineDataService implements OnDestroy {
       source: "standalone",
     })
   }
+}
+
+/** The SHA-256 of a text's UTF-8 bytes, in hex, as the API's catalog hash. */
+async function sha256Hex(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
+  )
+  return Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("")
 }

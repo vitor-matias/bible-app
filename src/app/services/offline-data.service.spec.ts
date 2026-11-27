@@ -228,7 +228,16 @@ describe("OfflineDataService", () => {
     })
 
     describe("catalog hash", () => {
-      beforeEach(() => {
+      // The hash of the books the mock API serves, as the app computes it.
+      let served: string
+      beforeEach(async () => {
+        const digest = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(JSON.stringify(mockBooks)),
+        )
+        served = Array.from(new Uint8Array(digest), (byte) =>
+          byte.toString(16).padStart(2, "0"),
+        ).join("")
         mockLocalStorage._storage["booksCacheReady"] = "true"
         mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
         mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
@@ -238,7 +247,7 @@ describe("OfflineDataService", () => {
       // A reimport (Ester's numbered additions) reaches a fresh cache.
       it("downloads the books again when the catalog hashes differently", async () => {
         mockLocalStorage._storage["booksCacheHash"] = "old"
-        catalogHash.mockResolvedValue("new")
+        catalogHash.mockResolvedValue(served)
 
         const promise = service.preloadAllBooksAndChapters()
         await flushMacrotask()
@@ -247,12 +256,12 @@ describe("OfflineDataService", () => {
         await flushIntros()
         await promise
 
-        expect(mockLocalStorage._storage["booksCacheHash"]).toBe("new")
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe(served)
       })
 
       // Caches from before the hash get it with one more download.
       it("downloads the books again when the cache has no hash", async () => {
-        catalogHash.mockResolvedValue("new")
+        catalogHash.mockResolvedValue(served)
 
         const promise = service.preloadAllBooksAndChapters()
         await flushMacrotask()
@@ -260,11 +269,11 @@ describe("OfflineDataService", () => {
         await flushIntros()
         await promise
 
-        expect(mockLocalStorage._storage["booksCacheHash"]).toBe("new")
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe(served)
       })
 
-      // The replaced catalog's hash would vouch for the new books.
-      it("forgets the old hash when the books are replaced without one", async () => {
+      // Only a hash computed here is kept: it describes the books stored.
+      it("keeps the hash it computed when the API gives none", async () => {
         mockLocalStorage._storage["booksCacheHash"] = "old"
         mockLocalStorage._storage["booksCacheTimestamp"] = (
           Date.now() - FORTY_ONE_DAYS_MS
@@ -276,14 +285,33 @@ describe("OfflineDataService", () => {
         await flushIntros()
         await promise
 
-        expect(mockLocalStorage._storage["booksCacheHash"]).toBeUndefined()
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe(served)
+      })
+
+      // A download altered on the way, or from mid-reimport, isn't stored.
+      it("keeps the cache and its hash when the download doesn't match the API's hash", async () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue("not what was served")
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+        await promise
+
+        expect(databaseService.clearAndPutAll).not.toHaveBeenCalled()
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe("old")
+        expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
+        // Neither are the introductions refreshed with it.
+        httpMock.expectNone("v1/intros")
       })
 
       // Each later preload would find the same mismatch and download again.
       it("downloads no more this session when the hash can't be stored", async () => {
         vi.spyOn(console, "error").mockReturnValue(undefined)
         mockLocalStorage._storage["booksCacheHash"] = "old"
-        catalogHash.mockResolvedValue("new")
+        catalogHash.mockResolvedValue(served)
         const setItem = mockLocalStorage.setItem.getMockImplementation()
         mockLocalStorage.setItem.mockImplementation(
           (key: string, value: string) => {
@@ -306,7 +334,7 @@ describe("OfflineDataService", () => {
       // the restarted 40-day clock then vouched for.
       it("drops the introductions' flag until they are fetched again", async () => {
         mockLocalStorage._storage["booksCacheHash"] = "old"
-        catalogHash.mockResolvedValue("new")
+        catalogHash.mockResolvedValue(served)
 
         void service.preloadAllBooksAndChapters()
         await flushMacrotask()
