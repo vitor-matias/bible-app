@@ -213,7 +213,7 @@
   <div class="days-column">
   <h2 class="days-title">Dias</h2>
   <!-- A day by its number, as ?dia= links open it: 281 rows to scroll else. -->
-  <form class="go-to-day" (submit)="goToDay($event, dayNumber.value)">
+  <form class="go-to-day" novalidate (submit)="goToDay($event, dayNumber.value)">
     <label for="go-to-day">Ir para o dia</label>
     <input #dayNumber id="go-to-day" type="number" inputmode="numeric" min="0" step="1" [max]="planLength()">
     <button type="submit" mat-stroked-button>Ir</button>

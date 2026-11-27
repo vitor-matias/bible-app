@@ -358,9 +358,8 @@ describe("Mais365Component", () => {
       const input = host.querySelector<HTMLInputElement>("#go-to-day")
       if (!input) throw new Error("no «Ir para o dia»")
       input.value = value
-      host
-        .querySelector("form.go-to-day")
-        ?.dispatchEvent(new Event("submit", { cancelable: true }))
+      // As the button submits it: the browser's own checks first.
+      host.querySelector<HTMLFormElement>("form.go-to-day")?.requestSubmit()
       fixture.detectChanges()
     }
 
@@ -377,6 +376,7 @@ describe("Mais365Component", () => {
     it.each([
       ["999", "O Dia 999 do +365 ainda não saiu."],
       ["-1", "Esse dia não existe no +365."],
+      ["6.4", "Esse dia não existe no +365."],
     ])("says «%s» isn't there", (value, message) => {
       const show = vi
         .spyOn(TestBed.inject(ToastService), "show")
