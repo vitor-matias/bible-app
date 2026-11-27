@@ -387,6 +387,16 @@ describe("Mais365Component", () => {
     })
   })
 
+  // Material lifts a button's label (z-index 1): «Ir» showed through the
+  // day's card staying put above the list on a phone.
+  it("keeps «Ir para o dia» in its own layer, under the card", () => {
+    fixture.detectChanges()
+    const form = (fixture.nativeElement as HTMLElement).querySelector(
+      "form.go-to-day",
+    ) as HTMLElement
+    expect(getComputedStyle(form).isolation).toBe("isolate")
+  })
+
   // Fallen behind: how far, so catching up has a size.
   it("says how many days out lie past the next one to read", () => {
     const text = () => (fixture.nativeElement as HTMLElement).textContent ?? ""

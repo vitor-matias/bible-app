@@ -5,6 +5,9 @@
 
 /* A day by its number: one line under the list's title. */
 .go-to-day {
+  /* Its own layer: Material lifts the button's label (z-index 1), which
+     showed through the card staying put above the list. */
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 8px;
