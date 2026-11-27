@@ -185,7 +185,7 @@ export class OfflineDataService implements OnDestroy {
       if (books) {
         try {
           await this.setCachedBooks(books)
-          if (hash) storage.setItem(this.cacheHashKey, hash)
+          this.storeCatalogHash(storage, hash)
           this.trackBooksCachedEvent()
         } catch (error) {
           console.error("Failed to preload books for offline use", error)
@@ -210,6 +210,22 @@ export class OfflineDataService implements OnDestroy {
       (answer) => answer?.hash || undefined,
       () => undefined,
     )
+  }
+
+  /**
+   * The hash of the books just stored, or none when it wasn't retrieved: the
+   * replaced catalog's hash would vouch for them if the API went back to it.
+   * A failed write stops further downloads this session, as setCachedBooks
+   * does: each one would find the same mismatch.
+   */
+  private storeCatalogHash(storage: Storage, hash: string | undefined) {
+    try {
+      if (hash) storage.setItem(this.cacheHashKey, hash)
+      else storage.removeItem(this.cacheHashKey)
+    } catch (error) {
+      this.storageFailed = true
+      throw error
+    }
   }
 
   /** Past the service worker, which would answer from its own copy. */

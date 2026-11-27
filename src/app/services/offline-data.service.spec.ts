@@ -263,6 +263,45 @@ describe("OfflineDataService", () => {
         expect(mockLocalStorage._storage["booksCacheHash"]).toBe("new")
       })
 
+      // The replaced catalog's hash would vouch for the new books.
+      it("forgets the old hash when the books are replaced without one", async () => {
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        mockLocalStorage._storage["booksCacheTimestamp"] = (
+          Date.now() - FORTY_ONE_DAYS_MS
+        ).toString()
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
+        await promise
+
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBeUndefined()
+      })
+
+      // Each later preload would find the same mismatch and download again.
+      it("downloads no more this session when the hash can't be stored", async () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue("new")
+        const setItem = mockLocalStorage.setItem.getMockImplementation()
+        mockLocalStorage.setItem.mockImplementation(
+          (key: string, value: string) => {
+            if (key === "booksCacheHash") throw new DOMException("full")
+            setItem?.(key, value)
+          },
+        )
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
+        await promise
+
+        await service.preloadAllBooksAndChapters()
+        httpMock.expectNone("v1/books?withChapters=true")
+      })
+
       it("keeps the cache when the catalog hashes the same", async () => {
         mockLocalStorage._storage["booksCacheHash"] = "same"
         catalogHash.mockResolvedValue("same")
