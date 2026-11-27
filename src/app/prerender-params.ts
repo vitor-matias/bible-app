@@ -1,5 +1,5 @@
 import { SHARED_BOOK_INTROS } from "./bible-canon"
-import { serverApiOrigin } from "./config"
+import { isPrerenderStrict, serverApiOrigin } from "./config"
 
 const FETCH_TIMEOUT_MS = 20_000
 // Psalms (150) is the largest real book; more is bad data.
@@ -11,11 +11,14 @@ const MAX_ITEMS = 200
 /**
  * Build-time GET of a JSON array. Returns [] instead of throwing so builds
  * without network access succeed; those pages fall back to client rendering.
+ * In strict mode it throws instead, so a deploy build fails and the running
+ * version keeps serving.
  */
 async function fetchArray<T>(
   fetchFn: typeof fetch,
   path: string,
   what: string,
+  strict: boolean,
 ): Promise<T[]> {
   try {
     const response = await fetchFn(`${serverApiOrigin}${path}`, {
@@ -37,10 +40,14 @@ async function fetchArray<T>(
     }
     return items
   } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    if (strict) {
+      throw new Error(
+        `Prerender: could not fetch ${what} (${reason}); refusing to build without them (PRERENDER_STRICT).`,
+      )
+    }
     console.warn(
-      `Prerender: could not fetch ${what} (${
-        error instanceof Error ? error.message : error
-      }); those pages will fall back to client-side rendering.`,
+      `Prerender: could not fetch ${what} (${reason}); those pages will fall back to client-side rendering.`,
     )
     return []
   }
@@ -52,8 +59,14 @@ async function fetchArray<T>(
  */
 async function fetchBookParams(
   fetchFn: typeof fetch,
+  strict: boolean,
 ): Promise<{ book: string; chapter: string }[]> {
-  const books = await fetchArray<Book>(fetchFn, "/v1/books", "the book list")
+  const books = await fetchArray<Book>(
+    fetchFn,
+    "/v1/books",
+    "the book list",
+    strict,
+  )
   return books
     .map((book) => ({
       urlAbrv:
@@ -90,11 +103,13 @@ async function fetchBookParams(
 /** Standalone introductions (/:slug/intro) come from their own endpoint. */
 async function fetchIntroParams(
   fetchFn: typeof fetch,
+  strict: boolean,
 ): Promise<{ book: string; chapter: string }[]> {
   const intros = await fetchArray<IntroSummary>(
     fetchFn,
     "/v1/intros",
     "the standalone introductions",
+    strict,
   )
   return intros
     .map((intro) => (typeof intro?.slug === "string" ? intro.slug.trim() : ""))
@@ -102,13 +117,24 @@ async function fetchIntroParams(
     .map((slug) => ({ book: slug, chapter: "intro" }))
 }
 
-/** Every route to prerender: chapters, book intros and standalone intros. */
+/**
+ * Every route to prerender: chapters, book intros and standalone intros.
+ * Strict mode (default: the PRERENDER_STRICT env var) turns every silent
+ * client-side fallback into a build failure.
+ */
 export async function fetchPrerenderChapterParams(
   fetchFn: typeof fetch = fetch,
+  options: { strict?: boolean } = {},
 ): Promise<{ book: string; chapter: string }[]> {
+  const strict = options.strict ?? isPrerenderStrict()
   const [books, intros] = await Promise.all([
-    fetchBookParams(fetchFn),
-    fetchIntroParams(fetchFn),
+    fetchBookParams(fetchFn, strict),
+    fetchIntroParams(fetchFn, strict),
   ])
+  if (strict && books.length === 0) {
+    throw new Error(
+      "Prerender: the book list produced no routes; refusing to build (PRERENDER_STRICT).",
+    )
+  }
   return [...books, ...intros]
 }
