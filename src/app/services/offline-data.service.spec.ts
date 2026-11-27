@@ -206,6 +206,27 @@ describe("OfflineDataService", () => {
       httpMock.expectNone("v1/intros")
     })
 
+    // Nothing could tell when such a cache went stale (its age, the
+    // catalog's hash), so the chapters come from the API instead.
+    it("keeps no offline Bible without localStorage", async () => {
+      const localStorageSpy = Object.getOwnPropertyDescriptor(
+        window,
+        "localStorage",
+      )?.get as Mock
+      localStorageSpy.mockImplementation(() => {
+        throw new Error("denied")
+      })
+      databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+      catalogHash.mockResolvedValue("new")
+
+      await service.preloadAllBooksAndChapters()
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectNone("v1/intros")
+      expect(await service.getCachedBooksAsync()).toEqual([])
+      expect(databaseService.getAll).not.toHaveBeenCalled()
+    })
+
     describe("catalog hash", () => {
       beforeEach(() => {
         mockLocalStorage._storage["booksCacheReady"] = "true"
@@ -240,22 +261,6 @@ describe("OfflineDataService", () => {
         await promise
 
         expect(mockLocalStorage._storage["booksCacheHash"]).toBe("new")
-      })
-
-      // The hash could never be kept, so every launch would download the Bible.
-      it("keeps the cache when there is no localStorage to keep the hash in", async () => {
-        const localStorageSpy = Object.getOwnPropertyDescriptor(
-          window,
-          "localStorage",
-        )?.get as Mock
-        localStorageSpy.mockImplementation(() => {
-          throw new Error("denied")
-        })
-        catalogHash.mockResolvedValue("new")
-
-        await service.preloadAllBooksAndChapters()
-
-        httpMock.expectNone("v1/books?withChapters=true")
       })
 
       it("keeps the cache when the catalog hashes the same", async () => {
@@ -333,60 +338,6 @@ describe("OfflineDataService", () => {
       // because the (much smaller) introductions never finished caching.
       httpMock.expectNone("v1/books?withChapters=true")
       expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
-    })
-
-    // Storage the browser refuses to hand over (cookies blocked) means the
-    // flags can never be written, so trusting them alone would re-download
-    // the whole Bible on every single launch.
-    it("should skip books but still fetch introductions without storage when IndexedDB has only regular books", async () => {
-      const localStorageSpy = Object.getOwnPropertyDescriptor(
-        window,
-        "localStorage",
-      )?.get as Mock
-      localStorageSpy.mockImplementation(() => {
-        throw new Error("denied")
-      })
-      // mockBooks are regular books — none carry introSlug, so the
-      // no-storage fallback must recognize introductions were never cached
-      // and fetch them, instead of treating "any book exists" as proof both
-      // books and introductions are ready.
-      databaseService.getAll.mockResolvedValue(mockBooks)
-
-      const promise = service.preloadAllBooksAndChapters()
-      await flushIntros()
-
-      await promise
-
-      httpMock.expectNone("v1/books?withChapters=true")
-      expect(databaseService.getAll).toHaveBeenCalledWith("books")
-    })
-
-    it("should skip both books and introductions without storage when IndexedDB already has each", async () => {
-      const localStorageSpy = Object.getOwnPropertyDescriptor(
-        window,
-        "localStorage",
-      )?.get as Mock
-      localStorageSpy.mockImplementation(() => {
-        throw new Error("denied")
-      })
-      databaseService.getAll.mockResolvedValue([
-        ...mockBooks,
-        {
-          id: "pentateuco",
-          name: "Pentateuco",
-          shortName: "Pentateuco",
-          abrv: "pentateuco",
-          chapterCount: 0,
-          introSlug: "pentateuco",
-          introduction: [],
-        },
-      ])
-
-      await service.preloadAllBooksAndChapters()
-
-      httpMock.expectNone("v1/books?withChapters=true")
-      httpMock.expectNone("v1/intros")
-      expect(databaseService.getAll).toHaveBeenCalledWith("books")
     })
 
     it("should preload books if cache flag is not set", async () => {
@@ -729,37 +680,6 @@ describe("OfflineDataService", () => {
 
       await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
       httpMock.expectNone("v1/books?withChapters=true")
-      httpMock.expectOne("v1/intros").flush([])
-      await vi.advanceTimersByTimeAsync(50)
-    })
-
-    // Without localStorage the one introduction stored stood for all of
-    // them: the retry fetched nothing and the other stayed missing.
-    it("fetches the introductions left out, even without localStorage", async () => {
-      vi.useFakeTimers()
-      vi.spyOn(console, "error").mockReturnValue(undefined)
-      const localStorageSpy = Object.getOwnPropertyDescriptor(
-        window,
-        "localStorage",
-      )?.get as Mock
-      localStorageSpy.mockImplementation(() => {
-        throw new Error("denied")
-      })
-      databaseService.getAll.mockResolvedValue(mockBooks)
-      void service.preloadAllBooksAndChapters()
-      await vi.advanceTimersByTimeAsync(0)
-      httpMock.expectOne("v1/intros").flush([
-        { slug: "pentateuco", name: "PENTATEUCO" },
-        { slug: "reis", name: "REIS" },
-      ])
-      await vi.advanceTimersByTimeAsync(0)
-      httpMock
-        .expectOne("v1/intros/pentateuco")
-        .flush({ slug: "pentateuco", name: "PENTATEUCO", introduction: [] })
-      httpMock.expectOne("v1/intros/reis").error(new ProgressEvent("error"))
-      await vi.advanceTimersByTimeAsync(0)
-
-      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
       httpMock.expectOne("v1/intros").flush([])
       await vi.advanceTimersByTimeAsync(50)
     })

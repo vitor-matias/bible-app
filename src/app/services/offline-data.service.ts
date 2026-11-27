@@ -119,9 +119,12 @@ export class OfflineDataService implements OnDestroy {
   private async runPreload(): Promise<boolean> {
     // Until the next launch: each try would download the Bible again.
     if (typeof window === "undefined" || this.storageFailed) return false
+    // Without localStorage nothing could tell when the cache went stale (its
+    // age, the catalog's hash), so there is none: chapters come from the API.
+    const storage = safeLocalStorage()
+    if (!storage) return false
 
     const migrated = await this.migrateCacheIfNeeded()
-    const storage = safeLocalStorage()
 
     // Flags are untrustworthy after a failed migration (reads fail closed).
     // They also outlive records wiped from IndexedDB alone, so they count
@@ -130,19 +133,15 @@ export class OfflineDataService implements OnDestroy {
     await this.ensureCacheLoaded()
     const records = this.cachedBooks
     const holds = (intro: boolean) =>
-      records
-        ? records.some((book) => !!book.introSlug === intro)
-        : storage !== null
+      records ? records.some((book) => !!book.introSlug === intro) : true
     // Gated independently so a failed /intros fetch never forces a redownload
     // of the multi-megabyte books payload.
     const booksAlreadyCached =
-      migrated &&
-      (!storage || storage.getItem(this.cacheFlagKey) === "true") &&
-      holds(false)
+      migrated && storage.getItem(this.cacheFlagKey) === "true" && holds(false)
     const introsAlreadyCached =
       migrated &&
       !this.introsIncomplete &&
-      (!storage || this.areGroupIntrosCached()) &&
+      this.areGroupIntrosCached() &&
       holds(true)
     const isExpired = this.isCacheExpired()
     if (isExpired && this.networkService.isOffline) {
@@ -155,10 +154,7 @@ export class OfflineDataService implements OnDestroy {
     const hash = this.networkService.isOffline
       ? undefined
       : await this.fetchCatalogHash()
-    // Without localStorage the hash can't be kept, so it is not compared: a
-    // mismatch every launch would download the Bible every launch.
-    const catalogChanged =
-      !!hash && !!storage && storage.getItem(this.cacheHashKey) !== hash
+    const catalogChanged = !!hash && storage.getItem(this.cacheHashKey) !== hash
     if (
       booksAlreadyCached &&
       introsAlreadyCached &&
@@ -190,7 +186,7 @@ export class OfflineDataService implements OnDestroy {
       if (books) {
         try {
           await this.setCachedBooks(books)
-          if (hash) storage?.setItem(this.cacheHashKey, hash)
+          if (hash) storage.setItem(this.cacheHashKey, hash)
           this.trackBooksCachedEvent()
         } catch (error) {
           console.error("Failed to preload books for offline use", error)
@@ -401,9 +397,10 @@ export class OfflineDataService implements OnDestroy {
    * false when they could not be cleared; callers must then not read the store.
    */
   private migrateCacheIfNeeded(): Promise<boolean> {
-    // Prerender workers' Node defines a localStorage whose methods throw.
+    // Without localStorage (as in prerender workers, whose Node defines one
+    // whose methods throw) the store is not read: it could be any age.
     const storage = safeLocalStorage()
-    if (!storage) return Promise.resolve(true)
+    if (!storage) return Promise.resolve(false)
     if (
       storage.getItem(this.cacheSchemaKey) ===
       this.cacheSchemaVersion.toString()
