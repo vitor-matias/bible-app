@@ -563,6 +563,30 @@ describe("Mais365Service", () => {
     expect(navigate).toHaveBeenCalledWith(["/mais365"], { replaceUrl: true })
   })
 
+  // The last day's reading, opened before, counted as followed: the reader
+  // who went to that chapter by hand was taken away from it.
+  it("leaves a reader on a chapter the day before opened, once a day starts in its intro", async () => {
+    const plan = await create()
+    const day1 = find(plan, 1)
+    await start(plan, day1)
+    // The reader was turned to Génesis 1 for Dia 1, then ended it.
+    router.url = "/gen/1"
+    at((day1.readings[0].episode.start as number) + 1)
+    plan.end()
+    TestBed.tick()
+    // Dia 3 from its intro, on the plan's page; then to Génesis 1 by hand.
+    router.url = "/mais365"
+    const day3 = find(plan, 3)
+    const started = plan.start(day3, 0, "plan", true)
+    http.expectOne(`${apiBaseUrl}/mais365/3`).flush(full(day3))
+    await started
+    router.url = "/gen/1"
+    navigate.mockClear()
+    at((day3.readings[0].episode.start as number) + 1)
+    expect(navigate).not.toHaveBeenCalled()
+    expect(toast.showOpen).toHaveBeenCalled()
+  })
+
   /** Plays each reading from its start across its end, as listening does. */
   const hearAll = (day: PlanDay) => {
     for (const { episode } of day.readings) {

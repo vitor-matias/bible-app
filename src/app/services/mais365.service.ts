@@ -828,6 +828,8 @@ export class Mais365Service {
     this.heard.clear()
     for (const index of this.heardOf(day)) this.heard.add(index)
     this.enteredAt.clear()
+    // A day before's reading isn't this one's: a reader on it chose it.
+    this.opened = null
     const left = this.leftAt()
     this.resumedEntry =
       seconds !== undefined &&
