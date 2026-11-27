@@ -3,6 +3,9 @@
   /* The header's brown and antiquewhite: the one accent, turned round at night. */
   --accent: #543d27;
   --on-accent: antiquewhite;
+  /* Buttons as the welcome tour's: antiquewhite and brown, day and night. */
+  --button: antiquewhite;
+  --on-button: #543d27;
   --muted: color-mix(in srgb, var(--text-color) 68%, transparent);
   --line: color-mix(in srgb, var(--text-color) 14%, transparent);
   --card: color-mix(in srgb, var(--text-color) 5%, var(--background-color));
@@ -212,10 +215,10 @@ progress::-moz-progress-bar {
 }
 
 .actions .main,
-.to-next {
-  --mat-button-filled-container-color: var(--accent);
-  --mat-button-filled-label-text-color: var(--on-accent);
-  border-color: var(--accent);
+.to-next,
+.status [mat-flat-button] {
+  --mat-button-filled-container-color: var(--button);
+  --mat-button-filled-label-text-color: var(--on-button);
 }
 
 /* The day's row: «Ouvir e ler», then marking it read and sharing as plain
@@ -267,8 +270,8 @@ progress::-moz-progress-bar {
 
 /* On the button itself: Material sets a FAB's colours there. */
 .card .play {
-  --mat-fab-container-color: var(--accent);
-  --mat-fab-foreground-color: var(--on-accent);
+  --mat-fab-container-color: var(--button);
+  --mat-fab-foreground-color: var(--on-button);
   border-radius: 50%;
 }
 

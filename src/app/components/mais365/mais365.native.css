@@ -28,6 +28,8 @@
 :host-context(.platform-ios.native-chrome) .mais365 {
   --accent: var(--text-color);
   --on-accent: var(--background-color);
+  --button: var(--text-color);
+  --on-button: var(--background-color);
   --card: var(--card-background);
   --muted: color-mix(in srgb, var(--text-color) 60%, transparent);
   --line: color-mix(in srgb, var(--text-color) 22%, transparent);
