@@ -527,6 +527,8 @@ describe("OfflineDataService", () => {
 
       httpMock.expectNone("v1/intros")
       expect((await service.getCachedBookAsync("gen"))?.name).toBe("Genesis")
+      // Not fetched again, so their flag stands.
+      expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
     })
 
     it("reports the cached books to analytics", async () => {

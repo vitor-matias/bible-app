@@ -165,7 +165,10 @@ export class OfflineDataService implements OnDestroy {
     }
 
     let failed = false
-    if (!booksAlreadyCached || isExpired || catalogChanged) {
+    // The introductions are fetched again too: the books restart the shared
+    // 40-day clock, and a reimport may have changed them.
+    const refreshIntros = isExpired || catalogChanged
+    if (!booksAlreadyCached || refreshIntros) {
       let books: Book[] | undefined
       try {
         books = await this.fetch<Book[]>(
@@ -184,9 +187,9 @@ export class OfflineDataService implements OnDestroy {
       // the Bible again.
       if (books) {
         try {
-          // Until they are fetched again: the books restart the 40-day
-          // clock, and an app closed before then would keep the old ones.
-          storage.removeItem(this.groupIntrosCacheFlagKey)
+          // Until this run fetches them again: an app closed before then
+          // would keep the old ones under the restarted clock.
+          if (refreshIntros) storage.removeItem(this.groupIntrosCacheFlagKey)
           await this.setCachedBooks(books)
           this.storeCatalogHash(storage, hash)
           this.trackBooksCachedEvent()
@@ -198,9 +201,7 @@ export class OfflineDataService implements OnDestroy {
 
     // preloadGroupIntros logs instead of throwing, so a bad /intros response
     // never masks a successful books preload.
-    // With the books: storing them restarts the shared 40-day clock, and a
-    // reimport may have changed the introductions too.
-    if (!introsAlreadyCached || isExpired || catalogChanged) {
+    if (!introsAlreadyCached || refreshIntros) {
       this.introsIncomplete = !(await this.preloadGroupIntros())
       failed = this.introsIncomplete || failed
     }
