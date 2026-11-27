@@ -5,7 +5,7 @@ import {
 import { TestBed } from "@angular/core/testing"
 import { Capacitor } from "@capacitor/core"
 import { BehaviorSubject } from "rxjs"
-import type { Mock } from "vitest"
+import type { Mock, MockInstance } from "vitest"
 import { createSpyObj, type SpyObj } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
 import { DatabaseService } from "./database.service"
@@ -14,6 +14,7 @@ import {
   OfflineDataService,
   PRELOAD_RETRY_BASE_MS,
   PRELOAD_TIMEOUT_MS,
+  REJECTED_HASH_RETRY_MS,
 } from "./offline-data.service"
 
 describe("OfflineDataService", () => {
@@ -21,6 +22,7 @@ describe("OfflineDataService", () => {
   let networkService: SpyObj<NetworkService>
   let offline$: BehaviorSubject<boolean>
   let httpMock: HttpTestingController
+  let catalogHash: MockInstance<OfflineDataService["fetchCatalogHash"]>
   let mockLocalStorage: {
     _storage: Record<string, string>
     getItem: Mock
@@ -171,6 +173,10 @@ describe("OfflineDataService", () => {
     databaseService = TestBed.inject(DatabaseService) as SpyObj<DatabaseService>
     networkService = TestBed.inject(NetworkService) as SpyObj<NetworkService>
     httpMock = TestBed.inject(HttpTestingController)
+    // An API without the catalog hash; the specs that need one answer it.
+    catalogHash = vi
+      .spyOn(service, "fetchCatalogHash")
+      .mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -199,6 +205,277 @@ describe("OfflineDataService", () => {
 
       httpMock.expectNone("v1/books?withChapters=true")
       httpMock.expectNone("v1/intros")
+    })
+
+    // Nothing could tell when such a cache went stale (its age, the
+    // catalog's hash), so the chapters come from the API instead.
+    it("keeps no offline Bible without localStorage", async () => {
+      const localStorageSpy = Object.getOwnPropertyDescriptor(
+        window,
+        "localStorage",
+      )?.get as Mock
+      localStorageSpy.mockImplementation(() => {
+        throw new Error("denied")
+      })
+      databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+      catalogHash.mockResolvedValue("new")
+
+      await service.preloadAllBooksAndChapters()
+
+      httpMock.expectNone("v1/books?withChapters=true")
+      httpMock.expectNone("v1/intros")
+      expect(await service.getCachedBooksAsync()).toEqual([])
+      expect(databaseService.getAll).not.toHaveBeenCalled()
+    })
+
+    describe("catalog hash", () => {
+      // The hash of the books the mock API serves, as the app computes it.
+      let served: string
+      beforeEach(async () => {
+        const digest = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(JSON.stringify(mockBooks)),
+        )
+        served = Array.from(new Uint8Array(digest), (byte) =>
+          byte.toString(16).padStart(2, "0"),
+        ).join("")
+        mockLocalStorage._storage["booksCacheReady"] = "true"
+        mockLocalStorage._storage["groupIntrosCacheReady"] = "true"
+        mockLocalStorage._storage["booksCacheTimestamp"] = Date.now().toString()
+        databaseService.getAll.mockResolvedValue([...mockBooks, introRecord])
+      })
+
+      // A reimport (Ester's numbered additions) reaches a fresh cache.
+      it("downloads the books again when the catalog hashes differently", async () => {
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue(served)
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        // Refreshed with the books, which restart their 40-day clock.
+        await flushIntros()
+        await promise
+
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe(served)
+      })
+
+      // Caches from before the hash get it with one more download.
+      it("downloads the books again when the cache has no hash", async () => {
+        catalogHash.mockResolvedValue(served)
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
+        await promise
+
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe(served)
+      })
+
+      // Only a hash computed here is kept: it describes the books stored.
+      it("keeps the hash it computed when the API gives none", async () => {
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        mockLocalStorage._storage["booksCacheTimestamp"] = (
+          Date.now() - FORTY_ONE_DAYS_MS
+        ).toString()
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
+        await promise
+
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe(served)
+      })
+
+      // A download altered on the way, or from mid-reimport, isn't stored.
+      it("keeps the cache and its hash when the download doesn't match the API's hash", async () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue("not what was served")
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+        await promise
+
+        expect(databaseService.clearAndPutAll).not.toHaveBeenCalled()
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe("old")
+        expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
+        // Neither are the introductions refreshed with it.
+        httpMock.expectNone("v1/intros")
+      })
+
+      describe("when the browser can't hash", () => {
+        beforeEach(() => {
+          vi.spyOn(crypto.subtle, "digest").mockRejectedValue(
+            new DOMException("not available", "NotSupportedError"),
+          )
+          vi.spyOn(console, "error").mockReturnValue(undefined)
+          mockLocalStorage._storage["booksCacheHash"] = "old"
+        })
+
+        // Nothing to check it against: stored as before, with no hash.
+        it("stores a download the API gave no hash for, dropping the old hash", async () => {
+          mockLocalStorage._storage["booksCacheTimestamp"] = (
+            Date.now() - FORTY_ONE_DAYS_MS
+          ).toString()
+
+          const promise = service.preloadAllBooksAndChapters()
+          await flushMacrotask()
+          httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+          await flushIntros()
+          await promise
+
+          expect(databaseService.clearAndPutAll).toHaveBeenCalled()
+          expect(mockLocalStorage._storage["booksCacheHash"]).toBeUndefined()
+        })
+
+        // It can't be confirmed, so it isn't stored.
+        it("rejects a download the API gave a hash for", async () => {
+          catalogHash.mockResolvedValue(served)
+
+          const promise = service.preloadAllBooksAndChapters()
+          await flushMacrotask()
+          httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+          await flushMacrotask()
+          await promise
+
+          expect(databaseService.clearAndPutAll).not.toHaveBeenCalled()
+          expect(mockLocalStorage._storage["booksCacheHash"]).toBe("old")
+        })
+      })
+
+      // A reimport that removed or renamed a book would otherwise keep it.
+      it("replaces the stored books on a full download, keeping the introductions", async () => {
+        catalogHash.mockResolvedValue(served)
+        const removed = { ...mockBooks[0], id: "removed", name: "Removed" }
+        databaseService.getAll.mockResolvedValue([
+          ...mockBooks,
+          removed,
+          introRecord,
+        ])
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
+        await promise
+
+        const ids = (await service.getCachedBooksAsync()).map((book) => book.id)
+        expect(ids).not.toContain("removed")
+        expect(ids).toContain(introRecord.id)
+      })
+
+      // Every reconnect runs the preload again.
+      it("downloads no more for an hour while the API serves the hash it rejected", async () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue("not what was served")
+
+        const first = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+        await first
+
+        await service.preloadAllBooksAndChapters()
+        httpMock.expectNone("v1/books?withChapters=true")
+
+        // An hour on, the same hash is tried again (a mismatch caught
+        // mid-reimport may have cleared).
+        const now = Date.now()
+        vi.spyOn(Date, "now").mockReturnValue(now + REJECTED_HASH_RETRY_MS + 1)
+        const second = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+        await second
+
+        // A new hash (the catalog fixed) is tried again.
+        catalogHash.mockResolvedValue(served)
+        const third = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
+        await third
+        expect(mockLocalStorage._storage["booksCacheHash"]).toBe(served)
+      })
+
+      // Each later preload would find the same mismatch and download again.
+      it("downloads no more this session when the hash can't be stored", async () => {
+        vi.spyOn(console, "error").mockReturnValue(undefined)
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue(served)
+        const setItem = mockLocalStorage.setItem.getMockImplementation()
+        mockLocalStorage.setItem.mockImplementation(
+          (key: string, value: string) => {
+            if (key === "booksCacheHash") throw new DOMException("full")
+            setItem?.(key, value)
+          },
+        )
+
+        const promise = service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
+        await promise
+
+        await service.preloadAllBooksAndChapters()
+        httpMock.expectNone("v1/books?withChapters=true")
+      })
+
+      // An app closed mid-refresh kept the old introductions' flag, which
+      // the restarted 40-day clock then vouched for.
+      it("drops the introductions' flag until they are fetched again", async () => {
+        mockLocalStorage._storage["booksCacheHash"] = "old"
+        catalogHash.mockResolvedValue(served)
+
+        void service.preloadAllBooksAndChapters()
+        await flushMacrotask()
+        httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushMacrotask()
+
+        // The introductions request is still out, as when the app closes.
+        expect(
+          mockLocalStorage._storage["groupIntrosCacheReady"],
+        ).toBeUndefined()
+        httpMock.expectOne("v1/intros").flush([])
+      })
+
+      it("keeps the cache when the catalog hashes the same", async () => {
+        mockLocalStorage._storage["booksCacheHash"] = "same"
+        catalogHash.mockResolvedValue("same")
+
+        await service.preloadAllBooksAndChapters()
+
+        httpMock.expectNone("v1/books?withChapters=true")
+      })
+
+      it("asks for no hash offline", async () => {
+        Object.defineProperty(networkService, "isOffline", { value: true })
+
+        await service.preloadAllBooksAndChapters()
+
+        expect(catalogHash).not.toHaveBeenCalled()
+        httpMock.expectNone("v1/books?withChapters=true")
+      })
+
+      it("reads the hash from the API, and none from an API without it", async () => {
+        catalogHash.mockRestore()
+
+        const answered = service.fetchCatalogHash()
+        httpMock.expectOne("v1/books/hash").flush({ hash: "abc" })
+        expect(await answered).toBe("abc")
+
+        const missing = service.fetchCatalogHash()
+        httpMock
+          .expectOne("v1/books/hash")
+          .flush("", { status: 404, statusText: "Not Found" })
+        expect(await missing).toBeUndefined()
+      })
     })
 
     // The flags live in localStorage, which can outlast the records.
@@ -243,60 +520,6 @@ describe("OfflineDataService", () => {
       // because the (much smaller) introductions never finished caching.
       httpMock.expectNone("v1/books?withChapters=true")
       expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
-    })
-
-    // Storage the browser refuses to hand over (cookies blocked) means the
-    // flags can never be written, so trusting them alone would re-download
-    // the whole Bible on every single launch.
-    it("should skip books but still fetch introductions without storage when IndexedDB has only regular books", async () => {
-      const localStorageSpy = Object.getOwnPropertyDescriptor(
-        window,
-        "localStorage",
-      )?.get as Mock
-      localStorageSpy.mockImplementation(() => {
-        throw new Error("denied")
-      })
-      // mockBooks are regular books — none carry introSlug, so the
-      // no-storage fallback must recognize introductions were never cached
-      // and fetch them, instead of treating "any book exists" as proof both
-      // books and introductions are ready.
-      databaseService.getAll.mockResolvedValue(mockBooks)
-
-      const promise = service.preloadAllBooksAndChapters()
-      await flushIntros()
-
-      await promise
-
-      httpMock.expectNone("v1/books?withChapters=true")
-      expect(databaseService.getAll).toHaveBeenCalledWith("books")
-    })
-
-    it("should skip both books and introductions without storage when IndexedDB already has each", async () => {
-      const localStorageSpy = Object.getOwnPropertyDescriptor(
-        window,
-        "localStorage",
-      )?.get as Mock
-      localStorageSpy.mockImplementation(() => {
-        throw new Error("denied")
-      })
-      databaseService.getAll.mockResolvedValue([
-        ...mockBooks,
-        {
-          id: "pentateuco",
-          name: "Pentateuco",
-          shortName: "Pentateuco",
-          abrv: "pentateuco",
-          chapterCount: 0,
-          introSlug: "pentateuco",
-          introduction: [],
-        },
-      ])
-
-      await service.preloadAllBooksAndChapters()
-
-      httpMock.expectNone("v1/books?withChapters=true")
-      httpMock.expectNone("v1/intros")
-      expect(databaseService.getAll).toHaveBeenCalledWith("books")
     })
 
     it("should preload books if cache flag is not set", async () => {
@@ -429,6 +652,8 @@ describe("OfflineDataService", () => {
 
       httpMock.expectNone("v1/intros")
       expect((await service.getCachedBookAsync("gen"))?.name).toBe("Genesis")
+      // Not fetched again, so their flag stands.
+      expect(mockLocalStorage._storage["groupIntrosCacheReady"]).toBe("true")
     })
 
     it("reports the cached books to analytics", async () => {
@@ -643,37 +868,6 @@ describe("OfflineDataService", () => {
       await vi.advanceTimersByTimeAsync(50)
     })
 
-    // Without localStorage the one introduction stored stood for all of
-    // them: the retry fetched nothing and the other stayed missing.
-    it("fetches the introductions left out, even without localStorage", async () => {
-      vi.useFakeTimers()
-      vi.spyOn(console, "error").mockReturnValue(undefined)
-      const localStorageSpy = Object.getOwnPropertyDescriptor(
-        window,
-        "localStorage",
-      )?.get as Mock
-      localStorageSpy.mockImplementation(() => {
-        throw new Error("denied")
-      })
-      databaseService.getAll.mockResolvedValue(mockBooks)
-      void service.preloadAllBooksAndChapters()
-      await vi.advanceTimersByTimeAsync(0)
-      httpMock.expectOne("v1/intros").flush([
-        { slug: "pentateuco", name: "PENTATEUCO" },
-        { slug: "reis", name: "REIS" },
-      ])
-      await vi.advanceTimersByTimeAsync(0)
-      httpMock
-        .expectOne("v1/intros/pentateuco")
-        .flush({ slug: "pentateuco", name: "PENTATEUCO", introduction: [] })
-      httpMock.expectOne("v1/intros/reis").error(new ProgressEvent("error"))
-      await vi.advanceTimersByTimeAsync(0)
-
-      await vi.advanceTimersByTimeAsync(PRELOAD_RETRY_BASE_MS)
-      httpMock.expectOne("v1/intros").flush([])
-      await vi.advanceTimersByTimeAsync(50)
-    })
-
     // A caller joining between the retry's arming and the run's end cleared
     // the timer, then joined the finished run: no retry.
     it("keeps the retry armed for a caller joining the run as it ends", async () => {
@@ -748,7 +942,15 @@ describe("OfflineDataService", () => {
       const req = httpMock.expectOne("v1/books?withChapters=true")
       expect(req.request.headers.get("ngsw-bypass")).toBe("true")
       req.flush(mockBooks)
-      await flushIntros()
+      // The introductions too: a stale copy would be stored as current.
+      await flushMacrotask()
+      const intros = httpMock.expectOne("v1/intros")
+      expect(intros.request.headers.get("ngsw-bypass")).toBe("true")
+      intros.flush([{ slug: "reis", name: "REIS" }])
+      await flushMacrotask()
+      const intro = httpMock.expectOne("v1/intros/reis")
+      expect(intro.request.headers.get("ngsw-bypass")).toBe("true")
+      intro.flush({ slug: "reis", name: "REIS", introduction: [] })
       await promise
     })
 
@@ -1181,7 +1383,7 @@ describe("OfflineDataService", () => {
       expect(genBook?.chapters?.length).toBe(2)
     })
 
-    it("should add new books from incoming", async () => {
+    it("should add new books from a partial write", async () => {
       const existing: Book[] = [
         {
           id: "gen",
@@ -1203,12 +1405,18 @@ describe("OfflineDataService", () => {
       ]
 
       await service.setCachedBooks(existing)
-      await service.setCachedBooks(incoming)
+      await service.setCachedBooks(incoming, { markBooksReady: false })
 
       const books = await service.getCachedBooksAsync()
       expect(books.length).toBe(2)
       expect(books.find((b) => b.id === "gen")).toBeDefined()
       expect(books.find((b) => b.id === "exo")).toBeDefined()
+
+      // A full write is the whole catalog: it replaces the books.
+      await service.setCachedBooks(incoming)
+      expect((await service.getCachedBooksAsync()).map((b) => b.id)).toEqual([
+        "exo",
+      ])
     })
   })
 
