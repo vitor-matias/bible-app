@@ -771,6 +771,14 @@ describe("BibleReaderComponent", () => {
       expect(emptyState()?.textContent).toContain("Tentar novamente")
     })
 
+    // Only the installed app downloads the Bible: a tab promised it.
+    it("tells a browser tab to install the app to read offline", () => {
+      expect(emptyState()?.textContent).toContain(
+        "Para ler sem ligação, instale a app.",
+      )
+      expect(emptyState()?.textContent).not.toContain("é descarregada")
+    })
+
     // A first launch offline was a bare error page: no header, no menu.
     it("keeps the header and its menu, over the About page", () => {
       expect(component.book.id).toBe("about")

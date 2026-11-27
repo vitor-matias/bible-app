@@ -68,6 +68,7 @@ import { PreferencesService } from "../../services/preferences.service"
 import { SeoService } from "../../services/seo.service"
 import { CHAPTER_STEP, ToastService } from "../../services/toast.service"
 import { introductionTitle, passageLabel } from "../../utils/passage-label"
+import { isStandaloneApp } from "../../utils/platform"
 import {
   isAddition,
   parseVerseRef,
@@ -325,6 +326,8 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
   /** The loading is the Bible's first download, not a read of the copy kept. */
   firstDownload = false
   retryingBooks = false
+  /** The installed app, which stores the Bible: a browser tab doesn't. */
+  protected readonly installed = isStandaloneApp()
   /** The first chapter opened could not be loaded: there is none to stay on. */
   chapterUnavailable = false
   retryingChapter = false
