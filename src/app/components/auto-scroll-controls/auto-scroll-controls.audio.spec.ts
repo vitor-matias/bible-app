@@ -18,6 +18,7 @@ import type { NativeChromeAction } from "../../services/native-chrome.types"
 import {
   type ChapterEpisode,
   PodcastPlayerService,
+  TABS_CHANNEL,
 } from "../../services/podcast-player.service"
 import { ToastService } from "../../services/toast.service"
 import { lastCall } from "../../testing/spy-obj"
@@ -245,6 +246,26 @@ describe("AutoScrollControlsComponent +365 mode", () => {
 
     expect(document.activeElement).toBe(elsewhere)
     elsewhere.remove()
+  })
+
+  // Two tabs played two voices at once.
+  it("tells the other tabs it plays, and pauses when another one does", async () => {
+    const other = new BroadcastChannel(TABS_CHANNEL)
+    const heard: unknown[] = []
+    other.onmessage = (event) => heard.push(event.data)
+    try {
+      await listen()
+      const player = TestBed.inject(PodcastPlayerService)
+      player.playing.set(true)
+      TestBed.tick()
+      await vi.waitFor(() => expect(heard).toContain("playing"))
+
+      const pause = vi.spyOn(player, "pause")
+      other.postMessage("playing")
+      await vi.waitFor(() => expect(pause).toHaveBeenCalled())
+    } finally {
+      other.close()
+    }
   })
 
   it("cycles the speed from ½× to 2× with one button, in fractions", async () => {

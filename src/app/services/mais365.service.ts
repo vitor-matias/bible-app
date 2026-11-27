@@ -10,8 +10,8 @@ import {
   untracked,
 } from "@angular/core"
 import { rxResource } from "@angular/core/rxjs-interop"
-import { Router } from "@angular/router"
-import { firstValueFrom, map } from "rxjs"
+import { NavigationEnd, Router } from "@angular/router"
+import { filter, firstValueFrom, map } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
@@ -237,6 +237,25 @@ export class Mais365Service {
     )
   }
 
+  /** Offered once per departure: back on the reading (or the plan), again. */
+  private wayBackOffered = false
+
+  private offerWayBack(): void {
+    const day = this.active()
+    const stage = this.stage()
+    const path = this.router.url.split(/[?#]/)[0]
+    if (!day || typeof stage !== "number" || !this.player.playing()) return
+    const reading = day.readings[stage]
+    if (!reading || path === "/mais365" || path === this.path(reading)) {
+      this.wayBackOffered = false
+      return
+    }
+    // A reader's page only: search and the others say what plays already.
+    if (this.wayBackOffered || !/^\/[^/]+\/\d+$/.test(path)) return
+    this.wayBackOffered = true
+    this.offerOpen(readingLabel(reading), () => this.open(reading))
+  }
+
   /** Where the day has gone on to, for a reader elsewhere: a tap opens it. */
   private offerOpen(label: string, open: () => void): void {
     this.toast.showOpen(`+365 · Agora: ${label}`, "Abrir", open)
@@ -429,6 +448,11 @@ export class Mais365Service {
   }
 
   constructor() {
+    // The reader gone to another chapter (the book picker, a link) while a
+    // reading plays: the day plays on, with a way back to that reading.
+    this.router.events
+      ?.pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe(() => this.offerWayBack())
     // Where the day is, written down every POSITION_EVERY seconds heard, on
     // pause, and as the page goes: a reload, or the app closed, goes on from
     // there (it went back to the reading's start, or the day's).

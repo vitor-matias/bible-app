@@ -1,5 +1,12 @@
 import { HttpClient } from "@angular/common/http"
-import { effect, Injectable, inject, signal, untracked } from "@angular/core"
+import {
+  DestroyRef,
+  effect,
+  Injectable,
+  inject,
+  signal,
+  untracked,
+} from "@angular/core"
 import { takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { catchError, map, type Observable, of } from "rxjs"
 import { apiBaseUrl } from "../config"
@@ -32,6 +39,9 @@ export interface ChapterEpisode {
   /** [verse, seconds] where each verse starts, for following the reading. */
   verses?: [number, number][]
 }
+
+/** Where the app's tabs tell each other one of them started playing. */
+export const TABS_CHANNEL = "bible-app-audio"
 
 const RATES = [0.5, 0.75, 1, 1.1, 1.25, 1.5, 2]
 
@@ -365,6 +375,16 @@ export class PodcastPlayerService {
   private readonly analytics = inject(AnalyticsService)
 
   constructor() {
+    // Another tab of the app starting to play pauses this one: two voices
+    // at once otherwise. Paused, not stopped: it goes on from there.
+    if (typeof BroadcastChannel !== "undefined") {
+      const tabs = new BroadcastChannel(TABS_CHANNEL)
+      tabs.onmessage = () => this.pause()
+      inject(DestroyRef).onDestroy(() => tabs.close())
+      effect(() => {
+        if (this.playing()) untracked(() => tabs.postMessage("playing"))
+      })
+    }
     // Each start or resume of playback, with what plays.
     let wasPlaying = false
     effect(() => {

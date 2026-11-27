@@ -6,7 +6,8 @@ import {
 } from "@angular/common/http/testing"
 import { ApplicationRef, signal } from "@angular/core"
 import { TestBed } from "@angular/core/testing"
-import { Router } from "@angular/router"
+import { NavigationEnd, Router } from "@angular/router"
+import { Subject } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { lastCall } from "../testing/spy-obj"
 import { AnalyticsService } from "./analytics.service"
@@ -169,7 +170,11 @@ describe("Mais365Service", () => {
   }
   let navigate: ReturnType<typeof vi.fn>
   /** Where the reader is: the plan's page, unless a spec moves it. */
-  const router: { url: string; navigate?: ReturnType<typeof vi.fn> } = {
+  const router: {
+    url: string
+    navigate?: ReturnType<typeof vi.fn>
+    events?: Subject<unknown>
+  } = {
     url: "/mais365",
   }
   const toast = { showOpen: vi.fn(), dismissReturnToPlan: vi.fn() }
@@ -499,6 +504,36 @@ describe("Mais365Service", () => {
     expect(navigate).not.toHaveBeenCalledWith(["/mais365"], {
       replaceUrl: true,
     })
+  })
+
+  // Genesis played on over Matthew with no way back to it.
+  it("offers the way back to the reading playing when the reader opens another chapter", async () => {
+    const events = new Subject<unknown>()
+    router.events = events
+    try {
+      const plan = await create()
+      const day = find(plan, 1)
+      await start(plan, day)
+      const first = day.readings[0].episode
+      at((first.start as number) + 10)
+      router.url = "/gen/1"
+      events.next(new NavigationEnd(1, "/gen/1", "/gen/1"))
+      expect(toast.showOpen).not.toHaveBeenCalled()
+
+      router.url = "/mt/5"
+      events.next(new NavigationEnd(2, "/mt/5", "/mt/5"))
+      expect(toast.showOpen).toHaveBeenCalledTimes(1)
+      expect(lastCall(toast.showOpen)[0]).toBe("+365 · Agora: Génesis 1")
+      // Once per departure: another chapter isn't offered again.
+      router.url = "/mt/6"
+      events.next(new NavigationEnd(3, "/mt/6", "/mt/6"))
+      expect(toast.showOpen).toHaveBeenCalledTimes(1)
+      navigate.mockClear()
+      lastCall(toast.showOpen)[2]()
+      expect(navigate.mock.calls[0][0]).toEqual(["/", "gen", 1])
+    } finally {
+      router.events = undefined
+    }
   })
 
   /** Plays each reading from its start across its end, as listening does. */
