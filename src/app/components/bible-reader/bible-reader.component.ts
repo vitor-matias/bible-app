@@ -1401,6 +1401,9 @@ export class BibleReaderComponent implements OnInit, OnDestroy {
     this.showAutoScrollControls = this.autoScrollControlsShown()
     if (!this.showAutoScrollControls && !this.heldByPlan()) {
       this.readingVerse.set(null)
+      // The control goes (the apps' pages have none): a chapter's audio with
+      // it, as when hidden, or nothing in the app could pause it.
+      if (!this.plan.active()) this.player.stop()
     }
     this.cdr.markForCheck()
     if (this.viewMode === "paged") this.autoScrollService.stop()

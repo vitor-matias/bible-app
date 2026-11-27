@@ -1,3 +1,4 @@
+import { Location } from "@angular/common"
 import { HttpClient } from "@angular/common/http"
 import {
   computed,
@@ -14,6 +15,7 @@ import { firstValueFrom, map } from "rxjs"
 import { apiBaseUrl } from "../config"
 import { AnalyticsService } from "./analytics.service"
 import { BookService } from "./book.service"
+import { isPanelEntry, pageDepth } from "./depth-location-strategy"
 import {
   type ChapterEpisode,
   PodcastPlayerService,
@@ -182,6 +184,7 @@ const CELEBRATED_KEY = "mais365Celebrated"
 export class Mais365Service {
   private readonly player = inject(PodcastPlayerService)
   private readonly router = inject(Router)
+  private readonly location = inject(Location)
   private readonly books = inject(BookService)
   private readonly http = inject(HttpClient)
   private readonly analytics = inject(AnalyticsService)
@@ -238,6 +241,10 @@ export class Mais365Service {
   /** Turns the reader to a reading, at its first verse. */
   private open(reading: PlanReading, replaceUrl = false): void {
     this.opened = this.path(reading)
+    // Pushed from the plan's page: the reflection steps back to its entry.
+    if (!replaceUrl && this.router.url.split(/[?#]/)[0] === "/mais365") {
+      this.planEntry = pageDepth(this.location.getState())
+    }
     const queryParams = this.query(reading)
     const extras = {
       ...(queryParams && { queryParams }),
@@ -247,6 +254,24 @@ export class Mais365Service {
       ? this.router.navigate(this.link(reading), extras)
       : this.router.navigate(this.link(reading)))
   }
+
+  /**
+   * The plan's page, in place of the reading: by stepping back to its entry
+   * when the reading's was pushed from it (replacing would leave two, and a
+   * Back that does nothing); a panel's entry on top goes too.
+   */
+  private backToPlan(): void {
+    const state = this.location.getState()
+    if (
+      this.planEntry !== undefined &&
+      pageDepth(state) === this.planEntry + 1
+    ) {
+      this.location.historyGo(isPanelEntry(state) ? -2 : -1)
+    } else void this.router.navigate(["/mais365"], { replaceUrl: true })
+  }
+
+  /** The page depth of the plan's page entry a reading was pushed from. */
+  private planEntry?: number
 
   /**
    * The day turning a reader that follows it to its next reading: in place,
@@ -480,7 +505,7 @@ export class Mais365Service {
           // leaves the day, not for its last reading under the reflection.
           if (this.following(before)) {
             if (this.router.url.split(/[?#]/)[0] !== "/mais365")
-              void this.router.navigate(["/mais365"], { replaceUrl: true })
+              this.backToPlan()
           } else this.offerOpen("Reflexão", toPlan)
           return
         }

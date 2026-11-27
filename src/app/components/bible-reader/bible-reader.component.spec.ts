@@ -2681,6 +2681,17 @@ describe("BibleReaderComponent", () => {
       expect(component.showAutoScrollControls).toBe(true)
     })
 
+    // The control unmounted with the audio playing on and no way to pause it.
+    it("stops a chapter's audio when the apps' pages take its control away", () => {
+      Object.assign(TestBed.inject(NativeChromeService), { enabled: true })
+      component.toggleAutoScrollControlsVisibility()
+      const stop = vi.spyOn(TestBed.inject(PodcastPlayerService), "stop")
+
+      component.onToggleViewMode()
+
+      expect(stop).toHaveBeenCalled()
+    })
+
     it("onToggleViewMode should switch back to scrolling mode", async () => {
       vi.useFakeTimers()
       component.viewMode = "paged"

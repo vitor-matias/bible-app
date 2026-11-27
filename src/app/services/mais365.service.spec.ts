@@ -1,3 +1,4 @@
+import { Location } from "@angular/common"
 import { provideHttpClient } from "@angular/common/http"
 import {
   HttpTestingController,
@@ -473,6 +474,30 @@ describe("Mais365Service", () => {
     plan.back()
     expect(lastCall(navigate)).toEqual([["/", "gen", 1]])
     expect(plan.previous()).toBeNull()
+  })
+
+  // Replacing the reading's entry left two of the plan's page: Back did nothing.
+  it("steps back to the plan's page entry the day's reading was pushed from", async () => {
+    let depth = 3
+    const location = {
+      getState: () => ({ appDepth: depth }),
+      historyGo: vi.fn(),
+    }
+    TestBed.overrideProvider(Location, { useValue: location })
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
+    // The reading, pushed on top of the plan's page.
+    depth = 4
+    router.url = "/psa/19"
+    navigate.mockClear()
+    hearAll(day)
+    at(day.reflection + 1)
+
+    expect(location.historyGo).toHaveBeenCalledWith(-1)
+    expect(navigate).not.toHaveBeenCalledWith(["/mais365"], {
+      replaceUrl: true,
+    })
   })
 
   /** Plays each reading from its start across its end, as listening does. */
