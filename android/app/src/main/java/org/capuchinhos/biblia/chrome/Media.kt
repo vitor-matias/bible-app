@@ -1,16 +1,16 @@
 package org.capuchinhos.biblia.chrome
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager
 import android.os.Build
+import android.os.IBinder
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -46,6 +46,8 @@ data class MediaState(
         )
     }
 }
+
+internal const val NOTIFICATION_ID = 365
 
 /** The skip the player's buttons and the shade's make, in seconds. */
 internal const val MEDIA_SKIP_SECONDS = 15
@@ -98,6 +100,11 @@ internal class MediaSessionBridge(
     }
     private var last: MediaState? = null
 
+    init {
+        // A notification left by a process that died holds buttons nothing answers.
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+    }
+
     fun update(state: MediaState?) {
         if (state == null) {
             end()
@@ -134,6 +141,7 @@ internal class MediaSessionBridge(
         session = null
         if (shown) NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
         shown = false
+        context.stopService(Intent(context, MediaCleanupService::class.java))
         if (listening) {
             try {
                 context.unregisterReceiver(actions)
@@ -173,17 +181,11 @@ internal class MediaSessionBridge(
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    // Without the permission (Android 13+) the session still serves headsets
-    // and the lock screen's, but there is no notification to post.
+    // No POST_NOTIFICATIONS check: Android 13+ exempts a MediaStyle notification
+    // carrying a media session token (as this one does) from that permission.
     @SuppressLint("MissingPermission")
     private fun notify(session: MediaSessionCompat, state: MediaState) {
         val manager = NotificationManagerCompat.from(context)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
                 NotificationChannel(CHANNEL, "Áudio", NotificationManager.IMPORTANCE_LOW),
@@ -212,13 +214,39 @@ internal class MediaSessionBridge(
             .build()
         manager.notify(NOTIFICATION_ID, notification)
         shown = true
+        // A started service is told when the task is swiped away, which the
+        // process may not outlive; it takes the notification down then.
+        try {
+            context.startService(Intent(context, MediaCleanupService::class.java))
+        } catch (_: IllegalStateException) {
+            // Started from the background: the next launch cancels it instead.
+        }
     }
 
     private companion object {
         const val CHANNEL = "media"
-        const val NOTIFICATION_ID = 365
         const val PLAY_PAUSE = "org.capuchinhos.biblia.MEDIA_PLAY_PAUSE"
         const val BACK = "org.capuchinhos.biblia.MEDIA_BACK"
         const val FORWARD = "org.capuchinhos.biblia.MEDIA_FORWARD"
+    }
+}
+
+/**
+ * Exists only to hear the task swiped from recents (a started service with
+ * stopWithTask off gets onTaskRemoved) and take the notification down, since
+ * the process can die without running any other cleanup.
+ */
+internal class MediaCleanupService : Service() {
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = START_NOT_STICKY
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID)
+        stopSelf()
+    }
+
+    override fun onDestroy() {
+        NotificationManagerCompat.from(this).cancel(NOTIFICATION_ID)
     }
 }
