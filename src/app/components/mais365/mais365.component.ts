@@ -7,6 +7,7 @@ import {
   DestroyRef,
   ElementRef,
   effect,
+  HostListener,
   Injector,
   inject,
   linkedSignal,
@@ -75,14 +76,14 @@ export class Mais365Component implements OnInit, OnDestroy {
   /** A milestone's dialog is open: not opened twice. */
   private celebrating = false
   /** A day a shared link asked for (/mais365?dia=120): its card, once loaded. */
-  private askedDay: number | undefined = (() => {
+  private askedDay: number | string | undefined = (() => {
     const dia: unknown = this.router.parseUrl(this.router.url).queryParams[
       "dia"
     ]
-    // A day's number, or none: an empty «?dia=» is no Dia 0.
-    return typeof dia === "string" && /^\d+(\.\d+)?$/.test(dia)
-      ? Number(dia)
-      : undefined
+    // A day's number; anything else asked for is said to be no day (below).
+    // An empty «?dia=» asks for nothing, not Dia 0.
+    if (typeof dia !== "string" || dia === "") return undefined
+    return /^\d+(\.\d+)?$/.test(dia) ? Number(dia) : dia
   })()
 
   /** A share sheet, or at least a link to copy. */
@@ -138,7 +139,16 @@ export class Mais365Component implements OnInit, OnDestroy {
       if (asked === undefined || !days.length) return
       this.askedDay = undefined
       const day = days.find((d) => d.day === asked)
-      if (day) untracked(() => this.selected.set(day))
+      untracked(() => {
+        if (day) this.showAsked(day)
+        // Not silently today's card: what was asked isn't there.
+        else
+          this.toast.show(
+            typeof asked === "number" && asked > (days.at(-1)?.day ?? 0)
+              ? `O Dia ${asked} do +365 ainda não saiu.`
+              : "Esse dia não existe no +365.",
+          )
+      })
     })
     afterNextRender(() => this.watchCard())
     // The row moves as the days load, as a day is marked read, and as the
@@ -395,11 +405,50 @@ export class Mais365Component implements OnInit, OnDestroy {
    * A day picked from the list: its card, brought into view where the list
    * has pushed it out (one column; beside the list it stays in sight).
    */
+  /**
+   * The day a link asked for: its card, and its row in the list, unfolded
+   * if it was among the days before and scrolled to.
+   */
+  private showAsked(day: PlanDay): void {
+    this.selected.set(day)
+    const index = this.plan.days().indexOf(day)
+    if (index >= 0 && index < this.foldable()) this.showEarlier.set(true)
+    afterNextRender(
+      () =>
+        this.host
+          .querySelector(`li[data-day="${day.day}"]`)
+          ?.scrollIntoView({ block: "center" }),
+      { injector: this.injector },
+    )
+  }
+
+  /** K plays and pauses a day of the plan here too, as in the reader. */
+  @HostListener("window:keydown", ["$event"])
+  onPlayKey(event: KeyboardEvent): void {
+    const target = event.target instanceof HTMLElement ? event.target : null
+    if (
+      event.key.toLowerCase() !== "k" ||
+      event.repeat ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      this.nativeChrome.enabled ||
+      !this.plan.active() ||
+      target?.isContentEditable ||
+      target?.closest("input, textarea, select, .cdk-overlay-container")
+    ) {
+      return
+    }
+    event.preventDefault()
+    this.plan.toggle()
+  }
+
   protected select(day: PlanDay): void {
     // The card stays in sight, on a phone too: it changes where it is.
     this.engaged = true
     this.selected.set(day)
-    this.announced.set(`Dia ${day.day}: ${day.title}`)
+    // An introduction (6.5 in the data) is no «Dia».
+    this.announced.set(`${this.label(day)}: ${day.title}`)
   }
 
   /** What a screen reader hears of a day picked from the list. */

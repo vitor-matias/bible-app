@@ -22,7 +22,8 @@
   </div>
   @if (plan.days().length) {
   <div class="progress">
-    <progress id="plan-progress" [value]="read()" [max]="planLength()"></progress>
+    <progress id="plan-progress" [value]="read()" [max]="planLength()"
+      [attr.aria-valuetext]="read() + ' de ' + planLength() + ' dias lidos'"></progress>
     <div class="progress-line">
       <label for="plan-progress">{{ read() }} de {{ planLength() }} dias lidos</label>
       <!-- From two: one day isn't a run yet. -->
@@ -60,7 +61,7 @@
     <div class="position">
       <span class="time" aria-hidden="true">{{ time(player.position() - here.from) }}</span>
       <mat-slider [min]="here.from" [max]="here.to" [step]="1" [displayWith]="spokenTime">
-        <input matSliderThumb [attr.aria-label]="here.intro ? 'Posição na introdução' : 'Posição na reflexão'" [value]="sliderValue()"
+        <input matSliderThumb [attr.aria-label]="here.intro || !day.readings.length ? 'Posição na introdução' : 'Posição na reflexão'" [value]="sliderValue()"
           (dragStart)="dragging.set(true)" (dragEnd)="dragging.set(false)" (valueChange)="player.seek($event)">
       </mat-slider>
       <span class="time" aria-hidden="true">−{{ time(here.to - player.position()) }}</span>
@@ -72,7 +73,7 @@
       <div class="controls">
         @let previous = plan.previous();
         <button type="button" mat-icon-button
-          [attr.aria-label]="previous ? 'Voltar a ' + readingLabel(previous) : 'Primeira leitura do dia'"
+          [attr.aria-label]="previous ? 'Voltar a ' + readingLabel(previous) : 'Sem leitura antes'"
           [title]="previous ? 'Voltar a ' + readingLabel(previous) : ''" [disabled]="!previous" (click)="plan.back()">
           <mat-icon>skip_previous</mat-icon>
         </button>

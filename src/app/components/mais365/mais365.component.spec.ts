@@ -329,6 +329,36 @@ describe("Mais365Component", () => {
           ?.textContent,
       ).toBe("No princípio")
     })
+
+    // Silently today's card before.
+    it.each([
+      ["999", "O Dia 999 do +365 ainda não saiu."],
+      ["abc", "Esse dia não existe no +365."],
+      ["-1", "Esse dia não existe no +365."],
+    ])("says a linked «?dia=%s» isn't there", (dia, message) => {
+      const show = vi
+        .spyOn(TestBed.inject(ToastService), "show")
+        .mockImplementation(() => {})
+      vi.spyOn(TestBed.inject(Router), "url", "get").mockReturnValue(
+        `/mais365?dia=${dia}`,
+      )
+      fixture = TestBed.createComponent(Mais365Component)
+      fixture.detectChanges()
+      TestBed.tick()
+      expect(show).toHaveBeenCalledWith(message)
+    })
+  })
+
+  // A desktop's K, on the plan's page too.
+  it("plays and pauses a day of the plan with K", () => {
+    plan.active.set(day1)
+    fixture.detectChanges()
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k" }))
+    expect(plan.toggle).toHaveBeenCalled()
+    plan.toggle.mockClear()
+    plan.active.set(null)
+    window.dispatchEvent(new KeyboardEvent("keydown", { key: "k" }))
+    expect(plan.toggle).not.toHaveBeenCalled()
   })
 
   // A week in a row: celebrated once, with a way to share it.
@@ -894,6 +924,19 @@ describe("Mais365Component", () => {
     })
 
     afterEach(() => window.scrollTo(0, 0))
+
+    // ?dia=3 showed its card, the list still folded at the top.
+    it("unfolds a linked day among the days before, to its row", () => {
+      vi.spyOn(TestBed.inject(Router), "url", "get").mockReturnValue(
+        "/mais365?dia=3",
+      )
+      fixture = TestBed.createComponent(Mais365Component)
+      fixture.detectChanges()
+      TestBed.tick()
+      fixture.detectChanges()
+      expect(host().querySelector('li[data-day="3"]')).not.toBeNull()
+      expect(host().querySelector(".earlier")?.textContent).toContain("Ocultar")
+    })
 
     it("opens the days before in place, and folds them again with focus kept", async () => {
       const fold = host().querySelector<HTMLButtonElement>(".earlier")
