@@ -156,13 +156,7 @@ export class Mais365Component implements OnInit, OnDestroy {
       const day = days.find((d) => d.day === asked)
       untracked(() => {
         if (day) this.showAsked(day)
-        // Not silently today's card: what was asked isn't there.
-        else
-          this.toast.show(
-            typeof asked === "number" && asked > (days.at(-1)?.day ?? 0)
-              ? `O Dia ${asked} do +365 ainda não saiu.`
-              : "Esse dia não existe no +365.",
-          )
+        else this.notThere(asked)
       })
     })
     afterNextRender(() => this.watchCard())
@@ -436,6 +430,44 @@ export class Mais365Component implements OnInit, OnDestroy {
       { injector: this.injector },
     )
   }
+
+  /** Not silently today's card: what was asked isn't there. */
+  private notThere(asked: number | string): void {
+    const latest = this.plan.days().at(-1)?.day ?? 0
+    this.toast.show(
+      typeof asked === "number" && asked > latest
+        ? `O Dia ${asked} do +365 ainda não saiu.`
+        : "Esse dia não existe no +365.",
+    )
+  }
+
+  /** «Ir para o dia»: that day's card and row, as a ?dia= link opens them. */
+  protected goToDay(event: Event, value: string): void {
+    event.preventDefault()
+    if (value.trim() === "") return
+    const asked = Number(value)
+    const day = this.plan.days().find((d) => d.day === asked)
+    if (!day) {
+      this.notThere(Number.isInteger(asked) ? asked : value)
+      return
+    }
+    this.showAsked(day)
+    this.announced.set(`${this.label(day)}: ${day.title}`)
+  }
+
+  /**
+   * How many days out lie past the next one to read: 0 when it's the
+   * newest, or all are read. Introductions (6.5) don't count as days.
+   */
+  protected readonly behind = computed(() => {
+    const next = this.plan.today()
+    const latest = this.plan
+      .days()
+      .filter((day) => Number.isInteger(day.day))
+      .at(-1)?.day
+    if (!next || latest === undefined || this.isDone(next)) return 0
+    return Math.max(0, latest - Math.ceil(next.day))
+  })
 
   /** K plays and pauses a day of the plan here too, as in the reader. */
   @HostListener("window:keydown", ["$event"])

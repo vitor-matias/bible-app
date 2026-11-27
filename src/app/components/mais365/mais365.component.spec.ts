@@ -351,6 +351,59 @@ describe("Mais365Component", () => {
     })
   })
 
+  // 281 rows to scroll to the day the group is on.
+  describe("«Ir para o dia»", () => {
+    const go = (value: string) => {
+      const host = fixture.nativeElement as HTMLElement
+      const input = host.querySelector<HTMLInputElement>("#go-to-day")
+      if (!input) throw new Error("no «Ir para o dia»")
+      input.value = value
+      host
+        .querySelector("form.go-to-day")
+        ?.dispatchEvent(new Event("submit", { cancelable: true }))
+      fixture.detectChanges()
+    }
+
+    it("opens the day asked for", () => {
+      plan.days.set([intro, day1, { ...day1, day: 3, title: "Dia três" }])
+      fixture.detectChanges()
+      go("3")
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector("#day-title")
+          ?.textContent,
+      ).toBe("Dia três")
+    })
+
+    it.each([
+      ["999", "O Dia 999 do +365 ainda não saiu."],
+      ["-1", "Esse dia não existe no +365."],
+    ])("says «%s» isn't there", (value, message) => {
+      const show = vi
+        .spyOn(TestBed.inject(ToastService), "show")
+        .mockImplementation(() => {})
+      fixture.detectChanges()
+      go(value)
+      expect(show).toHaveBeenCalledWith(message)
+    })
+  })
+
+  // Fallen behind: how far, so catching up has a size.
+  it("says how many days out lie past the next one to read", () => {
+    const text = () => (fixture.nativeElement as HTMLElement).textContent ?? ""
+    plan.days.set([
+      intro,
+      day1,
+      { ...day1, day: 2, title: "Dia 2" },
+      { ...day1, day: 3, title: "Dia 3" },
+    ])
+    plan.today.set(day1)
+    fixture.detectChanges()
+    expect(text()).toContain("2 dias em atraso")
+    plan.today.set({ ...day1, day: 3, title: "Dia 3" })
+    fixture.detectChanges()
+    expect(text()).not.toContain("em atraso")
+  })
+
   // A desktop's K, on the plan's page too.
   it("plays and pauses a day of the plan with K", () => {
     plan.active.set(day1)

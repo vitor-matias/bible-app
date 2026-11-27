@@ -30,6 +30,10 @@
       @if (plan.streak() >= 2) {
       <span class="streak"><mat-icon aria-hidden="true">local_fire_department</mat-icon>{{ plan.streak() }} dias seguidos</span>
       }
+      <!-- Behind the newest day out: how far, so catching up has a size. -->
+      @if (behind() > 0) {
+      <span class="behind">{{ behind() === 1 ? '1 dia em atraso' : behind() + ' dias em atraso' }}</span>
+      }
     </div>
   </div>
   }
@@ -208,6 +212,12 @@
   @if (plan.days().length) {
   <div class="days-column">
   <h2 class="days-title">Dias</h2>
+  <!-- A day by its number, as ?dia= links open it: 281 rows to scroll else. -->
+  <form class="go-to-day" (submit)="goToDay($event, dayNumber.value)">
+    <label for="go-to-day">Ir para o dia</label>
+    <input #dayNumber id="go-to-day" type="number" inputmode="numeric" min="0" step="1" [max]="planLength()">
+    <button type="submit" mat-stroked-button>Ir</button>
+  </form>
   <!-- Opened where the reader is: the days before, a tap away. -->
   @if (foldable()) {
   <button #earlier type="button" class="earlier" [attr.aria-expanded]="showEarlier()" (click)="toggleEarlier(earlier)">
