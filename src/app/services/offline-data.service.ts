@@ -155,8 +155,10 @@ export class OfflineDataService implements OnDestroy {
     const hash = this.networkService.isOffline
       ? undefined
       : await this.fetchCatalogHash()
+    // Without localStorage the hash can't be kept, so it is not compared: a
+    // mismatch every launch would download the Bible every launch.
     const catalogChanged =
-      !!hash && storage?.getItem(this.cacheHashKey) !== hash
+      !!hash && !!storage && storage.getItem(this.cacheHashKey) !== hash
     if (
       booksAlreadyCached &&
       introsAlreadyCached &&
@@ -198,7 +200,9 @@ export class OfflineDataService implements OnDestroy {
 
     // preloadGroupIntros logs instead of throwing, so a bad /intros response
     // never masks a successful books preload.
-    if (!introsAlreadyCached || isExpired) {
+    // With the books: storing them restarts the shared 40-day clock, and a
+    // reimport may have changed the introductions too.
+    if (!introsAlreadyCached || isExpired || catalogChanged) {
       this.introsIncomplete = !(await this.preloadGroupIntros())
       failed = this.introsIncomplete || failed
     }

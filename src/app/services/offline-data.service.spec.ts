@@ -222,11 +222,11 @@ describe("OfflineDataService", () => {
         const promise = service.preloadAllBooksAndChapters()
         await flushMacrotask()
         httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        // Refreshed with the books, which restart their 40-day clock.
+        await flushIntros()
         await promise
 
         expect(mockLocalStorage._storage["booksCacheHash"]).toBe("new")
-        // The introductions are not in the catalog's hash.
-        httpMock.expectNone("v1/intros")
       })
 
       // Caches from before the hash get it with one more download.
@@ -236,9 +236,26 @@ describe("OfflineDataService", () => {
         const promise = service.preloadAllBooksAndChapters()
         await flushMacrotask()
         httpMock.expectOne("v1/books?withChapters=true").flush(mockBooks)
+        await flushIntros()
         await promise
 
         expect(mockLocalStorage._storage["booksCacheHash"]).toBe("new")
+      })
+
+      // The hash could never be kept, so every launch would download the Bible.
+      it("keeps the cache when there is no localStorage to keep the hash in", async () => {
+        const localStorageSpy = Object.getOwnPropertyDescriptor(
+          window,
+          "localStorage",
+        )?.get as Mock
+        localStorageSpy.mockImplementation(() => {
+          throw new Error("denied")
+        })
+        catalogHash.mockResolvedValue("new")
+
+        await service.preloadAllBooksAndChapters()
+
+        httpMock.expectNone("v1/books?withChapters=true")
       })
 
       it("keeps the cache when the catalog hashes the same", async () => {
