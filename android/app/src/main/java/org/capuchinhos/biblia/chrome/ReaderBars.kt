@@ -330,6 +330,9 @@ private val AUTO_SCROLL_GAP = BarMetrics.floatingGap.dp
 /** How long between the ▾'s two bobs while the tip is up. */
 private const val PASSAGE_HINT_BOB_EVERY_MS = 8000L
 
+/** How long the tip stays a launch: back on the next until the title is tapped. */
+private const val PASSAGE_HINT_SHOWN_MS = 10_000L
+
 /**
  * "Mateus 5 ▾", the button to the book and chapter picker, with the heading
  * of the section being read under it. The heading is the page's own, which
@@ -360,6 +363,12 @@ internal fun PassageTitle(chrome: ChromeController, state: ChromeState, enabled:
             if (!chrome.passageHint || titleAway) return@LaunchedEffect
             try {
                 coroutineScope {
+                    // Not for minutes over the title: ten seconds a launch, back
+                    // on the next until the passage is used.
+                    launch {
+                        delay(PASSAGE_HINT_SHOWN_MS)
+                        chrome.endPassageHint()
+                    }
                     while (true) {
                         // Shown again if it was dismissed (a touch elsewhere).
                         if (!tooltip.isVisible) launch { tooltip.show() }

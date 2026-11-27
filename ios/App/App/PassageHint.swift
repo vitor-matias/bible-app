@@ -80,6 +80,12 @@ extension ChromeViewController {
             hint.alpha = 1
             hint.transform = .identity
         }
+        // Not for minutes over the title or the +365 card: ten seconds a
+        // launch, back on the next until the passage is used.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) { [weak self, weak hint] in
+            guard let self, let hint, self.passageHintView === hint else { return }
+            self.endPassageHint()
+        }
     }
 
     /// Off the screen for now: the bars hiding, a sheet, the chapter changing.

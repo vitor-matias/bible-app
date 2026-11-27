@@ -391,6 +391,9 @@ final class ChromeViewController: UIViewController, UINavigationBarDelegate, UIT
             && (next.autoScroll?.playing == true || next.podcast?.playing == true)
 
         setNeedsStatusBarAppearanceUpdate()
+        // A toast shown before the bars changed (the +365 card arriving under
+        // «Voltar ao plano»): moved above them, not left on the scrubber.
+        if toastShowing { placeToast() }
         view.layoutIfNeeded()
         // Still wanted, and its passage is back on screen.
         if passageHintPending, passageHintView == nil {
