@@ -22,7 +22,8 @@ import { MatDialog } from "@angular/material/dialog"
 import { MatIconModule } from "@angular/material/icon"
 import { MatSliderModule } from "@angular/material/slider"
 import { Meta, Title } from "@angular/platform-browser"
-import { Router, RouterLink } from "@angular/router"
+import { NavigationEnd, Router, RouterLink } from "@angular/router"
+import { filter } from "rxjs"
 import { shareableUrl } from "../../config"
 import { AnalyticsService } from "../../services/analytics.service"
 import {
@@ -77,8 +78,13 @@ export class Mais365Component implements OnInit, OnDestroy {
   protected readonly reminder = inject(Mais365ReminderService)
   /** A milestone's dialog is open: not opened twice. */
   private celebrating = false
-  /** A day a shared link asked for (/mais365?dia=120): its card, once loaded. */
-  private askedDay: number | string | undefined = (() => {
+  /**
+   * A day a shared link asked for (/mais365?dia=120): its card, once loaded.
+   * Again on a link opened with the page already showing (the apps keep it).
+   */
+  private readonly askedDay = signal(this.dayAsked())
+
+  private dayAsked(): number | string | undefined {
     const dia: unknown = this.router.parseUrl(this.router.url).queryParams[
       "dia"
     ]
@@ -86,7 +92,7 @@ export class Mais365Component implements OnInit, OnDestroy {
     // An empty «?dia=» asks for nothing, not Dia 0.
     if (typeof dia !== "string" || dia === "") return undefined
     return /^\d+(\.\d+)?$/.test(dia) ? Number(dia) : dia
-  })()
+  }
 
   /** A share sheet, or at least a link to copy. */
   protected readonly canShare =
@@ -149,13 +155,19 @@ export class Mais365Component implements OnInit, OnDestroy {
           }),
       )
     })
+    this.router.events
+      .pipe(
+        filter((event) => event instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => this.askedDay.set(this.dayAsked()))
     effect(() => {
       const days = this.plan.days()
-      const asked = this.askedDay
+      const asked = this.askedDay()
       if (asked === undefined || !days.length) return
-      this.askedDay = undefined
       const day = days.find((d) => d.day === asked)
       untracked(() => {
+        this.askedDay.set(undefined)
         if (day) this.showAsked(day)
         else this.notThere(asked)
       })

@@ -24,6 +24,7 @@ import { rxResource, takeUntilDestroyed } from "@angular/core/rxjs-interop"
 import { MatButtonModule } from "@angular/material/button"
 import { MatIconModule } from "@angular/material/icon"
 import { MatSliderModule } from "@angular/material/slider"
+import { Router } from "@angular/router"
 import { AnalyticsService } from "../../services/analytics.service"
 import { AutoScrollService } from "../../services/auto-scroll.service"
 import {
@@ -86,6 +87,12 @@ const GLIDE_MIN_SPEED = 8
 /** How long the text rests after landing before another ease may start. */
 const GLIDE_REST_MS = 3000
 
+/** A page a chapter's audio plays on in: search, or a chapter's (the reader). */
+export const keepsChapterAudio = (url: string): boolean => {
+  const path = url.split(/[?#]/)[0]
+  return path === "/search" || /^\/([^/]+\/\d+)?$/.test(path)
+}
+
 /** 63 → "1:03", 3723 → "62:03"; never below "0:00", as lengths not yet known read 0. */
 const clock = (seconds: number): string => {
   const whole = Math.max(0, Math.floor(seconds))
@@ -125,6 +132,7 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   protected readonly player = inject(PodcastPlayerService)
   protected readonly plan = inject(Mais365Service)
+  private readonly router = inject(Router)
 
   /** "Saltar para Génesis 2", while a day of the plan plays. */
   protected readonly skipLabel = computed(() => {
@@ -1149,8 +1157,15 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     // Hidden from the menu, the controls take what they started with them.
     this.stopGlide()
-    // Audio plays on as the reader leaves (search says what plays and
-    // pauses it); hidden from the menu, the reader lets it go (bible-reader).
+    // Audio plays on as the reader leaves for search, which says what plays
+    // and pauses it, or another chapter; a plan day plays on anywhere, with
+    // its own way back. A chapter's audio elsewhere (the index, the books,
+    // the plan's page) had nothing left to pause it with: paused. Hidden
+    // from the menu, the reader lets it go (bible-reader).
+    const going =
+      this.router.getCurrentNavigation()?.finalUrl?.toString() ??
+      this.router.url
+    if (!this.plan.active() && !keepsChapterAudio(going)) this.player.pause()
     this.stopAutoScroll()
     if (this.native) {
       this.nativeChrome.setAutoScroll(null)

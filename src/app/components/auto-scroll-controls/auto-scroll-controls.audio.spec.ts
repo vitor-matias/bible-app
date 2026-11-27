@@ -22,7 +22,10 @@ import {
 } from "../../services/podcast-player.service"
 import { ToastService } from "../../services/toast.service"
 import { lastCall } from "../../testing/spy-obj"
-import { AutoScrollControlsComponent } from "./auto-scroll-controls.component"
+import {
+  AutoScrollControlsComponent,
+  keepsChapterAudio,
+} from "./auto-scroll-controls.component"
 
 const day3: ChapterEpisode = {
   day: 3,
@@ -445,13 +448,41 @@ describe("AutoScrollControlsComponent +365 mode", () => {
 
   // Leaving the reader (for search, say) doesn't stop it: search says what
   // plays and pauses it. Hidden from the menu, the reader lets it go.
-  it("plays on when the reader leaves", async () => {
+  it("plays on when the reader leaves for search or another chapter", async () => {
+    const url = vi.spyOn(TestBed.inject(Router), "url", "get")
+    url.mockReturnValue("/search")
     await listen()
     tap(toggle())
     const stream = audio()
     fixture.destroy()
     expect(stream.paused).toBe(false)
     expect(TestBed.inject(PodcastPlayerService).current()).not.toBeNull()
+
+    url.mockReturnValue("/gen/2")
+    fixture = TestBed.createComponent(AutoScrollControlsComponent)
+    fixture.detectChanges()
+    fixture.destroy()
+    expect(stream.paused).toBe(false)
+  })
+
+  // The index, the books, the plan's page: nothing there to pause it with.
+  it("pauses a chapter's audio when the reader leaves for a page without a player", async () => {
+    vi.spyOn(TestBed.inject(Router), "url", "get").mockReturnValue("/indice")
+    await listen()
+    tap(toggle())
+    const stream = audio()
+    fixture.destroy()
+    expect(stream.paused).toBe(true)
+  })
+
+  it("tells the pages a chapter's audio plays on in", () => {
+    expect(keepsChapterAudio("/search?q=luz")).toBe(true)
+    expect(keepsChapterAudio("/gen/2")).toBe(true)
+    expect(keepsChapterAudio("/")).toBe(true)
+    expect(keepsChapterAudio("/indice")).toBe(false)
+    expect(keepsChapterAudio("/indice/fe")).toBe(false)
+    expect(keepsChapterAudio("/livros")).toBe(false)
+    expect(keepsChapterAudio("/mais365?dia=3")).toBe(false)
   })
 
   it("shows the system's player the chapter's own time, and seeks within it", async () => {

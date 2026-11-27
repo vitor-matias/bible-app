@@ -316,6 +316,22 @@ describe("Mais365Component", () => {
       ).toBe("No princípio")
     })
 
+    // The apps keep the page: a link opened on it changed nothing.
+    it("opens a day a link asks for with the page already showing", async () => {
+      const router = TestBed.inject(Router)
+      router.resetConfig([{ path: "mais365", children: [] }])
+      await router.navigateByUrl("/mais365")
+      fixture = TestBed.createComponent(Mais365Component)
+      fixture.detectChanges()
+      await router.navigateByUrl("/mais365?dia=1")
+      TestBed.tick()
+      fixture.detectChanges()
+      expect(
+        (fixture.nativeElement as HTMLElement).querySelector("#day-title")
+          ?.textContent,
+      ).toBe("No princípio")
+    })
+
     // Number("") is 0: a cut-off link opened Dia 0, not the next day.
     it("opens the next day for an empty «?dia=»", () => {
       plan.today.set(day1)
