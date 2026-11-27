@@ -274,8 +274,13 @@ export class Mais365Service {
   private open(reading: PlanReading, replaceUrl = false): void {
     this.opened = this.path(reading)
     // Pushed from the plan's page: the reflection steps back to its entry.
-    if (!replaceUrl && this.router.url.split(/[?#]/)[0] === "/mais365") {
-      this.planEntry = pageDepth(this.location.getState())
+    // Pushed from anywhere else, the entry below isn't the plan's: forgotten,
+    // or the reflection stepped back to that page (search, say).
+    if (!replaceUrl) {
+      this.planEntry =
+        this.router.url.split(/[?#]/)[0] === "/mais365"
+          ? pageDepth(this.location.getState())
+          : undefined
     }
     const queryParams = this.query(reading)
     const extras = {

@@ -536,6 +536,33 @@ describe("Mais365Service", () => {
     }
   })
 
+  // A reading pushed from search kept the plan's old depth: the reflection
+  // stepped back to search.
+  it("replaces with the plan's page when the reading was pushed from elsewhere", async () => {
+    let depth = 3
+    const location = {
+      getState: () => ({ appDepth: depth }),
+      historyGo: vi.fn(),
+    }
+    TestBed.overrideProvider(Location, { useValue: location })
+    const plan = await create()
+    const day = find(plan, 1)
+    await start(plan, day)
+    // The day started again from search, a page as deep as the plan's was.
+    router.url = "/search"
+    const again = plan.start(day, 0, "episode")
+    http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+    await again
+    depth = 4
+    router.url = "/psa/19"
+    navigate.mockClear()
+    hearAll(day)
+    at(day.reflection + 1)
+
+    expect(location.historyGo).not.toHaveBeenCalled()
+    expect(navigate).toHaveBeenCalledWith(["/mais365"], { replaceUrl: true })
+  })
+
   /** Plays each reading from its start across its end, as listening does. */
   const hearAll = (day: PlanDay) => {
     for (const { episode } of day.readings) {
