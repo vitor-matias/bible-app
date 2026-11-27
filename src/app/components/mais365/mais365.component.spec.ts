@@ -60,6 +60,7 @@ describe("Mais365Component", () => {
     done: signal<number[]>([]),
     lastReadOn: signal<string | undefined>(undefined),
     clockDay: signal(localDay(new Date())),
+    doneOn: signal<Record<number, string>>({}),
     streak: signal(0),
     milestone: signal<{ days: number; key: string } | null>(null),
     celebrate: vi.fn(),
@@ -115,6 +116,7 @@ describe("Mais365Component", () => {
     plan.done.set([])
     plan.lastReadOn.set(undefined)
     plan.clockDay.set(localDay(new Date()))
+    plan.doneOn.set({})
     plan.streak.set(0)
     plan.milestone.set(null)
     resource.isLoading.set(false)
@@ -413,23 +415,32 @@ describe("Mais365Component", () => {
     expect(getComputedStyle(form).isolation).toBe("isolate")
   })
 
-  // Fallen behind: how far, so catching up has a size.
-  it("says how many days out lie past the next one to read", () => {
+  // Fallen behind one's own pace: a late starter isn't "278 dias em atraso".
+  it("says how many days behind the reader's own pace", () => {
     const text = () => (fixture.nativeElement as HTMLElement).textContent ?? ""
-    plan.days.set([
-      intro,
-      day1,
-      { ...day1, day: 2, title: "Dia 2" },
-      { ...day1, day: 3, title: "Dia 3" },
-    ])
-    plan.today.set(day1)
-    // A newcomer, no day read: not "behind".
+    const day = (n: number) => ({ ...day1, day: n, title: `Dia ${n}` })
+    plan.days.set([intro, day1, day(2), day(3), day(4), day(5)])
+    // A newcomer, no day read: not behind.
     fixture.detectChanges()
     expect(text()).not.toContain("em atraso")
-    plan.done.set([0])
+
+    // Started two days ago with Dia 1, read only that: Dia 2 was due
+    // yesterday; today's isn't due before tomorrow.
+    plan.done.set([1])
+    plan.doneOn.set({ 1: "2026-11-25" })
+    plan.clockDay.set("2026-11-27")
     fixture.detectChanges()
-    expect(text()).toContain("2 dias em atraso")
-    plan.today.set({ ...day1, day: 3, title: "Dia 3" })
+    expect(text()).toContain("1 dia em atraso")
+
+    // A week on: 9 due, but only the 4 days out and unread can be.
+    plan.clockDay.set("2026-12-04")
+    fixture.detectChanges()
+    expect(text()).toContain("4 dias em atraso")
+
+    // Read at the pace: nothing said.
+    plan.done.set([1, 2])
+    plan.doneOn.set({ 1: "2026-11-25", 2: "2026-11-26" })
+    plan.clockDay.set("2026-11-27")
     fixture.detectChanges()
     expect(text()).not.toContain("em atraso")
   })

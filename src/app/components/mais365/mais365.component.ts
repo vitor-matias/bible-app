@@ -469,19 +469,20 @@ export class Mais365Component implements OnInit, OnDestroy {
   }
 
   /**
-   * How many days out lie past the next one to read: 0 when it's the
-   * newest, or all are read. Introductions (6.5) don't count as days.
+   * How far behind the reader's own pace: a day a day since the first day
+   * they read (today's isn't due before tomorrow), less the days read; never
+   * more than the days out and unread. Counted from the newest day out, a
+   * late starter was "278 dias em atraso" after their first.
    */
   protected readonly behind = computed(() => {
-    const next = this.plan.today()
-    const latest = this.plan
+    // The earliest: "YYYY-MM-DD" sorts as dates do.
+    const [first] = Object.values(this.plan.doneOn()).sort()
+    if (!first) return 0
+    const due = Math.max(1, daysBetween(first, this.plan.clockDay()))
+    const unread = this.plan
       .days()
-      .filter((day) => Number.isInteger(day.day))
-      .at(-1)?.day
-    // Not before a day is read: a newcomer isn't "behind" 281 days.
-    if (!this.plan.done().length) return 0
-    if (!next || latest === undefined || this.isDone(next)) return 0
-    return Math.max(0, latest - Math.ceil(next.day))
+      .filter((day) => day.readings.length && !this.isDone(day)).length
+    return Math.max(0, Math.min(unread, due - this.read()))
   })
 
   /** K plays and pauses a day of the plan here too, as in the reader. */
@@ -758,4 +759,13 @@ export class Mais365Component implements OnInit, OnDestroy {
   protected playingDay(day: PlanDay): boolean {
     return this.plan.isActive(day) && this.player.playing()
   }
+}
+
+/** Whole days from one local "YYYY-MM-DD" to another. */
+const daysBetween = (from: string, to: string): number => {
+  const utc = (day: string) => {
+    const [y, m, d] = day.split("-").map(Number)
+    return Date.UTC(y, m - 1, d)
+  }
+  return Math.round((utc(to) - utc(from)) / 86_400_000)
 }
