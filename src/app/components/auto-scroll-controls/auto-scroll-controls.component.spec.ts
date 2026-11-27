@@ -633,7 +633,8 @@ describe("AutoScrollControlsComponent in the iOS app", () => {
     expect(lastCall(vi.mocked(nativeChrome.setAutoScroll))[0]).toBeNull()
     expect(lastPodcast()).toEqual(
       expect.objectContaining({
-        caption: "Génesis 30",
+        // Whose it is, as the plan's readings say; this one has no timings.
+        caption: "+365 · Dia 15 · Génesis 30 · sem texto acompanhado",
         playing: false,
         canPlay: true,
         inPlan: false,

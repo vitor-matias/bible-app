@@ -470,26 +470,3 @@ progress::-moz-progress-bar {
 }
 
 
-.behind {
-  color: var(--muted);
-}
-
-/* A day by its number: one line under the list's title. */
-.go-to-day {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 12px;
-}
-
-.go-to-day input {
-  box-sizing: border-box;
-  width: 6em;
-  height: 40px;
-  padding: 0 10px;
-  border: 1px solid color-mix(in srgb, var(--text-color) 30%, transparent);
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-}
