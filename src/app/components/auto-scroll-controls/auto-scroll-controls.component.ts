@@ -651,15 +651,18 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
     if (jumped) {
       this.landedAt = 0
       this.landingAt = undefined
-      if (box.bottom < view.top || box.top > view.bottom) {
-        const fitsArea = box.height <= area.bottom - area.top
-        page.scrollTop += (fitsArea ? box.top : point) - area.top
-        this.settling = false
-        this.landedAt = Date.now()
-        this.glideCarry = 0
-        this.glideSpeed = 0
-        return
-      }
+    }
+    // Off the screen, however it got there (a scrub's small steps aren't a
+    // jump): there at once. Easing at 45 px/s took 7–30 s to come into view.
+    if (box.bottom < view.top || box.top > view.bottom) {
+      const fitsArea = box.height <= area.bottom - area.top
+      page.scrollTop += (fitsArea ? box.top : point) - area.top
+      this.settling = false
+      this.landingAt = undefined
+      this.landedAt = Date.now()
+      this.glideCarry = 0
+      this.glideSpeed = 0
+      return
     }
     const fits = box.height <= area.bottom - area.top
     // What goes to the upper edge: the verse's top, or the line being read.

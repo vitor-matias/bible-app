@@ -1581,6 +1581,19 @@ describe("AutoScrollControlsComponent +365 mode", () => {
         expect(Math.abs(page.scrollTop - 362.5)).toBeLessThanOrEqual(1)
       })
 
+      // A scrub moves in steps under 2 s, no jump: it eased at 45 px/s.
+      it("jumps to a verse a scrub's small steps left off the screen", async () => {
+        await playAt(59)
+        vi.advanceTimersByTime(500)
+        for (let at = 60.5; at <= 71; at += 1.5) {
+          audio().currentTime = at
+          audio().dispatchEvent(new Event("timeupdate"))
+          vi.advanceTimersByTime(50)
+        }
+        vi.advanceTimersByTime(100)
+        expect(Math.abs(page.scrollTop - 362.5)).toBeLessThanOrEqual(1)
+      })
+
       // At 2× the reading runs twice as fast: so does the glide, or it lags.
       it("glides at the reading's pace: twice as fast at 2×", async () => {
         TestBed.inject(PodcastPlayerService).cycleRate()
