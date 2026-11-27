@@ -826,6 +826,24 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.paused).toBe(true)
   })
 
+  // Resumed by the footnote closing, it silenced the tab the reader chose.
+  it("stays paused after a footnote when another tab played meanwhile", async () => {
+    const player = TestBed.inject(PodcastPlayerService)
+    await listen()
+    tap(toggle())
+    const release = player.hold()
+    const other = new BroadcastChannel(TABS_CHANNEL)
+    try {
+      other.postMessage("playing")
+      // Delivered as a task: wait for this tab to hear it.
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      release()
+      expect(audio().paused).toBe(true)
+    } finally {
+      other.close()
+    }
+  })
+
   it("leaves a paused episode paused after a footnote", async () => {
     const player = TestBed.inject(PodcastPlayerService)
     await listen()

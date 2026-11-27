@@ -379,7 +379,11 @@ export class PodcastPlayerService {
     // at once otherwise. Paused, not stopped: it goes on from there.
     if (typeof BroadcastChannel !== "undefined") {
       const tabs = new BroadcastChannel(TABS_CHANNEL)
-      tabs.onmessage = () => this.pause()
+      tabs.onmessage = () => {
+        // Nor does it resume once a footnote held over it closes.
+        this.resumeAfterHolds = false
+        this.pause()
+      }
       inject(DestroyRef).onDestroy(() => tabs.close())
       effect(() => {
         if (this.playing()) untracked(() => tabs.postMessage("playing"))
