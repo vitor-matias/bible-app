@@ -45,6 +45,7 @@ import {
   SCROLL_KEYS,
 } from "../../services/podcast-player.service"
 import { PreferencesService } from "../../services/preferences.service"
+import { focusIfLost } from "../../utils/focus"
 
 /**
  * How close to the slowest or fastest speed counts as there. The service
@@ -404,6 +405,18 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
   }
 
   constructor() {
+    // The player shown on the page (a day turned the reader here, say):
+    // focus lost with the page left goes to its play button.
+    effect(() => {
+      if (this.native || !this.audioMode()) return
+      afterNextRender(
+        () =>
+          focusIfLost(
+            this.host.nativeElement.querySelector<HTMLElement>(".audio-toggle"),
+          ),
+        { injector: this.injector },
+      )
+    })
     // Listening in the apps, ⏮ ⏭ step through the episode's day: the days.
     effect(() => {
       if (this.native && this.audioMode()) untracked(() => this.plan.load())
@@ -1004,6 +1017,8 @@ export class AutoScrollControlsComponent implements OnInit, OnDestroy {
 
   /** The +365 speed in words, for screen readers: "1 vez", "1,25 vezes". */
   protected readonly rateTitle = rateTitle
+  /** Spoken once changed: on load, a lone "1 vez" meant nothing. */
+  protected readonly rateChanged = signal(false)
   protected readonly rateSpoken = computed(() => {
     const rate = this.player.rate()
     return `${String(rate).replace(".", ",")} ${rate === 1 ? "vez" : "vezes"}`

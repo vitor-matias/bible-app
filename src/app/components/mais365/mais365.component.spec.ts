@@ -688,6 +688,17 @@ describe("Mais365Component", () => {
     ).toBe("Introdução à Criação do Mundo")
   })
 
+  // The card pressed turned into the player: focus fell to the page.
+  it("gives the player's play button the focus the started day's card had", async () => {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    plan.active.set(day1)
+    plan.stage.set("reflection")
+    fixture.detectChanges()
+    await fixture.whenStable()
+
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Ouvir")
+  })
+
   it("shows the reflection with its priest and readings, to move through", () => {
     plan.active.set(day1)
     plan.stage.set("reflection")
@@ -718,8 +729,8 @@ describe("Mais365Component", () => {
     // Said as the times beside it show it: into the reflection, not the day.
     fixture.detectChanges()
     expect(slider.getAttribute("aria-valuetext")).toBe("0:03 de 10:55")
-    expect(button("Velocidade do +365")?.textContent?.trim()).toBe("1×")
-    button("Velocidade do +365")?.click()
+    expect(button("Velocidade do +365: 1 vez")?.textContent?.trim()).toBe("1×")
+    button("Velocidade do +365: 1 vez")?.click()
     expect(player.cycleRate).toHaveBeenCalled()
     button("Terminar")?.click()
     expect(plan.end).toHaveBeenCalled()

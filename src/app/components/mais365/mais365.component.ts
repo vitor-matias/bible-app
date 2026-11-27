@@ -41,6 +41,7 @@ import {
 } from "../../services/podcast-player.service"
 import { ThemeService } from "../../services/theme.service"
 import { ToastService } from "../../services/toast.service"
+import { focusIfLost } from "../../utils/focus"
 import { Mais365ReminderComponent } from "./mais365-reminder.component"
 import { StreakMilestoneComponent } from "./streak-milestone.component"
 
@@ -103,6 +104,20 @@ export class Mais365Component implements OnInit, OnDestroy {
   private readonly injector = inject(Injector)
 
   constructor() {
+    // A day started here: its card turns into the player, and focus, lost
+    // with the button pressed, goes to its play button.
+    effect(() => {
+      if (!this.here()) return
+      afterNextRender(
+        () =>
+          focusIfLost(
+            this.host.querySelector<HTMLElement>(
+              "section.reflection button.play",
+            ),
+          ),
+        { injector: this.injector },
+      )
+    })
     // The bar's bell rings once the reminder is on (in the apps).
     effect(() => {
       this.reminder.enabled()
@@ -537,6 +552,8 @@ export class Mais365Component implements OnInit, OnDestroy {
   })
 
   protected readonly rateTitle = rateTitle
+  /** Spoken once changed: on load, a lone "1 vez" meant nothing. */
+  protected readonly rateChanged = signal(false)
   protected readonly rateSpoken = computed(() => {
     const rate = this.player.rate()
     return `${String(rate).replace(".", ",")} ${rate === 1 ? "vez" : "vezes"}`

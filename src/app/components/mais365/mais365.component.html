@@ -96,9 +96,9 @@
         </button>
       </div>
       <!-- One speed button, as the reader's player. -->
-      <button type="button" mat-button class="speed" aria-label="Velocidade do +365"
-        (click)="player.cycleRate()">{{ rateTitle(player.rate()) }}</button>
-      <span class="visually-hidden" aria-live="polite">{{ rateSpoken() }}</span>
+      <button type="button" mat-button class="speed" [attr.aria-label]="'Velocidade do +365: ' + rateSpoken()"
+        (click)="player.cycleRate(); rateChanged.set(true)">{{ rateTitle(player.rate()) }}</button>
+      <span class="visually-hidden" aria-live="polite">{{ rateChanged() ? rateSpoken() : "" }}</span>
     </div>
   </section>
   }

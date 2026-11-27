@@ -227,18 +227,46 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     expect(stream.currentTime).toBe(85)
   })
 
+  // A day turning the reader to its chapter left focus on the page.
+  it("gives the play button focus the page lost", async () => {
+    ;(document.activeElement as HTMLElement | null)?.blur()
+    await listen()
+    await fixture.whenStable()
+
+    expect(document.activeElement).toBe(toggle())
+  })
+
+  it("leaves focus the reader has elsewhere", async () => {
+    const elsewhere = document.createElement("button")
+    document.body.append(elsewhere)
+    elsewhere.focus()
+    await listen()
+    await fixture.whenStable()
+
+    expect(document.activeElement).toBe(elsewhere)
+    elsewhere.remove()
+  })
+
   it("cycles the speed from ½× to 2× with one button, in fractions", async () => {
     await listen()
     tap(toggle())
-    const speed = () => byLabel("Velocidade do +365")
+    const speed = () => find("button.audio-speed")
     const label = () => find(".rate")?.textContent?.trim()
     expect(speed()?.textContent?.trim()).toBe("1×")
-    expect(label()).toBe("1 vez")
+    // Its name says the speed; the live region speaks only a change, as a
+    // lone "1 vez" on opening meant nothing.
+    expect(speed()?.getAttribute("aria-label")).toBe(
+      "Velocidade do +365: 1 vez",
+    )
+    expect(label()).toBe("")
 
     tap(speed())
     expect(audio().playbackRate).toBe(1.1)
     expect(speed()?.textContent?.trim()).toBe("1⅒×")
     expect(label()).toBe("1,1 vezes")
+    expect(speed()?.getAttribute("aria-label")).toBe(
+      "Velocidade do +365: 1,1 vezes",
+    )
     const seen = []
     for (let i = 0; i < 5; i++) {
       tap(speed())
@@ -1422,7 +1450,7 @@ describe("AutoScrollControlsComponent +365 mode", () => {
     vi.useFakeTimers()
     stream.currentTime = 280.6
     stream.dispatchEvent(new Event("timeupdate"))
-    tap(byLabel("Velocidade do +365"))
+    tap(find("button.audio-speed"))
     stream.currentTime = 280.79
     await vi.advanceTimersByTimeAsync(300)
     fixture.detectChanges()
