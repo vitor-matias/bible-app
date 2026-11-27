@@ -3,7 +3,9 @@
   (swipeMove)="onSwipeMove($event)" (swipeCancel)="onSwipeCancel()" (textSizeChange)="onTextSizeChange($event)">
   <header class="reader-header" [book]="indexPage ? indexBook() : book"
     [indexShareText]="indexPage ? indexShareText() : null" [chapterNumber]="chapterNumber" [viewMode]="effectiveViewMode"
-    [autoScrollControlsVisible]="showAutoScrollControls" (openBookSelector)="openBookDrawer($event)"
+    [autoScrollControlsVisible]="showAutoScrollControls" [cardsView]="showCards"
+    [cardsViewAvailable]="cardsViewAvailable" (toggleCardsView)="onToggleCardsView()"
+    (openBookSelector)="openBookDrawer($event)"
     (openChapterSelector)="openChapterDrawer($event)" (toggleAutoScrollControls)="toggleAutoScrollControlsVisibility()"
     (toggleViewMode)="onToggleViewMode()" (increaseFontSizeEvent)="onIncreaseFontSize($event)"
     (decreaseFontSizeEvent)="onDecreaseFontSize($event)" (resetFontSizeEvent)="onResetFontSize()" [textSize]="textSize"
@@ -28,7 +30,7 @@
       }
     </mat-drawer>
     }
-    <mat-drawer-content style="background-color: var(--background-color)">
+    <mat-drawer-content style="background-color: var(--background-color)" [class.cards-scroller]="showCards">
       @if (booksUnavailable) {
       <!-- Nothing cached and the book list failed to load, typically a first
            launch without a connection; the About page shows below it.
@@ -68,8 +70,13 @@
         <!-- Not .bookBlock for the index: none of the running text's measure or type. -->
         <div #bookBlock [class.bookBlock]="!indexPage" [class.index-block]="indexPage"
           [class.largeBook]="book.id === 'about'"
-          [class.paged-view]="effectiveViewMode === 'paged'">
-          @if (chapter) {
+          [class.paged-view]="effectiveViewMode === 'paged'" [class.cards-view]="showCards">
+          @if (chapter && showCards) {
+          <verse-cards [chapter]="chapter" [previousChapterLabel]="previousChapterLabel"
+            [nextChapterLabel]="nextChapterLabel" [endOfBookLabel]="endOfBookLabel"
+            [appCopyReference]="{ book: book, chapter: chapterNumber }"
+            (reachedStart)="goToPreviousChapter()" (reachedEnd)="goToNextChapter()"></verse-cards>
+          } @else if (chapter) {
           <div pinch-to-zoom class="chapterBlock" [appCopyReference]="{ book: book, chapter: chapterNumber }">
             @if(!isPage){
             @if (isIntroChapter) {
@@ -102,7 +109,10 @@
       </div>
 
       @if (!isPage && chapter) {
-      <div class="copyright-footer" [class.fixed-footer]="effectiveViewMode === 'paged'">
+      <!-- Pinned in the card view as it is in paged mode: at the end of a
+           run of full-screen cards it would otherwise almost never be seen. -->
+      <div class="copyright-footer" [class.fixed-footer]="effectiveViewMode === 'paged' || showCards"
+        [class.cards-footer]="showCards">
         <span class="center"><b>© DIFUSORA BÍBLICA</b></span>
         <span class="center copyright-details">
           Reservados todos os direitos. É proibida a reprodução, total ou parcial, do texto, sem autorização, por
@@ -110,7 +120,9 @@
       </div>
       }
 
-      @if (!isPage && chapter) {
+      <!-- None of this in the card view, which shows the verse and nothing
+           else: chapters change there by swiping sideways or from the pickers. -->
+      @if (!isPage && chapter && !showCards) {
       <!-- Floating navigation: real links in scrolling mode, for crawlers. -->
       @if (canGoPrevious) {
       @if (effectiveViewMode === 'scrolling') {

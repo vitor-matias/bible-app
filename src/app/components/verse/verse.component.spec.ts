@@ -339,6 +339,44 @@ describe("VerseComponent", () => {
       expect(component.chapterNumberDisplayIndex).toBe(-1)
     })
 
+    // Text before verse 1 opens the chapter, and so carries its number —
+    // except where the host shows verses on their own (BibleScroll's cards).
+    it("draws the chapter number beside text in verse 0, unless the host declines it", () => {
+      const opening = makeVerse({
+        number: 0,
+        chapterNumber: 119,
+        text: [{ type: "text", text: "Alef" }],
+      })
+      setData(fixture, opening)
+      fixture.detectChanges()
+      expect(
+        fixture.nativeElement.querySelector(".chapterNumber")?.textContent,
+      ).toContain("119")
+
+      fixture.componentRef.setInput("showChapterNumber", false)
+      setData(fixture, { ...opening })
+      fixture.detectChanges()
+
+      expect(component.chapterNumberDisplayIndex).toBe(-1)
+      expect(fixture.nativeElement.querySelector(".chapterNumber")).toBeNull()
+      expect(fixture.nativeElement.textContent).toContain("Alef")
+    })
+
+    it("draws no supplement letter either when the host declines the chapter number", () => {
+      fixture.componentRef.setInput("showChapterNumber", false)
+      setData(
+        fixture,
+        makeVerse({
+          number: 1,
+          supplementLetter: "D",
+          text: [{ type: "text", text: "Ao terceiro dia" }] as TextType[],
+        }),
+      )
+      fixture.detectChanges()
+      expect(component.chapterNumberDisplayIndex).toBe(-1)
+      expect(fixture.nativeElement.querySelector(".chapterNumber")).toBeNull()
+    })
+
     it("should target s2 section index for verse 0 with s2 section", () => {
       setData(
         fixture,
