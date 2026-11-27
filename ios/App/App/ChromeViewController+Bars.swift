@@ -107,7 +107,10 @@ extension ChromeViewController {
     func passageMorph() -> (toolbar: CGAffineTransform, pill: CGAffineTransform) {
         let pill = compactPassage.bounds.size
         let capsule = CGSize(width: passageButton.bounds.width + 2 * Glass.padding, height: toolbar.bounds.height)
-        guard pill.width > 0, pill.height > 0, capsule.width > 0, capsule.height > 0 else {
+        // With the +365 player in the bar the capsule isn't there: off the
+        // window, its old bounds would send the pill in from a wrong place.
+        guard state.podcast == nil, passageButton.window != nil,
+              pill.width > 0, pill.height > 0, capsule.width > 0, capsule.height > 0 else {
             return (.identity, .identity)
         }
         // Where the capsule's centre is with the toolbar untransformed:

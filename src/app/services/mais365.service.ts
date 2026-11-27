@@ -858,7 +858,9 @@ export class Mais365Service {
     }
     this.active.set(day)
     // The intro stays on the plan's page; its reading opens once it begins.
-    if (!intro) this.open(first)
+    // Left in the reflection: that plays on the plan's page too.
+    const inReflection = seconds !== undefined && seconds >= day.reflection
+    if (!intro && !inReflection) this.open(first)
     if (!this.player.isCurrent(episode) || !this.player.playing()) {
       this.player.toggle(episode)
     }

@@ -878,6 +878,24 @@ describe("Mais365Service", () => {
         expect(lastCall(player.toggle)[0]).toEqual(second)
       })
 
+      // The reader was pushed to the last reading while the reflection played.
+      it("goes on in the reflection on the plan's page when left there", async () => {
+        localStorage.setItem(
+          "mais365Position",
+          JSON.stringify({ day: 1, at: 700 }),
+        )
+        player.seek = vi.fn((at: number) => player.position.set(at))
+        const plan = await create()
+        const day = find(plan, 1)
+        expect(plan.resumeAt(day)).toEqual({ at: 2, seconds: 700 })
+        const resuming = plan.start(day, 2, "plan", false, 700)
+        http.expectOne(`${apiBaseUrl}/mais365/1`).flush(full(day))
+        await resuming
+        TestBed.tick()
+        expect(player.position()).toBe(700)
+        expect(navigate).not.toHaveBeenCalled()
+      })
+
       it("goes back into the episode's intro when left there", async () => {
         localStorage.setItem(
           "mais365Position",

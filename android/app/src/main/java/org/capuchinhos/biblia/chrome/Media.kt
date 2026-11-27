@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
@@ -122,6 +123,14 @@ internal class MediaSessionBridge(
         session.setPlaybackState(
             PlaybackStateCompat.Builder()
                 .setActions(MEDIA_ACTIONS)
+                // Android 13+ draws the session's buttons, not the
+                // notification's: ±15 s are custom actions there.
+                .addCustomAction(
+                    PlaybackStateCompat.CustomAction.Builder(BACK, "Recuar 15 segundos", R.drawable.ic_replay_15).build(),
+                )
+                .addCustomAction(
+                    PlaybackStateCompat.CustomAction.Builder(FORWARD, "Avançar 15 segundos", R.drawable.ic_forward_15).build(),
+                )
                 .setState(
                     if (state.playing) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED,
                     mediaPositionMs(state),
@@ -160,6 +169,12 @@ internal class MediaSessionBridge(
                 override fun onRewind() = send("media-skip", mediaSkipSeconds(false))
                 override fun onFastForward() = send("media-skip", mediaSkipSeconds(true))
                 override fun onSeekTo(pos: Long) = send("media-seek", (pos / 1000).toInt())
+                override fun onCustomAction(action: String?, extras: Bundle?) {
+                    when (action) {
+                        BACK -> send("media-skip", mediaSkipSeconds(false))
+                        FORWARD -> send("media-skip", mediaSkipSeconds(true))
+                    }
+                }
             })
             isActive = true
         }
